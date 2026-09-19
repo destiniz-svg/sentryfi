@@ -32,7 +32,7 @@ export function TabsTrigger({ value, children, className }) {
     <button
       onClick={() => ctx.onValueChange(value)}
       className={cn(
-        "relative px-3.5 h-8 text-xs font-medium rounded-full transition-colors",
+        "relative px-4 h-11 text-sm font-medium rounded-full transition-colors",
         active ? "text-[var(--bg)]" : "text-[var(--ink-muted)] hover:text-[var(--ink)]",
         className
       )}

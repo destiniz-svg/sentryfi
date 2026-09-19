@@ -110,6 +110,13 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4">
+      {/* This page had no h1 at all. It is the one screen that answers "where
+          do things stand?", so it says so rather than opening on four figures
+          with nothing naming them. */}
+      <h1 className="font-display text-[28px] font-semibold tracking-tight text-[var(--ink)]">
+        Where things stand
+      </h1>
+
       {/* the four figures */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Figure

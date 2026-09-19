@@ -6,7 +6,7 @@ export const Input = forwardRef(({ className, type = "text", ...props }, ref) =>
     ref={ref}
     type={type}
     className={cn(
-      "h-10 w-full rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-sm text-[var(--ink)] placeholder:text-[var(--ink-muted)] outline-none transition-colors focus:border-[var(--ink)] focus:ring-[3px] focus:ring-[var(--ink)] disabled:opacity-50",
+      "h-11 w-full rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-sm text-[var(--ink)] placeholder:text-[var(--ink-muted)] outline-none transition-colors focus:border-[var(--ink)] focus:ring-[3px] focus:ring-[var(--ink)] disabled:opacity-50",
       className
     )}
     {...props}
@@ -27,6 +27,7 @@ export const SearchInput = forwardRef(
       )}
       <input
         ref={ref}
+        aria-label={props["aria-label"] || props.placeholder || "Search"}
         type="text"
         className="flex-1 bg-transparent text-sm text-[var(--ink)] placeholder:text-[var(--ink-muted)] outline-none"
         {...props}
