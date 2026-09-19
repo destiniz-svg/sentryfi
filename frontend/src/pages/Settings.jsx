@@ -83,7 +83,7 @@ function CompanySection() {
   }
 
   const selectClass =
-    "h-10 w-full rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-sm text-[var(--ink)] outline-none focus:border-[var(--ink)] focus:ring-[3px] focus:ring-[var(--ink)]";
+    "h-11 w-full rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-sm text-[var(--ink)] outline-none focus:border-[var(--ink)] focus:ring-[3px] focus:ring-[var(--ink)]";
 
   return (
     <form onSubmit={onSave} className="space-y-5 max-w-2xl">
@@ -107,7 +107,7 @@ function CompanySection() {
           </div>
           <div>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onLogoPick} />
-            <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
+            <Button type="button" variant="outline" onClick={() => fileRef.current?.click()}>
               <Upload size={14} /> Upload logo
             </Button>
             {form.logo_url && (

@@ -83,7 +83,7 @@ export default function Invoices() {
               key={t.key}
               onClick={() => setStatus(t.key)}
               className={cn(
-                "h-8 px-4 rounded-full text-xs font-semibold transition-colors",
+                "h-11 px-4 rounded-full text-sm font-semibold transition-colors",
                 status === t.key
                   ? "bg-[var(--ink)] text-[var(--bg)]"
                   : "text-[var(--ink-muted)] hover:text-[var(--ink)]"

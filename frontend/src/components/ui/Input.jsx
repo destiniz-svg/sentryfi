@@ -29,7 +29,7 @@ export const SearchInput = forwardRef(
         ref={ref}
         aria-label={props["aria-label"] || props.placeholder || "Search"}
         type="text"
-        className="flex-1 bg-transparent text-sm text-[var(--ink)] placeholder:text-[var(--ink-muted)] outline-none"
+        className="flex-1 self-stretch bg-transparent text-sm text-[var(--ink)] placeholder:text-[var(--ink-muted)] outline-none"
         {...props}
       />
       {rightSlot}
