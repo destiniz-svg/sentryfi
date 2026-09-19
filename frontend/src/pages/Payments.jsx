@@ -21,7 +21,14 @@ export default function Payments() {
   const payments = data?.payments || [];
 
   async function onDelete(p) {
-    if (!window.confirm(`Remove this ${formatMoney(p.amount)} payment? The invoice may revert to unpaid.`)) return;
+    // "May" is the one word that must never appear in a question about money.
+    // Removing a payment always re-reconciles the invoice, so the balance
+    // definitely goes back up by this amount; say so, and name both the figure
+    // and the invoice it belongs to.
+    const question =
+      `Remove this ${formatMoney(p.amount, p.currency)} payment from ` +
+      `${p.invoice_number || "the invoice"}? Its balance goes back up by that amount.`;
+    if (!window.confirm(question)) return;
     await remove.mutateAsync(p.id);
   }
 
