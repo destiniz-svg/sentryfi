@@ -131,6 +131,15 @@ export default function Invoices() {
               <div
                 key={inv.id}
                 onClick={() => nav(`/invoices/${inv.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    nav(`/invoices/${inv.id}`);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label={`Invoice ${inv.invoice_number}, open it`}
                 className="group grid grid-cols-2 md:grid-cols-[1.4fr_1.6fr_1fr_1fr_0.9fr_auto] gap-x-4 gap-y-1 px-5 py-4 cursor-pointer hover:bg-[var(--surface-2)] transition-colors items-center"
               >
                 <div className="font-semibold text-sm text-[var(--ink)] tabular">
@@ -153,7 +162,7 @@ export default function Invoices() {
                 </div>
                 <div className="flex items-center justify-end gap-1">
                   <StatusBadge status={inv.effective_status} />
-                  <div className="hidden group-hover:flex items-center gap-0.5 ml-1">
+                  <div className="hidden group-hover:flex group-focus-within:flex [@media(pointer:coarse)]:flex items-center gap-0.5 ml-1">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

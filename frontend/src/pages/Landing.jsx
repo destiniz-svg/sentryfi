@@ -1,532 +1,482 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
-  ArrowRight,
-  ArrowUpRight,
-  ScanLine,
-  Sparkles,
-  BellRing,
-  PenLine,
+  Camera,
+  CheckCheck,
   FileText,
-  Users,
-  BarChart3,
-  ShieldCheck,
-  Wallet,
+  Landmark,
+  Layers,
+  Lock,
   Receipt,
-  CheckCircle2,
-  TrendingUp,
-  Check,
+  ShieldCheck,
+  Signal,
+  Wallet,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import AILogo from "@/components/layout/AILogo";
+import Reveal, { Stagger, StaggerItem } from "@/components/marketing/Reveal";
+import PhoneMock from "@/components/marketing/PhoneMock";
 
-const ACCENT = "#f2c300";
-const ACCENT_DARK = "#141414";
+/**
+ * Everything on this page comes from PRODUCT.md. There are no testimonials,
+ * no customer counts and no benchmarks, because the product record says none
+ * exist yet and forbids inventing them. Where a page like this would normally
+ * carry social proof, this one carries the constraints the product actually
+ * has to survive, which are real and, on a building site in the Maldives,
+ * more convincing than a quote.
+ */
+
+const wash = (a, b) =>
+  `radial-gradient(120% 120% at 12% 8%, ${a} 0%, rgba(255,255,255,0) 58%), radial-gradient(90% 90% at 88% 92%, ${b} 0%, rgba(255,255,255,0) 60%)`;
+
+const SAND = "rgba(242,195,0,.16)";
+const SKY = "rgba(96,125,160,.14)";
+const CLAY = "rgba(198,43,32,.08)";
+const REEF = "rgba(22,122,65,.10)";
+
+const jobs = [
+  {
+    icon: Receipt,
+    title: "A backlog of bills nobody has time to enter",
+    body:
+      "Photograph it the moment it is handed to you. Sentryfi reads it, shows you what it read, and you confirm. Three taps, then it is in the books and the paper can go in a drawer.",
+    wash: wash(SAND, SKY),
+  },
+  {
+    icon: Wallet,
+    title: "Cash, bank, and who funded what",
+    body:
+      "Several petty cash boxes, accounts in rufiyaa and dollars, directors putting money in, and transfers between three companies. Every movement lands against a source, so the question answers itself.",
+    wash: wash(SKY, REEF),
+  },
+  {
+    icon: Landmark,
+    title: "GST, on the 28th, every month",
+    body:
+      "The return is assembled as you go, not the night before. The figures, both Excel statements in MIRA's fixed template, and every receipt image behind them, in one pack you key into MIRAconnect.",
+    wash: wash(REEF, CLAY),
+  },
+];
+
+const steps = [
+  {
+    n: "01",
+    icon: Camera,
+    title: "Snap it",
+    body:
+      "On site, one hand, in bright sun. The camera opens on launch. No signal is fine: bills wait on the phone and go when you are back.",
+  },
+  {
+    n: "02",
+    icon: CheckCheck,
+    title: "Check it",
+    body:
+      "The review only asks about what it doubts. A clean bill confirms in two taps. An unclear amount, a possible duplicate, a supplier it has never seen: those it puts in front of you.",
+  },
+  {
+    n: "03",
+    icon: FileText,
+    title: "Done",
+    body:
+      "A balanced double-entry journal posts behind the words. You get the amount, the account, a ten-second undo, and the filename the receipt now lives under.",
+  },
+];
+
+const nativeBits = [
+  {
+    title: "GST the way MIRA asks for it",
+    body:
+      "Return figures in MIRA format, and the Input and Output Tax Statements as Excel in the fixed template, tab named exactly as the portal expects.",
+  },
+  {
+    title: "Both ways of quoting tax",
+    body:
+      "Some suppliers add 8 percent on top. Others quote a figure that already includes it. Many are not registered and charge none. Sentryfi records which, rather than assuming one.",
+  },
+  {
+    title: "Rufiyaa and dollars, side by side",
+    body:
+      "Accounts in both, with the rate that was used stored against the entry rather than recalculated later.",
+  },
+  {
+    title: "Three companies, one group",
+    body:
+      "Altura, Steva Hotels and Steva Enterprises keep separate books, and a transfer between them mirrors on both sides instead of being typed twice.",
+  },
+  {
+    title: "Built for a construction job",
+    body:
+      "Cost codes for materials, labour, subcontractors, equipment, fuel, boat freight and site overheads. Budget against actual, per project.",
+  },
+  {
+    title: "An archive an auditor can read",
+    body:
+      "Every receipt image filed to OneDrive under the supplier, the amount and the bill number, so the folder works even without the app.",
+  },
+];
+
+const survives = [
+  {
+    icon: Signal,
+    kicker: "No signal",
+    body:
+      "Site work happens where the bars run out. Capture is offline first: photos queue on the phone and sync when it finds a connection.",
+  },
+  {
+    icon: Lock,
+    kicker: "Snap-only hands",
+    body:
+      "Site staff photograph bills and see nothing else. A staff member holding petty cash sees one number, what is left in their own box, and no balance beyond it.",
+  },
+  {
+    icon: Layers,
+    kicker: "Paper that argues with itself",
+    body:
+      "A supplier who spells their own name two ways on one invoice. A quotation that looks like a bill. An invoice addressed to one company and paid by another. All of these are real, and all of them are handled.",
+  },
+  {
+    icon: ShieldCheck,
+    kicker: "Being wrong later",
+    body:
+      "Nothing is deleted and nothing is edited after posting. A correction is a new entry that reverses the old one and carries a reason. The journal is hash-chained, so tampering shows.",
+  },
+];
+
+const roles = [
+  ["Owner", "Phone and desk. Everything, everywhere."],
+  ["Site staff", "Snap a bill. Tag the project. That is all."],
+  ["Cash holder", "Spend from the box, with a bill or without. Count it when asked."],
+  ["Directors", "See what they put in, and what the project has spent. They never post."],
+  ["Accountant", "Journals, trial balance, the filing pack. Adjust and void with a reason."],
+  ["Office admin", "Import the bank, reconcile, chase what is unpaid."],
+];
 
 export default function Landing() {
+  const still = useReducedMotion();
+
   useEffect(() => {
     const prev = document.documentElement.getAttribute("data-theme");
     document.documentElement.setAttribute("data-theme", "light");
     return () => {
       if (prev) document.documentElement.setAttribute("data-theme", prev);
+      else document.documentElement.removeAttribute("data-theme");
     };
   }, []);
 
   return (
-    <div className="min-h-screen bg-white text-[#141414] overflow-x-clip antialiased">
-      <Nav />
-      <Hero />
-      <Marquee />
-      <AISection />
-      <CoreSection />
-      <CTASection />
-      <Footer />
-    </div>
-  );
-}
-
-/* ─────────────────────────── Nav ─────────────────────────── */
-function Nav() {
-  return (
-    <header className="sticky top-0 z-30 backdrop-blur-xl bg-white/70 border-b border-black/[0.05]">
-      <div className="max-w-[1400px] mx-auto px-5 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <AILogo />
-          <span className="font-display font-semibold text-lg">Sentryfi</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link to="/login" className="h-10 px-4 rounded-full text-sm font-semibold hover:bg-black/[0.04] flex items-center transition-colors">
-            Sign in
+    <div className="min-h-dvh bg-white text-[#141414] font-sans">
+      {/* ---------------------------------------------------------- nav */}
+      <header className="sticky top-0 z-50 backdrop-blur bg-white/85 border-b border-[#EDEEF0]">
+        <div className="mx-auto max-w-[1180px] px-6 h-[68px] flex items-center gap-8">
+          <Link to="/" className="flex items-center gap-2.5 shrink-0" aria-label="Sentryfi home">
+            <AILogo size={30} />
+            <span className="text-[19px] font-semibold tracking-[-.02em]">Sentryfi</span>
           </Link>
-          <Link
-            to="/register"
-            className="group h-10 px-5 rounded-full text-sm font-semibold text-white flex items-center gap-1.5 shadow-[0_8px_24px_-8px_rgba(13,148,136,0.6)] hover:shadow-[0_12px_30px_-8px_rgba(13,148,136,0.75)] transition-all"
-            style={{ background: "linear-gradient(135deg,#141414,#f2c300 50%,#141414)" }}
-          >
-            Get started <ArrowRight size={15} className="group-hover:translate-x-0.5 transition-transform" />
-          </Link>
-        </div>
-      </div>
-    </header>
-  );
-}
-
-/* ─────────────────────────── Hero ─────────────────────────── */
-function Hero() {
-  return (
-    <section className="relative overflow-hidden">
-      {/* ambient glows */}
-      <div className="absolute -top-40 -left-40 w-[560px] h-[560px] rounded-full pointer-events-none"
-        style={{ background: "radial-gradient(circle, rgba(45,212,191,0.22), transparent 70%)" }} />
-      <div className="absolute top-20 right-0 w-[520px] h-[520px] rounded-full pointer-events-none"
-        style={{ background: "radial-gradient(circle, rgba(16,185,129,0.16), transparent 70%)" }} />
-
-      <div className="relative max-w-[1400px] mx-auto px-6 lg:px-10 grid lg:grid-cols-[1fr_1fr] xl:grid-cols-[1fr_1.35fr] gap-10 items-center pt-16 lg:pt-24 pb-16">
-        {/* Left — copy */}
-        <motion.div
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 border border-black/[0.05] text-[#141414] text-xs font-semibold shadow-sm">
-            <Sparkles size={13} /> AI-powered invoicing
-          </span>
-          <h1 className="font-display text-[clamp(40px,6.4vw,68px)] font-semibold leading-[0.98] tracking-tight mt-6">
-            Invoicing that
-            <br />
-            <span style={{ background: "linear-gradient(120deg,#141414,#141414 55%,#f2c300)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
-              runs itself.
-            </span>
-          </h1>
-          <p className="text-lg text-[#6b7078] mt-6 max-w-lg leading-relaxed">
-            Create beautiful invoices, track payments, and let AI read receipts, draft reminders,
-            and summarize your revenue — so you get back to the work that pays.
-          </p>
-          <div className="flex items-center gap-3 mt-8">
-            <Link to="/register"
-              className="group h-12 px-7 rounded-full text-sm font-semibold text-white flex items-center gap-2 shadow-[0_12px_30px_-8px_rgba(13,148,136,0.65)] hover:shadow-[0_16px_38px_-8px_rgba(13,148,136,0.8)] transition-all"
-              style={{ background: "linear-gradient(135deg,#141414,#f2c300 50%,#141414)" }}>
-              Start free <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
-            </Link>
-            <Link to="/login" className="h-12 px-6 rounded-full text-sm font-semibold border border-black/10 bg-white hover:bg-black/[0.03] flex items-center transition-colors">
-              Sign in
-            </Link>
-          </div>
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-8">
-            {["Client CRM", "PDF export", "Payments & expenses", "Multi-currency"].map((f) => (
-              <span key={f} className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#6b7078]">
-                <Check size={14} className="text-[#f2c300]" /> {f}
-              </span>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Right — scrolling invoice wall */}
-        <div className="hidden lg:block">
-          <InvoiceWall />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ───────────────── Scrolling invoice wall (Pinterest-style) ───────────────── */
-function InvoiceWall() {
-  const colA = [<InvoiceCard key="a1" />, <RevenueCard key="a2" />, <PaymentCard key="a3" />];
-  const colB = [<ReceiptCard key="b1" />, <ReminderCard key="b2" />, <PaidCard key="b3" />];
-  const colC = [<ClientCard key="c1" />, <StatCard2 key="c2" />, <ExpenseCard key="c3" />];
-
-  return (
-    <div
-      className="relative h-[600px] overflow-hidden"
-      style={{
-        maskImage: "linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%)",
-        WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%)",
-      }}
-    >
-      <div className="absolute inset-0 flex justify-center gap-4">
-        <ScrollColumn cards={colA} direction="up" duration={30} />
-        <ScrollColumn cards={colB} direction="down" duration={36} />
-        <ScrollColumn cards={colC} direction="up" duration={44} className="hidden xl:block" />
-      </div>
-    </div>
-  );
-}
-
-function ScrollColumn({ cards, direction, duration, className }) {
-  const doubled = [...cards, ...cards];
-  const from = direction === "up" ? "0%" : "-50%";
-  const to = direction === "up" ? "-50%" : "0%";
-  return (
-    <div className={cn("w-[228px] shrink-0", className)}>
-      <motion.div
-        className="flex flex-col gap-3.5"
-        animate={{ y: [from, to] }}
-        transition={{ duration, repeat: Infinity, ease: "linear" }}
-      >
-        {doubled.map((c, i) => (
-          <div key={i}>{c}</div>
-        ))}
-      </motion.div>
-    </div>
-  );
-}
-
-function WallCard({ children, className }) {
-  return (
-    <div className={cn("rounded-[22px] bg-white border border-black/[0.04] shadow-[0_24px_50px_-28px_rgba(13,42,37,0.45)] p-4", className)}>
-      {children}
-    </div>
-  );
-}
-const Label = ({ children }) => <div className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">{children}</div>;
-const CardFoot = ({ children }) => (
-  <div className="mt-3.5 pt-3 border-t border-gray-100 flex items-center gap-2">
-    <span className="h-4 w-4 rounded-[5px]" style={{ background: `linear-gradient(135deg,${ACCENT},${ACCENT_DARK})` }} />
-    <span className="text-[11px] font-medium text-gray-600">{children}</span>
-  </div>
-);
-
-function Pill({ children, tone = "accent" }) {
-  const s = tone === "accent" ? { background: "#fff3c2", color: ACCENT_DARK }
-    : tone === "rose" ? { background: "#fde7ea", color: "#be123c" }
-    : { background: "#fbf1e2", color: "#b45309" };
-  return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={s}>{children}</span>;
-}
-
-function InvoiceCard() {
-  return (
-    <WallCard>
-      <div className="flex items-start justify-between mb-3">
-        <div><Label>Invoice</Label><div className="text-[15px] font-bold text-gray-900 mt-1 tabular-nums">INV-0042</div></div>
-        <Pill>Sent</Pill>
-      </div>
-      {[["Design sprint", "$3,200"], ["Development · 24h", "$2,280"]].map(([d, a]) => (
-        <div key={d} className="flex items-center justify-between text-[12px] py-0.5"><span className="text-gray-500">{d}</span><span className="text-gray-900 font-semibold tabular-nums">{a}</span></div>
-      ))}
-      <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-gray-100">
-        <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">Total</span>
-        <span className="text-[17px] font-bold tabular-nums" style={{ color: ACCENT_DARK }}>$5,480</span>
-      </div>
-      <CardFoot>Nova Retail Group</CardFoot>
-    </WallCard>
-  );
-}
-
-function RevenueCard() {
-  return (
-    <WallCard>
-      <div className="flex items-start justify-between mb-3">
-        <div><Label>Total Revenue</Label><div className="text-[26px] font-bold text-gray-900 mt-1 tabular-nums">$311K</div></div>
-        <Pill><TrendingUp size={10} strokeWidth={2.5} /> +12%</Pill>
-      </div>
-      <div className="flex items-end gap-1.5 h-12">
-        {[42, 58, 50, 72, 63, 88].map((h, i) => (
-          <div key={i} className="flex-1 rounded-t-md" style={{ height: `${h}%`, background: `linear-gradient(180deg,#f2c300,${ACCENT_DARK})`, opacity: 0.45 + i * 0.09 }} />
-        ))}
-      </div>
-      <CardFoot>Last 6 months</CardFoot>
-    </WallCard>
-  );
-}
-
-function ReceiptCard() {
-  return (
-    <WallCard>
-      <div className="flex items-start justify-between mb-2.5"><Label>AI Receipt Scan</Label><Pill><ScanLine size={10} strokeWidth={2.5} /> Parsed</Pill></div>
-      <div className="rounded-xl p-3" style={{ background: "#fff3c2" }}>
-        <div className="text-[9px] uppercase tracking-wide font-semibold mb-1" style={{ color: ACCENT_DARK }}>Extracted</div>
-        <div className="text-[13px] font-semibold text-gray-900">Adobe Inc.</div>
-        <div className="flex items-center justify-between text-[12px] text-gray-600 mt-1"><span>Creative Cloud ×1</span><span className="tabular-nums font-bold text-gray-900">$54.99</span></div>
-      </div>
-      <CardFoot>Image → invoice</CardFoot>
-    </WallCard>
-  );
-}
-
-function PaymentCard() {
-  return (
-    <WallCard>
-      <div className="flex items-center gap-2.5">
-        <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: "#dcfce7" }}><CheckCircle2 size={17} className="text-emerald-600" /></div>
-        <div><Label>Payment received</Label><div className="text-[17px] font-bold text-gray-900 tabular-nums">$7,595.00</div></div>
-      </div>
-      <div className="flex items-center justify-between text-[11px] text-gray-500 mt-3"><span>INV-0038 · Harbor & Co.</span><span>Bank transfer</span></div>
-    </WallCard>
-  );
-}
-
-function ReminderCard() {
-  return (
-    <WallCard>
-      <div className="flex items-start justify-between mb-2.5"><Label>AI Reminder</Label><Pill><Sparkles size={10} strokeWidth={2.5} /> Drafted</Pill></div>
-      <div className="rounded-xl bg-gray-50 border border-gray-100 p-3">
-        <div className="flex items-center gap-1.5 mb-1"><BellRing size={12} style={{ color: ACCENT_DARK }} /><span className="text-[12px] font-semibold text-gray-900">Friendly nudge</span></div>
-        <p className="text-[11.5px] text-gray-500 leading-snug">"Hi Nova — a gentle reminder that INV-0021 for $2,400 was due last week…"</p>
-      </div>
-      <CardFoot>One click to send</CardFoot>
-    </WallCard>
-  );
-}
-
-function PaidCard() {
-  return (
-    <WallCard>
-      <div className="flex items-start justify-between mb-3"><Label>Paid this month</Label><Pill><Check size={10} strokeWidth={3} /> On track</Pill></div>
-      <div className="text-[28px] font-bold text-gray-900 tabular-nums">$42,180</div>
-      <div className="flex items-center gap-1 mt-2.5">
-        {Array.from({ length: 8 }).map((_, i) => <span key={i} className="h-2 flex-1 rounded-full" style={{ background: i < 6 ? ACCENT : "#e5e7eb" }} />)}
-      </div>
-      <CardFoot>6 of 8 invoices paid</CardFoot>
-    </WallCard>
-  );
-}
-
-function ClientCard() {
-  return (
-    <WallCard>
-      <div className="flex items-center gap-2.5 mb-3">
-        <div className="h-9 w-9 rounded-full flex items-center justify-center text-white font-bold text-sm" style={{ background: `linear-gradient(135deg,${ACCENT},${ACCENT_DARK})` }}>B</div>
-        <div><div className="text-[13px] font-semibold text-gray-900">Brightline Studios</div><div className="text-[11px] text-gray-400">New York, NY</div></div>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div><div className="text-[9px] uppercase tracking-wide text-gray-400 font-semibold">Billed</div><div className="text-[13px] font-bold text-gray-900 tabular-nums">$18.4K</div></div>
-        <div><div className="text-[9px] uppercase tracking-wide text-gray-400 font-semibold">Owed</div><div className="text-[13px] font-bold tabular-nums" style={{ color: "#b45309" }}>$3.8K</div></div>
-      </div>
-    </WallCard>
-  );
-}
-
-function StatCard2() {
-  return (
-    <WallCard>
-      <div className="flex items-center gap-2.5">
-        <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: "#fff3c2" }}><Wallet size={16} style={{ color: ACCENT_DARK }} /></div>
-        <div><Label>Outstanding</Label><div className="text-[17px] font-bold text-gray-900 tabular-nums">$23,760</div></div>
-      </div>
-      <div className="flex items-center justify-between text-[11px] mt-3"><span className="text-gray-500">12 open invoices</span><Pill tone="rose">3 overdue</Pill></div>
-    </WallCard>
-  );
-}
-
-function ExpenseCard() {
-  return (
-    <WallCard>
-      <div className="flex items-center gap-2.5">
-        <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: "#fbf1e2" }}><Receipt size={16} style={{ color: "#b45309" }} /></div>
-        <div><Label>Expense</Label><div className="text-[14px] font-bold text-gray-900">AWS · Hosting</div></div>
-      </div>
-      <div className="flex items-center justify-between text-[12px] mt-3"><span className="text-gray-500">Jul 2026 · card ****3140</span><span className="tabular-nums font-bold text-gray-900">$128.40</span></div>
-    </WallCard>
-  );
-}
-
-/* ───────────────── Marquee strip ───────────────── */
-function Marquee() {
-  const items = ["Neon Postgres", "Google Gemini AI", "PDF invoices", "Receipt scanning", "Payment tracking", "Expense management", "Revenue analytics", "Multi-currency"];
-  const doubled = [...items, ...items];
-  return (
-    <div className="border-y border-black/[0.05] bg-[#f6f7f8] py-4 overflow-hidden">
-      <motion.div className="flex gap-3 w-max" animate={{ x: ["0%", "-50%"] }} transition={{ duration: 28, repeat: Infinity, ease: "linear" }}>
-        {doubled.map((t, i) => (
-          <span key={i} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-black/[0.05] text-sm font-medium text-[#6b7078] shadow-sm whitespace-nowrap">
-            <span className="h-1.5 w-1.5 rounded-full" style={{ background: ACCENT }} /> {t}
-          </span>
-        ))}
-      </motion.div>
-    </div>
-  );
-}
-
-/* ───────────────── AI section ───────────────── */
-const AI_FEATURES = [
-  { icon: ScanLine, title: "Receipt scanning", desc: "Snap a photo or drop a PDF — AI extracts the vendor, date, and line items and pre-fills your invoice or expense." },
-  { icon: Sparkles, title: "Revenue summaries", desc: "A plain-English read on your month: what's up, what's overdue, and exactly who to follow up with." },
-  { icon: BellRing, title: "Payment reminders", desc: "Generate friendly, firm, or final-notice reminder emails tuned to how overdue an invoice is." },
-  { icon: PenLine, title: "Notes writer", desc: "Draft polished service descriptions and payment terms in a single click." },
-];
-
-function AISection() {
-  return (
-    <section className="max-w-[1400px] mx-auto px-5 py-24">
-      <SectionHead eyebrow="AI features" title="Four AI superpowers" sub="Powered by Google Gemini, built right into your workflow." />
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mt-14">
-        {AI_FEATURES.map((f, i) => (
-          <motion.div key={f.title}
-            initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: i * 0.08 }}
-            className="group relative p-6 rounded-[26px] bg-white border border-black/[0.05] shadow-[0_2px_10px_rgba(13,42,37,0.04)] hover:shadow-[0_24px_50px_-24px_rgba(13,42,37,0.28)] hover:-translate-y-1.5 transition-all duration-300 overflow-hidden"
-          >
-            <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "radial-gradient(circle, rgba(45,212,191,0.18), transparent 70%)" }} />
-            <div className="relative h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-[0_8px_20px_-6px_rgba(13,148,136,0.6)]" style={{ background: `linear-gradient(135deg,#141414,${ACCENT_DARK})` }}>
-              <f.icon size={22} />
-            </div>
-            <div className="text-[15px] font-bold text-gray-900 mt-5">{f.title}</div>
-            <p className="text-sm text-[#5a6f6a] mt-2 leading-relaxed">{f.desc}</p>
-          </motion.div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ───────────────── Core section ───────────────── */
-const CORE = [
-  { icon: FileText, title: "Smart invoices", desc: "Line-item builder with auto totals, tax, discounts, and one-click PDF export." },
-  { icon: Users, title: "Client CRM", desc: "Every client's billing history, outstanding balance, and payment status in one view." },
-  { icon: Wallet, title: "Payments & expenses", desc: "Log payments against invoices and track business expenses — with a live ledger." },
-  { icon: BarChart3, title: "Revenue analytics", desc: "Revenue vs expenses, AR aging, top clients, and a real-time dashboard." },
-  { icon: Receipt, title: "Reusable catalog", desc: "Save your common services and drop them into any invoice in one tap." },
-  { icon: ShieldCheck, title: "Secure by default", desc: "JWT auth, hashed passwords, and your data isolated per account on Neon." },
-];
-
-function CoreSection() {
-  return (
-    <section className="relative py-24 overflow-hidden">
-      <div className="absolute inset-0 bg-[#f6f7f8] border-y border-black/[0.05]" />
-      <div className="relative max-w-[1400px] mx-auto px-5">
-        <SectionHead eyebrow="Everything you need" title="A complete billing workspace" sub="From first invoice to final payment — and every number in between." />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-14">
-          {CORE.map((f, i) => (
-            <motion.div key={f.title}
-              initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-              transition={{ duration: 0.45, delay: (i % 3) * 0.08 }}
-              className="group p-6 rounded-[26px] bg-white border border-black/[0.05] hover:border-[#f2c300]/30 shadow-[0_2px_10px_rgba(13,42,37,0.04)] hover:shadow-[0_20px_44px_-24px_rgba(13,42,37,0.25)] transition-all duration-300"
+          <nav className="hidden md:flex items-center gap-7 text-[15px] text-[#6B7078]">
+            <a href="#how" className="hover:text-[#141414] transition-colors">How it works</a>
+            <a href="#maldives" className="hover:text-[#141414] transition-colors">Maldives</a>
+            <a href="#real" className="hover:text-[#141414] transition-colors">What it survives</a>
+            <a href="#who" className="hover:text-[#141414] transition-colors">Who it is for</a>
+          </nav>
+          <div className="ml-auto flex items-center gap-2">
+            <Link
+              to="/login"
+              className="h-10 px-4 inline-flex items-center rounded-full text-[15px] font-semibold text-[#6B7078] hover:text-[#141414] transition-colors"
             >
-              <div className="h-11 w-11 rounded-2xl flex items-center justify-center bg-[#fff3c2] text-[#141414] group-hover:scale-110 transition-transform">
-                <f.icon size={20} />
+              Log in
+            </Link>
+            <Link
+              to="/register"
+              className="h-10 px-5 inline-flex items-center rounded-full bg-[#F2C300] text-[#141414] text-[15px] font-semibold hover:brightness-[.97] transition"
+            >
+              Get started
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* --------------------------------------------------------- hero */}
+      <section className="relative overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: wash(SAND, SKY) }}
+        />
+        <div className="relative mx-auto max-w-[1180px] px-6 pt-16 pb-14 grid lg:grid-cols-[1.05fr_auto] gap-14 items-center">
+          <div>
+            <Reveal>
+              <span className="inline-flex items-center gap-2 h-8 px-3 rounded-full bg-white border border-[#E6E7EA] text-[12px] font-semibold tracking-[.1em] uppercase text-[#806400]">
+                Maldives native
+              </span>
+            </Reveal>
+            <Reveal delay={0.05}>
+              <h1 className="mt-5 text-[clamp(44px,6.4vw,76px)] leading-[0.98] font-bold tracking-[-.035em]">
+                Snap it.<br />Record it.<br />
+                <span
+                  style={{
+                    background: "linear-gradient(96deg,#141414 0%,#806400 46%,#F2C300 100%)",
+                    WebkitBackgroundClip: "text",
+                    backgroundClip: "text",
+                    color: "transparent",
+                  }}
+                >
+                  Done.
+                </span>
+              </h1>
+            </Reveal>
+            <Reveal delay={0.1}>
+              <p className="mt-6 text-[19px] leading-[1.5] text-[#44474E] max-w-[52ch]">
+                A business finance app for Maldivian contractors. Photograph a bill, check what was
+                read, confirm. Behind the plain words a correct double-entry ledger keeps the books
+                right, and nobody has to learn the word debit.
+              </p>
+            </Reveal>
+            <Reveal delay={0.15}>
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                <Link
+                  to="/register"
+                  className="h-12 px-6 inline-flex items-center gap-2 rounded-full bg-[#F2C300] text-[#141414] text-[16px] font-semibold hover:brightness-[.97] transition"
+                >
+                  Start recording bills
+                </Link>
+                <a
+                  href="/design/phone.html"
+                  className="h-12 px-6 inline-flex items-center gap-2 rounded-full border border-[#141414] text-[16px] font-semibold hover:bg-[#141414] hover:text-white transition-colors"
+                >
+                  See every screen
+                </a>
               </div>
-              <div className="text-[15px] font-bold text-gray-900 mt-4 flex items-center gap-1.5">
-                {f.title}
-                <ArrowUpRight size={15} className="text-gray-300 group-hover:text-[#f2c300] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
-              </div>
-              <p className="text-sm text-[#5a6f6a] mt-2 leading-relaxed">{f.desc}</p>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
+            </Reveal>
+            <Reveal delay={0.2}>
+              <p className="mt-5 text-[14px] text-[#6B7078]">
+                Being built in the open. Nothing here records real money yet.
+              </p>
+            </Reveal>
+          </div>
 
-/* ───────────────── CTA ───────────────── */
-function CTASection() {
-  return (
-    <section className="max-w-[1400px] mx-auto px-5 py-24">
-      <div className="relative rounded-[36px] px-8 py-24 text-center text-white overflow-hidden shadow-[0_40px_80px_-30px_rgba(15,118,110,0.5)]"
-        style={{ background: "linear-gradient(135deg,#141414 0%,#f2c300 45%,#115e56 100%)" }}>
-        <div className="absolute -top-28 -right-24 w-96 h-96 rounded-full" style={{ background: "radial-gradient(circle,rgba(94,234,212,0.4),transparent 70%)" }} />
-        <div className="absolute -bottom-32 -left-24 w-96 h-96 rounded-full" style={{ background: "radial-gradient(circle,rgba(20,184,166,0.4),transparent 70%)" }} />
-
-        {/* Floating glass cards scrolling on both edges */}
-        <div className="hidden xl:block absolute left-8 top-0 bottom-0 w-[200px] py-6">
-          <CtaColumn direction="up" duration={26} />
+          <motion.div
+            initial={still ? false : { opacity: 0, y: 26 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: [0.2, 0.8, 0.2, 1] }}
+            className="justify-self-center lg:justify-self-end pb-8"
+          >
+            <PhoneMock />
+          </motion.div>
         </div>
-        <div className="hidden xl:block absolute right-8 top-0 bottom-0 w-[200px] py-6">
-          <CtaColumn direction="down" duration={30} />
-        </div>
+      </section>
 
-        <div className="relative z-10">
-          <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 text-white/90 text-xs font-semibold backdrop-blur-md">
-            <Sparkles size={13} /> Get paid faster
-          </span>
-          <h2 className="font-display text-[clamp(30px,4.5vw,48px)] font-semibold tracking-tight mt-6">
-            Send your first invoice in minutes.
+      {/* ------------------------------------------------- hardest jobs */}
+      <section className="mx-auto max-w-[1180px] px-6 py-20">
+        <Reveal>
+          <h2 className="text-[clamp(30px,3.6vw,44px)] leading-[1.06] font-bold tracking-[-.03em] max-w-[18ch]">
+            Three jobs that eat a contractor&apos;s week
           </h2>
-          <p className="text-white/75 mt-4 max-w-md mx-auto text-lg">
-            Free to start. No credit card required.
+          <p className="mt-3 text-[17px] text-[#6B7078] max-w-[58ch]">
+            Sentryfi was built around these, in that order, for one construction company before
+            anyone else.
           </p>
-          <Link to="/register"
-            className="group inline-flex items-center gap-2 mt-9 h-13 px-8 py-4 rounded-full bg-white text-[#141414] text-sm font-bold hover:shadow-[0_16px_40px_-10px_rgba(255,255,255,0.5)] transition-all">
-            Create your account <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
-          </Link>
+        </Reveal>
+        <Stagger className="mt-10 grid md:grid-cols-3 gap-5">
+          {jobs.map((j) => (
+            <StaggerItem key={j.title}>
+              <article
+                className="h-full rounded-[20px] border border-[#EDEEF0] p-7 bg-white"
+                style={{ background: j.wash, backgroundColor: "#fff" }}
+              >
+                <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white border border-[#E6E7EA] text-[#141414]">
+                  <j.icon size={19} strokeWidth={1.9} />
+                </span>
+                <h3 className="mt-5 text-[21px] font-semibold leading-[1.2] tracking-[-.01em]">
+                  {j.title}
+                </h3>
+                <p className="mt-3 text-[15.5px] leading-[1.55] text-[#44474E]">{j.body}</p>
+              </article>
+            </StaggerItem>
+          ))}
+        </Stagger>
+      </section>
+
+      {/* ---------------------------------------------------- how it works */}
+      <section id="how" className="border-y border-[#EDEEF0] bg-[#FAFAFB]">
+        <div className="mx-auto max-w-[1180px] px-6 py-20">
+          <Reveal>
+            <span className="text-[12px] font-semibold tracking-[.16em] uppercase text-[#806400]">
+              How it works
+            </span>
+            <h2 className="mt-3 text-[clamp(30px,3.6vw,44px)] leading-[1.06] font-bold tracking-[-.03em]">
+              Three taps or fewer. Every time.
+            </h2>
+          </Reveal>
+          <Stagger className="mt-11 grid md:grid-cols-3 gap-6">
+            {steps.map((s) => (
+              <StaggerItem key={s.n}>
+                <div className="h-full rounded-[20px] bg-white border border-[#EDEEF0] p-7">
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#141414] text-[#F2C300]">
+                      <s.icon size={19} strokeWidth={1.9} />
+                    </span>
+                    <span className="tabular-nums text-[13px] font-semibold tracking-[.14em] text-[#9AA0A8]">
+                      {s.n}
+                    </span>
+                  </div>
+                  <h3 className="mt-5 text-[22px] font-semibold tracking-[-.01em]">{s.title}</h3>
+                  <p className="mt-2.5 text-[15.5px] leading-[1.55] text-[#44474E]">{s.body}</p>
+                </div>
+              </StaggerItem>
+            ))}
+          </Stagger>
         </div>
-      </div>
-    </section>
-  );
-}
+      </section>
 
-function CtaColumn({ direction, duration }) {
-  const cards = [<CtaInv key="1" />, <CtaPay key="2" />, <CtaReceipt key="3" />, <CtaRevenue key="4" />];
-  const doubled = [...cards, ...cards];
-  const from = direction === "up" ? "0%" : "-50%";
-  const to = direction === "up" ? "-50%" : "0%";
-  const fade = "linear-gradient(to bottom, transparent 0%, black 16%, black 84%, transparent 100%)";
-  return (
-    <div className="h-full" style={{ maskImage: fade, WebkitMaskImage: fade }}>
-      <motion.div className="flex flex-col gap-3" animate={{ y: [from, to] }} transition={{ duration, repeat: Infinity, ease: "linear" }}>
-        {doubled.map((c, i) => <div key={i}>{c}</div>)}
-      </motion.div>
-    </div>
-  );
-}
-
-function CtaCard({ children }) {
-  return <div className="rounded-2xl bg-white/10 border border-white/15 backdrop-blur-md p-3.5 text-white shadow-[0_10px_30px_-12px_rgba(0,0,0,0.4)]">{children}</div>;
-}
-function CtaInv() {
-  return (
-    <CtaCard>
-      <div className="flex items-center justify-between">
-        <span className="text-[12px] font-bold tabular-nums text-white/90">INV-0042</span>
-        <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-white/20">Paid</span>
-      </div>
-      <div className="text-[17px] font-bold tabular-nums mt-1">$5,480</div>
-    </CtaCard>
-  );
-}
-function CtaPay() {
-  return (
-    <CtaCard>
-      <div className="text-[9px] uppercase tracking-wide text-white/60 font-semibold">Payment received</div>
-      <div className="text-[16px] font-bold tabular-nums mt-0.5">$7,595.00</div>
-    </CtaCard>
-  );
-}
-function CtaReceipt() {
-  return (
-    <CtaCard>
-      <div className="text-[9px] uppercase tracking-wide text-white/60 font-semibold">AI parsed</div>
-      <div className="flex items-center justify-between mt-1"><span className="text-[12px] font-semibold">Adobe Inc.</span><span className="text-[13px] font-bold tabular-nums">$54.99</span></div>
-    </CtaCard>
-  );
-}
-function CtaRevenue() {
-  return (
-    <CtaCard>
-      <div className="text-[9px] uppercase tracking-wide text-white/60 font-semibold">Revenue · +12%</div>
-      <div className="text-[19px] font-bold tabular-nums mt-0.5">$311K</div>
-    </CtaCard>
-  );
-}
-
-/* ───────────────── Footer ───────────────── */
-function Footer() {
-  return (
-    <footer className="border-t border-black/[0.05]">
-      <div className="max-w-[1400px] mx-auto px-5 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-2.5">
-          <AILogo />
-          <span className="font-display font-semibold">Sentryfi</span>
+      {/* ------------------------------------------------------- maldives */}
+      <section id="maldives" className="mx-auto max-w-[1180px] px-6 py-20">
+        <div className="grid lg:grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)] gap-12">
+          <Reveal>
+            <span className="text-[12px] font-semibold tracking-[.16em] uppercase text-[#806400]">
+              Why not Zoho, QuickBooks or Xero
+            </span>
+            <h2 className="mt-3 text-[clamp(30px,3.6vw,44px)] leading-[1.06] font-bold tracking-[-.03em]">
+              None of them file a Maldivian return
+            </h2>
+            <p className="mt-4 text-[17px] leading-[1.55] text-[#44474E]">
+              They are good products built for somewhere else. What follows is the part that has to
+              be local, and it is not a setting you can switch on.
+            </p>
+            <p className="mt-4 text-[15px] leading-[1.55] text-[#6B7078]">
+              Rates, periods, forms and industry profiles are stored as data keyed by effective
+              date, so when MIRA changes something it is a configuration change rather than a
+              rewrite.
+            </p>
+          </Reveal>
+          <Stagger className="grid sm:grid-cols-2 gap-x-8 gap-y-7">
+            {nativeBits.map((b) => (
+              <StaggerItem key={b.title}>
+                <h3 className="text-[16.5px] font-semibold tracking-[-.01em]">{b.title}</h3>
+                <p className="mt-1.5 text-[15px] leading-[1.55] text-[#6B7078]">{b.body}</p>
+              </StaggerItem>
+            ))}
+          </Stagger>
         </div>
-        <span className="text-sm text-[#5a6f6a]">© {new Date().getFullYear()} Sentryfi · Built with Neon + Gemini</span>
-        <div className="flex items-center gap-3">
-          <Link to="/login" className="text-sm font-semibold text-[#141414] hover:underline">Sign in</Link>
-          <Link to="/register" className="text-sm font-semibold text-[#141414] hover:underline">Get started</Link>
-        </div>
-      </div>
-    </footer>
-  );
-}
+      </section>
 
-/* ───────────────── shared ───────────────── */
-function SectionHead({ eyebrow, title, sub }) {
-  return (
-    <div className="text-center max-w-2xl mx-auto">
-      <span className="inline-block text-[11px] font-bold uppercase tracking-[0.18em] text-[#f2c300] mb-3">{eyebrow}</span>
-      <h2 className="font-display text-[clamp(28px,4vw,42px)] font-semibold tracking-tight text-gray-900">{title}</h2>
-      <p className="text-[#5a6f6a] mt-3 text-lg">{sub}</p>
+      {/* ----------------------------------------- what it has to survive */}
+      <section id="real" className="border-y border-[#EDEEF0]">
+        <div
+          className="mx-auto max-w-[1180px] px-6 py-20"
+          style={{ background: wash(SKY, SAND), backgroundColor: "transparent" }}
+        >
+          <Reveal>
+            <span className="text-[12px] font-semibold tracking-[.16em] uppercase text-[#806400]">
+              What it has to survive
+            </span>
+            <h2 className="mt-3 text-[clamp(30px,3.6vw,44px)] leading-[1.06] font-bold tracking-[-.03em] max-w-[20ch]">
+              The conditions, not the pitch
+            </h2>
+            <p className="mt-3 text-[17px] text-[#6B7078] max-w-[62ch]">
+              Sentryfi has no customers yet, so there are no quotes on this page. These are the real
+              conditions it was designed against, taken from the work itself.
+            </p>
+          </Reveal>
+          <Stagger className="mt-11 grid md:grid-cols-2 gap-5">
+            {survives.map((s) => (
+              <StaggerItem key={s.kicker}>
+                <article className="h-full rounded-[20px] bg-white border border-[#EDEEF0] p-7">
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#FFF3C2] text-[#806400]">
+                      <s.icon size={18} strokeWidth={1.9} />
+                    </span>
+                    <h3 className="text-[18px] font-semibold tracking-[-.01em]">{s.kicker}</h3>
+                  </div>
+                  <p className="mt-3.5 text-[15.5px] leading-[1.6] text-[#44474E]">{s.body}</p>
+                </article>
+              </StaggerItem>
+            ))}
+          </Stagger>
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------- who */}
+      <section id="who" className="mx-auto max-w-[1180px] px-6 py-20">
+        <Reveal>
+          <h2 className="text-[clamp(30px,3.6vw,44px)] leading-[1.06] font-bold tracking-[-.03em]">
+            Everyone sees only their own job
+          </h2>
+          <p className="mt-3 text-[17px] text-[#6B7078] max-w-[60ch]">
+            Six roles, enforced in the database rather than hidden in the interface. The person
+            snapping a bill on a jetty cannot reach the books, by any route.
+          </p>
+        </Reveal>
+        <Stagger className="mt-9 grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-[#EDEEF0] rounded-[20px] overflow-hidden border border-[#EDEEF0]">
+          {roles.map(([name, what]) => (
+            <StaggerItem key={name} className="bg-white p-7">
+              <h3 className="text-[17px] font-semibold tracking-[-.01em]">{name}</h3>
+              <p className="mt-1.5 text-[15px] leading-[1.55] text-[#6B7078]">{what}</p>
+            </StaggerItem>
+          ))}
+        </Stagger>
+      </section>
+
+      {/* -------------------------------------------------------- close */}
+      <section className="px-6 pb-20">
+        <Reveal>
+          <div
+            className="mx-auto max-w-[1180px] rounded-[26px] border border-[#EDEEF0] px-6 py-20 text-center"
+            style={{ background: wash(SAND, SKY), backgroundColor: "#fff" }}
+          >
+            <span className="text-[12px] font-semibold tracking-[.18em] uppercase text-[#806400]">
+              Get started
+            </span>
+            <h2 className="mt-4 text-[clamp(34px,5vw,60px)] leading-[1.02] font-bold tracking-[-.035em]">
+              Snap it on site.
+              <br />
+              <span
+                style={{
+                  background: "linear-gradient(96deg,#141414 0%,#806400 52%,#F2C300 100%)",
+                  WebkitBackgroundClip: "text",
+                  backgroundClip: "text",
+                  color: "transparent",
+                }}
+              >
+                File it by the 28th.
+              </span>
+            </h2>
+            <p className="mt-5 text-[17px] text-[#44474E] max-w-[48ch] mx-auto">
+              Built for Altura Pvt Ltd first, and for every Maldivian business that keeps its books
+              in a shoebox and a spreadsheet.
+            </p>
+            <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                to="/register"
+                className="h-12 px-7 inline-flex items-center rounded-full bg-[#F2C300] text-[#141414] text-[16px] font-semibold hover:brightness-[.97] transition"
+              >
+                Create an account
+              </Link>
+              <a
+                href="/design/desktop.html"
+                className="h-12 px-7 inline-flex items-center rounded-full border border-[#141414] text-[16px] font-semibold hover:bg-[#141414] hover:text-white transition-colors"
+              >
+                Look at the desk app
+              </a>
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ------------------------------------------------------- footer */}
+      <footer className="border-t border-[#EDEEF0]">
+        <div className="mx-auto max-w-[1180px] px-6 py-10 flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2.5">
+            <AILogo size={26} />
+            <span className="text-[16px] font-semibold tracking-[-.02em]">Sentryfi</span>
+          </div>
+          <p className="text-[14px] text-[#6B7078]">
+            Altura Pvt Ltd &middot; Male&apos;, Maldives
+          </p>
+          <p className="ml-auto text-[13px] text-[#9AA0A8]">
+            Figures shown on this page are illustrative.
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }

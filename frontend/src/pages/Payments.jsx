@@ -68,7 +68,7 @@ export default function Payments() {
                   {p.method ? <Badge tone="neutral">{p.method}</Badge> : <span className="text-xs text-[var(--ink-muted)]">—</span>}
                 </div>
                 <div className="text-sm font-semibold text-[var(--success)] tabular text-right">{formatMoney(p.amount)}</div>
-                <button onClick={() => onDelete(p)} className="justify-self-end h-7 w-7 rounded-full flex items-center justify-center text-[var(--ink-muted)] opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[var(--surface-2)] hover:text-[var(--danger)]">
+                <button onClick={() => onDelete(p)} className="justify-self-end h-7 w-7 rounded-full flex items-center justify-center text-[var(--ink-muted)] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 transition-opacity hover:bg-[var(--surface-2)] hover:text-[var(--danger)]">
                   <Trash2 size={13} />
                 </button>
               </div>

@@ -92,7 +92,7 @@ export default function Clients() {
                 </div>
                 <ArrowRight
                   size={16}
-                  className="text-[var(--ink-muted)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                  className="text-[var(--ink-muted)] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 transition-opacity shrink-0"
                 />
               </div>
 

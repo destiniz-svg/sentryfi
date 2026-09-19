@@ -448,7 +448,7 @@ function RecentInvoices({ invoices, onOpen }) {
               </div>
               <div className="text-sm font-semibold text-[var(--ink)] tabular shrink-0">{formatMoney(inv.total, inv.currency)}</div>
               <StatusBadge status={inv.effective_status} />
-              <ArrowRight size={14} className="text-[var(--ink-muted)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+              <ArrowRight size={14} className="text-[var(--ink-muted)] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 transition-opacity shrink-0" />
             </button>
           ))}
         </div>

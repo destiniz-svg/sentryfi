@@ -4,10 +4,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { CommandPalette } from "./CommandPalette";
+import { MobileNav } from "./MobileNav";
 
 export function AppShell() {
   const location = useLocation();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
 
   const openPalette = useCallback(() => setPaletteOpen(true), []);
   const closePalette = useCallback(() => setPaletteOpen(false), []);
@@ -31,12 +33,13 @@ export function AppShell() {
   // close on route change
   useEffect(() => {
     setPaletteOpen(false);
+    setNavOpen(false);
   }, [location.pathname]);
 
   return (
     <div className="min-h-screen flex bg-[var(--bg)]">
       <Sidebar />
-      <main className="flex-1 px-6 md:px-8 py-6 max-w-[1600px] mx-auto w-full">
+      <main className="flex-1 px-4 sm:px-6 md:px-8 py-6 pb-28 md:pb-6 max-w-[1600px] mx-auto w-full">
         <Topbar onOpenPalette={openPalette} />
         <AnimatePresence mode="wait">
           <motion.div
@@ -51,6 +54,11 @@ export function AppShell() {
         </AnimatePresence>
       </main>
       <CommandPalette open={paletteOpen} onClose={closePalette} />
+      <MobileNav
+        open={navOpen}
+        onOpen={() => setNavOpen(true)}
+        onClose={() => setNavOpen(false)}
+      />
     </div>
   );
 }

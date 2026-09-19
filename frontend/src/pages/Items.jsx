@@ -61,7 +61,7 @@ export default function Items() {
                     <p className="text-xs text-[var(--ink-muted)] mt-1 line-clamp-2">{item.description}</p>
                   )}
                 </div>
-                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 transition-opacity shrink-0">
                   <button
                     onClick={(e) => { e.stopPropagation(); setModal(item); }}
                     className="h-7 w-7 rounded-full flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
