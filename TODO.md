@@ -99,7 +99,9 @@ The owner's hardest job, and the reason this exists.
 
 **Bills are now reachable.** Recording a bill and posting it are separate acts, deliberately: getting the bill in must never be blocked by a question, because the person holding it is standing on a site, while deciding what it means can happen later at a desk. A supplier name that matches nothing becomes a supplier rather than stopping the capture, because merging two later is cheap and losing the bill is not.
 
-**Still to come in this step:** the photograph itself and the three taps, reading the bill, the cash boxes, and the ten-second undo. None of the screens exist yet — this is the part behind them.
+**A bill can now be recorded from a screen (19 September 2026).** On the desk, not yet on a phone. It asks who the bill is from, how much, when, its number, and how the GST was quoted — the one thing that cannot be worked out afterwards. The four answers are in plain words, and "I am not sure" is a real one: it keeps the bill out of the books until somebody decides rather than letting the app pick. A possible duplicate never loses the bill; it is recorded either way and the warning says what it resembles and why, because a bill that vanished for looking familiar is worse than one recorded twice and sorted out. The list answers "what needs me?" rather than "show me the posted ones", and every action is gated on what the person may actually do, read from the server rather than decided by the screen.
+
+**Still to come in this step:** the photograph itself and the three taps — what exists is a typed form, not a camera. Reading the bill from the photo. The cash boxes. The ten-second undo. And the phone board version of all of it: this is the desk register only.
 
 ---
 
