@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Loader2, Mail, Lock } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import {
   AuthShell,
   AuthField,
@@ -38,12 +38,10 @@ export default function Login() {
     <AuthShell
       headline={
         <>
-          Invoicing,
-          <br />
-          <em style={{ fontStyle: "italic" }}>on autopilot.</em>
+          Every bill, recorded within minutes of arriving.
         </>
       }
-      subhead="Create polished invoices, track every payment, and let AI handle receipts, reminders, and revenue summaries."
+      subhead="Whoever is holding the bill photographs it. The books stay right while you get on with the job, and the tax return is ready before the deadline rather than after it."
     >
       <motion.div
         initial={{ opacity: 0, y: 12 }}
@@ -58,7 +56,7 @@ export default function Login() {
           Welcome back
         </h1>
         <p className="text-[var(--ink-muted)] mt-2 text-[15px]">
-          Sign in to manage your invoices and clients.
+          Sign in to Altura's books.
         </p>
 
         <form onSubmit={onSubmit} className="mt-9 space-y-4">
@@ -69,7 +67,6 @@ export default function Login() {
             value={form.email}
             onChange={(v) => setForm({ ...form, email: v })}
             placeholder="you@example.com"
-            icon={Mail}
           />
 
           <AuthField
@@ -79,15 +76,7 @@ export default function Login() {
             value={form.password}
             onChange={(v) => setForm({ ...form, password: v })}
             placeholder="••••••••"
-            icon={Lock}
-            extra={
-              <button
-                type="button"
-                className="text-xs text-[var(--accent-strong)] font-semibold hover:underline"
-              >
-                Forgot?
-              </button>
-            }
+
           />
 
           <AuthErrorBanner>{err}</AuthErrorBanner>
@@ -107,15 +96,10 @@ export default function Login() {
             </AuthPrimaryButton>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="h-px flex-1 bg-[var(--border)]" />
-            <span className="text-[11px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">or</span>
-            <div className="h-px flex-1 bg-[var(--border)]" />
-          </div>
-
-          <p className="text-[13px] leading-relaxed text-[var(--ink-muted)] text-center">
-            There is no shared demo account. This app holds real money, so every
-            person signs in as themselves.
+          <p className="text-[13px] leading-relaxed text-[var(--ink-muted)]">
+            There is no shared demo account: this app keeps real books, so
+            everyone signs in as themselves. Forgotten your password? An
+            administrator can reset it for you.
           </p>
         </form>
 

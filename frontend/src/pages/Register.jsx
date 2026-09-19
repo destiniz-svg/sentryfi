@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Loader2, User, Mail, Lock } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import {
   AuthShell,
   AuthField,
@@ -34,14 +34,8 @@ export default function Register() {
 
   return (
     <AuthShell
-      headline={
-        <>
-          Get paid faster,
-          <br />
-          <em style={{ fontStyle: "italic" }}>with less effort.</em>
-        </>
-      }
-      subhead="Beautiful invoices, client tracking, and AI that reads receipts, drafts reminders, and summarizes your revenue."
+      headline={<>One place the books are kept.</>}
+      subhead="Bills, cash boxes, the bank and the tax return, in one set of books that add up. Built for Altura first."
     >
       <motion.div
         initial={{ opacity: 0, y: 12 }}
@@ -56,7 +50,8 @@ export default function Register() {
           Get started
         </h1>
         <p className="text-[var(--ink-muted)] mt-2 text-[15px]">
-          Free to start. No credit card required.
+          Accounts are for people working on Altura's books. Nothing here
+          records real money yet.
         </p>
 
         <form onSubmit={onSubmit} className="mt-9 space-y-4">
@@ -66,7 +61,6 @@ export default function Register() {
             value={form.name}
             onChange={(v) => setForm({ ...form, name: v })}
             placeholder="Ada Lovelace"
-            icon={User}
           />
 
           <AuthField
@@ -76,7 +70,6 @@ export default function Register() {
             value={form.email}
             onChange={(v) => setForm({ ...form, email: v })}
             placeholder="you@example.com"
-            icon={Mail}
           />
 
           <AuthField
@@ -87,7 +80,6 @@ export default function Register() {
             onChange={(v) => setForm({ ...form, password: v })}
             placeholder="At least 8 characters"
             minLength={8}
-            icon={Lock}
           />
 
           <AuthErrorBanner>{err}</AuthErrorBanner>

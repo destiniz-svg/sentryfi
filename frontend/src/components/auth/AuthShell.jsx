@@ -1,126 +1,114 @@
-import { motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
-import { DiagonalMarquee } from "./BrandCardMarquee";
+import { useId } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import AILogo from "@/components/layout/AILogo";
 
-const NOISE_DATA_URI =
-  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3'/></filter><rect width='180' height='180' filter='url(%23n)' opacity='0.9'/></svg>\")";
-
+/**
+ * The way in.
+ *
+ * This screen used to belong to a different product. It carried a teal
+ * gradient, two animated emerald glows, a sheen sweep, a noise overlay, a
+ * scrolling marquee of invoice cards, an italic serif headline and a badge
+ * reading "AI Invoice Manager" — none of which appear anywhere in Sentryfi's
+ * design system, and one of which named a product this is not. Registration
+ * also promised a free plan for something with no billing.
+ *
+ * It matters more than most screens because every session passes through it.
+ * Someone arriving from the landing page had just been told this was built for
+ * their construction company, and the very next thing they saw sold them a
+ * generic invoicing SaaS.
+ *
+ * So it is now the Site Board, in the desk register that governs the web: a
+ * light ground, a white card for the form, and beside it an ink panel carrying
+ * the mark, one true sentence, and the ruled list the whole product is built
+ * on — hairline rows, tabular figures, amounts hanging off a single rule, and
+ * exactly one signal-yellow field on the thing that matters now.
+ */
 export function AuthShell({ children, headline, subhead }) {
   return (
     <div className="min-h-screen flex bg-[var(--bg)] p-3 sm:p-4 gap-0 lg:gap-4">
-      {/* Left — form */}
       <div className="flex-1 flex items-center justify-center px-4 sm:px-8 py-10">
         <div className="w-full max-w-[400px]">{children}</div>
       </div>
-
-      {/* Right — brand panel (desktop only) */}
-      <BrandPanel headline={headline} subhead={subhead} />
+      <BoardPanel headline={headline} subhead={subhead} />
     </div>
   );
 }
 
-function BrandPanel({ headline, subhead }) {
+/**
+ * Illustrative, and labelled as such below. These are the shapes of real rows
+ * — a supplier bill, a director putting money in, a deadline — not figures
+ * from anyone's books.
+ */
+const ROWS = [
+  { label: "Lily Enterprises", meta: "Cement, 20t · 15 Sep", amount: "−4,250.50" },
+  { label: "Steva Enterprises", meta: "Transfer in · 14 Sep", amount: "+80,000.00" },
+  { label: "Maldive Gas", meta: "Bottled gas · 12 Sep", amount: "−1,120.00" },
+];
+
+function BoardPanel({ headline, subhead }) {
+  const still = useReducedMotion();
+
   return (
-    <div className="hidden lg:block flex-1 relative rounded-[28px] overflow-hidden isolate">
-      {/* Base dark gradient */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            "linear-gradient(140deg, #0b0b0c 0%, #141414 38%, #0c3b36 72%, #071a18 100%)",
-        }}
-      />
-
-      {/* Animated radial glows */}
+    <div className="hidden lg:flex flex-1 relative rounded-[var(--radius-card)] overflow-hidden bg-[var(--ink)] on-ink">
       <motion.div
-        className="absolute -top-32 -right-32 w-[520px] h-[520px] rounded-full pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(circle, rgba(52,211,153,0.5) 0%, transparent 70%)",
-          filter: "blur(60px)",
-        }}
-        animate={{
-          x: [0, 40, 0],
-          y: [0, 25, 0],
-          opacity: [0.45, 0.75, 0.45],
-        }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="absolute -bottom-40 -left-32 w-[460px] h-[460px] rounded-full pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(circle, rgba(13,148,136,0.6) 0%, transparent 70%)",
-          filter: "blur(60px)",
-        }}
-        animate={{
-          x: [0, -30, 0],
-          y: [0, -40, 0],
-          opacity: [0.4, 0.7, 0.4],
-        }}
-        transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
-      />
+        initial={still ? false : { opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={still ? { duration: 0 } : { duration: 0.7, ease: [0.2, 0.8, 0.2, 1] }}
+        className="relative z-10 w-full h-full flex flex-col justify-center px-10 xl:px-16 py-14"
+      >
+        <AILogo size={40} />
 
-      {/* Diagonal sheen sweep */}
-      <motion.div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            "linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.07) 50%, transparent 70%)",
-          backgroundSize: "200% 200%",
-        }}
-        animate={{ backgroundPosition: ["0% 0%", "100% 100%"] }}
-        transition={{ duration: 9, repeat: Infinity, ease: "linear" }}
-      />
+        <h2 className="text-[40px] xl:text-[52px] leading-[1.04] tracking-[-0.03em] font-semibold text-white mt-8 max-w-[15ch]">
+          {headline}
+        </h2>
 
-      {/* Noise grain overlay */}
-      <div
-        className="absolute inset-0 opacity-[0.06] mix-blend-overlay pointer-events-none"
-        style={{ backgroundImage: NOISE_DATA_URI }}
-      />
+        <p className="text-white/70 text-[15px] xl:text-base mt-5 max-w-[46ch] leading-relaxed">
+          {subhead}
+        </p>
 
-      {/* Diagonal field of scrolling invoice cards (lower-right half) */}
-      <DiagonalMarquee />
-
-      {/* Soft inner vignette */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          boxShadow: "inset 0 0 120px 20px rgba(0,0,0,0.35)",
-        }}
-      />
-
-      {/* Content */}
-      <div className="relative z-10 h-full flex flex-col pt-10 xl:pt-16">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="px-10 xl:px-16"
-        >
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/8 border border-white/10 backdrop-blur-md">
-            <Sparkles size={12} className="text-white/80" />
-            <span className="text-[11px] tracking-wide text-white/80 uppercase font-semibold">
-              AI Invoice Manager
+        {/* The rule. Every amount in the product hangs off one of these. */}
+        <div className="mt-12 max-w-[440px]">
+          <div className="flex items-baseline justify-between pb-2 border-b-2 border-white/25">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">
+              Recorded this week
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">
+              MVR
             </span>
           </div>
 
-          <h2
-            className="font-serif text-[44px] xl:text-[60px] leading-[1.02] text-white mt-8 max-w-[540px]"
-            style={{
-              fontStyle: "italic",
-              fontWeight: 500,
-              letterSpacing: "-0.01em",
-            }}
-          >
-            {headline}
-          </h2>
+          {ROWS.map((row) => (
+            <div
+              key={row.label}
+              className="flex items-baseline justify-between gap-4 py-3 border-b border-white/12"
+            >
+              <span className="min-w-0">
+                <span className="block text-[14px] font-medium text-white truncate">
+                  {row.label}
+                </span>
+                <span className="block text-[12px] text-white/55 truncate">{row.meta}</span>
+              </span>
+              <span
+                className={`tabular text-[14px] font-semibold shrink-0 ${
+                  row.amount.startsWith("+") ? "text-[#3fbf71]" : "text-white"
+                }`}
+              >
+                {row.amount}
+              </span>
+            </div>
+          ))}
 
-          <p className="text-white/65 text-base xl:text-lg mt-6 max-w-md leading-relaxed">
-            {subhead}
-          </p>
-        </motion.div>
-      </div>
+          {/* The one yellow field: the thing with a date on it. */}
+          <div className="mt-5 flex items-center justify-between gap-4 bg-[var(--accent)] text-[var(--ink)] px-4 py-3 rounded-[var(--radius-control)]">
+            <span className="text-[13px] font-semibold">GST return · September</span>
+            <span className="tabular text-[13px] font-semibold">9 days left</span>
+          </div>
+
+          {/* white/45 on ink computes to 4.52:1 — a pass, but close enough to
+              the floor that a later tweak would quietly break it. /55 is 6.17:1. */}
+          <p className="text-[12px] text-white/55 mt-4">Figures are illustrative.</p>
+        </div>
+      </motion.div>
     </div>
   );
 }
@@ -135,73 +123,55 @@ export function AuthField({
   autoComplete,
   required = true,
   minLength,
-  icon: Icon,
 }) {
+  // The label used to sit beside the input rather than around it, with no
+  // htmlFor, so none of these fields had an accessible name — including both
+  // password fields.
+  const id = useId();
+
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-sm font-medium text-[var(--ink)]">{label}</label>
+        <label htmlFor={id} className="text-sm font-medium text-[var(--ink)]">
+          {label}
+        </label>
         {extra}
       </div>
-      <div className="relative">
-        <input
-          type={type}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          autoComplete={autoComplete}
-          required={required}
-          minLength={minLength}
-          className={`peer w-full h-12 ${
-            Icon ? "pl-11 pr-4" : "px-4"
-          } rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-[15px] text-[var(--ink)] placeholder:text-[var(--ink-muted)]/60 outline-none transition-all duration-200 focus:border-[var(--ink)] focus:ring-4 focus:ring-[var(--ink)]`}
-        />
-        {Icon && (
-          <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--ink-muted)]/55 peer-focus:text-[var(--accent-strong)] peer-[:not(:placeholder-shown)]:text-[var(--accent-strong)] transition-colors">
-            <Icon size={16} strokeWidth={2} />
-          </div>
-        )}
-      </div>
+      <input
+        id={id}
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
+        required={required}
+        minLength={minLength}
+        className="w-full h-12 px-4 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[15px] text-[var(--ink)] placeholder:text-[var(--ink-muted)] outline-none transition-colors duration-200 focus:border-[var(--ink)] focus:ring-[3px] focus:ring-[var(--ink)]/15"
+      />
     </div>
   );
 }
 
 export function AuthPrimaryButton({ children, disabled, ...props }) {
   return (
-    <motion.button
-      whileTap={{ scale: 0.985 }}
+    <button
       disabled={disabled}
-      className="relative w-full h-12 rounded-2xl text-[var(--ink)] font-semibold text-[15px] flex items-center justify-center gap-2 overflow-hidden shadow-[0_8px_24px_-8px_rgba(13,148,136,0.55)] transition-all duration-200 hover:shadow-[0_12px_28px_-8px_rgba(13,148,136,0.7)] disabled:opacity-60 disabled:cursor-not-allowed"
-      style={{
-        background:
-          "#f2c300",
-      }}
+      className="w-full h-12 rounded-[var(--radius-control)] bg-[var(--accent)] text-[var(--on-accent)] font-semibold text-[15px] flex items-center justify-center gap-2 transition-[filter,transform] duration-150 hover:brightness-[.97] active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
       {...props}
     >
-      {/* Soft sheen on top */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            "linear-gradient(180deg, rgba(255,255,255,0.18) 0%, transparent 50%)",
-        }}
-      />
-      <span className="relative z-10 inline-flex items-center gap-2">
-        {children}
-      </span>
-    </motion.button>
+      {children}
+    </button>
   );
 }
 
 export function AuthErrorBanner({ children }) {
   if (!children) return null;
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -4 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="text-xs text-[var(--danger)] bg-[var(--danger)]/10 rounded-2xl px-4 py-2.5 leading-snug"
+    <p
+      role="alert"
+      className="text-[13px] text-[var(--danger)] bg-[var(--danger)]/10 rounded-[var(--radius-control)] px-4 py-2.5 leading-snug"
     >
       {children}
-    </motion.div>
+    </p>
   );
 }

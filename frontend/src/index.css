@@ -23,6 +23,10 @@
   /* The phone board is square. The desk is not: these references are soft and
      roomy, and a dense table reads better with a little radius. */
   --radius-card: 14px;
+  /* DESIGN.md desk register: 14px cards, 10px controls, 9999px pills, and
+     nothing else. The control step had no token, so controls were reaching for
+     Tailwind sizes that are not in the system. */
+  --radius-control: 10px;
   --radius-pill: 999px;
 }
 
