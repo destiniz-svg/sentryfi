@@ -70,13 +70,44 @@ router.post(
         mimeType: req.file.mimetype,
       });
     } catch (err) {
-      // Tell the truth about which failure this is. "Try a clearer
-      // photograph" is useless advice when the real problem is that reading
-      // is not switched on, and it sends somebody off to re-take a photo that
-      // was fine.
-      if (/GEMINI_API_KEY/i.test(err.message || "")) {
+      // Every failure used to become "that could not be read", which is
+      // useless advice when the photograph was fine, and the cause was never
+      // logged — so a production failure left no trace at all. Log the real
+      // thing, and say which kind of failure it was.
+      const raw = String(err?.message || err);
+      console.error(
+        JSON.stringify({
+          at: "bills/scan",
+          company: req.companyId,
+          mime: req.file?.mimetype,
+          bytes: req.file?.size,
+          error: raw.slice(0, 500),
+        })
+      );
+
+      if (/GEMINI_API_KEY/i.test(raw)) {
         throw ApiError.badRequest(
           "Reading bills from a photo is not switched on yet. Type it in for now."
+        );
+      }
+      if (/API key not valid|API_KEY_INVALID|PERMISSION_DENIED|401|403/i.test(raw)) {
+        throw ApiError.badRequest(
+          "The key for reading bills was refused. Somebody needs to check it in the settings — the photograph is fine."
+        );
+      }
+      if (/quota|RESOURCE_EXHAUSTED|429|rate/i.test(raw)) {
+        throw ApiError.badRequest(
+          "Reading bills has hit its limit for now. Type this one in; it will work again shortly."
+        );
+      }
+      if (/not found|NOT_FOUND|404|is not supported/i.test(raw)) {
+        throw ApiError.badRequest(
+          "The reader is misconfigured — the model it was told to use does not exist. Type it in for now."
+        );
+      }
+      if (/SAFETY|blocked|recitation/i.test(raw)) {
+        throw ApiError.badRequest(
+          "The reader would not answer on that image. Type it in for now."
         );
       }
       throw ApiError.badRequest(
