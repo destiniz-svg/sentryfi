@@ -90,6 +90,15 @@ The owner's hardest job, and the reason this exists.
 
 **Done when:** a bill photographed on site is in the books in three taps, a duplicate is stopped before it posts, and a cash count that does not balance is recorded with its reason rather than quietly hidden.
 
+**Where it has got to (19 September 2026).** The part underneath is in and proved: bills, suppliers, projects and cost codes exist, a bill becomes a balanced entry, and `npm run ledger:selftest` now runs 62 checks against the real database and passes.
+
+- **The tax decision is recorded, never guessed.** The same printed MVR 4,250.50 is 3,935.65 plus 314.85 when the price includes tax, and 4,590.54 when the tax goes on top. That is MVR 340.04 of difference on one bill, and an 8% overstatement of the claim if read the wrong way round. A bill nobody has told it about is saved but refuses to post, and even the 8% general rate is not assumed when no rate was recorded.
+- **An unregistered supplier's bill claims nothing.** It posts with two lines instead of three, and the database refuses outright to record tax against one.
+- **A supplier billed twice is stopped.** Same supplier and same bill number refuses to post and the database refuses the pair as well. Same supplier and same amount within a fortnight is raised as worth a look but still posts, because a monthly charge looks exactly like that.
+- **A supplier's name is not a key.** Each supplier carries the other spellings it is known by, because one real invoice spells its own issuer two ways on one page and the bank truncates it to 35 characters.
+
+**Still to come in this step:** the photograph itself and the three taps, reading the bill, the cash boxes, and the ten-second undo. None of the screens exist yet — this is the part behind them.
+
 ---
 
 ### 3. Buying, and what actually arrived
