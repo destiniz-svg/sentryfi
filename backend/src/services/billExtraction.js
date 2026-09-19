@@ -39,6 +39,14 @@ const billSchema = {
         "Copy it exactly as printed, including Pvt Ltd or similar. This is almost always " +
         "readable on a bill; leave it empty only if no issuing business is named anywhere.",
     },
+    supplierAlsoSeenAs: {
+      type: Type.STRING,
+      description:
+        "Any OTHER spelling of the issuing business name that appears elsewhere on the " +
+        "same page — in a logo, a stamp, a footer, a payment line. Real invoices often " +
+        "spell their own issuer two ways, including misspellings. Copy it exactly as " +
+        "printed. Empty if only one spelling appears.",
+    },
     supplierTin: {
       type: Type.STRING,
       description: "The supplier's TIN or GST number if printed, else empty string.",
@@ -127,6 +135,7 @@ const level = z.enum(["high", "medium", "low"]).catch("low");
 
 const billValidator = z.object({
   supplierName: z.string().default(""),
+  supplierAlsoSeenAs: z.string().default(""),
   supplierTin: z.string().default(""),
   supplierAddress: z.string().default(""),
   supplierPhone: z.string().default(""),
@@ -168,6 +177,7 @@ function billPrompt({ companyName } = {}) {
     ? `You are reading this on behalf of "${companyName}". If a name on the document is that one, or close to it, that is the customer: put it in billedToName, never in supplierName.`
     : "If one name appears under 'Bill To', 'Invoice To' or 'Customer', that one is the customer and belongs in billedToName.",
   "Do not invent a business that is not printed anywhere. But if a business name is printed, read it — working out which of two printed names issued the bill is reading, not guessing.",
+  "If the issuing business is written more than one way on the page — a fuller name in the logo and a shorter or misspelt one in the address block, say — put the clearest and most complete one in supplierName and the other in supplierAlsoSeenAs. Both are worth having: the second is what tends to arrive on the next bill and on a bank statement line.",
   "",
   "The most important field is gstTreatment, and it is the one you must not guess.",
   "GST in the Maldives is generally 8%. Decide as follows:",

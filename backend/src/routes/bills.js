@@ -46,6 +46,7 @@ const billBody = z.object({
       phone: z.string().trim().max(60).optional(),
       email: z.string().trim().max(200).optional(),
       bank_account: z.string().trim().max(60).optional(),
+      also_seen_as: z.string().trim().max(160).optional(),
     })
     .optional(),
 });
@@ -251,7 +252,12 @@ router.post(
           companyId: req.companyId,
           userId: req.user.id,
           partyId: counterpartyId,
-          facts: { name: b.supplierName, ...(b.supplier || {}) },
+          facts: {
+            name: b.supplierName,
+            ...(b.supplier || {}),
+            // Recorded as another name it answers to, not as its name.
+            name_alias: b.supplier?.also_seen_as,
+          },
           source: { kind: "bill" },
         });
         learned = taught.learned;

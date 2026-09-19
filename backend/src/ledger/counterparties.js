@@ -129,7 +129,7 @@ async function observe(client, { companyId, userId, partyId, facts, source }) {
     // A new spelling of a name it already answers to. Always worth keeping:
     // it is how the same supplier is recognised next time, and how a truncated
     // bank statement line is matched later.
-    if (field === "name") {
+    if (field === "name" || field === "name_alias") {
       const known = [party.name, ...(party.also_known_as || [])];
       if (!known.some((k) => same(k, value))) {
         await client.query(

@@ -156,6 +156,9 @@ export function RecordBill({ open, onClose }) {
         phone: extracted.supplierPhone || undefined,
         email: extracted.supplierEmail || undefined,
         bank_account: extracted.supplierBankAccount || undefined,
+        // The other way the same supplier spelt itself on this page, so it is
+        // recognised next time it arrives written that way.
+        also_seen_as: extracted.supplierAlsoSeenAs || undefined,
       });
     } catch (ex) {
       setErr(ex.message || "That could not be read. Type it in instead.");
