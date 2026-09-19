@@ -101,7 +101,13 @@ The owner's hardest job, and the reason this exists.
 
 **A bill can now be recorded from a screen (19 September 2026).** On the desk, not yet on a phone. It asks who the bill is from, how much, when, its number, and how the GST was quoted — the one thing that cannot be worked out afterwards. The four answers are in plain words, and "I am not sure" is a real one: it keeps the bill out of the books until somebody decides rather than letting the app pick. A possible duplicate never loses the bill; it is recorded either way and the warning says what it resembles and why, because a bill that vanished for looking familiar is worse than one recorded twice and sorted out. The list answers "what needs me?" rather than "show me the posted ones", and every action is gated on what the person may actually do, read from the server rather than decided by the screen.
 
-**Still to come in this step:** the photograph itself and the three taps — what exists is a typed form, not a camera. Reading the bill from the photo. The cash boxes. The ten-second undo. And the phone board version of all of it: this is the desk register only.
+**The photograph works (19 September 2026).** Photograph the bill and the app reads the supplier, the number, the date, the amounts and how the GST was quoted, then asks only about what it was genuinely unsure of. A supplier already known to be unregistered is never asked about, because the app knowing something beats reading it off paper. Scanning records nothing: what was read goes into the form so it can be checked against the paper first.
+
+It refuses to guess the tax treatment, and "unknown" is a correct answer rather than a failure. Reading an exclusive bill as inclusive overstates a claim by 8%, and the mistake is invisible afterwards because both readings produce a believable number.
+
+**One thing is not switched on:** reading needs `GEMINI_API_KEY` on the deployment and it is not set. The button ships and says so plainly rather than blaming the photograph.
+
+**Still to come in this step:** the cash boxes, the ten-second undo, keeping the photograph itself against the bill as the supporting paper, and the phone board version of all of it — this is the desk register only, so "three taps on site" is not yet true.
 
 ---
 
