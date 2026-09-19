@@ -97,6 +97,44 @@ body {
   border-color: var(--border);
 }
 
+/* The Ring Follows The Ground.
+ *
+ * DESIGN.md states this as a named rule and the artboards implement it, but the
+ * running app never did — the classes existed only in the .dc.html files, so a
+ * component reaching for `on-ink` got nothing.
+ *
+ * The ring is ink by default, because the primary surfaces are board white and
+ * signal yellow on white is 1.67:1, well under the 3:1 a focus indicator has to
+ * clear. A dark ground carries `on-ink` and flips the ring to yellow; a white
+ * card sitting on a dark ground carries `on-board` to flip it back; a yellow
+ * field carries `on-yellow` and keeps ink.
+ *
+ * :where() holds specificity at zero, so any component that sets its own focus
+ * style still wins, and everything else gets a visible ring instead of none. */
+:root,
+.on-board,
+.on-yellow {
+  --ring: var(--ink);
+}
+.on-ink {
+  --ring: var(--accent);
+}
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* The parts nobody draws still belong to the design system. */
+::selection {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+:root {
+  caret-color: var(--ink);
+  accent-color: var(--accent);
+}
+
 .shadow-card {
   box-shadow: var(--shadow-card);
 }
