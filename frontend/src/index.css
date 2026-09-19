@@ -552,3 +552,17 @@ body {
   cursor: pointer;
 }
 .phone-row-do:disabled { opacity: 0.55; }
+
+/* The review sheet on the phone board: square, full width, and it came from
+   the bottom edge — which the grabber is there to say. */
+.phone-sheet {
+  border-top: 2px solid var(--ink);
+}
+
+.phone-sheet-grabber {
+  width: 44px;
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--border);
+  margin: 0 auto 14px;
+}

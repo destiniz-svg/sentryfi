@@ -6,6 +6,7 @@ import { useBillMutations } from "@/hooks/useBills";
 import { billsApi } from "@/api/bills";
 import { useToast } from "@/context/UIContext";
 import { useOutbox } from "@/context/OutboxContext";
+import { usePhone } from "@/lib/phone";
 import { today } from "@/lib/utils";
 import { prepareForReading } from "@/lib/image";
 
@@ -53,6 +54,25 @@ export function RecordBill({ open, onClose }) {
   const { record } = useBillMutations();
   const toast = useToast();
   const outbox = useOutbox();
+  // The phone board is square and the desk register is round. This is the one
+  // screen both registers share, so it carries both and picks.
+  const board = usePhone();
+  const inputClass = board ? BOARD_INPUT : DESK_INPUT;
+
+  /**
+   * The button that commits names the money.
+   *
+   * "Record it" asks a thumb to commit to a word. This says what is about to
+   * happen and to how much, and when something is missing it says that
+   * instead — so the loudest thing on the sheet is either the blocker or the
+   * commitment, never a detail.
+   */
+  const amountNow = Number(String(form.amount).replace(/,/g, ""));
+  const commitment = !form.supplierName.trim()
+    ? "Who is it from?"
+    : !(amountNow > 0)
+      ? "Add the amount"
+      : `Record MVR ${formatAmount(form.amount)}`;
   const cameraButton = useRef(null);
 
   const [form, setForm] = useState(blank());
@@ -284,6 +304,7 @@ export function RecordBill({ open, onClose }) {
       title="Record a bill"
       description="What is on the paper. You can correct any of it afterwards."
       initialFocus={cameraButton}
+      variant={board ? "sheet" : "card"}
     >
       {/* Two ways in, because they are genuinely different jobs and one input
           cannot do both. `capture` tells a phone to open the camera straight
@@ -317,7 +338,7 @@ export function RecordBill({ open, onClose }) {
             variant="outline"
             onClick={() => cameraInputRef.current?.click()}
             disabled={reading}
-            className="h-12"
+            className={board ? "h-[52px] rounded-none border-2 border-[var(--ink)]" : "h-12"}
           >
             {reading ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
             {reading ? "Reading it…" : "Photograph it"}
@@ -327,7 +348,7 @@ export function RecordBill({ open, onClose }) {
             variant="outline"
             onClick={() => libraryInputRef.current?.click()}
             disabled={reading}
-            className="h-12"
+            className={board ? "h-[52px] rounded-none border-2 border-[var(--ink)]" : "h-12"}
           >
             <Paperclip size={16} />
             Choose a file
@@ -444,7 +465,9 @@ export function RecordBill({ open, onClose }) {
             {TAX_CHOICES.map((choice) => (
               <label
                 key={choice.value}
-                className={`flex items-start gap-3 p-3 rounded-[var(--radius-control)] border cursor-pointer transition-colors ${
+                className={`flex items-start gap-3 p-3 cursor-pointer transition-colors ${
+                  board ? "border-2" : "rounded-[var(--radius-control)] border"
+                } ${
                   form.gstTreatment === choice.value
                     ? "border-[var(--ink)] bg-[var(--surface-2)]"
                     : "border-[var(--border)] hover:bg-[var(--surface-2)]"
@@ -508,12 +531,22 @@ export function RecordBill({ open, onClose }) {
 
       {duplicates.length === 0 && (
         <div className="flex items-center justify-end gap-2 mt-6">
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            className={board ? "rounded-none border-2 border-[var(--ink)] h-[52px]" : undefined}
+          >
             Cancel
           </Button>
-          <Button type="submit" variant="accent" disabled={record.isPending}>
+          <Button
+            type="submit"
+            variant="accent"
+            disabled={record.isPending}
+            className={board ? "rounded-none h-[52px] flex-1" : undefined}
+          >
             {record.isPending && <Loader2 size={14} className="animate-spin" />}
-            Record it
+            {commitment}
           </Button>
         </div>
       )}
@@ -521,8 +554,16 @@ export function RecordBill({ open, onClose }) {
   );
 }
 
-const inputClass =
-  "w-full h-11 px-4 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[15px] text-[var(--ink)] placeholder:text-[var(--ink-muted)] outline-none focus:border-[var(--ink)] focus:ring-[3px] focus:ring-[var(--ink)]/15";
+const FIELD =
+  "w-full px-4 bg-[var(--surface)] text-[var(--ink)] placeholder:text-[var(--ink-muted)] outline-none";
+
+const DESK_INPUT =
+  `${FIELD} h-11 rounded-[var(--radius-control)] border border-[var(--border)] text-[15px] focus:border-[var(--ink)] focus:ring-[3px] focus:ring-[var(--ink)]/15`;
+
+// Square, taller and larger: a field on the board is aimed at with a thumb and
+// read at arm's length. The 2px edge is the board's own line weight.
+const BOARD_INPUT =
+  `${FIELD} h-[52px] border-2 border-[var(--ink)] text-[17px] focus:outline-3 focus:outline-[var(--ink)] focus:outline-offset-2`;
 
 function Field({ label, htmlFor, hint, children }) {
   return (
@@ -534,4 +575,14 @@ function Field({ label, htmlFor, hint, children }) {
       {hint && <p className="text-[13px] text-[var(--ink-muted)] mt-1.5 leading-snug">{hint}</p>}
     </div>
   );
+}
+
+/** Groups what the person typed, without changing what they typed. */
+function formatAmount(raw) {
+  const clean = String(raw).replace(/,/g, "").trim();
+  const n = Number(clean);
+  if (!Number.isFinite(n)) return clean;
+  const [whole, fraction = ""] = clean.split(".");
+  const grouped = Number(whole).toLocaleString("en-US");
+  return fraction ? `${grouped}.${fraction}` : grouped;
 }

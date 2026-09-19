@@ -42,6 +42,10 @@ export function Modal({
   className,
   size = "md",
   initialFocus,
+  // The phone board's review sheet: square, full width, rising from the
+  // bottom edge with a grabber, rather than a rounded card floating in the
+  // middle of the screen. Same dialog behaviour — only the register changes.
+  variant = "card",
 }) {
   const still = useReducedMotion();
   const panelRef = useRef(null);
@@ -99,12 +103,16 @@ export function Modal({
 
   const Panel = as === "form" ? motion.form : motion.div;
   const widths = { sm: "max-w-[380px]", md: "max-w-[460px]", lg: "max-w-[620px]" };
+  const sheet = variant === "sheet";
 
   return (
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className={cn(
+            "fixed inset-0 z-50 flex justify-center",
+            sheet ? "items-end" : "items-center p-4"
+          )}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -122,24 +130,55 @@ export function Modal({
             aria-labelledby={titleId}
             aria-describedby={description ? descId : undefined}
             onSubmit={onSubmit}
-            initial={still ? false : { opacity: 0, y: 12, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={still ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.98 }}
-            transition={still ? { duration: 0 } : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            initial={
+              still ? false : sheet ? { y: 40, opacity: 0 } : { opacity: 0, y: 12, scale: 0.98 }
+            }
+            animate={sheet ? { y: 0, opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+            exit={
+              still ? { opacity: 0 } : sheet ? { y: 24, opacity: 0 } : { opacity: 0, y: 8, scale: 0.98 }
+            }
+            transition={
+              still
+                ? { duration: 0 }
+                : sheet
+                  ? { duration: 0.42, ease: [0.2, 0.8, 0.2, 1] }
+                  : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }
+            }
             className={cn(
-              "relative w-full rounded-3xl bg-[var(--surface)] border border-[var(--border)] shadow-hover p-6",
-              "max-h-[calc(100dvh-2rem)] overflow-y-auto",
-              widths[size],
+              "relative w-full bg-[var(--surface)] overflow-y-auto",
+              sheet
+                ? "phone-sheet max-h-[92dvh] px-5 pb-6 pt-3"
+                : "rounded-3xl border border-[var(--border)] shadow-hover p-6 max-h-[calc(100dvh-2rem)]",
+              !sheet && widths[size],
               className
             )}
           >
+            {sheet && (
+              /* The grabber says which edge this came from, which is the only
+                 thing on a sheet that is allowed a round corner. */
+              <div aria-hidden="true" className="phone-sheet-grabber" />
+            )}
             <div className="flex items-start justify-between gap-4 mb-5">
               <div className="min-w-0">
-                <h3 id={titleId} className="font-display text-lg font-semibold tracking-tight">
+                <h3
+                  id={titleId}
+                  className={
+                    sheet
+                      ? "font-display text-[22px] font-bold uppercase tracking-[0.04em]"
+                      : "font-display text-lg font-semibold tracking-tight"
+                  }
+                >
                   {title}
                 </h3>
                 {description && (
-                  <p id={descId} className="text-xs text-[var(--ink-muted)] mt-1">
+                  <p
+                    id={descId}
+                    className={
+                      sheet
+                        ? "text-[13px] text-[var(--ink-muted)] mt-1 leading-snug"
+                        : "text-xs text-[var(--ink-muted)] mt-1"
+                    }
+                  >
                     {description}
                   </p>
                 )}
@@ -148,7 +187,10 @@ export function Modal({
                 type="button"
                 onClick={onClose}
                 aria-label="Close"
-                className="h-11 w-11 -mr-2 -mt-2 shrink-0 rounded-full flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+                className={cn(
+                  "h-11 w-11 -mr-2 -mt-2 shrink-0 flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]",
+                  !sheet && "rounded-full"
+                )}
               >
                 <X size={18} />
               </button>
