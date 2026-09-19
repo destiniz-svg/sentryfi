@@ -11,7 +11,6 @@ export function StatCard({
   accent = false,
 }) {
   const positive = delta == null ? null : delta >= 0;
-  const color = accent ? "#FFFFFF" : "var(--accent)";
   const displayValue = value == null || value === "" ? "—" : value;
 
   return (

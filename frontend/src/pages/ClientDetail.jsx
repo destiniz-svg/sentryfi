@@ -24,7 +24,6 @@ import {
   Building2,
   Receipt,
   TrendingUp,
-  Clock,
 } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -222,7 +221,7 @@ export default function ClientDetail() {
       {/* Insights row — aligns with the columns above (1 / 2 split) */}
       {invoices.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-5 items-start">
-          <PaymentStatusCard insights={insights} stats={stats} />
+          <PaymentStatusCard insights={insights} />
           <div className="lg:col-span-2">
             <BillingChartCard insights={insights} />
           </div>
@@ -234,7 +233,7 @@ export default function ClientDetail() {
   );
 }
 
-function PaymentStatusCard({ insights, stats }) {
+function PaymentStatusCard({ insights }) {
   const { breakdown, avgInvoice, largest, paidRate } = insights;
   const hasData = breakdown.length > 0;
   return (

@@ -490,14 +490,6 @@ function Field({ label, children, className }) {
   );
 }
 
-function Row({ label, value }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-[var(--ink-muted)]">{label}</span>
-      <span className="tabular text-[var(--ink)]">{value}</span>
-    </div>
-  );
-}
 
 function NoteField({ label, value, onChange, placeholder, aiKind, aiContext }) {
   const [loading, setLoading] = useState(false);
@@ -590,7 +582,6 @@ function ReceiptScanButton({ onParsed }) {
   const inputRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
-  const [dragFrom, setDragFrom] = useState(null);
 
   async function onFile(e) {
     const file = e.target.files?.[0];
