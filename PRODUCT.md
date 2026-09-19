@@ -91,6 +91,39 @@ A jurisdiction pack is data, not code: rates with effective dates, what a compli
 
 Adding a country is writing a pack. It must never mean touching the ledger.
 
+## Connections
+
+Sentryfi connects to the accounting software a company already uses, in three directions, and each is a different promise.
+
+**Bringing history in.** A company that has kept books elsewhere arrives with years of records. Opening balances, the chart of accounts, customers, suppliers and closed periods come across so the first month here is not the first month of the business. Zoho Books, QuickBooks Online and Xero all expose this over OAuth; anything else arrives as CSV with the columns mapped rather than assumed.
+
+**Running alongside.** Nobody moves a live set of books over a weekend. Sentryfi records bills, cash, projects and tax while another product keeps issuing sales invoices, and the two agree. That is the actual state Altura is in today.
+
+**Handing over.** Everything leaves in a form an accountant can use: journal exports, statements, and the supporting document behind every entry. A company that wants to go elsewhere is not held by its own records.
+
+### The rule that does not bend
+
+**An integration posts through the same door as a person, and never into the tables.** Every imported record becomes a balanced journal entry through `postEntry`, with the same constraints, the same numbering, the same seal and the same audit trail. A connector that wrote rows directly would be a hole straight through every guarantee the ledger makes, and it is exactly how integrations are usually built.
+
+Three consequences follow:
+
+- **Every imported record carries where it came from** — the system, the account, and that system's own id for it — so importing the same month twice recognises itself rather than doubling the books.
+- **An import that cannot balance does not post.** It lands as something a person resolves, the same as a bill whose tax nobody has established.
+- **Nothing is imported silently.** A connector proposes; a person accepts. The market research is right that the assistant layer may draft and not post, and an integration is the same kind of actor.
+
+### What connects
+
+- **Zoho Books** — OAuth, REST. The incumbent at Altura and the first one that has to work.
+- **QuickBooks Online** — OAuth, REST.
+- **Xero** — OAuth, REST.
+- **Anything with an API.** The connector interface is the product's own, not each vendor's: a connector maps a foreign record onto the ledger's shape and declares what it can and cannot bring. Adding one is writing a mapping, not changing the books.
+- **Banks, by file.** There is no open banking in the Maldives. Statements arrive as exports and the column layout is read, not assumed, so another bank is configuration.
+- **CSV, always.** The floor that works when nothing else does, and the only thing guaranteed to exist for a company leaving a product that has no API.
+
+### What it will not do
+
+It will not file on anyone's behalf, because no revenue authority in scope offers it. It will not keep two products in sync as a permanent arrangement — running alongside is a migration state with an end, not a feature, because two systems holding the same figure is how they come to disagree.
+
 ## What a company chooses
 
 Set once when the books are opened, changeable afterwards by an administrator.
@@ -101,6 +134,7 @@ Set once when the books are opened, changeable afterwards by an administrator.
 - The chart of accounts, from a starting set or their accountant's own.
 - Which roles exist and what each may do, from the standard set.
 - Period length, and when a period closes.
+- Which accounting software to bring history in from, and whether anything keeps running alongside while the move happens.
 - Whether the interface speaks plainly or in accounting terms — the same ledger underneath, described two ways, because an owner and their accountant are not reading for the same thing.
 
 ## Current state, honestly

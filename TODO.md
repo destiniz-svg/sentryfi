@@ -63,7 +63,7 @@ A person can hold more than one of these, and the roles are per company, so the 
 
 One line. Each step finishes before the next starts, because building on a foundation that is about to be replaced means building twice.
 
-Steps 1 to 12 are **the core**, and it is not finished until all twelve are. Steps 13 onward are the modules, each switched on per company. The AI layer sits on top of all of it and is built last, because it can only be as good as the records underneath it.
+Steps 1 to 12 are **the core**, and it is not finished until all twelve are. Steps 13 to 20 are the modules, each switched on per company. The AI layer sits on top of all of it and is built last, because it can only be as good as the records underneath it.
 
 ---
 
@@ -231,7 +231,19 @@ Quantity-based stock, landed cost, margin per unit.
 
 Rooms, occupancy, ADR and RevPAR, food and beverage, guest deposits, agent commissions. Waits for the hotel to open.
 
-### 19. Payroll
+### 19. Connecting to what a company already uses
+
+Zoho Books, QuickBooks Online and Xero over OAuth, anything else with an API through the same connector interface, and CSV as the floor that always works. Three jobs, in this order: bring history in so the first month here is not the first month of the business; run alongside while a company moves, which is the state Altura is in today; and hand everything back in a form an accountant can use, so nobody is held by their own records.
+
+**The rule that does not bend:** a connector posts through the same door as a person and never into the tables. Every imported record becomes a balanced entry through the same function, with the same constraints, numbering, seal and trail. Writing rows directly would put a hole straight through every guarantee the ledger makes, and it is how integrations are usually built.
+
+Every imported record carries which system it came from and that system's own id, so importing a month twice recognises itself rather than doubling the books. An import that cannot balance does not post — it waits for a person, like a bill whose tax nobody has established. A connector proposes; a person accepts.
+
+**Done when:** a year of Zoho history imports, the trial balance afterwards matches what Zoho said it was, and importing the same year again changes nothing.
+
+---
+
+### 20. Payroll
 
 Last of the modules. It touches tax differently in every jurisdiction, so it waits for the tax engine to be real.
 
@@ -241,7 +253,7 @@ Last of the modules. It touches tax differently in every jurisdiction, so it wai
 
 ---
 
-### 20. The layer that watches
+### 21. The layer that watches
 
 Only once the records beneath it are trustworthy, because an assistant reasoning over bad books is worse than none.
 
@@ -251,7 +263,7 @@ Continuous reconciliation. Anomalies raised as they happen rather than at month 
 
 ---
 
-### 21. Real money
+### 22. Real money
 
 Before a single real figure is entered: the accountant signs off the accounts structure, how director money is treated, and the first return. A security review. Opening balances agreed. Then the line on the website saying nothing here is real comes off.
 
@@ -285,4 +297,6 @@ Revised 19 September 2026. Widening the product to serve companies beyond Altura
 
 **Dhivehi**, for now — though nothing may be built that assumes English forever.
 
-**Replacing the current tool for sales invoices** until step 3 lands. Zoho keeps issuing them in the meantime.
+**Replacing the current tool for sales invoices** until step 3 lands. Zoho keeps issuing them in the meantime, and step 19 is what brings that history across.
+
+**Permanent two-way sync with another accounting product.** Running alongside is a migration state with an end, not a feature. Two systems holding the same figure is how they come to disagree, and deciding which one is right afterwards is a job nobody wants.
