@@ -1,0 +1,10 @@
+# Belt and braces. railway up already respects .gitignore, but --no-gitignore
+# turns that off, and these must never reach a build server under any flag.
+docs/real-world-samples/source/
+docs/real-world-samples/README.md
+docs/real-world-samples/bml-csv-import.md
+docs/real-world-samples/extraction-cases.md
+docs/real-world-samples/mira-revenue-types.md
+reference/
+.env
+.env.*

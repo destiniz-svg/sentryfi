@@ -1,0 +1,12 @@
+# The artboards and the renderers that parse them are line-ending sensitive.
+# Keep the whole tree LF in the working copy so tooling behaves the same on
+# every machine and on the Railway builder.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.pdf binary
+*.ico binary
+*.woff binary
+*.woff2 binary

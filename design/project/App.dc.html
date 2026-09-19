@@ -39,15 +39,14 @@ a{color:#141414}a:hover{color:#6B7078}
       <svg width="32" height="32" viewBox="0 0 96 96" role="img" aria-label="Sentryfi" style="margin-left: auto;"><circle cx="48" cy="48" r="34" fill="#F2C300"></circle><circle cx="48" cy="48" r="34" fill="none" stroke="#141414" stroke-width="6"></circle><path d="M17.6 58 H78.4" stroke="#141414" stroke-width="7"></path><path d="M48 26 V58" stroke="#141414" stroke-width="7"></path></svg>
     </div>
     <div class="on-yellow" role="group" aria-labelledby="sf-band-h" style="background: #F2C300; padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 6px;">
-      <h1 id="sf-band-h" ref="{{headingRef}}" tabindex="-1" style="margin: 0; font: 700 13px 'Barlow Condensed', sans-serif; letter-spacing: 0.14em; text-transform: uppercase;">Cash &amp; bank now</h1>
+      <h1 id="sf-band-h" ref="{{headingRef}}" tabindex="-1" style="margin: 0; font: 700 13px 'Barlow Condensed', sans-serif; letter-spacing: 0.14em; text-transform: uppercase;">{{bandHeading}}</h1>
       <div style="{{bandStyle}}">
         <span style="{{bandUnitStyle}}">MVR</span>
         <span>{{displayTotal}}</span>
       </div>
-      <div style="font: 500 13px Barlow, sans-serif; font-variant-numeric: tabular-nums; display: flex; gap: 14px;">
-        <span>Bank <strong style="font-weight: 700;">{{bankTotal}}</strong></span>
-        <span>Cash <strong style="font-weight: 700;">{{cashTotal}}</strong></span>
-        <span style="margin-left: auto;">{{syncLine}}</span>
+      <div style="font: 500 13px Barlow, sans-serif; font-variant-numeric: tabular-nums; display: flex; gap: 10px; align-items: baseline;">
+        <span style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{positionLine}}</span>
+        <span style="margin-left: auto; flex-shrink: 0;">{{syncLine}}</span>
       </div>
     </div>
 
@@ -74,7 +73,23 @@ a{color:#141414}a:hover{color:#6B7078}
       </a>
     </sc-if>
 
-    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 20px 6px;">
+    <sc-if value="{{showBreakdown}}" hint-placeholder-val="{{true}}">
+      <div style="padding: 14px 20px 2px;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+          <div style="font: 700 13px 'Barlow Condensed', sans-serif; letter-spacing: 0.14em; text-transform: uppercase;">Where it went</div>
+          <a href="#projects" style="font: 500 13px Barlow, sans-serif; color: #6B7078; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; padding: 0 4px;">By project</a>
+        </div>
+        <sc-for list="{{codeBars}}" as="cb" hint-placeholder-count="4">
+          <div style="display: grid; grid-template-columns: 96px minmax(0, 1fr) 86px; column-gap: 10px; align-items: center; min-height: 26px;">
+            <span style="font: 600 13px Barlow, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{cb.code}}</span>
+            <span style="height: 10px; background: #E6E7EA; display: block;"><span style="{{cb.fillStyle}}"></span></span>
+            <span style="font: 600 13px Barlow, sans-serif; font-variant-numeric: tabular-nums; text-align: right; padding-right: 8px; border-right: 2px solid #141414;">{{cb.amount}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 20px 6px;">
       <div style="font: 700 13px 'Barlow Condensed', sans-serif; letter-spacing: 0.14em; text-transform: uppercase;">{{listHeading}}</div>
       <sc-if value="{{hasQueue}}" hint-placeholder-val="{{false}}">
         <button onClick="{{goUploads}}" style="min-height: 44px; padding: 0 4px; background: none; border: 0; color: #141414; font: 700 13px 'Barlow Condensed', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
@@ -108,7 +123,7 @@ a{color:#141414}a:hover{color:#6B7078}
       </div>
     </sc-if>
 
-    <div style="padding: 10px 20px 112px; display: flex; flex-direction: column; gap: 8px;">
+    <div style="padding: 8px 20px 108px; display: flex; flex-direction: column; gap: 6px;">
       <div style="display: flex; align-items: baseline; justify-content: space-between;">
         <div style="font: 700 13px 'Barlow Condensed', sans-serif; letter-spacing: 0.14em; text-transform: uppercase;">Hotel · 48 rooms</div>
         <div style="font: 700 20px/1 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums;">{{projectPct}}</div>
@@ -969,6 +984,8 @@ class Component extends DCLogic {
       noticeLine: '',
       lastPosted: 0,
       lastFromCash: false,
+      lastCode: 'Everything else',
+      lastCode: 'Everything else',
       lastEvicted: null,
       lastHeld: null,
       lastQueue: 0,
@@ -1005,6 +1022,13 @@ class Component extends DCLogic {
       dupeCleared: false,
       touched: false,
       voidAsk: false,
+      monthSpent: 412880,
+      byCode: [
+        { code: 'Materials', amount: 182400 },
+        { code: 'Labour', amount: 96200 },
+        { code: 'Subcontractors', amount: 61300 },
+        { code: 'Everything else', amount: 72980 }
+      ],
       boxName: 'Site cash box · Hotel',
       boxTopUp: 5000,
       boxLeft: 2340,
@@ -1029,9 +1053,9 @@ class Component extends DCLogic {
       entries: [
         { date: '18 Sep', who: 'Steva Enterprises', what: 'Money in · advance · Hotel', amount: 250000, dir: 'in', paidFrom: 'BML · MVR ····4471', billNo: 'ADV-0031' },
         { date: '17 Sep', who: 'Road Development Corp.', what: 'Excavator rental · Sept', amount: 42000, dir: 'in', paidFrom: 'BML · MVR ····4471', billNo: 'RDC-2209' },
-        { date: '16 Sep', who: 'Fuel Supplies Maldives', what: 'Diesel, 400 litres · Hotel', amount: 6120, dir: 'out', paidFrom: 'Site cash box · Hotel', billNo: 'FS-2291' },
-        { date: '15 Sep', who: 'Villa Hakatha', what: 'Cement, 120 bags · Hotel', amount: 28400, dir: 'out', paidFrom: 'BML · MVR ····4471', billNo: 'VH-7740' },
-        { date: '15 Sep', who: 'MTCC Ferry', what: 'Boat freight · Hotel', amount: 3900, dir: 'out', paidFrom: 'Office cash box', billNo: 'MTCC-1183' }
+        { date: '16 Sep', who: 'Fuel Supplies Maldives', what: 'Diesel, 400 litres · Hotel', amount: 6120, dir: 'out', code: 'Everything else', paidFrom: 'Site cash box · Hotel', billNo: 'FS-2291' },
+        { date: '15 Sep', who: 'Villa Hakatha', what: 'Cement, 120 bags · Hotel', amount: 28400, dir: 'out', code: 'Materials', paidFrom: 'BML · MVR ····4471', billNo: 'VH-7740' },
+        { date: '15 Sep', who: 'MTCC Ferry', what: 'Boat freight · Hotel', amount: 3900, dir: 'out', code: 'Everything else', paidFrom: 'Office cash box', billNo: 'MTCC-1183' }
       ]
     };
     this.setHeading = (el) => { if (el) { this.headingEl = el; } };
@@ -1128,6 +1152,20 @@ class Component extends DCLogic {
     if (i === 0) { this.setState({ boxLeft: this.state.boxLeft + add, cash: this.state.cash + add }); }
     else { this.setState({ officeBoxLeft: this.state.officeBoxLeft + add, cash: this.state.cash + add }); }
   }
+  shiftCode(rows, code, delta) {
+    const known = rows.some((x) => x.code === code);
+    const target = known ? code : 'Everything else';
+    return rows.map((x) => (x.code === target
+      ? { code: x.code, amount: Math.max(0, x.amount + delta) }
+      : x));
+  }
+  shiftCode(rows, code, delta) {
+    const known = rows.some((x) => x.code === code);
+    const target = known ? code : 'Everything else';
+    return rows.map((x) => (x.code === target
+      ? { code: x.code, amount: Math.max(0, x.amount + delta) }
+      : x));
+  }
   voidWith(reason) {
     this.allStop();
     const b = this.state.viewBill;
@@ -1152,6 +1190,8 @@ class Component extends DCLogic {
       total: this.state.total + back,
       displayTotal: this.state.total + back,
       cash: fromCash ? this.state.cash + back : this.state.cash,
+      monthSpent: Math.max(0, this.state.monthSpent - back),
+      byCode: this.shiftCode(this.state.byCode, (b && b.code) || 'Everything else', -back),
       entries: entries
     });
   }
@@ -1250,7 +1290,8 @@ class Component extends DCLogic {
     const total = firstDay ? 0 : s.displayTotal;
     const cash = firstDay ? 0 : s.cash;
     const totalStr = this.fmt(total);
-    const bandPx = totalStr.length >= 13 ? 40 : totalStr.length >= 11 ? 48 : totalStr.length >= 10 ? 56 : 64;
+    const monthStr = this.fmt(firstDay ? 0 : s.monthSpent);
+    const bandPx = monthStr.length >= 13 ? 40 : monthStr.length >= 11 ? 48 : monthStr.length >= 10 ? 56 : 64;
     const unitPx = bandPx >= 56 ? 22 : 18;
 
     const listRows = firstDay ? [] : s.entries;
@@ -1354,6 +1395,7 @@ class Component extends DCLogic {
         what: s.category + ' · Hotel',
         amount: posted,
         dir: 'out',
+        code: s.category,
         paidFrom: s.paidFrom,
         billNo: s.billNo === '' ? '—' : s.billNo
       };
@@ -1368,9 +1410,13 @@ class Component extends DCLogic {
         displayTotal: (firstDay ? 0 : this.state.displayTotal),
         lastPosted: posted,
         lastFromCash: fromCash,
+        lastCode: s.category,
+        lastCode: s.category,
         lastEvicted: base[4],
         lastHeld: heldNow ? this.state.held : null,
         lastQueue: this.state.queue,
+        monthSpent: (firstDay ? 0 : this.state.monthSpent) + posted,
+        byCode: this.shiftCode(firstDay ? [] : this.state.byCode, s.category, posted),
         held: heldNow ? this.state.held.filter((h, i) => i !== s.heldIndex) : this.state.held,
         queue: heldNow && this.state.queue > 0 ? this.state.queue - 1 : this.state.queue,
         entries: [entry].concat(base.slice(0, 4)),
@@ -1559,13 +1605,41 @@ class Component extends DCLogic {
         : '',
       billVoidable: bill ? (bill.dir === 'out' && !bill.voided) : false,
 
+      bandHeading: firstDay ? 'Spent so far' : 'Spent this month',
+      positionLine: firstDay
+        ? 'Nothing in the books yet'
+        : 'MVR ' + this.fmt(total) + ' in bank and cash',
+      showBreakdown: !firstDay,
+      codeBars: (() => {
+        const rows = s.byCode.filter((x) => x.amount > 0);
+        const top = rows.length === 0 ? 1 : Math.max.apply(null, rows.map((x) => x.amount));
+        return rows.map((x) => ({
+          code: x.code,
+          amount: this.fmt(x.amount),
+          fillStyle: 'display: block; height: 10px; width: ' + Math.max(2, Math.round((x.amount / top) * 100)) + '%; background: #141414;'
+        }));
+      })(),
+      bandHeading: firstDay ? 'Spent so far' : 'Spent this month',
+      positionLine: firstDay
+        ? 'Nothing in the books yet'
+        : 'MVR ' + this.fmt(total) + ' in bank and cash',
+      showBreakdown: !firstDay,
+      codeBars: (() => {
+        const rows = s.byCode.filter((x) => x.amount > 0);
+        const top = rows.length === 0 ? 1 : Math.max.apply(null, rows.map((x) => x.amount));
+        return rows.map((x) => ({
+          code: x.code,
+          amount: this.fmt(x.amount),
+          fillStyle: 'display: block; height: 10px; width: ' + Math.max(2, Math.round((x.amount / top) * 100)) + '%; background: #141414;'
+        }));
+      })(),
       bandStyle: 'display: flex; align-items: baseline; gap: 8px; font: 700 ' + bandPx + 'px/1 "Barlow Condensed", sans-serif; font-variant-numeric: tabular-nums; letter-spacing: -0.01em;',
       bandUnitStyle: 'font-size: ' + unitPx + 'px;',
-      displayTotal: totalStr,
+      displayTotal: monthStr,
       bankTotal: this.fmt(total - cash),
       cashTotal: this.fmt(cash),
       syncLine: offline ? 'No signal' : (firstDay ? 'Nothing to sync' : 'Synced 08:12'),
-      entries: entries,
+      entries: entries.slice(0, 3),
       listEmpty: firstDay,
       listFilled: !firstDay,
       listHeading: firstDay ? 'Your books' : 'Latest recorded',
@@ -1951,6 +2025,8 @@ class Component extends DCLogic {
           cash: this.state.lastFromCash ? this.state.cash + back : this.state.cash,
           entries: evicted ? rest.concat([evicted]) : rest,
           lastEvicted: null,
+          monthSpent: this.state.monthSpent - back,
+          byCode: this.shiftCode(this.state.byCode, this.state.lastCode, -back),
           held: this.state.lastHeld === null ? this.state.held : this.state.lastHeld,
           queue: this.state.lastHeld === null ? this.state.queue : this.state.lastQueue,
           lastHeld: null,
