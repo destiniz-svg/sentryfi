@@ -41,7 +41,7 @@ export function UIProvider({ children }) {
       const id = nextId();
       setToasts((prev) => [...prev, { id, title, description, variant }]);
       if (duration > 0) {
-        const timer = setTimeout(() => dismiss(id), duration);
+        const timer = t.variant === "error" ? null : setTimeout(() => dismiss(id), duration);
         timers.current.set(id, timer);
       }
       return id;
@@ -86,7 +86,12 @@ export function useUI() {
 
 function ToastViewport({ toasts, dismiss }) {
   return (
-    <div className="pointer-events-none fixed top-5 right-5 z-50 flex flex-col gap-2.5 w-[360px] max-w-[calc(100vw-32px)]">
+    <div
+      role="status"
+      aria-live="polite"
+      aria-atomic="false"
+      className="pointer-events-none fixed top-5 right-5 z-50 flex flex-col gap-2.5 w-[360px] max-w-[calc(100vw-32px)]"
+    >
       <AnimatePresence initial={false}>
         {toasts.map((t) => {
           const variant = VARIANTS[t.variant] || VARIANTS.info;

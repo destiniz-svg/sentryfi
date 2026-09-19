@@ -154,7 +154,7 @@ export function AuthField({
           minLength={minLength}
           className={`peer w-full h-12 ${
             Icon ? "pl-11 pr-4" : "px-4"
-          } rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-[15px] text-[var(--ink)] placeholder:text-[var(--ink-muted)]/60 outline-none transition-all duration-200 focus:border-[var(--accent)]/40 focus:ring-4 focus:ring-[var(--accent)]/10`}
+          } rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-[15px] text-[var(--ink)] placeholder:text-[var(--ink-muted)]/60 outline-none transition-all duration-200 focus:border-[var(--ink)] focus:ring-4 focus:ring-[var(--ink)]`}
         />
         {Icon && (
           <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--ink-muted)]/55 peer-focus:text-[var(--accent-strong)] peer-[:not(:placeholder-shown)]:text-[var(--accent-strong)] transition-colors">
@@ -171,10 +171,10 @@ export function AuthPrimaryButton({ children, disabled, ...props }) {
     <motion.button
       whileTap={{ scale: 0.985 }}
       disabled={disabled}
-      className="relative w-full h-12 rounded-2xl text-white font-semibold text-[15px] flex items-center justify-center gap-2 overflow-hidden shadow-[0_8px_24px_-8px_rgba(13,148,136,0.55)] transition-all duration-200 hover:shadow-[0_12px_28px_-8px_rgba(13,148,136,0.7)] disabled:opacity-60 disabled:cursor-not-allowed"
+      className="relative w-full h-12 rounded-2xl text-[var(--ink)] font-semibold text-[15px] flex items-center justify-center gap-2 overflow-hidden shadow-[0_8px_24px_-8px_rgba(13,148,136,0.55)] transition-all duration-200 hover:shadow-[0_12px_28px_-8px_rgba(13,148,136,0.7)] disabled:opacity-60 disabled:cursor-not-allowed"
       style={{
         background:
-          "linear-gradient(135deg, #141414 0%, #f2c300 50%, #141414 100%)",
+          "#f2c300",
       }}
       {...props}
     >

@@ -17,7 +17,7 @@ export function Checkbox({ checked, onChange, className, label }) {
         className={cn(
           "h-4 w-4 rounded-md border flex items-center justify-center transition-colors",
           checked
-            ? "bg-[var(--accent)] border-transparent text-white"
+            ? "bg-[var(--accent)] border-transparent text-[var(--ink)]"
             : "bg-[var(--surface)] border-[var(--border)] text-transparent"
         )}
       >

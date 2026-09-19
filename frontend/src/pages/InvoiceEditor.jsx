@@ -183,7 +183,7 @@ export default function InvoiceEditor() {
   }
 
   const selectClass =
-    "h-10 w-full rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-sm text-[var(--ink)] outline-none focus:border-[var(--accent)]/50 focus:ring-2 focus:ring-[var(--accent)]/15";
+    "h-10 w-full rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-sm text-[var(--ink)] outline-none focus:border-[var(--ink)] focus:ring-[3px] focus:ring-[var(--ink)]";
   const symbol = CURRENCIES.find((c) => c.code === form.currency)?.symbol || "$";
 
   return (
@@ -279,6 +279,17 @@ export default function InvoiceEditor() {
                 <CatalogPicker onPick={addCatalogItem} />
                 <ReceiptScanButton
                 onParsed={(res) => {
+                  const hasWork = form.items.some(
+                    (it) => (it.description || "").trim() || Number(it.rate)
+                  );
+                  if (
+                    hasWork &&
+                    !window.confirm(
+                      "Replace the lines already on this invoice with what the bill says?"
+                    )
+                  ) {
+                    return;
+                  }
                   set({
                     items: res.lineItems?.length
                       ? res.lineItems.map((li) => ({
@@ -526,7 +537,7 @@ function NoteField({ label, value, onChange, placeholder, aiKind, aiContext }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--ink)] placeholder:text-[var(--ink-muted)] outline-none resize-y focus:border-[var(--accent)]/50 focus:ring-2 focus:ring-[var(--accent)]/15"
+        className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--ink)] placeholder:text-[var(--ink-muted)] outline-none resize-y focus:border-[var(--ink)] focus:ring-[3px] focus:ring-[var(--ink)]"
       />
     </div>
   );

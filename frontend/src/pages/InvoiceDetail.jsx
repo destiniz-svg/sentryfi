@@ -28,10 +28,13 @@ import {
 import { useSettings } from "@/hooks/useSettings";
 import { aiApi } from "@/api/ai";
 import { formatMoney, formatDate, cn } from "@/lib/utils";
+import { useToast } from "@/context/UIContext";
 
 export default function InvoiceDetail() {
   const { id } = useParams();
   const nav = useNavigate();
+  const [confirmPaid, setConfirmPaid] = useState(false);
+  const toast = useToast();
   const { data: invoice, isLoading, error } = useInvoice(id);
   const { data: settings } = useSettings();
   const setStatus = useSetInvoiceStatus();
@@ -123,13 +126,62 @@ export default function InvoiceDetail() {
         />
         <StatusButton
           active={isPaid}
-          onClick={() => setStatus.mutate({ id, status: "paid" })}
+          onClick={() => setConfirmPaid(true)}
           icon={CheckCircle2}
           label="Paid"
           tone="success"
         />
         {setStatus.isPending && <Loader2 size={14} className="animate-spin text-[var(--ink-muted)]" />}
       </div>
+
+      {confirmPaid && !isPaid && (
+        <div
+          role="group"
+          aria-label="Confirm this invoice is paid"
+          className="mb-6 rounded-[14px] bg-[var(--ink)] text-[var(--bg)] p-4 flex flex-wrap items-center gap-x-4 gap-y-3"
+        >
+          <span className="flex flex-col min-w-0">
+            <span className="text-[15px] font-semibold">
+              Mark {invoice.invoice_number} paid
+            </span>
+            <span className="text-[13px] opacity-80 tabular">
+              {formatMoney(invoice.total, invoice.currency)}
+              {invoice.client_name ? ` from ${invoice.client_name}` : ""}
+            </span>
+          </span>
+          <span className="flex items-center gap-2 ml-auto">
+            <button
+              type="button"
+              autoFocus
+              onClick={() => {
+                setConfirmPaid(false);
+                setStatus.mutate(
+                  { id, status: "paid" },
+                  {
+                    onSuccess: () =>
+                      toast.success(
+                        `${invoice.invoice_number} marked paid · ${formatMoney(
+                          invoice.total,
+                          invoice.currency
+                        )}`
+                      ),
+                  }
+                );
+              }}
+              className="h-10 px-4 rounded-full bg-[var(--accent)] text-[var(--ink)] text-[14px] font-semibold"
+            >
+              Yes, it is paid
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmPaid(false)}
+              className="h-10 px-4 rounded-full border border-white/40 text-[14px] font-semibold"
+            >
+              Not yet
+            </button>
+          </span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Invoice preview */}

@@ -51,7 +51,7 @@ export function StatCard({
       variant={accent ? "accent" : "default"}
       className={cn(
         "relative overflow-hidden",
-        accent && "text-white"
+        accent && "text-[var(--bg)]"
       )}
     >
       <div className="flex items-start justify-between gap-4">
@@ -62,7 +62,7 @@ export function StatCard({
                 className={cn(
                   "h-7 w-7 rounded-full flex items-center justify-center",
                   accent
-                    ? "bg-white/15 text-white"
+                    ? "bg-white/15 text-[var(--bg)]"
                     : "bg-[var(--accent-soft)] text-[var(--accent-strong)]"
                 )}
               >
@@ -72,7 +72,7 @@ export function StatCard({
             <span
               className={cn(
                 "text-xs",
-                accent ? "text-white/70" : "text-[var(--ink-muted)]"
+                accent ? "text-[var(--bg)]/75" : "text-[var(--ink-muted)]"
               )}
             >
               {label}
@@ -86,7 +86,7 @@ export function StatCard({
               <span
                 className={cn(
                   "text-sm font-medium",
-                  accent ? "text-white/70" : "text-[var(--ink-muted)]"
+                  accent ? "text-[var(--bg)]/75" : "text-[var(--ink-muted)]"
                 )}
               >
                 {suffix}
@@ -96,7 +96,7 @@ export function StatCard({
           {delta != null && (
             <Badge
               tone={accent ? "ink" : positive ? "success" : "danger"}
-              className={cn(accent && "bg-white/15 text-white")}
+              className={cn(accent && "bg-white/15 text-[var(--bg)]")}
             >
               {positive ? "+" : ""}
               {delta}%

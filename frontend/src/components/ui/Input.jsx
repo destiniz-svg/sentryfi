@@ -6,7 +6,7 @@ export const Input = forwardRef(({ className, type = "text", ...props }, ref) =>
     ref={ref}
     type={type}
     className={cn(
-      "h-10 w-full rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-sm text-[var(--ink)] placeholder:text-[var(--ink-muted)] outline-none transition-colors focus:border-[var(--accent)]/50 focus:ring-2 focus:ring-[var(--accent)]/15 disabled:opacity-50",
+      "h-10 w-full rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-sm text-[var(--ink)] placeholder:text-[var(--ink-muted)] outline-none transition-colors focus:border-[var(--ink)] focus:ring-[3px] focus:ring-[var(--ink)] disabled:opacity-50",
       className
     )}
     {...props}

@@ -9,7 +9,7 @@ const cardVariants = cva(
       variant: {
         default: "hover:shadow-hover",
         accent:
-          "bg-[var(--accent-hero)] text-white border-transparent bg-[image:linear-gradient(135deg,var(--accent-hero-2)_0%,var(--accent-hero)_55%,var(--accent-hero)_100%)]",
+          "bg-[var(--ink)] text-[var(--bg)] border-transparent",
         flat: "",
       },
       radius: {
