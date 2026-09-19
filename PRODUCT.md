@@ -8,7 +8,9 @@ web
 
 ## Stack
 
-Next.js 15 (App Router) with React 19 and TypeScript, Tailwind CSS v4, shadcn/ui, Motion (Framer Motion), shipped as an installable Progressive Web App. Backend is Next.js server actions and route handlers in one monolith, Drizzle ORM on Railway managed PostgreSQL, Cloudflare R2 for receipt images, Better Auth (self-hosted) for passkeys and roles, Anthropic Claude vision (Haiku 4.5 primary, Sonnet fallback) for receipt extraction, Microsoft Graph for OneDrive backups. Hosted on Railway, Singapore region, with staging and production environments. Tests: Vitest and Playwright. Confirmed by the owner on 19 September 2026 as the stack in the build plan.
+npm workspaces. Backend is Express 5 on Node, talking to PostgreSQL through `pg` with hand-written SQL — no ORM, because the ledger's guarantees live in constraints, triggers and row-level security, and an ORM's job is to hide exactly that. Zod validates every request. Sessions are JWT in an http-only cookie with bcrypt password hashing. Google Gemini reads photographed bills. Frontend is Vite, React 19, Tailwind v4, TanStack Query v5, framer-motion and @react-pdf/renderer, route-split and served by the same Express process, so Railway runs one service. Hosted on Railway, Singapore region. Playwright drives the system Chrome for looking at what has been built.
+
+Recorded 19 September 2026 by reading what is deployed. The previous entry here described Next.js 15, Drizzle, Better Auth, Cloudflare R2, Anthropic vision and Microsoft Graph; none of those are in the repository, and a stack section that describes an intention rather than a fact is worse than none.
 
 ## Users
 
@@ -37,13 +39,69 @@ Roles are held per company, not per person, so the same individual can be an adm
 
 ## Product Purpose
 
-**The goal: Altura's books are kept in Sentryfi. Every bill is recorded within minutes of arriving, by whoever is holding it, and every GST return is filed from the app by the 28th.**
+**A complete accounting core that any business can keep its books in, with the modules and the tax rules it actually needs switched on. Altura's books are kept in it first, and prove it.**
 
-That sentence is the whole of it, it is final, and every decision is judged against it. Does this get a bill into the books faster, or a return filed more safely? If neither, it waits. The ordered plan to reach it is `TODO.md`.
+Three parts, in this order, decided 19 September 2026 after reviewing the 2026 market research on automated accounting against what is built:
 
-Sentryfi's promise to the user is "Snap it. Record it. Done." Photograph a bill, check what was read, confirm. Behind the plain-language interface a correct double-entry ledger keeps the books right without anyone reading the word debit.
+1. **The core is finished to 100% before anything is built on it.** Not most of it. A double-entry system that is 80% complete is not 80% useful — it is a system whose figures cannot be trusted, because the missing fifth is where the money went. The core is listed below and nothing in it is optional.
+2. **Every other capability exists, and each one is switched on per company.** A contractor turns on projects and retention. A rental business turns on machines and utilisation. A hotel turns on rooms and occupancy. Nobody is shown a module they do not use, and nobody is told a capability does not exist because their industry is not the one the product was built for.
+3. **The tax rules are configuration, not code.** A Maldivian company gets GST at 8%, the inclusive-or-exclusive question, unregistered suppliers, TIN and GST numbers, and the MIRA return formats. A company anywhere else gets its own rates, its own periods and its own forms. The core does not know what country it is in; the pack does.
 
-It exists because the owner runs a construction company, three related entities and a hotel build without an accountant on staff and without accounting vocabulary, and because no product built elsewhere files a Maldivian return.
+Altura is the proving ground rather than the specification. Every bill recorded within minutes of arriving, every return filed from the app on time — if it cannot do that for one construction company in the Maldives, the wider product is a claim rather than a fact.
+
+Sentryfi's promise to the person using it stays "Snap it. Record it. Done." Photograph a bill, check what was read, confirm. Behind the plain-language interface a correct double-entry ledger keeps the books right without anyone reading the word debit.
+
+## The Core
+
+Finished to 100%. This is the list, and the build plan in `TODO.md` works through it in order. A capability is in the core when the books are wrong without it.
+
+- **The ledger.** Double-entry, whole-laari integers, balanced entries enforced by the database, a hash chain so an altered record shows, and each company's books sealed off by the database rather than by queries remembering to filter. *Done 19 September 2026.*
+- **The chart of accounts.** Per company, editable, with a sensible starting set.
+- **Money owed (AP).** Bills, supplier accounts, how their tax was quoted, duplicate detection, approval, payment.
+- **Money owed to you (AR).** Sales invoices, customer accounts, receipts, what is overdue.
+- **Cash and bank.** Accounts, balances, transfers, cash boxes held by named people.
+- **The bank agrees with the books.** Statement import per bank's own format, matching, and an exception list a person clears.
+- **Periods and closing.** A period that can be closed, and closed periods that refuse new entries without an adjustment.
+- **Financial statements.** Trial balance, profit and loss, balance sheet, produced from the ledger and not from a document.
+- **Multi-currency.** Held in the currency transacted, reported in the company's own, with the rate used recorded rather than recomputed.
+- **The tax engine.** Rates, periods, treatments and forms as versioned configuration, so a rate change does not rewrite history and a new country does not need new code.
+- **Who may do what.** Roles per company, capabilities not job titles, enforced in the database. *Foundation done 19 September 2026.*
+- **The paper.** Every record's supporting document attached, addressed by content hash, retrievable by name for as long as the law requires.
+- **The trail.** Nothing deleted, every correction a reversing entry carrying a reason, and every change answerable as who, when and why.
+
+## Modules
+
+Each one is switched on per company and invisible when it is off. None of them may change how the core records money; they add dimensions, documents and screens on top of it.
+
+- **Projects and job costing.** Budgets, cost codes, budget against actual, cost to complete, project profitability.
+- **Procurement.** Purchase requests, orders, goods received, three-way matching, spending limits and approvals.
+- **Construction.** Bills of quantity, variations, progress claims, retention, certified work, work in progress.
+- **Equipment and rental.** Machine register, utilisation, hours, fuel and maintenance cost, machine-level profitability, rate cards.
+- **Inventory and fuel.** Quantity-based stock, landed cost, margin per unit, opening plus purchases less sales equals closing.
+- **Hospitality.** Rooms, occupancy, ADR and RevPAR, food and beverage, guest deposits, agent commissions.
+- **Petty cash.** Boxes held by named people, spending with or without a bill, counts, top-ups, reimbursement.
+- **Payroll.** Deferred until the core is finished; it touches tax in every jurisdiction differently.
+
+## Jurisdictions
+
+A jurisdiction pack is data, not code: rates with effective dates, what a compliant invoice must show, filing periods, form layouts and the vocabulary a local accountant expects.
+
+- **Maldives.** GST 8% general and 17% tourism, quoted inclusive by some suppliers and added on top by others, and not charged at all by the many who are not registered. TIN and GST numbers. Filing by the 28th through MIRAconnect with Input and Output Tax Statements. Green Tax per guest night. Corporate income tax bands. The 24 revenue types MIRA administers. Records kept five years.
+- **Generic.** A configurable single-rate or multi-rate consumption tax, arbitrary period lengths, and no filing forms — enough for a company outside the Maldives to keep correct books without the product pretending it can file for them.
+
+Adding a country is writing a pack. It must never mean touching the ledger.
+
+## What a company chooses
+
+Set once when the books are opened, changeable afterwards by an administrator.
+
+- Which jurisdiction, and therefore which tax rules and forms.
+- Which modules are on.
+- The reporting currency, and which currencies are transacted.
+- The chart of accounts, from a starting set or their accountant's own.
+- Which roles exist and what each may do, from the standard set.
+- Period length, and when a period closes.
+- Whether the interface speaks plainly or in accounting terms — the same ledger underneath, described two ways, because an owner and their accountant are not reading for the same thing.
 
 ## Current state, honestly
 
@@ -67,7 +125,13 @@ Two findings from that critique are worth carrying as standing warnings rather t
 
 ## Positioning
 
-A Maldives-native finance app. It produces MIRA-format GST return figures and the exact Excel Input and Output Tax Statements for MIRAconnect, reads Dhivehi and mixed MVR/USD receipts, and models the Altura, Steva Hotels, and Steva Enterprises group with intercompany mirroring. Zoho Books, QuickBooks, and Xero produce none of these. Local competitors are Zoho resellers and manual bookkeeping firms. The plain-language double-entry ledger with an Accountant view toggle is the second differentiator: correct books for people who will never learn accounting.
+A complete accounting core with the industry modules and the tax pack a company actually needs, rather than a general ledger that assumes every business is the same one.
+
+The Maldives pack is the sharp end and the reason this exists: it produces MIRA-format return figures and the exact Input and Output Tax Statements for MIRAconnect, reads mixed MVR and USD documents, records which way round a supplier quoted GST, and knows that many suppliers are not registered at all. Zoho Books, QuickBooks and Xero produce none of that, and the 2026 market research reviewed on 19 September 2026 shows no vendor addressing it either.
+
+The second difference is who the interface is for. A correct double-entry ledger, described in plain words to the person who owns the business and in accounting terms to their accountant, from the same records. Most products pick one audience and make the other learn.
+
+The third is the order it was built in. The ledger came before any screen: balanced entries enforced by the database, a hash chain, per-company isolation. The market research names that ordering as the right one and most products did the reverse, bolting automation onto a flat record store. Retrofitting it is expensive; we do not have to.
 
 ## Operating Context
 

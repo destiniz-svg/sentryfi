@@ -1,12 +1,20 @@
 # Build plan
 
-Revised 19 September 2026. Written so anyone can follow it, not just whoever wrote the code.
+Revised 19 September 2026, after comparing what is built against the 2026 market research on automated accounting. Written so anyone can follow it, not just whoever wrote the code.
 
 ## The goal
 
-**Altura's books are kept in Sentryfi. Every bill is recorded within minutes of arriving, by whoever is holding it, and every tax return is filed from the app on time.**
+**A complete accounting core that any business can keep its books in, with the modules and the tax rules it actually needs switched on. Altura's books are kept in it first, and prove it.**
 
-That does not change. Every decision is judged against one question: does this get a bill into the books faster, or a return filed more safely? If neither, it waits.
+Altura is the proving ground, not the specification: every bill recorded within minutes of arriving, every return filed from the app on time. If it cannot do that for one construction company in the Maldives, the rest is a claim rather than a fact.
+
+## Three rules about what gets built when
+
+**The core is finished to 100% before anything sits on it.** A double-entry system that is four-fifths done is not four-fifths useful — it is a system whose figures cannot be trusted, because the missing fifth is where the money went. Everything in the core list below is required. Nothing in it is optional.
+
+**Every other capability exists, and each is switched on per company.** A contractor turns on projects and retention; a rental business turns on machines and utilisation; a hotel turns on rooms and occupancy. Nobody is shown a module they do not use, and nobody is told a capability does not exist because their industry was not the one it was built for.
+
+**Tax rules are configuration, not code.** The Maldives gets GST at 8%, the inclusive-or-exclusive question, unregistered suppliers, and MIRA's forms. Anywhere else gets its own rates and periods. Adding a country means writing a pack; it must never mean touching the ledger.
 
 ## Two halves, two standards
 
@@ -20,11 +28,9 @@ Both at once. Simple on top is only honest if it is correct underneath.
 
 The point is not that the app has an accounting engine. It is that the engine does the remembering, so the person does not have to.
 
-Three things follow, and they shape every screen:
-
 **It tells you what needs you.** One place that answers "what am I holding up?" Bills nobody has read. A supplier billed twice. A cash box nobody has counted in three weeks. Eleven days to the filing deadline and two things still wrong with the return. The owner should never have to go looking for the thing that is about to bite.
 
-**It only asks when it is genuinely unsure.** A clear bill from a known supplier goes in without a question. A bill that might be a duplicate, an amount it could not read, a supplier it has never seen: those it puts in front of a person. Everything else it handles.
+**It only asks when it is genuinely unsure.** A clear bill from a known supplier goes in without a question. A bill that might be a duplicate, an amount it could not read, a supplier it has never seen: those it puts in front of a person. Everything else it handles. The market research calls this exception-first accounting and lists it among the 2026 differentiators; it has been the rule here from the start and shipped on 19 September 2026.
 
 **It keeps working when nobody is watching.** Bills queue with no signal. The return assembles itself through the month. Nothing waits for a Sunday evening to catch up.
 
@@ -57,6 +63,12 @@ A person can hold more than one of these, and the roles are per company, so the 
 
 One line. Each step finishes before the next starts, because building on a foundation that is about to be replaced means building twice.
 
+Steps 1 to 12 are **the core**, and it is not finished until all twelve are. Steps 13 onward are the modules, each switched on per company. The AI layer sits on top of all of it and is built last, because it can only be as good as the records underneath it.
+
+---
+
+# Part one — the core
+
 ---
 
 ### 1. Get the money right — done 19 September 2026
@@ -69,67 +81,49 @@ Today the app stores amounts the way a calculator does, which drifts by fraction
 
 **Done when:** a bill produces a balanced entry, the seal verifies from the first record to the last, and a query for another company's books comes back empty.
 
-**What happened.** All three hold, checked against the real database rather than a stand-in, because the parts that matter here are exactly the parts a stand-in gets wrong. `npm run ledger:selftest` runs 40 checks inside a transaction it rolls back, so it is safe to run against live data and leaves nothing behind. It passes.
+**What happened.** All three hold, checked against the real database rather than a stand-in. `npm run ledger:selftest` now runs 88 checks inside a transaction it rolls back, and passes.
 
 Worth knowing:
 
-- **Nothing had to be migrated.** The question was whether to carry the existing records over or start clean. The database turned out to hold one user account and nothing else — no invoices, no expenses, no customers. So there was no decision to make. The ledger sits alongside the old tables, which are still what the screens use until step 2 moves them.
-- **One real problem was found and fixed.** Railway hands out a Postgres superuser, and a superuser ignores the walls between companies completely. Written the obvious way, the isolation rules would have been present, correct, and protecting nobody — and would have looked right in the code. The app now steps into a restricted role for the length of each transaction. A useful side effect: the app has no permission to alter or delete a posted record, so a bug cannot do it either.
-- **The seal earns its place.** The test doctors a bill from MVR 4,250.50 to MVR 42,500.50 on both sides at once, with the safety triggers switched off, which is what someone with direct database access would do. The entry still balances and the books still add up, so nothing else notices. The seal catches it and names the altered entry.
-- **A correction never hides anything.** Reversing an entry writes a new opposite entry with a reason. The original stays. Reversing the same thing twice is refused.
+- **Nothing had to be migrated.** The database held one user account and nothing else, so there was no decision to make.
+- **Railway hands out a Postgres superuser, and a superuser ignores the walls between companies completely.** Written the obvious way the isolation rules would have been present, correct, and protecting nobody. The app now steps into a restricted role for the length of each transaction, and as a side effect has no permission to alter or delete a posted record.
+- **The seal earns its place.** The test doctors a bill from MVR 4,250.50 to MVR 42,500.50 on both sides at once with the safety triggers off. The entry still balances and the books still add up, so nothing else notices. The seal catches it and names the altered entry.
+- **A correction never hides anything.** Reversing writes a new opposite entry with a reason. The original stays.
 
 ---
 
-### 2. Get bills in, from wherever they arrive
+### 2. Get bills in, from wherever they arrive — mostly done 19 September 2026
 
 The owner's hardest job, and the reason this exists.
 
-**You will be able to:** photograph a bill and have it in the books in three taps. Hand a cash box to someone on site and see what they spend, with a bill or without. Catch a supplier billed twice before it is paid twice. Undo the last ten seconds. Correct anything afterwards, with a reason, without deleting it.
+**You will be able to:** photograph a bill and have it in the books in three taps. Catch a supplier billed twice before it is paid twice. Correct anything afterwards, with a reason, without deleting it.
 
-**Under the bonnet:** bills as money owed, each recording which way its tax was quoted, because some suppliers add it on top, some include it, and many are not registered and charge none. Suppliers matched loosely, because one real invoice spells its own issuer two different ways. Receipt images filed where an auditor can find them by name.
+**Where it got to.** Bills, suppliers, projects and cost codes exist; a bill becomes a balanced entry; the photograph is read and only what it is genuinely unsure of is put in front of a person.
 
-**Done when:** a bill photographed on site is in the books in three taps, a duplicate is stopped before it posts, and a cash count that does not balance is recorded with its reason rather than quietly hidden.
+- **The tax decision is recorded, never guessed.** The same printed MVR 4,250.50 is 3,935.65 plus 314.85 when the price includes tax, and 4,590.54 when the tax goes on top — MVR 340.04 of difference on one bill, and an 8% overstatement if read the wrong way. "I am not sure" is a real answer that keeps the bill out of the books until somebody decides.
+- **An unregistered supplier's bill claims nothing**, and the database refuses to record tax against one.
+- **A supplier billed twice is stopped.** Same supplier and bill number refuses to post and the database refuses the pair. Same amount within a fortnight is raised as worth a look but still posts, because a monthly charge looks exactly like that.
+- **A supplier's name is not a key.** Each carries the other spellings it is known by, because one real invoice spells its own issuer two ways on one page.
 
-**Where it has got to (19 September 2026).** The part underneath is in and proved: bills, suppliers, projects and cost codes exist, a bill becomes a balanced entry, and `npm run ledger:selftest` now runs 62 checks against the real database and passes.
+**Still owed here:** the photograph kept against the bill as supporting paper, the ten-second undo, and the phone version — this is the desk only, so "three taps on site" is not yet true. Reading needs `GEMINI_API_KEY` on the deployment, which is not set.
 
-- **The tax decision is recorded, never guessed.** The same printed MVR 4,250.50 is 3,935.65 plus 314.85 when the price includes tax, and 4,590.54 when the tax goes on top. That is MVR 340.04 of difference on one bill, and an 8% overstatement of the claim if read the wrong way round. A bill nobody has told it about is saved but refuses to post, and even the 8% general rate is not assumed when no rate was recorded.
-- **An unregistered supplier's bill claims nothing.** It posts with two lines instead of three, and the database refuses outright to record tax against one.
-- **A supplier billed twice is stopped.** Same supplier and same bill number refuses to post and the database refuses the pair as well. Same supplier and same amount within a fortnight is raised as worth a look but still posts, because a monthly charge looks exactly like that.
-- **A supplier's name is not a key.** Each supplier carries the other spellings it is known by, because one real invoice spells its own issuer two ways on one page and the bank truncates it to 35 characters.
-
-**Bills are now reachable.** Recording a bill and posting it are separate acts, deliberately: getting the bill in must never be blocked by a question, because the person holding it is standing on a site, while deciding what it means can happen later at a desk. A supplier name that matches nothing becomes a supplier rather than stopping the capture, because merging two later is cheap and losing the bill is not.
-
-**A bill can now be recorded from a screen (19 September 2026).** On the desk, not yet on a phone. It asks who the bill is from, how much, when, its number, and how the GST was quoted — the one thing that cannot be worked out afterwards. The four answers are in plain words, and "I am not sure" is a real one: it keeps the bill out of the books until somebody decides rather than letting the app pick. A possible duplicate never loses the bill; it is recorded either way and the warning says what it resembles and why, because a bill that vanished for looking familiar is worse than one recorded twice and sorted out. The list answers "what needs me?" rather than "show me the posted ones", and every action is gated on what the person may actually do, read from the server rather than decided by the screen.
-
-**The photograph works (19 September 2026).** Photograph the bill and the app reads the supplier, the number, the date, the amounts and how the GST was quoted, then asks only about what it was genuinely unsure of. A supplier already known to be unregistered is never asked about, because the app knowing something beats reading it off paper. Scanning records nothing: what was read goes into the form so it can be checked against the paper first.
-
-It refuses to guess the tax treatment, and "unknown" is a correct answer rather than a failure. Reading an exclusive bill as inclusive overstates a claim by 8%, and the mistake is invisible afterwards because both readings produce a believable number.
-
-**One thing is not switched on:** reading needs `GEMINI_API_KEY` on the deployment and it is not set. The button ships and says so plainly rather than blaming the photograph.
-
-**Still to come in this step:** the cash boxes, the ten-second undo, keeping the photograph itself against the bill as the supporting paper, and the phone board version of all of it — this is the desk register only, so "three taps on site" is not yet true.
+**New, from the market research:** **a supplier's bank details changing between bills is flagged before payment.** Invoice-redirection fraud works by sending a real supplier's next bill with a new account number, and a contractor paying suppliers by transfer is exactly the target. The supplier record already holds its accounts; comparing them costs nothing.
 
 ---
 
-### 3. Buying, and what actually arrived
+### 3. Money owed to you
 
-New, from the procurement scenario. Today a site purchase becomes one photograph and a hope.
+Sales invoices on the ledger rather than on the purchased tool's tables. Customers, what they owe, what is overdue, receipts against invoices, credit notes.
 
-**The problem it solves.** A procurement officer buys twenty tonnes of cement on Tuesday and photographs the delivery note. The supplier invoices the office a fortnight later. Right now those are two unrelated records, so the cost is counted twice or the invoice is paid without anyone checking it against what turned up. On a construction job that happens weekly.
-
-**You will be able to:** record what was ordered, confirm what arrived, and have the supplier's invoice line up against both. If the invoice says twenty tonnes and eighteen arrived, the app says so before anyone pays. Give a procurement officer a spending limit, so purchases above it wait for an approver, and purchases below it just happen.
-
-**Under the bonnet:** the ordered, received and invoiced quantities held separately and matched. Approval thresholds per person. Partial deliveries handled, because they are normal.
-
-**Done when:** an order, a delivery and an invoice for the same cement become one cost, not three, and a short delivery is caught before payment.
+**Done when:** an invoice raised here posts a balanced entry, a receipt against it settles the right amount, and the aged list is a ledger query rather than a document query.
 
 ---
 
-### 4. Money coming in
+### 4. Cash and bank
 
-**You will be able to:** raise an invoice and see it as the customer will. Record money in against where it came from: a director, another company in the group, the excavator rental. See each director's contributions and running total without maintaining a second list. When a bill is addressed to one company and paid by another, be asked, then have both sides recorded.
+Bank accounts and cash boxes as real accounts in the books, with balances that come from the ledger. Transfers between them. Cash boxes held by named people, spending with or without a bill, counts, and top-ups.
 
-**Done when:** a director's cash and an equipment rental invoice both land correctly, and the real case of a council bill addressed to one company and paid by another is caught and mirrored.
+**Done when:** every account's balance is derived from journal lines and nothing stores a balance of its own, and a cash count that does not balance is recorded with its reason rather than quietly hidden.
 
 ---
 
@@ -137,47 +131,129 @@ New, from the procurement scenario. Today a site purchase becomes one photograph
 
 **You will be able to:** export a statement from internet banking, drop it in, and have most of it match itself. The app answers the ones it can and asks about the rest. Leaving one for later counts as an answer, so the list always clears.
 
-**Under the bonnet:** the bank prints the same reference on the statement and on the transfer receipt your staff photograph, which is why most rows need no guessing. Card purchases carry no reference, which is why those are the ones it asks about. The file's column layout is read, not assumed, so a change at the bank does not break the import.
+**Under the bonnet:** the bank prints the same reference on the statement and on the transfer receipt your staff photograph, which is why most rows need no guessing. Card purchases carry no reference, which is why those are the ones it asks about. The file's column layout is read, not assumed, so a change at the bank does not break the import and another bank's format is configuration rather than code.
 
 **Done when:** a real nine-month export imports cleanly, most rows match without help, and nothing posts without a person saying so.
 
 ---
 
-### 6. The return, ready before the deadline
+### 6. Periods, and closing one
+
+A period that can be closed, and a closed period that refuses new entries without a deliberate adjustment. Without this there is no such thing as a final figure, and every report is provisional forever.
+
+**Done when:** a closed month refuses a new entry, an adjustment into it is possible, deliberate and recorded, and reopening is an act with a name on it.
+
+---
+
+### 7. The statements
+
+Trial balance, profit and loss, and balance sheet, produced from journal lines and from nothing else. These are how an accountant checks the work, and until they exist nobody outside can verify anything.
+
+**Done when:** the trial balance is zero, the balance sheet balances, and both agree with the ledger at any date asked for.
+
+---
+
+### 8. More than one currency
+
+Amounts held in the currency they happened in, reported in the company's own, with the rate used stored rather than recomputed on read. Altura already banks in MVR and USD.
+
+**Done when:** a USD bill and an MVR bill sit in the same books, the reported total is right, and last year's figures do not move when today's rate does.
+
+---
+
+### 9. The tax engine
+
+Rates, periods, treatments and forms as versioned configuration with effective dates. A rate change must not rewrite history: a bill keeps the rate it was quoted at. A new country must be a pack, not a release.
+
+**Done when:** the Maldives pack drives everything the app currently hard-codes, a second generic pack exists, and changing a rate from a date leaves every earlier bill untouched.
+
+---
+
+### 10. The return, ready before the deadline
 
 The thing nobody else does.
 
 **You will be able to:** open the tax centre any day of the month and see what you owe so far, what still needs looking at, and how long is left. Before filing, see plainly what is already correct and what would make the return wrong. Produce the figures and both spreadsheets in the exact format the portal expects, with every receipt behind them.
 
-**Under the bonnet:** costs carried against projects and cost codes, so project spending is a question the books answer rather than a spreadsheet someone maintains. The other charges the authority collects, not tax alone.
+**Under the bonnet:** the other charges the authority collects, not tax alone — MIRA administers 24 revenue types and three of them apply to Altura and are not modelled yet.
 
 **Done when:** one month produces a pack that is keyed into the portal without opening a spreadsheet.
 
 ---
 
-### 7. The right people, and only their own job
+### 11. The right people, and only their own job — foundation done 19 September 2026
 
-**You will be able to:** add the people above and trust the boundaries. Site staff reach the camera and nothing else. A cash holder sees one number. A procurement officer sees their own orders. Directors read and never post.
+**You will be able to:** add people and trust the boundaries. Site staff reach the camera and nothing else. A cash holder sees one number. A procurement officer sees their own orders. Directors read and never post.
 
-**Under the bonnet:** enforced in the database, not in the screens, so no missing check anywhere can leak one person's data to another. Sign-in by passkey. Changing a password ends every other session, which it does not today.
+**What is done:** a request resolves to a company, checks the person is a member, and carries what they may do. Roles are per company, because the owner is a director of several and is not the same thing in each. Permissions are one table of capabilities, so "who may post an adjustment?" is answered by reading one place. Screens ask by capability, never by role name.
 
-**Part of this landed early, on 19 September 2026, out of order.** The plan says each step finishes before the next starts, and this is a deliberate exception rather than drift, so it is recorded here rather than quietly absorbed.
-
-Everything built in steps 1 and 2 was unreachable. The books decide what exists from which company is asking, and nothing in the app had ever said — so no screen could have read or written a single line of the ledger. The engine was real and had no door. Building bill capture on top of that would have meant building it twice.
-
-So the door exists now: a request resolves to a company, checks the person is a member of it, and carries what they may do. Roles are per company rather than per person, because the owner is a director of several companies in the group and is not the same thing in each. Permissions are one table of capabilities, so "who may post an adjustment?" is answered by reading one place rather than by searching the code.
-
-**What that leaves for this step:** the screens themselves, adding people, spending limits, passkeys, and ending other sessions on a password change. The boundaries are real in the database but nothing in the interface knows about them yet.
-
-**Done when:** each role signs in and can reach exactly their own job, proven by trying to reach someone else's and failing.
+**Still owed:** the screens for adding people, spending limits, passkeys, and ending every other session when a password changes.
 
 ---
 
-### 8. Real money
+### 12. The paper, kept
+
+Every record's supporting document attached and addressed by its own content hash, so the same photograph filed twice is stored once and an altered file is a different file. Retrievable by name for the five years the law requires.
+
+**Done when:** an auditor can open a folder and find the document behind any entry without asking anyone.
+
+---
+
+# Part two — the modules
+
+Each switched on per company, invisible when off, and none of them may change how the core records money.
+
+---
+
+### 13. Projects and job costing
+
+Budgets, cost codes, budget against actual, cost to complete, project profitability. Costs already hang off journal lines rather than documents, so a project report is a ledger query.
+
+### 14. Buying, and what actually arrived
+
+A procurement officer buys twenty tonnes of cement on Tuesday and photographs the delivery note; the supplier invoices the office a fortnight later. Right now those are two unrelated records, so the cost is counted twice or the invoice is paid without anyone checking it against what turned up. Ordered, received and invoiced quantities held separately and matched, partial deliveries included. Spending limits per person, and an approver above them.
+
+**Done when:** an order, a delivery and an invoice for the same cement become one cost, not three, and a short delivery is caught before payment.
+
+### 15. Construction
+
+Bills of quantity, variations, progress claims, retention, certified work, work in progress. Needs the contract terms first.
+
+### 16. Equipment and rental
+
+Machine register, utilisation, hours, fuel and maintenance, machine-level profitability, rate cards. Altura already rents an excavator to RDC.
+
+### 17. Inventory and fuel
+
+Quantity-based stock, landed cost, margin per unit.
+
+### 18. Hospitality
+
+Rooms, occupancy, ADR and RevPAR, food and beverage, guest deposits, agent commissions. Waits for the hotel to open.
+
+### 19. Payroll
+
+Last of the modules. It touches tax differently in every jurisdiction, so it waits for the tax engine to be real.
+
+---
+
+# Part three — on top
+
+---
+
+### 20. The layer that watches
+
+Only once the records beneath it are trustworthy, because an assistant reasoning over bad books is worse than none.
+
+Continuous reconciliation. Anomalies raised as they happen rather than at month end. Cash now, expected in, committed out, and a forecast — four different things the market research is right to separate. Questions answered from the ledger with the underlying entries shown, never a figure without its workings.
+
+**The rule that does not bend:** it may read, suggest and draft. It may not post. Accounting mathematics is not a thing an assistant gets an opinion about.
+
+---
+
+### 21. Real money
 
 Before a single real figure is entered: the accountant signs off the accounts structure, how director money is treated, and the first return. A security review. Opening balances agreed. Then the line on the website saying nothing here is real comes off.
-
----
 
 ## Carried from the design review
 
@@ -197,4 +273,16 @@ Before a single real figure is entered: the accountant signs off the accounts st
 
 Recorded so these stop being reconsidered.
 
-Selling Sentryfi to other businesses, with sign-up and billing. Altura first, built so it can be opened up later without a rewrite. Replacing the current tool for sales invoices, which is undecided. Hotel taxes, until the hotel opens. Retention and progress claims, which need the contract terms first. Dhivehi, though nothing may be built that assumes English forever.
+Revised 19 September 2026. Widening the product to serve companies beyond Altura, with modules and jurisdiction packs, moved several of these from "not doing" into the plan — they are now steps 13 to 19. What is still deliberately out:
+
+**Public sign-up, self-serve onboarding and billing.** The product is built to serve any company; getting a company into it is still done by hand. That is a business decision, not an architectural one, and nothing in the build prevents it later.
+
+**Filing on anyone's behalf.** There is no public MIRA filing API and there is no equivalent elsewhere. The app produces a pack a person keys in. Any claim of one-click filing would be false.
+
+**Payroll before the tax engine.** It touches tax differently in every jurisdiction, so building it against hard-coded rules would mean building it twice.
+
+**An assistant that posts.** It may read, suggest and draft. Accounting mathematics is not something it gets an opinion about, and the market research names this as the principle its own Layer 1 rests on.
+
+**Dhivehi**, for now — though nothing may be built that assumes English forever.
+
+**Replacing the current tool for sales invoices** until step 3 lands. Zoho keeps issuing them in the meantime.
