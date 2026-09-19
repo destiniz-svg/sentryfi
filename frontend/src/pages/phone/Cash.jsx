@@ -32,6 +32,7 @@ export default function PhoneCash() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [doing, setDoing] = useState(null); // "spend" | "count" | "ask" | "open"
+  const [picked, setPicked] = useState(null);
 
   const { data: boxes, isPending } = useQuery({
     queryKey: ["cash", companyId],
@@ -39,7 +40,10 @@ export default function PhoneCash() {
     enabled: Boolean(companyId),
   });
 
-  const box = boxes?.[0] || null;
+  // A company has more than one site, so it has more than one tin. Showing
+  // only the first one made the second one unreachable and, worse, made the
+  // screen quietly wrong about whose money it was describing.
+  const box = boxes?.find((b) => b.id === picked) || boxes?.[0] || null;
   const mayHandle = can("spend_cash") || can("record");
 
   const refresh = () => {
@@ -106,6 +110,45 @@ export default function PhoneCash() {
             </div>
           )}
 
+          {boxes.length > 1 && (
+            <>
+              <div className="phone-section">
+                <span className="phone-section-h">Other tins</span>
+              </div>
+              <div className="phone-rule">
+                {boxes
+                  .filter((b) => b.id !== box.id)
+                  .map((b) => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      className="phone-row"
+                      onClick={() => setPicked(b.id)}
+                    >
+                      <div className="phone-row-date">Tin</div>
+                      <div className="min-w-0">
+                        <div className="phone-row-who">{b.name}</div>
+                        <div className="phone-row-what">
+                          {b.holder || (b.lastCounted ? `Counted ${when(b.lastCounted)}` : "Never counted")}
+                        </div>
+                      </div>
+                      <div className={`phone-row-amount${b.overdrawn ? " is-out" : ""}`}>
+                        {b.inBox}
+                      </div>
+                    </button>
+                  ))}
+              </div>
+            </>
+          )}
+
+          {can("manage_settings") && (
+            <div className="px-5 pt-5 pb-2">
+              <button type="button" className="phone-do" onClick={() => setDoing("open")}>
+                Open another cash box
+              </button>
+            </div>
+          )}
+
           <History boxId={box.id} companyId={companyId} />
         </>
       )}
@@ -114,6 +157,7 @@ export default function PhoneCash() {
         open={doing === "open"}
         onClose={() => setDoing(null)}
         onDone={refresh}
+        onOpened={setPicked}
         toast={toast}
       />
 
@@ -224,7 +268,7 @@ function History({ boxId, companyId }) {
  * The name matters more than it looks: a count says which tin it was, and
  * "Cash" is not an answer when there are three sites.
  */
-function OpenSheet({ open, onClose, onDone, toast }) {
+function OpenSheet({ open, onClose, onDone, onOpened, toast }) {
   const [name, setName] = useState("");
   const [err, setErr] = useState("");
   const send = useMutation({ mutationFn: cashApi.open });
@@ -238,6 +282,9 @@ function OpenSheet({ open, onClose, onDone, toast }) {
       toast.success(`${box.name} is open`, "Nothing is in it yet. Ask for a top-up to put money in.");
       setName("");
       onDone();
+      // Show the tin that was just opened. Opening one and staying on another
+      // reads as nothing having happened.
+      if (onOpened) onOpened(box.id);
       onClose();
     } catch (ex) {
       setErr(ex.message || "That could not be opened.");

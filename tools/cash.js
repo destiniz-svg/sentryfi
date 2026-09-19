@@ -49,28 +49,28 @@ async function stop(why) {
 
   // Open the tin from the screen, not the API: the empty state is the only
   // way a real person ever gets one.
-  const opener = page.getByRole("button", { name: /open a cash box/i });
-  if ((await opener.count()) === 0) {
-    console.log("  note: a box already exists in these books; opening another");
-  } else {
-    await opener.click();
-    await page.waitForTimeout(700);
-    await page.fill("#cash-box-name", BOX);
-    await page.locator("button[type=submit]").last().click();
-    await page.waitForTimeout(2500);
-    ok(`opened ${BOX}`);
-  }
+  // Its own tin, every run. Reusing whichever one happened to be there made
+  // every figure below depend on the previous run's leftovers.
+  const opener = page.getByRole("button", { name: /open (a|another) cash box/i });
+  if ((await opener.count()) === 0) return stop("there is no way to open a cash box");
+  await opener.first().click();
+  await page.waitForTimeout(800);
+  await page.fill("#cash-box-name", BOX);
+  await page.locator("button[type=submit]").last().click();
+  await page.waitForTimeout(3000);
+  ok(`opened ${BOX}`);
 
   const state = await page.evaluate(async (boxName) => {
     const companyId = localStorage.getItem("sentryfi.company");
     const headers = { "X-Company-Id": companyId, "Content-Type": "application/json" };
     const boxes = (await fetch("/api/cash", { credentials: "include", headers }).then((r) => r.json())).boxes;
-    const box = boxes.find((b) => b.name === boxName) || boxes[0];
+    const box = boxes.find((b) => b.name === boxName) || null;
     return { box, headers };
   }, BOX);
 
-  if (!state.box) return stop("no cash box came back");
-  ok(`the box reads ${state.box.inBox} and has never been counted`);
+  if (!state.box) return stop(`the tin "${BOX}" was not there after opening it`);
+  if (state.box.inBox !== "0.00") return stop(`a new tin should be empty; it reads ${state.box.inBox}`);
+  ok("a new tin is empty");
 
   // Put money in it: ask, then give. Nothing moves until somebody gives it.
   const filled = await page.evaluate(
