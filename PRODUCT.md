@@ -67,6 +67,18 @@ A Maldives-native finance app. It produces MIRA-format GST return figures and th
 - **Undecided:** the exact MIRA 205 v.25.1 box wording and Output Tax Statement column headers; legal ownership of the excavators (determines who invoices RDC and remits GST); the final funding treatment for director and Steva money. All await the accountant.
 - **Undecided:** whether and when Sentryfi replaces Zoho Books for sales invoicing.
 
+## Deployment
+
+Recorded 19 September 2026. The repository is the source of truth: pushing to `main` builds and deploys. Nothing is deployed by hand.
+
+- **Repository:** `github.com/destiniz-svg/sentryfi`, public, branch `main`.
+- **Railway project:** `hearty-courtesy`, service `sentryfi`, production environment, Singapore (`asia-southeast1`). Connected to the repository, so every push to `main` triggers a build.
+- **Live:** `https://sentryfi-production.up.railway.app`.
+- **Custom domain:** `sentryfi.app` is attached to the service and ownership is verified, but **the DNS does not yet point at Railway**. On 19 September 2026 the domain still resolved to a name.com parking address, so the certificate stayed in issuing and the domain did not serve. Railway's own record status read as propagated and was wrong; check what the domain actually resolves to, not the dashboard. The target is `4xcxcgmg.up.railway.app`. Because this is the apex rather than a subdomain, a literal CNAME is not valid DNS, so it needs name.com's ALIAS or ANAME record type.
+- **Build:** `npm run build` runs `npm run render` first, so the design contact sheets in `public/design` are regenerated from the artboards on every deploy and cannot drift from them.
+- **Security gate:** Railway refuses to deploy a dependency tree carrying a critical advisory, and did so once, on `next@15.5.4`. Treat that as a feature rather than an obstacle. Keep `next` current.
+- **Databases already provisioned** in the older `ledger-mv` Railway project: PostgreSQL production and dev, 5GB volumes each, same Singapore region. Not yet wired to the app.
+
 ## Brand Commitments
 
 - Name: **Sentryfi**, one capital, chosen by the owner on 19 September 2026 (earlier working names: LedgerOS, then SnapPilot for a few hours). Domain: sentryfi.app is the assumed home and did not resolve on 19 September 2026; sentryfi.com and sentryfi.io are taken. Known name collisions to clear before launch: a Calgary startup already called Sentryfi, Sentry Financial in the US, and the registered software brand Sentry (sentry.io). The plan PDF and the superseded artboards still carry the old names.
