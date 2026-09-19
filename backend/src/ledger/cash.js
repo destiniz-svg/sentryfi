@@ -53,14 +53,21 @@ async function accountByCode(client, { companyId, code }) {
 async function differencesAccount(client, { companyId }) {
   const found = await accountByCode(client, { companyId, code: "5700" });
   if (found) return found;
-  const { rows } = await client.query(
+
+  // DO NOTHING, not DO UPDATE. The app role has INSERT on accounts and
+  // deliberately not UPDATE — a chart of accounts is not something the
+  // application rewrites — so an upsert here fails with "permission denied for
+  // table accounts" the first time anybody counts a tin. The restriction is
+  // right; this asks for what it actually needs.
+  await client.query(
     `INSERT INTO accounts (company_id, code, name, type)
      VALUES ($1, '5700', 'Cash differences', 'expense')
-     ON CONFLICT (company_id, code) DO UPDATE SET name = EXCLUDED.name
-     RETURNING id, name`,
+     ON CONFLICT (company_id, code) DO NOTHING`,
     [companyId]
   );
-  return rows[0];
+  const made = await accountByCode(client, { companyId, code: "5700" });
+  if (!made) throw new Error("Could not open an account for cash differences.");
+  return made;
 }
 
 /**
