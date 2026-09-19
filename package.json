@@ -1,0 +1,25 @@
+{
+  "name": "sentryfi",
+  "version": "0.1.0",
+  "private": true,
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "next dev",
+    "build": "npm run render && next build",
+    "start": "next start -p ${PORT:-3000}",
+    "lint": "next lint",
+    "render": "node tools/render-artboard.js design/project/App.dc.html public/design/phone.html && node tools/render-desktop.js public/design/desktop.html",
+    "verify": "node tools/verify-artboards.js"
+  },
+  "dependencies": {
+    "next": "15.5.4",
+    "react": "19.1.1",
+    "react-dom": "19.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "typescript": "^5.7.2"
+  }
+}
