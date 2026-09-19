@@ -1,12 +1,6 @@
 import { NavLink } from "react-router-dom";
 import {
   LayoutGrid,
-  FileText,
-  Users,
-  Receipt,
-  Wallet,
-  Package,
-  BarChart3,
   Gauge,
   Settings,
   LogOut,
@@ -17,15 +11,11 @@ import { useAuth } from "@/context/AuthContext";
 import AILogo from "./AILogo";
 
 const NAV = [
+// Only what reads from the books. The rest is in config/readiness.js with
+// the step that brings each one back.
   { to: "/dashboard", icon: LayoutGrid, label: "What needs you" },
   { to: "/figures", icon: Gauge, label: "Figures" },
   { to: "/bills", icon: ReceiptText, label: "Bills" },
-  { to: "/invoices", icon: FileText, label: "Invoices" },
-  { to: "/clients", icon: Users, label: "Clients" },
-  { to: "/expenses", icon: Receipt, label: "Expenses" },
-  { to: "/payments", icon: Wallet, label: "Payments" },
-  { to: "/items", icon: Package, label: "Items" },
-  { to: "/reports", icon: BarChart3, label: "Reports" },
 ];
 
 const ROW_BASE =

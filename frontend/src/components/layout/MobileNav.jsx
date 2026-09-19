@@ -3,12 +3,7 @@ import { NavLink } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   LayoutGrid,
-  FileText,
-  Users,
-  Receipt,
-  Wallet,
-  Package,
-  BarChart3,
+  Gauge,
   Settings,
   LogOut,
   X,
@@ -29,20 +24,16 @@ import AILogo from "./AILogo";
  * works by touch, by keyboard and by screen reader.
  */
 
+// Only what reads from the books. "Bills" and "Expenses" sat here side by
+// side as equal choices and a real bill went into the wrong one, because
+// Expenses was the purchased screen and had the working scan button.
 const PRIMARY = [
   { to: "/dashboard", icon: LayoutGrid, label: "Needs you" },
   { to: "/bills", icon: ReceiptText, label: "Bills" },
-  { to: "/invoices", icon: FileText, label: "Invoices" },
-  { to: "/expenses", icon: Receipt, label: "Expenses" },
+  { to: "/figures", icon: Gauge, label: "Figures" },
 ];
 
-const REST = [
-  { to: "/clients", icon: Users, label: "Clients" },
-  { to: "/payments", icon: Wallet, label: "Payments" },
-  { to: "/items", icon: Package, label: "Items" },
-  { to: "/reports", icon: BarChart3, label: "Reports" },
-  { to: "/settings", icon: Settings, label: "Settings" },
-];
+const REST = [{ to: "/settings", icon: Settings, label: "Settings" }];
 
 export function MobileNav({ open, onOpen, onClose }) {
   const still = useReducedMotion();

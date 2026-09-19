@@ -29,17 +29,13 @@ import OpenBooks from "@/pages/OpenBooks";
  * opened.
  */
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
-const Invoices = lazy(() => import("@/pages/Invoices"));
-const InvoiceEditor = lazy(() => import("@/pages/InvoiceEditor"));
-const InvoiceDetail = lazy(() => import("@/pages/InvoiceDetail"));
-const Clients = lazy(() => import("@/pages/Clients"));
-const ClientDetail = lazy(() => import("@/pages/ClientDetail"));
 const Attention = lazy(() => import("@/pages/Attention"));
 const Bills = lazy(() => import("@/pages/Bills"));
-const Expenses = lazy(() => import("@/pages/Expenses"));
-const Payments = lazy(() => import("@/pages/Payments"));
-const Items = lazy(() => import("@/pages/Items"));
-const Reports = lazy(() => import("@/pages/Reports"));
+const NotReady = lazy(() => import("@/pages/NotReady"));
+// Invoices, Clients, Expenses, Payments, Items and Reports are deliberately
+// not imported. Their files stay as the reference for what replaces them, but
+// nothing routes to them: they read the purchased product's tables, and a
+// screen that looks right and is not is worse than one that is missing.
 const Settings = lazy(() => import("@/pages/Settings"));
 
 function ProtectedShell() {
@@ -88,17 +84,14 @@ export const router = createBrowserRouter([
     children: [
       { path: "dashboard", element: <Attention /> },
       { path: "figures", element: <Dashboard /> },
-      { path: "invoices", element: <Invoices /> },
-      { path: "invoices/new", element: <InvoiceEditor /> },
-      { path: "invoices/:id", element: <InvoiceDetail /> },
-      { path: "invoices/:id/edit", element: <InvoiceEditor /> },
-      { path: "clients", element: <Clients /> },
-      { path: "clients/:id", element: <ClientDetail /> },
+      // Still on the purchased product's tables. See config/readiness.js.
+      { path: "invoices", element: <NotReady /> },
+      { path: "clients", element: <NotReady /> },
       { path: "bills", element: <Bills /> },
-      { path: "expenses", element: <Expenses /> },
-      { path: "payments", element: <Payments /> },
-      { path: "items", element: <Items /> },
-      { path: "reports", element: <Reports /> },
+      { path: "expenses", element: <NotReady /> },
+      { path: "payments", element: <NotReady /> },
+      { path: "items", element: <NotReady /> },
+      { path: "reports", element: <NotReady /> },
       { path: "settings", element: <Settings /> },
     ],
   },
