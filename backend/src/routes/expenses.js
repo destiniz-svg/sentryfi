@@ -48,7 +48,7 @@ router.get(
       `SELECT
          COALESCE(SUM(amount),0) AS total,
          COALESCE(SUM(CASE WHEN date_trunc('month',expense_date)=date_trunc('month',CURRENT_DATE) THEN amount ELSE 0 END),0) AS this_month
-       FROM expenses WHERE user_id = $1`,
+       FROM expenses WHERE user_id = $1 AND voided_at IS NULL`,
       [req.user.id]
     );
 
@@ -112,15 +112,28 @@ router.patch(
   })
 );
 
+// Voided, not deleted. See backend/src/config/void-schema.js.
+const voidBody = z.object({
+  reason: z
+    .string()
+    .trim()
+    .min(3, "Say why this is being voided — three characters at least.")
+    .max(500),
+});
+
 router.delete(
   "/:id",
   validate(idParam, "params"),
+  validate(voidBody, "body"),
   asyncHandler(async (req, res) => {
-    const r = await query(`DELETE FROM expenses WHERE id = $1 AND user_id = $2`, [
-      req.params.id,
-      req.user.id,
-    ]);
-    if (!r.rowCount) throw ApiError.notFound("Expense not found");
+    const r = await query(
+      `UPDATE expenses
+          SET voided_at = now(), voided_by = $3, void_reason = $4, updated_at = now()
+        WHERE id = $1 AND user_id = $2 AND voided_at IS NULL
+        RETURNING id`,
+      [req.params.id, req.user.id, req.user.id, req.body.reason]
+    );
+    if (!r.rowCount) throw ApiError.notFound("Expense not found, or it was voided already");
     res.json({ ok: true });
   })
 );

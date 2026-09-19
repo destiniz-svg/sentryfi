@@ -3,10 +3,10 @@ import {
   Plus,
   Receipt,
   ScanLine,
-  Trash2,
   Pencil,
   Loader2,
   Sparkles,
+  Ban,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -18,13 +18,14 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { useExpenses, useExpenseMutations } from "@/hooks/useFeatures";
+import { VoidDialog } from "@/components/ui/VoidDialog";
 import { aiApi } from "@/api/ai";
 import { formatMoney, formatDate, toDateInput, today, cn } from "@/lib/utils";
 
 export default function Expenses() {
   const [category, setCategory] = useState("all");
   const { data, isLoading } = useExpenses({ category });
-  const { remove } = useExpenseMutations();
+  const { voidExpense } = useExpenseMutations();
   const [modal, setModal] = useState(null); // null | expense-or-prefill
   const [scanning, setScanning] = useState(false);
   const [scanErr, setScanErr] = useState("");
@@ -55,10 +56,16 @@ export default function Expenses() {
     }
   }
 
-  async function onDelete(e, exp) {
+  const [voiding, setVoiding] = useState(null);
+
+  function onVoid(e, exp) {
     e.stopPropagation();
-    if (!window.confirm(`Delete expense from ${exp.vendor || "vendor"}?`)) return;
-    await remove.mutateAsync(exp.id);
+    setVoiding(exp);
+  }
+
+  async function confirmVoid(reason) {
+    await voidExpense.mutateAsync({ id: voiding.id, reason });
+    setVoiding(null);
   }
 
   return (
@@ -149,16 +156,30 @@ export default function Expenses() {
                   <Badge tone="neutral" className="capitalize">{exp.category}</Badge>
                 </div>
                 <div className="hidden md:block text-sm text-[var(--ink-muted)] tabular">{formatDate(exp.expense_date)}</div>
-                <div className="text-sm font-semibold text-[var(--ink)] tabular text-right">{formatMoney(exp.amount, exp.currency)}</div>
+                <div className="text-sm font-semibold tabular text-right flex items-center justify-end gap-2">
+                  {exp.voided_at && <Badge tone="neutral" title={exp.void_reason || undefined}>Void</Badge>}
+                  <span className={exp.voided_at ? "line-through text-[var(--ink-muted)]" : "text-[var(--ink)]"}>
+                    {formatMoney(exp.amount, exp.currency)}
+                  </span>
+                </div>
                 <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 transition-opacity">
                   <button onClick={(e) => { e.stopPropagation(); setModal(exp); }} className="h-7 w-7 rounded-full flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface)] hover:text-[var(--ink)]"><Pencil size={13} /></button>
-                  <button onClick={(e) => onDelete(e, exp)} className="h-7 w-7 rounded-full flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface)] hover:text-[var(--danger)]"><Trash2 size={13} /></button>
+                  <button onClick={(e) => onVoid(e, exp)} className="h-7 w-7 rounded-full flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface)] hover:text-[var(--danger)]"><Ban size={13} /></button>
                 </div>
               </div>
             ))}
           </div>
         </Card>
       )}
+
+      <VoidDialog
+        open={!!voiding}
+        onClose={() => setVoiding(null)}
+        onConfirm={confirmVoid}
+        busy={voidExpense.isPending}
+        what={voiding ? `this ${voiding.vendor || "expense"} bill` : "this expense"}
+        amount={voiding ? formatMoney(voiding.amount, voiding.currency) : null}
+      />
 
       <ExpenseModal open={!!modal} expense={modal} onClose={() => setModal(null)} />
     </div>

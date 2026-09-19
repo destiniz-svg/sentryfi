@@ -30,7 +30,10 @@ export function useExpenseMutations() {
   return {
     create: useMutation({ mutationFn: expensesApi.create, onSuccess: invalidate }),
     update: useMutation({ mutationFn: ({ id, payload }) => expensesApi.update(id, payload), onSuccess: invalidate }),
-    remove: useMutation({ mutationFn: expensesApi.remove, onSuccess: invalidate }),
+    voidExpense: useMutation({
+      mutationFn: ({ id, reason }) => expensesApi.voidExpense(id, reason),
+      onSuccess: invalidate,
+    }),
   };
 }
 
@@ -49,7 +52,10 @@ export function usePaymentMutations() {
   };
   return {
     create: useMutation({ mutationFn: paymentsApi.create, onSuccess: invalidate }),
-    remove: useMutation({ mutationFn: paymentsApi.remove, onSuccess: invalidate }),
+    voidPayment: useMutation({
+      mutationFn: ({ id, reason }) => paymentsApi.voidPayment(id, reason),
+      onSuccess: invalidate,
+    }),
   };
 }
 

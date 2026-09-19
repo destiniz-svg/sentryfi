@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Wallet, Trash2, Loader2, CreditCard } from "lucide-react";
+import { Plus, Wallet, Ban, Loader2, CreditCard } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -10,26 +10,21 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { usePayments, usePaymentMutations } from "@/hooks/useFeatures";
+import { VoidDialog } from "@/components/ui/VoidDialog";
 import { useInvoices } from "@/hooks/useInvoices";
 import { formatMoney, formatDate, today } from "@/lib/utils";
 
 export default function Payments() {
   const { data, isLoading } = usePayments();
-  const { remove } = usePaymentMutations();
+  const { voidPayment } = usePaymentMutations();
+  const [voiding, setVoiding] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
 
   const payments = data?.payments || [];
 
-  async function onDelete(p) {
-    // "May" is the one word that must never appear in a question about money.
-    // Removing a payment always re-reconciles the invoice, so the balance
-    // definitely goes back up by this amount; say so, and name both the figure
-    // and the invoice it belongs to.
-    const question =
-      `Remove this ${formatMoney(p.amount, p.currency)} payment from ` +
-      `${p.invoice_number || "the invoice"}? Its balance goes back up by that amount.`;
-    if (!window.confirm(question)) return;
-    await remove.mutateAsync(p.id);
+  async function confirmVoid(reason) {
+    await voidPayment.mutateAsync({ id: voiding.id, reason });
+    setVoiding(null);
   }
 
   return (
@@ -74,15 +69,29 @@ export default function Payments() {
                 <div className="hidden md:block">
                   {p.method ? <Badge tone="neutral">{p.method}</Badge> : <span className="text-xs text-[var(--ink-muted)]">—</span>}
                 </div>
-                <div className="text-sm font-semibold text-[var(--success)] tabular text-right">{formatMoney(p.amount)}</div>
-                <button onClick={() => onDelete(p)} className="justify-self-end h-7 w-7 rounded-full flex items-center justify-center text-[var(--ink-muted)] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 transition-opacity hover:bg-[var(--surface-2)] hover:text-[var(--danger)]">
-                  <Trash2 size={13} />
-                </button>
+                <div className="text-sm font-semibold tabular text-right flex items-center justify-end gap-2">
+                  {p.voided_at && <Badge tone="neutral" title={p.void_reason || undefined}>Void</Badge>}
+                  <span className={p.voided_at ? "line-through text-[var(--ink-muted)]" : "text-[var(--success)]"}>
+                    {formatMoney(p.amount, p.currency)}
+                  </span>
+                </div>
+                {!p.voided_at && <button onClick={() => setVoiding(p)} className="justify-self-end h-7 w-7 rounded-full flex items-center justify-center text-[var(--ink-muted)] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 transition-opacity hover:bg-[var(--surface-2)] hover:text-[var(--danger)]">
+                  <Ban size={13} />
+                </button>}
               </div>
             ))}
           </div>
         </Card>
       )}
+
+      <VoidDialog
+        open={!!voiding}
+        onClose={() => setVoiding(null)}
+        onConfirm={confirmVoid}
+        busy={voidPayment.isPending}
+        what={`this payment`}
+        amount={voiding ? formatMoney(voiding.amount, voiding.currency) : null}
+      />
 
       <RecordPaymentModal open={modalOpen} onClose={() => setModalOpen(false)} />
     </div>

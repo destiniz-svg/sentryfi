@@ -27,7 +27,8 @@ const num = (v) => Number(v) || 0;
 async function reconcileInvoice(client, invoiceId) {
   const { rows } = await client.query(
     `SELECT i.total,
-            COALESCE((SELECT SUM(amount) FROM payments WHERE invoice_id = i.id),0) AS paid
+            COALESCE((SELECT SUM(amount) FROM payments
+                        WHERE invoice_id = i.id AND voided_at IS NULL),0) AS paid
      FROM invoices i WHERE i.id = $1`,
     [invoiceId]
   );
@@ -67,7 +68,7 @@ router.get(
       `SELECT
          COALESCE(SUM(amount),0) AS total,
          COALESCE(SUM(CASE WHEN date_trunc('month',paid_on)=date_trunc('month',CURRENT_DATE) THEN amount ELSE 0 END),0) AS this_month
-       FROM payments WHERE user_id = $1`,
+       FROM payments WHERE user_id = $1 AND voided_at IS NULL`,
       [req.user.id]
     );
 
@@ -107,18 +108,37 @@ router.post(
   })
 );
 
+// Voided, not deleted. See backend/src/config/void-schema.js.
+//
+// Reconciling afterwards is what makes the void real: the payment stops
+// counting, so the invoice it was against goes back to owing that amount. The
+// record of the payment, and of why it was voided, stays.
+const voidBody = z.object({
+  reason: z
+    .string()
+    .trim()
+    .min(3, "Say why this is being voided — three characters at least.")
+    .max(500),
+});
+
 router.delete(
   "/:id",
   validate(idParam, "params"),
+  validate(voidBody, "body"),
   asyncHandler(async (req, res) => {
     const existing = await queryOne(
-      `SELECT invoice_id FROM payments WHERE id = $1 AND user_id = $2`,
+      `SELECT invoice_id FROM payments WHERE id = $1 AND user_id = $2 AND voided_at IS NULL`,
       [req.params.id, req.user.id]
     );
-    if (!existing) throw ApiError.notFound("Payment not found");
+    if (!existing) throw ApiError.notFound("Payment not found, or it was voided already");
 
     await withTransaction(async (client) => {
-      await client.query(`DELETE FROM payments WHERE id = $1`, [req.params.id]);
+      await client.query(
+        `UPDATE payments
+            SET voided_at = now(), voided_by = $2, void_reason = $3
+          WHERE id = $1`,
+        [req.params.id, req.user.id, req.body.reason]
+      );
       await reconcileInvoice(client, existing.invoice_id);
     });
 

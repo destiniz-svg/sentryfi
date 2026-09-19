@@ -19,11 +19,11 @@ router.get(
          COALESCE(SUM(CASE WHEN status='paid' THEN total ELSE 0 END),0) AS revenue,
          COALESCE(SUM(CASE WHEN status<>'paid' THEN total ELSE 0 END),0) AS outstanding,
          COUNT(*)::int AS invoice_count
-       FROM invoices WHERE user_id = $1`,
+       FROM invoices WHERE user_id = $1 AND voided_at IS NULL`,
       [uid]
     );
     const exp = await queryOne(
-      `SELECT COALESCE(SUM(amount),0) AS total FROM expenses WHERE user_id = $1`,
+      `SELECT COALESCE(SUM(amount),0) AS total FROM expenses WHERE user_id = $1 AND voided_at IS NULL`,
       [uid]
     );
 
@@ -34,10 +34,10 @@ router.get(
        )
        SELECT to_char(months.m,'Mon') AS label, to_char(months.m,'YYYY-MM') AS ym,
          COALESCE((SELECT SUM(i.total) FROM invoices i
-            WHERE i.user_id=$1 AND i.status='paid'
+            WHERE i.user_id=$1 AND i.voided_at IS NULL AND i.status='paid'
               AND date_trunc('month',COALESCE(i.paid_at,i.issue_date))=months.m),0) AS revenue,
          COALESCE((SELECT SUM(e.amount) FROM expenses e
-            WHERE e.user_id=$1 AND date_trunc('month',e.expense_date)=months.m),0) AS expenses
+            WHERE e.user_id=$1 AND e.voided_at IS NULL AND date_trunc('month',e.expense_date)=months.m),0) AS expenses
        FROM months ORDER BY months.m ASC`,
       [uid]
     );
@@ -49,7 +49,7 @@ router.get(
          COALESCE(SUM(CASE WHEN CURRENT_DATE - due_date BETWEEN 31 AND 60 THEN total ELSE 0 END),0) AS d60,
          COALESCE(SUM(CASE WHEN CURRENT_DATE - due_date BETWEEN 61 AND 90 THEN total ELSE 0 END),0) AS d90,
          COALESCE(SUM(CASE WHEN CURRENT_DATE - due_date > 90 THEN total ELSE 0 END),0) AS d90plus
-       FROM invoices WHERE user_id = $1 AND status = 'sent'`,
+       FROM invoices WHERE user_id = $1 AND voided_at IS NULL AND status = 'sent'`,
       [uid]
     );
 
@@ -57,7 +57,7 @@ router.get(
       `SELECT c.id, c.name,
          COALESCE(SUM(i.total),0) AS billed,
          COALESCE(SUM(CASE WHEN i.status='paid' THEN i.total ELSE 0 END),0) AS paid
-       FROM clients c JOIN invoices i ON i.client_id = c.id
+       FROM clients c JOIN invoices i ON i.client_id = c.id AND i.voided_at IS NULL
        WHERE c.user_id = $1
        GROUP BY c.id ORDER BY billed DESC LIMIT 5`,
       [uid]
@@ -69,7 +69,7 @@ router.get(
          COALESCE(SUM(CASE WHEN status='sent' AND (due_date IS NULL OR due_date>=CURRENT_DATE) THEN total ELSE 0 END),0) AS sent,
          COALESCE(SUM(CASE WHEN status='sent' AND due_date<CURRENT_DATE THEN total ELSE 0 END),0) AS overdue,
          COALESCE(SUM(CASE WHEN status='paid' THEN total ELSE 0 END),0) AS paid
-       FROM invoices WHERE user_id = $1`,
+       FROM invoices WHERE user_id = $1 AND voided_at IS NULL`,
       [uid]
     );
 

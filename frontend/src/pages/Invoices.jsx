@@ -4,9 +4,9 @@ import {
   Plus,
   Search,
   FileText,
-  Trash2,
   ArrowUpDown,
   Pencil,
+  Ban,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -16,6 +16,8 @@ import { StatusBadge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useInvoices, useDeleteInvoice } from "@/hooks/useInvoices";
+import { VoidDialog } from "@/components/ui/VoidDialog";
+import { useToast } from "@/context/UIContext";
 import { formatMoney, formatDate, cn } from "@/lib/utils";
 
 const STATUS_TABS = [
@@ -39,6 +41,7 @@ export default function Invoices() {
     order: sort.order,
   });
   const del = useDeleteInvoice();
+  const toast = useToast();
 
   const invoices = data || [];
 
@@ -48,10 +51,17 @@ export default function Invoices() {
     );
   }
 
-  async function onDelete(e, inv) {
+  const [voiding, setVoiding] = useState(null);
+
+  function onVoid(e, inv) {
     e.stopPropagation();
-    if (!window.confirm(`Delete invoice ${inv.invoice_number}? This cannot be undone.`)) return;
-    await del.mutateAsync(inv.id);
+    setVoiding(inv);
+  }
+
+  async function confirmVoid(reason) {
+    await del.mutateAsync({ id: voiding.id, reason });
+    toast.success(`${voiding.invoice_number} voided`, "It stays in the list, marked.");
+    setVoiding(null);
   }
 
   return (
@@ -174,11 +184,11 @@ export default function Invoices() {
                       <Pencil size={13} />
                     </button>
                     <button
-                      onClick={(e) => onDelete(e, inv)}
-                      title="Delete"
+                      onClick={(e) => onVoid(e, inv)}
+                      title="Void"
                       className="h-7 w-7 rounded-full flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface)] hover:text-[var(--danger)]"
                     >
-                      <Trash2 size={13} />
+                      <Ban size={13} />
                     </button>
                   </div>
                 </div>
@@ -187,6 +197,15 @@ export default function Invoices() {
           </div>
         </Card>
       )}
+
+      <VoidDialog
+        open={!!voiding}
+        onClose={() => setVoiding(null)}
+        onConfirm={confirmVoid}
+        busy={del.isPending}
+        what={voiding ? voiding.invoice_number : "this invoice"}
+        amount={voiding ? formatMoney(voiding.total, voiding.currency) : null}
+      />
     </div>
   );
 }

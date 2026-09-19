@@ -253,16 +253,36 @@ router.patch(
   })
 );
 
+// Voiding an invoice, which is the only way one leaves the books.
+//
+// The record stays, keeps its number in the sequence, and stops counting
+// towards anything. It is not removed, so what it was, who voided it and why
+// all remain answerable. See backend/src/config/void-schema.js for the
+// reasoning; it is the same rule the ledger enforces one layer down.
+const voidBody = z.object({
+  reason: z
+    .string()
+    .trim()
+    .min(3, "Say why this is being voided — three characters at least.")
+    .max(500),
+});
+
 router.delete(
   "/:id",
   validate(idParam, "params"),
+  validate(voidBody, "body"),
   asyncHandler(async (req, res) => {
     const result = await query(
-      `DELETE FROM invoices WHERE id = $1 AND user_id = $2`,
-      [req.params.id, req.user.id]
+      `UPDATE invoices
+          SET voided_at = now(), voided_by = $3, void_reason = $4, updated_at = now()
+        WHERE id = $1 AND user_id = $2 AND voided_at IS NULL
+        RETURNING id, invoice_number`,
+      [req.params.id, req.user.id, req.user.id, req.body.reason]
     );
-    if (!result.rowCount) throw ApiError.notFound("Invoice not found");
-    res.json({ ok: true });
+    if (!result.rowCount) {
+      throw ApiError.notFound("Invoice not found, or it was voided already");
+    }
+    res.json({ ok: true, voided: result.rows[0] });
   })
 );
 

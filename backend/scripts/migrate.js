@@ -1,6 +1,7 @@
 const { pool } = require("../src/config/db");
 const { SCHEMA_SQL } = require("../src/config/schema");
 const { LEDGER_SQL } = require("../src/config/ledger-schema");
+const { VOID_SQL } = require("../src/config/void-schema");
 
 (async () => {
   try {
@@ -8,6 +9,8 @@ const { LEDGER_SQL } = require("../src/config/ledger-schema");
     console.log("Documents schema applied.");
     await pool.query(LEDGER_SQL);
     console.log("Ledger schema applied.");
+    await pool.query(VOID_SQL);
+    console.log("Void columns applied.");
 
     // What is actually in here, so the decision about existing data is made on
     // a count rather than an assumption.

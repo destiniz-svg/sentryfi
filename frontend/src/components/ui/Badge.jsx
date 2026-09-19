@@ -30,6 +30,10 @@ export const INVOICE_STATUS = {
   sent: { tone: "accent", label: "Sent" },
   paid: { tone: "success", label: "Paid" },
   overdue: { tone: "danger", label: "Overdue" },
+  // Voided records stay in the list. They are shown quietly rather than in a
+  // warning colour, because nothing is wrong with them — they simply no longer
+  // count, and the reason is on the record.
+  void: { tone: "neutral", label: "Void" },
 };
 
 export function StatusBadge({ status, className }) {

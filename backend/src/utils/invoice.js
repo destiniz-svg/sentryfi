@@ -25,6 +25,10 @@ function computeTotals(items, taxRate = 0, discount = 0) {
 }
 
 function effectiveStatus(invoice) {
+  // A voided invoice is none of draft, sent, paid or overdue. It is out of the
+  // books, and it outranks everything else it might otherwise look like: a
+  // voided invoice past its due date is not overdue, because nobody owes it.
+  if (invoice.voided_at) return "void";
   if (invoice.status === "paid") return "paid";
   if (invoice.status === "sent" && invoice.due_date) {
     const due = new Date(invoice.due_date);

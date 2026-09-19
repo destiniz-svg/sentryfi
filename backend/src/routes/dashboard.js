@@ -24,7 +24,7 @@ router.get(
          COUNT(*) FILTER (WHERE status = 'sent' AND due_date < CURRENT_DATE)::int AS overdue_count,
          COUNT(*)::int AS invoice_count,
          COALESCE(SUM(CASE WHEN status = 'sent' AND due_date < CURRENT_DATE THEN total ELSE 0 END), 0) AS overdue_total
-       FROM invoices WHERE user_id = $1`,
+       FROM invoices WHERE user_id = $1 AND voided_at IS NULL`,
       [uid]
     );
 
@@ -40,6 +40,7 @@ router.get(
        FROM months
        LEFT JOIN invoices i
          ON i.user_id = $1
+        AND i.voided_at IS NULL
         AND i.status = 'paid'
         AND date_trunc('month', COALESCE(i.paid_at, i.issue_date)) = months.m
        GROUP BY months.m
@@ -66,7 +67,7 @@ router.get(
          COALESCE(SUM(CASE WHEN date_trunc('month', expense_date)
                              = date_trunc('month', CURRENT_DATE - INTERVAL '1 month')
                         THEN amount ELSE 0 END),0) AS last_month
-       FROM expenses WHERE user_id = $1`,
+       FROM expenses WHERE user_id = $1 AND voided_at IS NULL`,
       [uid]
     );
 
@@ -81,6 +82,7 @@ router.get(
        FROM months
        LEFT JOIN expenses e
          ON e.user_id = $1
+        AND e.voided_at IS NULL
         AND date_trunc('month', e.expense_date) = months.m
        GROUP BY months.m
        ORDER BY months.m`,
@@ -92,6 +94,7 @@ router.get(
               COALESCE(SUM(amount), 0) AS amount
        FROM expenses
        WHERE user_id = $1
+         AND voided_at IS NULL
          AND date_trunc('month', expense_date) = date_trunc('month', CURRENT_DATE)
        GROUP BY 1 ORDER BY 2 DESC LIMIT 6`,
       [uid]

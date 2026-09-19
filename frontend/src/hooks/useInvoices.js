@@ -59,7 +59,7 @@ export function useSetInvoiceStatus() {
 export function useDeleteInvoice() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id) => invoicesApi.remove(id),
+    mutationFn: ({ id, reason }) => invoicesApi.voidInvoice(id, reason),
     onSuccess: () => invalidateAll(qc),
   });
 }

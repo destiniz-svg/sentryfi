@@ -31,7 +31,7 @@ router.get(
          COALESCE(SUM(i.total), 0) AS total_billed,
          COALESCE(SUM(CASE WHEN i.status <> 'paid' THEN i.total ELSE 0 END), 0) AS outstanding
        FROM clients c
-       LEFT JOIN invoices i ON i.client_id = c.id
+       LEFT JOIN invoices i ON i.client_id = c.id AND i.voided_at IS NULL
        WHERE c.user_id = $1
        GROUP BY c.id
        ORDER BY c.created_at DESC`,
@@ -58,7 +58,7 @@ router.get(
 
     const { rows: invoices } = await query(
       `SELECT id, invoice_number, status, issue_date, due_date, total, currency, created_at
-       FROM invoices WHERE client_id = $1 AND user_id = $2
+       FROM invoices WHERE client_id = $1 AND user_id = $2 AND voided_at IS NULL
        ORDER BY issue_date DESC, created_at DESC`,
       [req.params.id, req.user.id]
     );

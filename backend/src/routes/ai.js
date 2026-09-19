@@ -39,7 +39,7 @@ router.post(
          COALESCE(SUM(CASE WHEN status<>'paid' THEN total ELSE 0 END),0) AS outstanding,
          COUNT(*) FILTER (WHERE status='sent' AND due_date < CURRENT_DATE)::int AS overdue_count,
          COALESCE(SUM(CASE WHEN status='sent' AND due_date < CURRENT_DATE THEN total ELSE 0 END),0) AS overdue_total
-       FROM invoices WHERE user_id = $1`,
+       FROM invoices WHERE user_id = $1 AND voided_at IS NULL`,
       [uid]
     );
 

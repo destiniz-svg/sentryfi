@@ -4,7 +4,6 @@ import { PDFDownloadLink } from "@react-pdf/renderer";
 import {
   ArrowLeft,
   Pencil,
-  Trash2,
   Download,
   Loader2,
   Send,
@@ -14,6 +13,7 @@ import {
   Copy,
   Check,
   Mail,
+  Ban,
 } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Button, buttonVariants } from "@/components/ui/Button";
@@ -29,11 +29,13 @@ import { useSettings } from "@/hooks/useSettings";
 import { aiApi } from "@/api/ai";
 import { formatMoney, formatDate, cn } from "@/lib/utils";
 import { useToast } from "@/context/UIContext";
+import { VoidDialog } from "@/components/ui/VoidDialog";
 
 export default function InvoiceDetail() {
   const { id } = useParams();
   const nav = useNavigate();
   const [confirmPaid, setConfirmPaid] = useState(false);
+  const [voiding, setVoiding] = useState(false);
   const toast = useToast();
   const { data: invoice, isLoading, error } = useInvoice(id);
   const { data: settings } = useSettings();
@@ -54,9 +56,10 @@ export default function InvoiceDetail() {
   const st = invoice.effective_status;
   const isPaid = invoice.status === "paid";
 
-  async function onDelete() {
-    if (!window.confirm(`Delete invoice ${invoice.invoice_number}?`)) return;
-    await del.mutateAsync(id);
+  async function confirmVoid(reason) {
+    await del.mutateAsync({ id, reason });
+    toast.success(`${invoice.invoice_number} voided`, "It stays in the books, marked.");
+    setVoiding(false);
     nav("/invoices");
   }
 
@@ -101,10 +104,10 @@ export default function InvoiceDetail() {
           </Button>
           <Button
             variant="ghost"
-            onClick={onDelete}
+            onClick={() => setVoiding(true)}
             className="text-[var(--danger)] hover:bg-[var(--danger)]/10"
           >
-            <Trash2 size={15} />
+            <Ban size={15} />
           </Button>
         </div>
       </div>
@@ -195,6 +198,15 @@ export default function InvoiceDetail() {
           <ClientCard invoice={invoice} />
         </div>
       </div>
+
+      <VoidDialog
+        open={voiding}
+        onClose={() => setVoiding(false)}
+        onConfirm={confirmVoid}
+        busy={del.isPending}
+        what={invoice.invoice_number}
+        amount={formatMoney(invoice.total, invoice.currency)}
+      />
     </div>
   );
 }
