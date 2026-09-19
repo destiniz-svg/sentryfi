@@ -137,11 +137,19 @@ It comes third because most of it can be built from what already exists — bill
 
 ---
 
-### 4. The phone
+### 4. The phone — no signal handled 19 September 2026
 
 **The goal says every bill is recorded within minutes of arriving, by whoever is holding it.** That is a person on a site with a phone. The previous plan never built it, which made the goal unreachable by its own steps.
 
 The phone board from `DESIGN.md`: square, loud, high contrast, one-handed, readable in equatorial sun. Snap, review, confirm. The expense dashboard. Site cash spending, counting and asking for a top-up. The waiting queue that survives a day without signal. The ten-second undo. Plain words only — no accounting terms reach the phone at all.
+
+**The no-signal half is built and checked on the live app.** A bill taken with no connection is held in IndexedDB with its photograph, and sends itself when the signal returns, when the app is opened, and when the tab is looked at again. Nothing leaves the queue until the server confirms it. The phone decides the bill's key before it sends — on the first attempt as well as on every retry — so a send that times out cannot become two bills; the server answers a repeat with the bill it already has.
+
+The check that proves it is `tools/offline.js`: it cuts the connection, records a bill, reads the phone's own disk rather than trusting the screen, then reconnects and confirms one bill on the server with the right figure.
+
+That check found the other half. The queue was durable but the way back into the app was not: close the tab on a site with no bars and the next attempt was the browser's error page. The shell is now precached and every navigation falls back to it, so the app opens on a dead connection; `/api` stays NetworkOnly, because a figure that is quietly three days old is worse than no figure. `tools/shell.js` checks it.
+
+**Still to build:** the phone board proper — the square register, site cash, and the ten-second undo.
 
 **Done when:** a bill photographed on a site with no signal is in the books three taps later, once there is signal.
 
