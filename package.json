@@ -2,7 +2,9 @@
   "name": "sentryfi",
   "version": "0.1.0",
   "private": true,
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "npm run render && next build",
@@ -12,7 +14,7 @@
     "verify": "node tools/verify-artboards.js"
   },
   "dependencies": {
-    "next": "15.5.4",
+    "next": "^15.5.25",
     "react": "19.1.1",
     "react-dom": "19.1.1"
   },
