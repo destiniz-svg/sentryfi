@@ -42,7 +42,7 @@ const TONE = {
 };
 
 export default function Attention() {
-  const { companyId, company } = useCompany();
+  const { companyId } = useCompany();
 
   const { data, isLoading } = useQuery({
     queryKey: ["attention", companyId],
@@ -61,8 +61,8 @@ export default function Attention() {
         What needs you
       </h1>
       <p className="text-[var(--ink-muted)] mt-1.5 text-[15px]">
-        {company?.name ? `${company.name}, right now.` : "Right now."} Nothing else in here will
-        interrupt you.
+        Everything waiting on a person, in the order it costs you. Nothing else in
+        here will interrupt you.
       </p>
 
       <div className="mt-7">

@@ -7,6 +7,7 @@ import {
   Wallet,
   Package,
   BarChart3,
+  Gauge,
   Settings,
   LogOut,
   ReceiptText,
@@ -17,7 +18,7 @@ import AILogo from "./AILogo";
 
 const NAV = [
   { to: "/dashboard", icon: LayoutGrid, label: "What needs you" },
-  { to: "/figures", icon: BarChart3, label: "Figures" },
+  { to: "/figures", icon: Gauge, label: "Figures" },
   { to: "/bills", icon: ReceiptText, label: "Bills" },
   { to: "/invoices", icon: FileText, label: "Invoices" },
   { to: "/clients", icon: Users, label: "Clients" },
