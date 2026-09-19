@@ -4,7 +4,7 @@ const { z } = require("zod");
 const asyncHandler = require("../utils/asyncHandler");
 const ApiError = require("../utils/ApiError");
 const { requireAuth } = require("../middleware/auth");
-const { requireCompany, requireCan } = require("../middleware/company");
+const { requireCompany, requireCan, CAN } = require("../middleware/company");
 const { withTransaction } = require("../config/db");
 const { assumeIdentity } = require("../ledger/post");
 
@@ -159,16 +159,20 @@ router.get(
     res.json({
       company: req.company,
       roles: req.roles,
-      can: {
-        read: req.can("read"),
-        record: req.can("record"),
-        approve: req.can("approve"),
-        adjust: req.can("adjust"),
-        close: req.can("close"),
-        managePeople: req.can("manage_people"),
-        manageSettings: req.can("manage_settings"),
-        capture: req.can("capture"),
-      },
+      /**
+       * Every capability, spelled the way the table spells it.
+       *
+       * This used to list eight of them by hand in camelCase while the table
+       * they come from is snake_case. A screen asking can("manage_settings")
+       * got false, silently, and the button it guarded simply never appeared
+       * — with nothing anywhere to say why. Two spellings for one idea is a
+       * defect waiting to be rediscovered, and a hand-written list goes stale
+       * the moment a capability is added, which is exactly what happened when
+       * cash arrived with spend_cash and count_cash.
+       */
+      can: Object.fromEntries(
+        [...new Set(Object.values(CAN).flat())].map((action) => [action, req.can(action)])
+      ),
     });
   })
 );

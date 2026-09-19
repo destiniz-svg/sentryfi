@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useUndo } from "@/context/UndoContext";
 import { useOutbox } from "@/context/OutboxContext";
+import { useCompany } from "@/context/CompanyContext";
 
 /**
  * The phone board.
@@ -44,9 +45,14 @@ export function PhoneShell({ heading, unit = "MVR", figure, position, sync, chil
 }
 
 function PhoneHeader() {
+  // The company this is, not the company the artboard was drawn for. The name
+  // was hard-coded from the design and read "Altura Pvt Ltd" in every set of
+  // books, which on a screen about whose money this is, is the one word that
+  // has to be right.
+  const { company } = useCompany();
   return (
     <div className="phone-header">
-      <span className="phone-company">Altura Pvt Ltd</span>
+      <span className="phone-company">{company?.name || "Sentryfi"}</span>
       <svg width="28" height="28" viewBox="0 0 96 96" role="img" aria-label="Sentryfi" className="ml-auto">
         <circle cx="48" cy="48" r="34" fill="#F2C300" />
         {/* The ring follows the ground. On the night board an ink ring is
