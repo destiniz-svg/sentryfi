@@ -105,8 +105,18 @@ body {
   font-feature-settings: "cv11", "ss01";
 }
 
-* {
-  border-color: var(--border);
+/* The default border colour, so an element with a border and no colour gets
+   the hairline rather than the browser's currentColor.
+ *
+ * It must be in @layer base. Unlayered CSS outranks everything Tailwind
+ * generates, so as a bare rule this quietly beat every border-[…] utility in
+ * the application: a field asking for a 2px ink edge got 2px of hairline and
+ * no error anywhere. Found on the phone board's capture sheet, where the
+ * difference is the whole register. */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
 }
 
 /* The Ring Follows The Ground.

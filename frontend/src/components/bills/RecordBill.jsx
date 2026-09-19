@@ -530,7 +530,16 @@ export function RecordBill({ open, onClose }) {
       )}
 
       {duplicates.length === 0 && (
-        <div className="flex items-center justify-end gap-2 mt-6">
+        /* On the board this stays on screen. The sheet is longer than a phone
+           and the commitment was below the fold, which asks somebody holding a
+           bill to go looking for the thing they came to do. */
+        <div
+          className={
+            board
+              ? "sticky bottom-0 -mx-5 mt-6 flex items-center gap-2 border-t-2 border-[var(--ink)] bg-[var(--surface)] px-5 py-3"
+              : "flex items-center justify-end gap-2 mt-6"
+          }
+        >
           <Button
             type="button"
             variant="outline"
