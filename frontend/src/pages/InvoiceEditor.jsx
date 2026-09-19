@@ -1,8 +1,12 @@
+import InvoiceLivePreview from "@/components/invoice/InvoiceLivePreview";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Plus,
   Trash2,
+  GripVertical,
+  ChevronUp,
+  ChevronDown,
   ArrowLeft,
   Save,
   Loader2,
@@ -83,7 +87,7 @@ export default function InvoiceEditor() {
         status: "draft",
         issue_date: todayISO(),
         due_date: plusDays(30),
-        currency: settings.currency || "USD",
+        currency: settings.currency || "MVR",
         tax_rate: Number(settings.tax_rate) || 0,
         discount: 0,
         notes: "",
@@ -112,12 +116,22 @@ export default function InvoiceEditor() {
     );
   }
 
+  const [dragFrom, setDragFrom] = useState(null);
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
   const setItem = (i, patch) =>
     setForm((f) => ({
       ...f,
       items: f.items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)),
     }));
+  const moveItem = (from, to) =>
+    setForm((f) => {
+      if (from === to || from == null || to == null) return f;
+      if (to < 0 || to >= f.items.length) return f;
+      const items = [...f.items];
+      const [row] = items.splice(from, 1);
+      items.splice(to, 0, row);
+      return { ...f, items };
+    });
   const addItem = () => setForm((f) => ({ ...f, items: [...f.items, blankItem()] }));
   const addCatalogItem = (it) =>
     setForm((f) => {
@@ -173,7 +187,7 @@ export default function InvoiceEditor() {
   const symbol = CURRENCIES.find((c) => c.code === form.currency)?.symbol || "$";
 
   return (
-    <div className="max-w-[1100px]">
+    <div className="max-w-[1320px]">
       <div className="flex items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
           <button
@@ -287,7 +301,8 @@ export default function InvoiceEditor() {
             </div>
 
             {/* header row */}
-            <div className="hidden sm:grid grid-cols-[1fr_80px_110px_110px_32px] gap-3 px-1 pb-2 text-[11px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+            <div className="hidden sm:grid grid-cols-[22px_1fr_80px_110px_110px_32px] gap-3 px-1 pb-2 text-[11px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+              <span></span>
               <span>Description</span>
               <span className="text-right">Qty</span>
               <span className="text-right">Rate</span>
@@ -299,8 +314,32 @@ export default function InvoiceEditor() {
               {form.items.map((it, i) => (
                 <div
                   key={i}
-                  className="grid grid-cols-2 sm:grid-cols-[1fr_80px_110px_110px_32px] gap-3 items-center"
+                  className={`grid grid-cols-2 sm:grid-cols-[22px_1fr_80px_110px_110px_32px] gap-3 items-center rounded-xl transition-colors ${
+                    dragFrom === i ? "opacity-50" : ""
+                  }`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (dragFrom === null || dragFrom === i) return;
+                    moveItem(dragFrom, i);
+                    setDragFrom(i);
+                  }}
+                  onDrop={() => setDragFrom(null)}
                 >
+                  <button
+                    type="button"
+                    draggable
+                    onDragStart={() => setDragFrom(i)}
+                    onDragEnd={() => setDragFrom(null)}
+                    onKeyDown={(e) => {
+                      if (e.key === "ArrowUp") { e.preventDefault(); moveItem(i, i - 1); }
+                      if (e.key === "ArrowDown") { e.preventDefault(); moveItem(i, i + 1); }
+                    }}
+                    aria-label={`Line ${i + 1} of ${form.items.length}. Drag to reorder, or use the arrow keys.`}
+                    title="Drag to reorder"
+                    className="hidden sm:flex h-8 w-[22px] items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] cursor-grab active:cursor-grabbing"
+                  >
+                    <GripVertical size={15} />
+                  </button>
                   <Input
                     className="col-span-2 sm:col-span-1 rounded-xl"
                     placeholder="Description of work or item"
@@ -326,6 +365,26 @@ export default function InvoiceEditor() {
                   <div className="text-right text-sm font-semibold tabular text-[var(--ink)] pr-1">
                     {formatMoney((Number(it.quantity) || 0) * (Number(it.rate) || 0), form.currency)}
                   </div>
+                  <div className="flex sm:hidden items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => moveItem(i, i - 1)}
+                      disabled={i === 0}
+                      aria-label="Move this line up"
+                      className="h-8 w-8 rounded-full flex items-center justify-center text-[var(--ink-muted)] disabled:opacity-30"
+                    >
+                      <ChevronUp size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveItem(i, i + 1)}
+                      disabled={i === form.items.length - 1}
+                      aria-label="Move this line down"
+                      className="h-8 w-8 rounded-full flex items-center justify-center text-[var(--ink-muted)] disabled:opacity-30"
+                    >
+                      <ChevronDown size={14} />
+                    </button>
+                  </div>
                   <button
                     onClick={() => removeItem(i)}
                     className="h-8 w-8 rounded-full flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--danger)] hover:bg-[var(--surface-2)] justify-self-end"
@@ -344,6 +403,30 @@ export default function InvoiceEditor() {
 
           {/* notes */}
           <Card padding="lg" className="space-y-4">
+            <CardTitle>Tax and discount</CardTitle>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="GST %">
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={form.tax_rate}
+                  onChange={(e) => set({ tax_rate: e.target.value })}
+                  className="tabular"
+                />
+              </Field>
+              <Field label={`Discount (${symbol})`}>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.discount}
+                  onChange={(e) => set({ discount: e.target.value })}
+                  className="tabular"
+                />
+              </Field>
+            </div>
+
             <NoteField
               label="Notes"
               value={form.notes}
@@ -363,63 +446,22 @@ export default function InvoiceEditor() {
           </Card>
         </div>
 
-        {/* Right — totals */}
-        <div className="space-y-5">
-          <Card padding="lg" className="lg:sticky lg:top-4">
-            <CardTitle className="mb-4">Summary</CardTitle>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <Field label="Currency">
-                <select
-                  className={selectClass}
-                  value={form.currency}
-                  onChange={(e) => set({ currency: e.target.value })}
-                >
-                  {CURRENCIES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.code}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Tax %">
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={form.tax_rate}
-                  onChange={(e) => set({ tax_rate: e.target.value })}
-                  className="tabular"
-                />
-              </Field>
-            </div>
-            <Field label={`Discount (${symbol})`} className="mb-4">
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.discount}
-                onChange={(e) => set({ discount: e.target.value })}
-                className="tabular"
-              />
-            </Field>
-
-            <div className="space-y-2 pt-4 border-t border-[var(--border)] text-sm">
-              <Row label="Subtotal" value={formatMoney(totals.subtotal, form.currency)} />
-              {totals.discount > 0 && (
-                <Row label="Discount" value={`− ${formatMoney(totals.discount, form.currency)}`} />
-              )}
-              <Row
-                label={`Tax (${Number(form.tax_rate) || 0}%)`}
-                value={formatMoney(totals.taxAmount, form.currency)}
-              />
-              <div className="flex items-center justify-between pt-3 mt-1 border-t border-[var(--border)]">
-                <span className="font-display font-semibold">Total</span>
-                <span className="font-display text-xl font-semibold tabular text-[var(--accent-strong)]">
-                  {formatMoney(totals.total, form.currency)}
-                </span>
-              </div>
-            </div>
-          </Card>
+        {/* Right — the invoice as it will be sent */}
+        <div className="space-y-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <h3 className="font-display text-[13px] font-bold uppercase tracking-[0.14em] text-[var(--ink-muted)]">
+              What they will receive
+            </h3>
+          </div>
+          <div className="lg:sticky lg:top-4">
+            <InvoiceLivePreview
+              form={form}
+              totals={totals}
+              settings={settings}
+              client={clientById(clients, form.client_id)}
+              invoiceNumber={isEdit ? existing?.invoice_number : null}
+            />
+          </div>
         </div>
       </div>
     </div>
