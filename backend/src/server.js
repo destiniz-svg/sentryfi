@@ -87,10 +87,24 @@ if (env.isProd) {
   // minute on a phone with one bar on a jetty, which is where this app is
   // meant to be used.
   app.use(compression());
-  app.use(express.static(clientDir, { maxAge: "1h", index: false }));
+
+  // Two kinds of file, two answers. Everything under /assets carries a hash of
+  // its own contents in its name, so it can be kept for a year and a new build
+  // simply has different names. Everything else — the page, the service
+  // worker, the manifest — has a fixed name, so it must be revalidated or a
+  // phone would sit on a stale shell and a fix would never arrive.
+  const forever = { maxAge: "1y", immutable: true };
+  const check = { setHeaders: (res) => res.setHeader("Cache-Control", "no-cache") };
+
+  app.use("/assets", express.static(path.join(clientDir, "assets"), forever));
+  app.use(express.static(clientDir, { index: false, ...check }));
+
   app.use((req, res, next) => {
     if (req.path.startsWith("/api")) return next();
     if (req.method !== "GET" && req.method !== "HEAD") return next();
+    // The service worker serves this offline; online it must always be checked,
+    // or a phone keeps loading an old app against a new server.
+    res.setHeader("Cache-Control", "no-cache");
     res.sendFile(path.join(clientDir, "index.html"));
   });
 }
