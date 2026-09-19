@@ -1,6 +1,7 @@
 const path = require("path");
 const express = require("express");
 const compression = require("compression");
+const helmet = require("helmet");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const morgan = require("morgan");
@@ -26,6 +27,12 @@ const billsRouter = require("./routes/bills");
 
 
 const app = express();
+
+// Standard security headers. contentSecurityPolicy is off deliberately: the
+// front end inlines styles, and a CSP that is subtly wrong gets switched off
+// in a panic the first time it breaks a page. It belongs in its own change,
+// measured against the real app.
+app.use(helmet({ contentSecurityPolicy: false }));
 
 app.set("trust proxy", 1);
 // The web app is served from this same origin in production, so no

@@ -1,0 +1,61 @@
+# Checks that run on every push.
+#
+# The tests need a real Postgres, not a stand-in. The ledger's guarantees are
+# deferred constraint triggers, plpgsql, row-level security and a restricted
+# role; an in-memory fake implements none of them, so a suite running against
+# one would pass while proving nothing. A service container costs nothing and
+# is the actual database.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sentryfi_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/sentryfi_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint the front end
+        run: npx eslint frontend/src
+
+      - name: Build the front end
+        run: npm run build -w frontend
+
+      - name: Test the ledger against a real Postgres
+        run: npm test -w backend
+
+      # A money application should not ship a known vulnerability. High and
+      # critical fail the build; anything lower is reported and not blocking,
+      # because a transitive low in a dev tool should not stop a fix reaching
+      # production.
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
