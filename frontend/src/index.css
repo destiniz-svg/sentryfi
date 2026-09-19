@@ -543,7 +543,9 @@ body {
   padding: 0 14px;
   background: var(--ink-panel);
   color: var(--on-ink-panel);
-  border: 0;
+  /* The same edge the nav needs: on the night board this button's ink fill is
+     the board's ground, and without it the label floats on nothing. */
+  border: 1px solid var(--border);
   font: 700 12px var(--font-display);
   letter-spacing: 0.1em;
   text-transform: uppercase;
