@@ -59,20 +59,6 @@ export function RecordBill({ open, onClose }) {
   const board = usePhone();
   const inputClass = board ? BOARD_INPUT : DESK_INPUT;
 
-  /**
-   * The button that commits names the money.
-   *
-   * "Record it" asks a thumb to commit to a word. This says what is about to
-   * happen and to how much, and when something is missing it says that
-   * instead — so the loudest thing on the sheet is either the blocker or the
-   * commitment, never a detail.
-   */
-  const amountNow = Number(String(form.amount).replace(/,/g, ""));
-  const commitment = !form.supplierName.trim()
-    ? "Who is it from?"
-    : !(amountNow > 0)
-      ? "Add the amount"
-      : `Record MVR ${formatAmount(form.amount)}`;
   const cameraButton = useRef(null);
 
   const [form, setForm] = useState(blank());
@@ -87,6 +73,20 @@ export function RecordBill({ open, onClose }) {
   // record. The first is what gets read; all of them get kept.
   const [files, setFiles] = useState([]);
   const [supplierFacts, setSupplierFacts] = useState(null);
+/**
+   * The button that commits names the money.
+   *
+   * "Record it" asks a thumb to commit to a word. This says what is about to
+   * happen and to how much, and when something is missing it says that
+   * instead — so the loudest thing on the sheet is either the blocker or the
+   * commitment, never a detail.
+   */
+  const amountNow = Number(String(form.amount).replace(/,/g, ""));
+  const commitment = !form.supplierName.trim()
+    ? "Who is it from?"
+    : !(amountNow > 0)
+      ? "Add the amount"
+      : `Record MVR ${formatAmount(form.amount)}`;
   const cameraInputRef = useRef(null);
   const libraryInputRef = useRef(null);
 
