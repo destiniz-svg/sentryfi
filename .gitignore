@@ -15,3 +15,8 @@ frontend/dist/
 
 # Screenshots are for looking at, not for keeping.
 tools/shots/
+
+# Screenshots of the running app show real suppliers, real bill numbers and
+# real amounts. They are working output, not a record, and this repository is
+# public.
+shots/
