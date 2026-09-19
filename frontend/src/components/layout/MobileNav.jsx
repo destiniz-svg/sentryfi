@@ -30,7 +30,7 @@ import AILogo from "./AILogo";
  */
 
 const PRIMARY = [
-  { to: "/dashboard", icon: LayoutGrid, label: "Home" },
+  { to: "/dashboard", icon: LayoutGrid, label: "Needs you" },
   { to: "/bills", icon: ReceiptText, label: "Bills" },
   { to: "/invoices", icon: FileText, label: "Invoices" },
   { to: "/expenses", icon: Receipt, label: "Expenses" },

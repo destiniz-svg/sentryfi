@@ -34,6 +34,7 @@ const InvoiceEditor = lazy(() => import("@/pages/InvoiceEditor"));
 const InvoiceDetail = lazy(() => import("@/pages/InvoiceDetail"));
 const Clients = lazy(() => import("@/pages/Clients"));
 const ClientDetail = lazy(() => import("@/pages/ClientDetail"));
+const Attention = lazy(() => import("@/pages/Attention"));
 const Bills = lazy(() => import("@/pages/Bills"));
 const Expenses = lazy(() => import("@/pages/Expenses"));
 const Payments = lazy(() => import("@/pages/Payments"));
@@ -85,7 +86,8 @@ export const router = createBrowserRouter([
     element: <ProtectedShell />,
     errorElement: <ErrorPage />,
     children: [
-      { path: "dashboard", element: <Dashboard /> },
+      { path: "dashboard", element: <Attention /> },
+      { path: "figures", element: <Dashboard /> },
       { path: "invoices", element: <Invoices /> },
       { path: "invoices/new", element: <InvoiceEditor /> },
       { path: "invoices/:id", element: <InvoiceDetail /> },
