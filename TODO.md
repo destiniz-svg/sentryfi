@@ -63,7 +63,7 @@ A person can hold more than one of these, and the roles are per company, so the 
 
 One line. Each step finishes before the next starts, because building on a foundation that is about to be replaced means building twice.
 
-Steps 1 to 12 are **the core**, and it is not finished until all twelve are. Steps 13 to 20 are the modules, each switched on per company. The AI layer sits on top of all of it and is built last, because it can only be as good as the records underneath it.
+Steps 1 to 15 are **the core**, and it is not finished until all fifteen are and the test at the end of part one has been passed. Steps 16 to 22 are the modules, each switched on per company. The last part sits on top of everything and is built last, because it can only be as good as the records underneath it.
 
 ---
 
@@ -111,141 +111,177 @@ The owner's hardest job, and the reason this exists.
 
 ---
 
-### 3. Money owed to you
+### 3. What needs you
 
-Sales invoices on the ledger rather than on the purchased tool's tables. Customers, what they owe, what is overdue, receipts against invoices, credit notes.
+The product's central idea, and it had no step at all until this revision. One place that answers "what am I holding up?", assembled from the books rather than typed by anyone.
 
-**Done when:** an invoice raised here posts a balanced entry, a receipt against it settles the right amount, and the aged list is a ledger query rather than a document query.
+It comes third because most of it can be built from what already exists — bills waiting on a decision, a tax treatment nobody has established, a possible duplicate — and because every step after this one adds something that belongs on it. Built last, it would be retrofitted; built now, each later step contributes a line to it.
 
----
+**You will be able to:** open the app and see what needs a person, in order of what it costs to ignore. Nothing else notifies you.
 
-### 4. Cash and bank
-
-Bank accounts and cash boxes as real accounts in the books, with balances that come from the ledger. Transfers between them. Cash boxes held by named people, spending with or without a bill, counts, and top-ups.
-
-**Done when:** every account's balance is derived from journal lines and nothing stores a balance of its own, and a cash count that does not balance is recorded with its reason rather than quietly hidden.
+**Done when:** every step that follows adds its own kind of attention here rather than inventing a second place to look.
 
 ---
 
-### 5. The bank agrees with the books
+### 4. Money owed to you
 
-**You will be able to:** export a statement from internet banking, drop it in, and have most of it match itself. The app answers the ones it can and asks about the rest. Leaving one for later counts as an answer, so the list always clears.
+Sales invoices, customers, receipts and credit notes on the ledger rather than on the purchased tool's tables.
 
-**Under the bonnet:** the bank prints the same reference on the statement and on the transfer receipt your staff photograph, which is why most rows need no guessing. Card purchases carry no reference, which is why those are the ones it asks about. The file's column layout is read, not assumed, so a change at the bank does not break the import and another bank's format is configuration rather than code.
-
-**Done when:** a real nine-month export imports cleanly, most rows match without help, and nothing posts without a person saying so.
+**Done when:** an invoice raised here posts a balanced entry, a receipt settles the right amount, the aged list is a ledger query, and **the purchased product's invoice and payment tables are gone.** Two places holding the same figure is how they come to disagree.
 
 ---
 
-### 6. Periods, and closing one
+### 5. Cash and bank
 
-A period that can be closed, and a closed period that refuses new entries without a deliberate adjustment. Without this there is no such thing as a final figure, and every report is provisional forever.
+Bank accounts and cash boxes as real accounts, with balances derived from the ledger and stored nowhere. Transfers between them. Boxes held by named people, spending with or without a bill, counts, top-ups.
 
-**Done when:** a closed month refuses a new entry, an adjustment into it is possible, deliberate and recorded, and reopening is an act with a name on it.
+**Done when:** no balance is stored anywhere, a cash count that does not balance is recorded with its reason rather than hidden, and **the purchased expenses table is gone.**
 
 ---
 
-### 7. The statements
+### 6. The bank agrees with the books
 
-Trial balance, profit and loss, and balance sheet, produced from journal lines and from nothing else. These are how an accountant checks the work, and until they exist nobody outside can verify anything.
+**You will be able to:** export a statement from internet banking, drop it in, and have most of it match itself. The app answers what it can and asks about the rest. Leaving one for later counts as an answer, so the list always clears.
+
+**Under the bonnet:** the bank prints the same reference on the statement and on the transfer receipt your staff photograph, which is why most rows need no guessing. Card purchases carry no reference, which is why those are the ones it asks about. The column layout is read, not assumed, so another bank is configuration.
+
+**Done when:** a real nine-month export imports cleanly, most rows match without help, nothing posts without a person saying so, and what is left unmatched appears in step 3.
+
+---
+
+### 7. The tax engine
+
+**Moved earlier in this revision, and the reason matters.** Bills currently hard-code 8%. Every bill recorded before this exists carries a rate the engine never set, and reconciling those afterwards is worse than ordering it correctly now, before the volume arrives.
+
+Rates, periods, treatments and forms as versioned configuration with effective dates. A rate change must not rewrite history: a bill keeps the rate it was quoted at.
+
+**Done when:** the Maldives pack drives everything the app hard-codes today, a second generic pack exists, and changing a rate from a date leaves every earlier bill untouched.
+
+---
+
+### 8. Periods, and closing one
+
+A period that can be closed, and a closed period that refuses new entries without a deliberate adjustment. Without this there is no such thing as a final figure and every report is provisional forever.
+
+**Done when:** a closed month refuses an entry, an adjustment into it is possible, deliberate and recorded, and reopening is an act with a name on it.
+
+---
+
+### 9. The statements
+
+Trial balance, profit and loss, balance sheet, from journal lines and nothing else. This is how an accountant checks the work; until they exist nobody outside can verify anything.
 
 **Done when:** the trial balance is zero, the balance sheet balances, and both agree with the ledger at any date asked for.
 
 ---
 
-### 8. More than one currency
+### 10. More than one currency
 
-Amounts held in the currency they happened in, reported in the company's own, with the rate used stored rather than recomputed on read. Altura already banks in MVR and USD.
+Held in the currency it happened in, reported in the company's own, with the rate used stored rather than recomputed. Altura already banks in MVR and USD.
 
 **Done when:** a USD bill and an MVR bill sit in the same books, the reported total is right, and last year's figures do not move when today's rate does.
 
 ---
 
-### 9. The tax engine
+### 11. The return, ready before the deadline
 
-Rates, periods, treatments and forms as versioned configuration with effective dates. A rate change must not rewrite history: a bill keeps the rate it was quoted at. A new country must be a pack, not a release.
+**You will be able to:** open the tax centre any day and see what you owe so far, what still needs looking at, and how long is left. Before filing, see what is already correct and what would make the return wrong. Produce the figures and both spreadsheets in the format the portal expects, with every receipt behind them.
 
-**Done when:** the Maldives pack drives everything the app currently hard-codes, a second generic pack exists, and changing a rate from a date leaves every earlier bill untouched.
+**Under the bonnet:** the other charges the authority collects, not tax alone — MIRA administers 24 revenue types and three of them apply to Altura and are not modelled.
 
----
-
-### 10. The return, ready before the deadline
-
-The thing nobody else does.
-
-**You will be able to:** open the tax centre any day of the month and see what you owe so far, what still needs looking at, and how long is left. Before filing, see plainly what is already correct and what would make the return wrong. Produce the figures and both spreadsheets in the exact format the portal expects, with every receipt behind them.
-
-**Under the bonnet:** the other charges the authority collects, not tax alone — MIRA administers 24 revenue types and three of them apply to Altura and are not modelled yet.
-
-**Done when:** one month produces a pack that is keyed into the portal without opening a spreadsheet.
+**Done when:** one month produces a pack that is keyed into the portal without opening a spreadsheet, and the countdown appears in step 3.
 
 ---
 
-### 11. The right people, and only their own job — foundation done 19 September 2026
+### 12. Bringing history in
 
-**You will be able to:** add people and trust the boundaries. Site staff reach the camera and nothing else. A cash holder sees one number. A procurement officer sees their own orders. Directors read and never post.
+**Moved into the core in this revision.** Real money needs agreed opening balances, and an accountant cannot agree an opening balance without the prior records. It cannot sit after the modules.
 
-**What is done:** a request resolves to a company, checks the person is a member, and carries what they may do. Roles are per company, because the owner is a director of several and is not the same thing in each. Permissions are one table of capabilities, so "who may post an adjustment?" is answered by reading one place. Screens ask by capability, never by role name.
+Zoho Books, QuickBooks Online and Xero over OAuth; anything else with an API through the same connector interface; CSV as the floor.
 
-**Still owed:** the screens for adding people, spending limits, passkeys, and ending every other session when a password changes.
+**The rule that does not bend:** a connector posts through the same door as a person and never into the tables. Every imported record becomes a balanced entry through the same function, with the same constraints, numbering, seal and trail. Writing rows directly is how integrations are usually built and it would put a hole through every guarantee the ledger makes — the hash chain is worth nothing if anything can append beside it.
 
----
-
-### 12. The paper, kept
-
-Every record's supporting document attached and addressed by its own content hash, so the same photograph filed twice is stored once and an altered file is a different file. Retrievable by name for the five years the law requires.
-
-**Done when:** an auditor can open a folder and find the document behind any entry without asking anyone.
-
----
-
-# Part two — the modules
-
-Each switched on per company, invisible when off, and none of them may change how the core records money.
-
----
-
-### 13. Projects and job costing
-
-Budgets, cost codes, budget against actual, cost to complete, project profitability. Costs already hang off journal lines rather than documents, so a project report is a ledger query.
-
-### 14. Buying, and what actually arrived
-
-A procurement officer buys twenty tonnes of cement on Tuesday and photographs the delivery note; the supplier invoices the office a fortnight later. Right now those are two unrelated records, so the cost is counted twice or the invoice is paid without anyone checking it against what turned up. Ordered, received and invoiced quantities held separately and matched, partial deliveries included. Spending limits per person, and an approver above them.
-
-**Done when:** an order, a delivery and an invoice for the same cement become one cost, not three, and a short delivery is caught before payment.
-
-### 15. Construction
-
-Bills of quantity, variations, progress claims, retention, certified work, work in progress. Needs the contract terms first.
-
-### 16. Equipment and rental
-
-Machine register, utilisation, hours, fuel and maintenance, machine-level profitability, rate cards. Altura already rents an excavator to RDC.
-
-### 17. Inventory and fuel
-
-Quantity-based stock, landed cost, margin per unit.
-
-### 18. Hospitality
-
-Rooms, occupancy, ADR and RevPAR, food and beverage, guest deposits, agent commissions. Waits for the hotel to open.
-
-### 19. Connecting to what a company already uses
-
-Zoho Books, QuickBooks Online and Xero over OAuth, anything else with an API through the same connector interface, and CSV as the floor that always works. Three jobs, in this order: bring history in so the first month here is not the first month of the business; run alongside while a company moves, which is the state Altura is in today; and hand everything back in a form an accountant can use, so nobody is held by their own records.
-
-**The rule that does not bend:** a connector posts through the same door as a person and never into the tables. Every imported record becomes a balanced entry through the same function, with the same constraints, numbering, seal and trail. Writing rows directly would put a hole straight through every guarantee the ledger makes, and it is how integrations are usually built.
-
-Every imported record carries which system it came from and that system's own id, so importing a month twice recognises itself rather than doubling the books. An import that cannot balance does not post — it waits for a person, like a bill whose tax nobody has established. A connector proposes; a person accepts.
+Every imported record carries which system it came from and that system's own id, so importing a month twice recognises itself. An import that cannot balance waits for a person. A connector proposes; a person accepts.
 
 **Done when:** a year of Zoho history imports, the trial balance afterwards matches what Zoho said it was, and importing the same year again changes nothing.
 
 ---
 
-### 20. Payroll
+### 13. The phone
 
-Last of the modules. It touches tax differently in every jurisdiction, so it waits for the tax engine to be real.
+**The goal says every bill is recorded within minutes of arriving, by whoever is holding it.** That is a person on a site with a phone. The previous plan never built it, which made the goal unreachable by its own steps.
+
+The phone board from `DESIGN.md`: square, loud, high contrast, one-handed, readable in equatorial sun. Snap, review, confirm. The expense dashboard. Site cash spending, counting and asking for a top-up. The waiting queue that survives a day without signal. The ten-second undo. Plain words only — no accounting terms reach the phone at all.
+
+**Done when:** a bill photographed on a site with no signal is in the books three taps later, once there is signal.
+
+---
+
+### 14. The right people, and only their own job
+
+**You will be able to:** add people and trust the boundaries. Site staff reach the camera and nothing else. A cash holder sees one number. A procurement officer sees their own orders. Directors read and never post.
+
+**Done:** a request resolves to a company, checks membership, and carries capabilities.
+
+**Still owed:** the screens for adding people, spending limits, passkeys, and ending every other session when a password changes.
+
+---
+
+### 15. The paper, and the copy of it
+
+Every record's supporting document attached and addressed by its own content hash, so the same photograph filed twice is stored once and an altered file is a different file. Retrievable by name for the five years the law requires.
+
+**And the backup, which nothing in the previous plan built.** Nightly encrypted dumps and a monthly filing pack, somewhere that is not this server. For software holding the only copy of a company's books, its absence is not an omission but a liability.
+
+**Done when:** an auditor opens a folder and finds the document behind any entry without asking anyone, and the whole thing can be restored onto an empty database and verified.
+
+---
+
+### The core is finished when
+
+Not a checklist. One sitting, on one company, with real records:
+
+**Open a month. Record bills and invoices through it. Take payments. Import the bank statement and clear the exceptions. Close the period. Produce a trial balance that is zero, a profit and loss, and a balance sheet that balances — and have the accountant agree they are right.**
+
+Until that has happened, the core is not done, whatever the individual steps say.
+
+---
+
+# Part two — the modules
+
+Each switched on per company, invisible when off, and none may change how the core records money. **Ordered by what the business actually does**, which the previous plan did not do: equipment rental earns money today, from an excavator rented to RDC, and sat below a hotel that has not opened.
+
+---
+
+### 16. Projects and job costing
+
+Budgets, cost codes, budget against actual, cost to complete, project profitability. Costs already hang off journal lines rather than documents, so a project report is a ledger query. First, because every bill Altura records wants a project on it.
+
+### 17. Equipment and rental
+
+Machine register, utilisation, hours, fuel and maintenance, machine-level profitability, rate cards. Second, because it is live revenue now.
+
+### 18. Buying, and what actually arrived
+
+A procurement officer buys twenty tonnes of cement on Tuesday and photographs the delivery note; the supplier invoices the office a fortnight later. Today those are two unrelated records, so the cost is counted twice or the invoice is paid with nobody checking it against what turned up. Ordered, received and invoiced quantities held separately and matched, partial deliveries included. Spending limits per person, and an approver above them.
+
+**Done when:** an order, a delivery and an invoice for the same cement become one cost, not three, and a short delivery is caught before payment.
+
+### 19. Construction
+
+Bills of quantity, variations, progress claims, retention, certified work, work in progress. Needs the contract terms first.
+
+### 20. Inventory and fuel
+
+Quantity-based stock, landed cost, margin per unit.
+
+### 21. Hospitality
+
+Rooms, occupancy, ADR and RevPAR, food and beverage, guest deposits, agent commissions. When the hotel opens.
+
+### 22. Payroll
+
+Last. It touches tax differently in every jurisdiction, so it waits for the engine to be real.
 
 ---
 
@@ -253,7 +289,9 @@ Last of the modules. It touches tax differently in every jurisdiction, so it wai
 
 ---
 
-### 21. The layer that watches
+### 23. The layer that watches
+
+**Half of it already shipped.** Reading a photographed bill, deciding what is doubtful and asking only about that, landed in step 2. The previous plan described an assistant arriving at the end as though nothing existed. What is left is the part that needs a full set of books.
 
 Only once the records beneath it are trustworthy, because an assistant reasoning over bad books is worse than none.
 
@@ -263,9 +301,33 @@ Continuous reconciliation. Anomalies raised as they happen rather than at month 
 
 ---
 
-### 22. Real money
+### 24. Real money
 
-Before a single real figure is entered: the accountant signs off the accounts structure, how director money is treated, and the first return. A security review. Opening balances agreed. Then the line on the website saying nothing here is real comes off.
+Before a single real figure is entered: the accountant signs off the accounts structure, how director money is treated, and the first return. Opening balances agreed, which step 12 makes possible.
+
+**A security review, and one thing named specifically.** Prove that one company cannot reach another's data through any route — not only at the database, where it is already proven, but through every endpoint, every export, every connector and every cached query. Multi-tenant isolation is the highest-risk property this system has, and "a security review" as a line item is not a plan for testing it. Then the line on the website saying nothing here is real comes off.
+
+## What was wrong with the previous plan
+
+Written 19 September 2026, reviewing the plan drafted earlier the same day. Recorded rather than quietly corrected, because a plan that is revised without saying why teaches nobody anything.
+
+**It never built the thing the product is about.** "What needs you" is named in the product record as the central idea and the app's only notification surface. Twenty-two steps and it had no owner in any of them. It is now step 3, early, because it can be assembled from what already exists — bills waiting on a decision, a tax treatment nobody has established, a possible duplicate — and because a product whose headline capability is unscheduled is a product that will ship without it.
+
+**The phone was missing.** The goal says every bill is recorded within minutes of arriving *by whoever is holding it*. That is a person on a site with a phone. No step built the phone board; step 2 mentioned it was owed, buried in a paragraph. If the goal needs it, it is core. It is now step 13.
+
+**Bills were hard-coding 8% until step 9 built the tax engine.** Every bill recorded in between would carry a rate the engine never set, and reconciling them afterwards is worse than ordering it correctly. The tax engine moves to step 7, before the volume arrives.
+
+**Opening balances needed history that arrived four steps later.** Real money was the last step and required agreed opening balances; importing from Zoho was step 19. An accountant cannot agree an opening balance without the prior records. Bringing history in moves into the core, as step 12.
+
+**It created two sources of truth and never closed them.** Invoices, payments and expenses were to move onto the ledger while the purchased tables still held the same concepts, and no step retired the old ones. The product record forbids two places holding the same figure; the plan produced exactly that and left it. Every step that moves a concept onto the ledger now ends by removing what it replaced.
+
+**There was no test for the core being finished.** Each step had its own "done when" but the core as a whole had none, so "100%" meant whatever anyone wanted it to. It has one now, at the end of part one, and it is a single sitting on real data rather than a checklist.
+
+**Nothing backed anything up.** The product record promises nightly encrypted dumps and a monthly filing pack, and a five-year retention obligation. Twenty-two steps and not one of them built it. For software holding the only copy of a company's books that is not an omission, it is a liability.
+
+**The assistant was placed last, but half of it already shipped.** Reading a photographed bill landed in step 2. The plan described an AI layer arriving at the end as though nothing existed. It now says what is already there and what the last step actually adds.
+
+Two smaller things, fixed in place: the modules were in arbitrary order, so equipment rental — which earns money today, from an excavator rented to RDC — sat below a hotel that has not opened; and the security review was a generic line, when the specific thing worth proving is that one company cannot reach another's data through any route rather than only at the database.
 
 ## Carried from the design review
 
@@ -274,11 +336,11 @@ Before a single real figure is entered: the accountant signs off the accounts st
 | ~~The main button's label was invisible: white on yellow~~ | Fixed 19 Sep |
 | ~~Marking an invoice paid took one click, with no confirmation and no undo~~ | Fixed 19 Sep, properly in step 2 |
 | ~~The invoice list blanked on every keystroke~~ | Fixed 19 Sep |
-| Everything priced in US dollars; no tax number field | Currency and the tax numbers landed with step 1. What the screens show follows in step 2 |
-| Sign-in screen still carries the purchased product's branding | Still open. Before step 2. Half a day |
+| ~~Everything priced in US dollars; no tax number field~~ | Fixed 19 Sep. MVR throughout; tax number asked for when books are opened |
+| ~~Sign-in screen still carries the purchased product's branding~~ | Fixed 19 Sep. Rebuilt as Site Board; the marquee file is deleted |
 | ~~Four pop-ups a keyboard user cannot escape~~ | Fixed 19 Sep. One shared dialog, copied from the one that worked |
-| No way to clear a backlog in bulk | Step 2. Batch capture, not tick-boxes |
-| No help anywhere | Step 6. The pre-filing checklist is the help |
+| No way to clear a backlog in bulk | Step 13, on the phone. Batch capture, not tick-boxes |
+| No help anywhere | Step 11. The pre-filing checklist is the help |
 | ~~The whole app loads in one 2.3 MB download~~ | Fixed 19 Sep. 2.35 MB to about 160 KB over the wire |
 
 ## Not doing
