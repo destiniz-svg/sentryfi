@@ -161,7 +161,11 @@ The capture sheet is in the board's register too — square, full width, rising 
 
 A count is a record, not a correction. What was counted is kept as counted and the difference becomes its own entry with the reason on it, so the books end up agreeing with the tin and the journal says how much was missing and what was said about it. A database constraint refuses a difference with no reason. `tools/cash.js` opens a tin, funds it, spends from it, counts it short, and then reads the journal rather than the screen.
 
-**Still to build:** the board's own Snap and Review screens, which today are one sheet rather than the artboard's two.
+**The review follows its own rules now.** The one yellow field lands on whatever is most uncertain about the money, ranked by what it costs if it is wrong — a suspected duplicate, then the amount, then how the tax was quoted, then who it is from, then the bill number — and moves to the button that commits when nothing is uncertain. While a field wears it the button does not. A field the reader was sure of arrives checked, saying it was read off the bill, because a field that is always unchecked teaches somebody to clear it without reading. `tools/review.js` drives the real sheet and reads computed styles, serving the reader's answer directly so the rule is checked rather than the model.
+
+**The Snap half of the artboard is deliberately not built.** On the web the native camera is the snap screen, with the phone's own focus, flash and retake. Drawing a viewfinder over `getUserMedia` would be a worse camera and an extra permission for nothing.
+
+**Milestone one is done.** Five checks hold it: the milestone sentence itself, the offline queue, the ten-second undo, the tin, and the review.
 
 **Done when:** a bill photographed on a site with no signal is in the books three taps later, once there is signal.
 
