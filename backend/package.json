@@ -11,7 +11,8 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "migrate": "node scripts/migrate.js",
-    "seed": "node scripts/seed.js"
+    "seed": "node scripts/seed.js",
+    "ledger:selftest": "node scripts/ledger-selftest.js"
   },
   "author": "",
   "license": "ISC",

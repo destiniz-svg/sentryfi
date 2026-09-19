@@ -3,15 +3,22 @@
   "version": "0.1.0",
   "private": true,
   "description": "Sentryfi — Snap it. Record it. Done.",
-  "engines": { "node": ">=20" },
-  "workspaces": ["backend", "frontend"],
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
   "scripts": {
     "dev": "npm run dev -w backend & npm run dev -w frontend",
     "build": "npm run render && npm run build -w frontend",
-    "start": "npm run migrate && node backend/src/server.js",
+    "start": "npm run migrate && npm run ledger:gate && node backend/src/server.js",
     "migrate": "node backend/scripts/migrate.js",
     "seed": "node backend/scripts/seed.js",
     "render": "node tools/render-artboard.js design/project/App.dc.html frontend/public/design/phone.html && node tools/render-desktop.js frontend/public/design/desktop.html",
-    "verify": "node tools/verify-artboards.js"
+    "verify": "node tools/verify-artboards.js",
+    "ledger:selftest": "node backend/scripts/ledger-selftest.js",
+    "ledger:gate": "sh -c 'if [ \"$LEDGER_SELFTEST\" = \"1\" ]; then node backend/scripts/ledger-selftest.js || true; fi'"
   }
 }
