@@ -18,6 +18,8 @@
 
 const { pool } = require("../src/config/db");
 const { LEDGER_SQL } = require("../src/config/ledger-schema");
+const { BILLS_SQL } = require("../src/config/bills-schema");
+const { testBills } = require("./bills-selftest-section");
 const { postEntry, reverseEntry, assumeIdentity } = require("../src/ledger/post");
 const { verifyChain, verifyTrialBalance } = require("../src/ledger/verify");
 const { toLaari, formatLaari, gstWithin, gstOnTop, allocate } = require("../src/ledger/money");
@@ -392,6 +394,18 @@ async function testLedger(client) {
   const stevaChain = await verifyChain(client, { companyId: steva, userId });
   check("the other company's own books verify independently", stevaChain.ok);
   check("and its numbering starts at 1, not continuing Altura's", stevaChain.checked === 1);
+
+  // ---- step 2: the bill path --------------------------------------------
+
+  await testBills(
+    client,
+    {
+      companyId: altura,
+      userId,
+      accounts: { expense: a["5100"], taxReclaimable: a["1400"], payable: a["2100"] },
+    },
+    { check, expectRejection }
+  );
 }
 
 // ------------------------------------------------------------------- run it
@@ -405,6 +419,7 @@ async function testLedger(client) {
   try {
     await client.query("BEGIN");
     await client.query(LEDGER_SQL);
+    await client.query(BILLS_SQL);
     await testLedger(client);
   } catch (err) {
     failed += 1;
