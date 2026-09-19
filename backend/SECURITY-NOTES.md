@@ -13,9 +13,18 @@ Recorded 19 September 2026 so nothing here is silently forgotten.
   cookie is `sameSite: "lax"`, which is correct because the API serves the web
   app from the same origin.
 - **Database TLS was unauthenticated.** `rejectUnauthorized: false` was
-  hardcoded, so the connection was encrypted but a man in the middle could
-  present any certificate. Now verified unless `DATABASE_SSL_NO_VERIFY=1` is
-  set deliberately.
+  hardcoded with no way to change it, so the connection was encrypted but a
+  man in the middle could present any certificate. It is now verified by
+  default, with `DATABASE_SSL_NO_VERIFY=1` as a deliberate opt-out.
+
+  **That opt-out is set in production, on purpose.** Railway's managed
+  Postgres generates its own self-signed certificate, so verification fails
+  against it. The service reaches the database over Railway's private network
+  using the internal hostname, which never traverses the public internet, so
+  certificate verification is not the control that matters on that hop. What
+  the original code got wrong was hardcoding it with no switch and no reason
+  recorded. If the database is ever moved to a provider reachable over the
+  internet, remove the variable and supply that provider's CA instead.
 - **Cross-tenant client leak.** `invoices.client_id` was never checked for
   ownership, so an invoice could point at another user's client and the read
   join returned that client's name, email, company and address. The join is
