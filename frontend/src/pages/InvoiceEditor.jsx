@@ -27,18 +27,16 @@ import {
   useUpdateInvoice,
 } from "@/hooks/useInvoices";
 import { aiApi } from "@/api/ai";
-import { CURRENCIES, formatMoney, toDateInput, cn } from "@/lib/utils";
+import { CURRENCIES, formatMoney, toDateInput, today, cn } from "@/lib/utils";
 
 const round = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 const blankItem = () => ({ description: "", quantity: 1, rate: 0 });
 
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
-}
+const todayISO = today;
 function plusDays(days) {
   const d = new Date();
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  return toDateInput(d);
 }
 
 export default function InvoiceEditor() {

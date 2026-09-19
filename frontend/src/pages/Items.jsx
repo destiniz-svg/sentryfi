@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { Plus, Package, Trash2, X, Loader2 } from "lucide-react";
+import { Plus, Package, Trash2, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { CardLink } from "@/components/ui/CardLink";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -133,24 +133,14 @@ function ItemModal({ open, item, onClose }) {
   }
 
   return (
-    <AnimatePresence>
-      {open && (
-        <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <div className="absolute inset-0 bg-[var(--ink)]/30 backdrop-blur-sm" onClick={onClose} />
-          <motion.form
-            onSubmit={onSubmit}
-            initial={{ opacity: 0, y: 12, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.98 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full max-w-[460px] rounded-3xl bg-[var(--surface)] border border-[var(--border)] shadow-hover p-6"
-          >
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="font-display text-lg font-semibold tracking-tight">{isEdit ? "Edit item" : "Add item"}</h3>
-              <button type="button" onClick={onClose} className="h-8 w-8 rounded-full flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)]">
-                <X size={16} />
-              </button>
-            </div>
+    <Modal
+      open={open}
+      onClose={onClose}
+      as="form"
+      onSubmit={onSubmit}
+      size="md"
+      title={isEdit ? "Edit item" : "Add item"}
+    >
             <div className="space-y-3">
               <Field label="Name *">
                 <Input value={form.name} onChange={set("name")} placeholder="Frontend development" />
@@ -167,7 +157,7 @@ function ItemModal({ open, item, onClose }) {
                 </Field>
               </div>
             </div>
-            {err && <p className="text-sm text-[var(--danger)] mt-3">{err}</p>}
+            {err && <p role="alert" className="text-sm text-[var(--danger)] mt-3">{err}</p>}
             <div className="flex items-center justify-end gap-2 mt-6">
               <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
               <Button type="submit" variant="accent" disabled={saving}>
@@ -175,10 +165,7 @@ function ItemModal({ open, item, onClose }) {
                 {isEdit ? "Save" : "Add item"}
               </Button>
             </div>
-          </motion.form>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    </Modal>
   );
 }
 

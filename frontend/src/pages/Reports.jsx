@@ -26,7 +26,7 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useReports } from "@/hooks/useFeatures";
-import { formatMoney } from "@/lib/utils";
+import { formatMoney, today } from "@/lib/utils";
 
 const STATUS_COLORS = {
   draft: "var(--ink-muted)",
@@ -76,7 +76,7 @@ export default function Reports() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `sentryfi-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `sentryfi-report-${today()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }

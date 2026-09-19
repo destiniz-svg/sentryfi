@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { CommandPalette } from "./CommandPalette";
 import { MobileNav } from "./MobileNav";
+import { RouteFallback } from "@/components/ui/RouteFallback";
 
 export function AppShell() {
   const location = useLocation();
@@ -49,7 +50,13 @@ export function AppShell() {
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
           >
-            <Outlet />
+            {/* The boundary sits here rather than around the whole shell, so a
+                screen being fetched swaps only the page body. The sidebar and
+                the topbar stay put, which is what makes a slow connection feel
+                like a page loading rather than the app restarting. */}
+            <Suspense fallback={<RouteFallback />}>
+              <Outlet />
+            </Suspense>
           </motion.div>
         </AnimatePresence>
       </main>

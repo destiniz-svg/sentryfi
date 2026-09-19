@@ -31,7 +31,7 @@ const invoiceSchema = z.object({
   status: z.enum(["draft", "sent", "paid"]).default("draft"),
   issue_date: dateStr,
   due_date: dateStr,
-  currency: z.string().trim().max(8).default("USD"),
+  currency: z.string().trim().max(8).default("MVR"),
   tax_rate: z.coerce.number().min(0).max(100).default(0),
   discount: z.coerce.number().min(0).max(100_000_000).default(0),
   notes: z.string().trim().max(4000).default(""),

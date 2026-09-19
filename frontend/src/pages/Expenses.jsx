@@ -1,18 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import {
   Plus,
   Receipt,
   ScanLine,
   Trash2,
   Pencil,
-  X,
   Loader2,
   Sparkles,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -20,7 +19,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { useExpenses, useExpenseMutations } from "@/hooks/useFeatures";
 import { aiApi } from "@/api/ai";
-import { formatMoney, formatDate, toDateInput, cn } from "@/lib/utils";
+import { formatMoney, formatDate, toDateInput, today, cn } from "@/lib/utils";
 
 export default function Expenses() {
   const [category, setCategory] = useState("all");
@@ -180,7 +179,7 @@ function ExpenseModal({ open, expense, onClose }) {
       setForm({
         vendor: expense?.vendor || "",
         category: expense?.category || "General",
-        expense_date: toDateInput(expense?.expense_date) || new Date().toISOString().slice(0, 10),
+        expense_date: toDateInput(expense?.expense_date) || today(),
         amount: expense?.amount ?? 0,
         notes: expense?.notes || "",
       });
@@ -211,22 +210,14 @@ function ExpenseModal({ open, expense, onClose }) {
   const prefilled = open && !isEdit && (form.vendor || Number(form.amount) > 0);
 
   return (
-    <AnimatePresence>
-      {open && (
-        <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <div className="absolute inset-0 bg-[var(--ink)]/30 backdrop-blur-sm" onClick={onClose} />
-          <motion.form
-            onSubmit={onSubmit}
-            initial={{ opacity: 0, y: 12, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.98 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full max-w-[480px] rounded-3xl bg-[var(--surface)] border border-[var(--border)] shadow-hover p-6"
-          >
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="font-display text-lg font-semibold tracking-tight">{isEdit ? "Edit expense" : "Add expense"}</h3>
-              <button type="button" onClick={onClose} className="h-8 w-8 rounded-full flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)]"><X size={16} /></button>
-            </div>
+    <Modal
+      open={open}
+      onClose={onClose}
+      as="form"
+      onSubmit={onSubmit}
+      size="md"
+      title={isEdit ? "Edit expense" : "Add expense"}
+    >
             {prefilled && (
               <div className="mb-4 flex items-center gap-2 text-xs font-medium text-[var(--accent-strong)] bg-[var(--accent-soft)] rounded-xl px-3 py-2">
                 <Sparkles size={13} /> Pre-filled from your receipt — review and save.
@@ -251,7 +242,7 @@ function ExpenseModal({ open, expense, onClose }) {
                 <Input value={form.notes} onChange={set("notes")} placeholder="What was this for?" />
               </Field>
             </div>
-            {err && <p className="text-sm text-[var(--danger)] mt-3">{err}</p>}
+            {err && <p role="alert" className="text-sm text-[var(--danger)] mt-3">{err}</p>}
             <div className="flex items-center justify-end gap-2 mt-6">
               <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
               <Button type="submit" variant="accent" disabled={saving}>
@@ -259,10 +250,7 @@ function ExpenseModal({ open, expense, onClose }) {
                 {isEdit ? "Save" : "Add expense"}
               </Button>
             </div>
-          </motion.form>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    </Modal>
   );
 }
 

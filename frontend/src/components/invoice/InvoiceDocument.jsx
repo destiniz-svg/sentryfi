@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
 
 export function InvoiceDocument({ invoice, settings }) {
   const s = settings || {};
-  const currency = invoice.currency || "USD";
+  const currency = invoice.currency || "MVR";
   const statusLabel = (invoice.effective_status || invoice.status || "draft").toUpperCase();
 
   return (

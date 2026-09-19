@@ -36,7 +36,7 @@ function CompanySection() {
         phone: settings.phone || "",
         address: settings.address || "",
         logo_url: settings.logo_url || "",
-        currency: settings.currency || "USD",
+        currency: settings.currency || "MVR",
         tax_rate: Number(settings.tax_rate) || 0,
         invoice_prefix: settings.invoice_prefix || "INV-",
       });

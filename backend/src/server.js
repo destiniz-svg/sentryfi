@@ -1,5 +1,6 @@
 const path = require("path");
 const express = require("express");
+const compression = require("compression");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const morgan = require("morgan");
@@ -60,6 +61,12 @@ app.use("/api/ai", aiRouter);
 // service. Anything that is not /api falls through to the single page app.
 if (env.isProd) {
   const clientDir = path.resolve(__dirname, "../../frontend/dist");
+
+  // Gzip before serving. Without this the browser is sent the whole 2.3 MB
+  // bundle uncompressed; with it, about 780 KB. That difference is most of a
+  // minute on a phone with one bar on a jetty, which is where this app is
+  // meant to be used.
+  app.use(compression());
   app.use(express.static(clientDir, { maxAge: "1h", index: false }));
   app.use((req, res, next) => {
     if (req.path.startsWith("/api")) return next();
