@@ -1,0 +1,123 @@
+@import url("https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap");
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme {
+  --font-sans: "Barlow", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: "Barlow Condensed", "Barlow", sans-serif;
+  --font-serif: "Barlow", Georgia, serif;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --radius-card: 0px;
+  --radius-pill: 0px;
+}
+
+:root,
+[data-theme="light"] {
+  /* Site Board, from DESIGN.md. Signal yellow is the one field that matters
+     now, so it is the accent and nothing else competes with it. */
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f6f7f8;
+  --border: #e6e7ea;
+  --ink: #141414;
+  --ink-muted: #6b7078;
+  --accent: #f2c300;
+  --accent-strong: #141414;
+  --accent-soft: #fff3c2;
+  --accent-hero: #141414;
+  --accent-hero-2: #f2c300;
+  --success: #167a41;
+  --warning: #8a6d00;
+  --danger: #c62b20;
+  --shadow-card: 0 1px 3px rgba(13, 42, 37, 0.05),
+    0 1px 2px rgba(13, 42, 37, 0.04);
+  --shadow-hover: 0 8px 24px rgba(13, 42, 37, 0.08);
+}
+
+[data-theme="dark"] {
+  /* The night board: ink ground, the same one yellow. */
+  --bg: #0b0b0c;
+  --surface: #141414;
+  --surface-2: #1e1e21;
+  --border: #2a2c33;
+  --ink: #ffffff;
+  --ink-muted: #a9adb6;
+  --accent: #f2c300;
+  --accent-strong: #ffffff;
+  --accent-soft: #2a2408;
+  --accent-hero: #f2c300;
+  --accent-hero-2: #141414;
+  --success: #3fbf71;
+  --warning: #f2c300;
+  --danger: #ff6b5e;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv11", "ss01";
+}
+
+* {
+  border-color: var(--border);
+}
+
+.shadow-card {
+  box-shadow: var(--shadow-card);
+}
+.shadow-hover {
+  box-shadow: var(--shadow-hover);
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+.font-serif {
+  font-family: var(--font-serif);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.14);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.14);
+}

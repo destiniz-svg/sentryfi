@@ -4,3 +4,11 @@ next-env.d.ts
 *.tsbuildinfo
 .env*.local
 reference/
+
+# env
+.env
+.env.*
+!.env.example
+
+# build output
+frontend/dist/
