@@ -1,3 +1,4 @@
+import ErrorPage from "./pages/ErrorPage";
 import { Navigate, createBrowserRouter } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import Dashboard from "@/pages/Dashboard";
@@ -30,12 +31,13 @@ function ProtectedShell() {
 }
 
 export const router = createBrowserRouter([
-  { path: "/", element: <Landing /> },
-  { path: "/login", element: <Login /> },
-  { path: "/register", element: <Register /> },
+  { path: "/", element: <Landing />, errorElement: <ErrorPage /> },
+  { path: "/login", element: <Login />, errorElement: <ErrorPage /> },
+  { path: "/register", element: <Register />, errorElement: <ErrorPage /> },
   {
     path: "/",
     element: <ProtectedShell />,
+    errorElement: <ErrorPage />,
     children: [
       { path: "dashboard", element: <Dashboard /> },
       { path: "invoices", element: <Invoices /> },
@@ -51,5 +53,5 @@ export const router = createBrowserRouter([
       { path: "settings", element: <Settings /> },
     ],
   },
-  { path: "*", element: <Navigate to="/" replace /> },
+  { path: "*", element: <ErrorPage /> },
 ]);

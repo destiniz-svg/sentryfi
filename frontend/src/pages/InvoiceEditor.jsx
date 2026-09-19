@@ -57,6 +57,7 @@ export default function InvoiceEditor() {
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const [dragFrom, setDragFrom] = useState(null);
 
   // Initialize the form (from settings for new, from existing for edit).
   useEffect(() => {
@@ -116,7 +117,6 @@ export default function InvoiceEditor() {
     );
   }
 
-  const [dragFrom, setDragFrom] = useState(null);
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
   const setItem = (i, patch) =>
     setForm((f) => ({
@@ -581,6 +581,7 @@ function ReceiptScanButton({ onParsed }) {
   const inputRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [dragFrom, setDragFrom] = useState(null);
 
   async function onFile(e) {
     const file = e.target.files?.[0];
