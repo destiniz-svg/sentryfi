@@ -59,7 +59,7 @@ One line. Each step finishes before the next starts, because building on a found
 
 ---
 
-### 1. Get the money right
+### 1. Get the money right — done 19 September 2026
 
 Today the app stores amounts the way a calculator does, which drifts by fractions of a laari and cannot be trusted to add up. Everything else is built on this, so it goes first.
 
@@ -68,6 +68,15 @@ Today the app stores amounts the way a calculator does, which drifts by fraction
 **Under the bonnet:** amounts stored as whole laari, never as decimals. Every change to the books written as a balanced two-sided entry. Each entry sealed against the one before it, so an altered record shows. Each company's books walled off in the database rather than by the app remembering to filter. Nothing half-written: a change either lands completely or not at all.
 
 **Done when:** a bill produces a balanced entry, the seal verifies from the first record to the last, and a query for another company's books comes back empty.
+
+**What happened.** All three hold, checked against the real database rather than a stand-in, because the parts that matter here are exactly the parts a stand-in gets wrong. `npm run ledger:selftest` runs 40 checks inside a transaction it rolls back, so it is safe to run against live data and leaves nothing behind. It passes.
+
+Worth knowing:
+
+- **Nothing had to be migrated.** The question was whether to carry the existing records over or start clean. The database turned out to hold one user account and nothing else — no invoices, no expenses, no customers. So there was no decision to make. The ledger sits alongside the old tables, which are still what the screens use until step 2 moves them.
+- **One real problem was found and fixed.** Railway hands out a Postgres superuser, and a superuser ignores the walls between companies completely. Written the obvious way, the isolation rules would have been present, correct, and protecting nobody — and would have looked right in the code. The app now steps into a restricted role for the length of each transaction. A useful side effect: the app has no permission to alter or delete a posted record, so a bug cannot do it either.
+- **The seal earns its place.** The test doctors a bill from MVR 4,250.50 to MVR 42,500.50 on both sides at once, with the safety triggers switched off, which is what someone with direct database access would do. The entry still balances and the books still add up, so nothing else notices. The seal catches it and names the altered entry.
+- **A correction never hides anything.** Reversing an entry writes a new opposite entry with a reason. The original stays. Reversing the same thing twice is refused.
 
 ---
 
@@ -150,7 +159,7 @@ Before a single real figure is entered: the accountant signs off the accounts st
 | ~~The main button's label was invisible: white on yellow~~ | Fixed 19 Sep |
 | ~~Marking an invoice paid took one click, with no confirmation and no undo~~ | Fixed 19 Sep, properly in step 2 |
 | ~~The invoice list blanked on every keystroke~~ | Fixed 19 Sep |
-| Everything priced in US dollars; no tax number field | Steps 1 and 6 |
+| Everything priced in US dollars; no tax number field | Currency and the tax numbers landed with step 1. What the screens show follows in step 2 |
 | Sign-in screen still carries the purchased product's branding | Before step 2. Half a day |
 | Four pop-ups a keyboard user cannot escape | Before step 2. One shared component, copied from the one that works |
 | No way to clear a backlog in bulk | Step 2. Batch capture, not tick-boxes |

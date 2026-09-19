@@ -49,11 +49,19 @@ It exists because the owner runs a construction company, three related entities 
 
 Recorded 19 September 2026 after a design critique of the running web app scored it **14 out of 40**. This section exists so nobody, including a future session, mistakes what is deployed for what is designed.
 
-**What is deployed** at `sentryfi.app` is the purchased PERN invoice manager with Sentryfi's brand applied. It is a competent single-user freelancer invoicing tool. It is not this product. It has no ledger, no double entry, no payables, no projects or cost codes, no petty cash, no multi-company, no roles at all, and it stores money as floating point. Its tax model is one flat percentage, which cannot express what the real documents in `docs/real-world-samples/` prove: GST quoted inclusive by some suppliers, added on top by others, and absent entirely from suppliers who are not registered.
+**What is deployed** at `sentryfi.app` is the purchased PERN invoice manager with Sentryfi's brand applied. It is a competent single-user freelancer invoicing tool. It is not this product. Its own domain model has no payables, no projects or cost codes, no petty cash, no multi-company, no roles at all, and it stores money as floating point. The ledger described below now exists beneath it, but nothing on screen reads from it yet. Its tax model is one flat percentage, which cannot express what the real documents in `docs/real-world-samples/` prove: GST quoted inclusive by some suppliers, added on top by others, and absent entirely from suppliers who are not registered.
 
 **What is designed** is the product: the phone flow in 45 rendered panels, the web suite in 7, the tax centre, bank reconciliation, and the data model in `docs/data-model.md`.
 
 **The direction is to grow the first into the second, foundation upward**, replacing the purchased domain model rather than decorating it. Not a parallel rewrite, and not more features on the current chassis.
+
+**What has changed since (19 September 2026).** The first foundation is in: a real ledger sits in the database alongside the purchased tables. Money is held as whole laari in integers rather than floating point. Every change to the books is a balanced two-sided entry written through one function, sealed with the hash of the entry before it, and impossible to edit or delete — a correction is a new opposite entry carrying a reason, with the original left standing. Each company's books are walled off by the database itself rather than by every query remembering to filter, and with no company set nothing is visible at all, so a forgotten filter fails closed. `npm run ledger:selftest` proves all of it against the real database in 40 checks, inside a transaction it rolls back.
+
+Two things that came out of building it are worth keeping:
+
+- **Railway hands out a Postgres superuser, and a superuser ignores row-level security entirely.** The isolation rules would have been present, correct, and enforced against nobody, while looking right in the code. The application now steps into a restricted role for the length of each transaction. Anything added later that talks to the database directly must do the same, or it silently has no walls.
+- **The database was empty.** One user account, no invoices, no expenses, no customers. So the question of migrating the purchased product's records never arose. Nothing in the app has yet been used in earnest, which is why replacing the domain model underneath it costs nothing right now and will not stay that way.
+
 
 Two findings from that critique are worth carrying as standing warnings rather than tasks. The first: the design system's own rules were being broken in code while being correctly recorded in `DESIGN.md`, including a colour the document explicitly records as tested and rejected. The document is the authority; when they disagree, the code is wrong. The second: the landing page was the only file authored from this product record, and it held more domain truth than the five thousand lines behind the login. Treat the product record as the specification, not as marketing.
 

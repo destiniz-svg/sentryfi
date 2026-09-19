@@ -2,6 +2,14 @@
 
 Drafted 19 September 2026. This is the foundation the rest of Sentryfi sits on, so it is written before any schema is created rather than after.
 
+> **Built 19 September 2026.** The core of this is no longer a plan. `backend/src/config/ledger-schema.js` creates it, `backend/src/ledger/` is the code that writes to it, and `npm run ledger:selftest` proves it against the real database. Where this document and that schema disagree, **the schema is what exists** and this document is the intent it was built from.
+>
+> In now: companies, memberships with roles, the chart of accounts, journal entries and lines, whole-laari money, GST both ways round, the hash chain, gapless numbering, reversal-not-deletion, and per-company isolation.
+>
+> Not yet: projects, cost codes, suppliers and customers as counterparties, bills and their tax treatment, petty cash, bank import, and foreign currency. The journal lines already carry the columns for projects, cost codes and counterparties, deliberately without foreign keys, so those tables can arrive without rewriting anything already posted.
+>
+> One thing this document did not anticipate: a Postgres superuser ignores row-level security, so the isolation described here does nothing unless the application drops to a restricted role first. It now does, in `assumeIdentity`.
+
 It is informed by the purchased PERN invoice manager in `reference/purchased/`, but it is not derived from it. That application is a single-tenant, receivables-only invoicing tool with a flat record store and no ledger. Sentryfi needs a correct double-entry ledger, payables, multiple companies, projects, petty cash held by named people, and Maldives GST. Almost none of that maps across, so the useful borrowing is architectural, not structural.
 
 ## Six decisions that everything else depends on
