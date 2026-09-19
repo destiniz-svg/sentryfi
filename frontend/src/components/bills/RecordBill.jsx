@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { useBillMutations } from "@/hooks/useBills";
 import { billsApi } from "@/api/bills";
 import { useToast } from "@/context/UIContext";
+import { useOutbox } from "@/context/OutboxContext";
 import { today } from "@/lib/utils";
 import { prepareForReading } from "@/lib/image";
 
@@ -51,6 +52,7 @@ const TAX_CHOICES = [
 export function RecordBill({ open, onClose }) {
   const { record } = useBillMutations();
   const toast = useToast();
+  const outbox = useOutbox();
   const cameraButton = useRef(null);
 
   const [form, setForm] = useState(blank());
@@ -122,6 +124,16 @@ export function RecordBill({ open, onClose }) {
     // Read what was just added, not whatever was added first. Adding a
     // clearer picture after a poor one used to re-read the poor one.
     const toRead = prepared[0];
+    if (!navigator.onLine) {
+      // Nothing to apologise for: the photograph is kept and the bill will
+      // send itself. Reading it is the only part that needs a connection.
+      setErr(
+        "No signal, so it cannot be read just now. Type what is on the bill and it will be sent when you are back."
+      );
+      setReadIt(false);
+      return;
+    }
+
     setReading(true);
     setErr("");
     setQuestions([]);
@@ -178,19 +190,40 @@ export function RecordBill({ open, onClose }) {
       return setErr("How much is it for?");
     }
 
+    // The bill's identity, decided here rather than by the server. A send
+    // that times out has an unknowable outcome — the server may have recorded
+    // it and lost the reply — so the retry has to be able to say "this is the
+    // same bill". Without this, falling back to the queue after a timeout is
+    // how one cost becomes two.
+    const payload = {
+      clientRef: crypto.randomUUID(),
+      supplierName: form.supplierName.trim(),
+      amount: String(form.amount).replace(/,/g, ""),
+      billNo: form.billNo.trim() || null,
+      issueDate: form.issueDate || null,
+      gstTreatment: form.gstTreatment,
+      gstRateBp:
+        form.gstTreatment === "inclusive" || form.gstTreatment === "exclusive" ? 800 : null,
+      supplier: supplierFacts || undefined,
+    };
+
+    // No signal: hold it on the phone and send it when there is. The bill is
+    // never lost for want of a connection, which is what the landing page has
+    // been promising.
+    if (!navigator.onLine) {
+      await outbox.queue({ payload, files });
+      toast.success(
+        `Held on this phone · ${form.supplierName.trim()}`,
+        "No signal. It sends itself the moment you are back."
+      );
+      onClose();
+      return;
+    }
+
     try {
-      const result = await record.mutateAsync({
-        supplierName: form.supplierName.trim(),
-        amount: String(form.amount).replace(/,/g, ""),
-        billNo: form.billNo.trim() || null,
-        issueDate: form.issueDate || null,
-        gstTreatment: form.gstTreatment,
-        gstRateBp:
-          form.gstTreatment === "inclusive" || form.gstTreatment === "exclusive" ? 800 : null,
-        // Whatever the photograph told us about the supplier. The record fills
-        // itself in from this over time rather than anybody typing it.
-        supplier: supplierFacts || undefined,
-      });
+      // Whatever the photograph told us about the supplier travels with it:
+      // the record fills itself in over time rather than anybody typing it.
+      const result = await record.mutateAsync(payload);
 
       // File the paper against the bill now that the bill exists, every page
       // in the order it was added. This happens even when a duplicate was
@@ -226,6 +259,18 @@ export function RecordBill({ open, onClose }) {
       );
       onClose();
     } catch (ex) {
+      // A request that never reached the server is the same as having no
+      // signal: hold it rather than making somebody photograph it again.
+      const neverArrived = !ex?.status || ex.status >= 500;
+      if (neverArrived) {
+        await outbox.queue({ payload, files });
+        toast.success(
+          `Held on this phone · ${form.supplierName.trim()}`,
+          "The connection dropped. It sends itself when it comes back."
+        );
+        onClose();
+        return;
+      }
       setErr(ex.message || "Could not record the bill");
     }
   }

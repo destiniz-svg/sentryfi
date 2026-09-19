@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { UIProvider } from "@/context/UIContext";
 import { CompanyProvider } from "@/context/CompanyContext";
+import { OutboxProvider } from "@/context/OutboxContext";
 import { router } from "@/routes";
 
 const queryClient = new QueryClient({
@@ -26,7 +27,11 @@ export default function App() {
                 you are, and the header it sets must be on every request the
                 router makes. */}
             <CompanyProvider>
-              <RouterProvider router={router} />
+              {/* Inside CompanyProvider: what is waiting to send belongs to a
+                  company, and sending it needs the request header. */}
+              <OutboxProvider>
+                <RouterProvider router={router} />
+              </OutboxProvider>
             </CompanyProvider>
           </AuthProvider>
         </UIProvider>

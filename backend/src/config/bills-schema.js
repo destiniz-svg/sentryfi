@@ -129,6 +129,14 @@ CREATE TABLE IF NOT EXISTS bills (
   CONSTRAINT bill_posted_has_entry
     CHECK (status <> 'posted' OR entry_id IS NOT NULL)
 );
+-- A key the phone generates before it has any signal, so a bill queued on
+-- site and sent twice — because the first response was lost, not because the
+-- first request failed — is one bill and not two. Without this, a retry after
+-- a timeout silently doubles a cost.
+ALTER TABLE bills ADD COLUMN IF NOT EXISTS client_ref UUID;
+CREATE UNIQUE INDEX IF NOT EXISTS bills_client_ref_once
+  ON bills (company_id, client_ref) WHERE client_ref IS NOT NULL;
+
 CREATE INDEX IF NOT EXISTS bills_company_status_idx ON bills(company_id, status);
 CREATE INDEX IF NOT EXISTS bills_counterparty_idx ON bills(company_id, counterparty_id);
 

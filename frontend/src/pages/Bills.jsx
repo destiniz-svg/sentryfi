@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { VoidDialog } from "@/components/ui/VoidDialog";
 import { RecordBill } from "@/components/bills/RecordBill";
+import { WaitingToSend } from "@/components/bills/WaitingToSend";
 import { useBills, useBillMutations } from "@/hooks/useBills";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
@@ -79,6 +80,11 @@ export default function Bills() {
         }
       />
 
+      {/* Above the list, because a bill held on the phone is not in the list
+          — and somebody looking for the one they just photographed needs to
+          find it here rather than conclude it was lost. */}
+      <WaitingToSend />
+
       {isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -88,7 +94,7 @@ export default function Bills() {
       ) : !bills?.length ? (
         <EmptyState
           icon={Receipt}
-          title="No bills yet"
+          title="Nothing recorded yet"
           description={
             canRecord
               ? "Record the first one. It takes what is on the paper and nothing more."

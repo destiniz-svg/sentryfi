@@ -36,6 +36,9 @@ const billBody = z.object({
   gstRateBp: z.number().int().min(0).max(10000).nullish(),
   projectId: z.string().uuid().nullish(),
   billedToCompany: z.string().uuid().nullish(),
+  // Generated on the phone before there is any signal, so a send that is
+  // retried after a lost response makes one bill rather than two.
+  clientRef: z.string().uuid().nullish(),
   // What the document said about whoever sent it. All optional: a supplier is
   // never blocked on details it did not print.
   supplier: z
@@ -227,6 +230,20 @@ router.post(
     }
 
     const result = await asCompany(req, async (client) => {
+      // Sent before? Then this is the same bill arriving twice, not a second
+      // one, and the answer is the bill that already exists.
+      if (b.clientRef) {
+        const { rows: already } = await client.query(
+          `SELECT b.*, c.name AS supplier_name
+             FROM bills b LEFT JOIN counterparties c ON c.id = b.counterparty_id
+            WHERE b.company_id = $1 AND b.client_ref = $2`,
+          [req.companyId, b.clientRef]
+        );
+        if (already.length) {
+          return { bill: already[0], duplicates: [], learned: [], conflicts: [], alreadyHad: true };
+        }
+      }
+
       let counterpartyId = b.counterpartyId || null;
       let learned = [];
       let conflicts = [];
@@ -268,15 +285,15 @@ router.post(
         `INSERT INTO bills
            (company_id, counterparty_id, bill_no, issue_date, due_date,
             net_laari, tax_laari, gross_laari, gst_treatment, gst_rate_bp,
-            project_id, billed_to_company, received_by, status)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::gst_t,$10,$11,$12,$13,
+            project_id, billed_to_company, received_by, client_ref, status)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::gst_t,$10,$11,$12,$13,$14,
                  CASE WHEN $9 = 'unknown' THEN 'awaiting_review'::bill_t ELSE 'draft'::bill_t END)
          RETURNING *`,
         [
           req.companyId, counterpartyId, b.billNo || null, b.issueDate || null, b.dueDate || null,
           String(split.net), String(split.tax), String(split.gross),
           b.gstTreatment, b.gstRateBp ?? (b.gstTreatment === "inclusive" || b.gstTreatment === "exclusive" ? 800 : null),
-          b.projectId || null, b.billedToCompany || null, req.user.id,
+          b.projectId || null, b.billedToCompany || null, req.user.id, b.clientRef || null,
         ]
       );
       const bill = rows[0];
@@ -297,8 +314,12 @@ router.post(
       return { bill, duplicates, learned, conflicts };
     });
 
-    res.status(201).json({
+    // 200, not 201, when nothing was created. A phone retrying a send it was
+    // never told the outcome of deserves a straight answer about which of the
+    // two happened.
+    res.status(result.alreadyHad ? 200 : 201).json({
       bill: serialize(result.bill),
+      alreadyHad: Boolean(result.alreadyHad),
       duplicates: result.duplicates,
       // What the supplier's record learned from this bill, and anything it
       // refused to change on its own.
