@@ -15,15 +15,41 @@ function requireAI() {
   }
 }
 
+/**
+ * Busy and rate-limited are not failures, they are "not now".
+ *
+ * A 503 means the model is under load and a 429 means we asked too fast.
+ * Neither says anything about the photograph, and surfacing either one to
+ * somebody standing on a site is asking them to solve a problem that is not
+ * theirs. So they are retried, briefly, before anyone is told anything.
+ *
+ * Everything else — a bad key, a retired model, an unreadable image — fails
+ * immediately, because retrying those only makes the person wait longer for
+ * the same answer.
+ */
+const TRANSIENT = /\b(503|429)\b|UNAVAILABLE|RESOURCE_EXHAUSTED|high demand|overloaded/i;
+
+const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+
 async function generate({ contents, config }) {
-  const result = await ai.models.generateContent({
-    model: env.geminiModel,
-    contents,
-    config,
-  });
-  const text = typeof result.text === "function" ? result.text() : result.text;
-  if (!text) throw new Error("Empty response from Gemini");
-  return text;
+  let last;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const result = await ai.models.generateContent({
+        model: env.geminiModel,
+        contents,
+        config,
+      });
+      const text = typeof result.text === "function" ? result.text() : result.text;
+      if (!text) throw new Error("Empty response from Gemini");
+      return text;
+    } catch (err) {
+      last = err;
+      if (!TRANSIENT.test(String(err?.message || err))) throw err;
+      if (attempt < 2) await pause(700 * (attempt + 1));
+    }
+  }
+  throw last;
 }
 
 const receiptResponseSchema = {

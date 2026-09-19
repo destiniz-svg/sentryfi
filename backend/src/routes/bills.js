@@ -111,7 +111,12 @@ router.post(
           "The key for reading bills was refused. Somebody needs to check it in the settings — the photograph is fine."
         );
       }
-      if (/quota|RESOURCE_EXHAUSTED|429|rate/i.test(raw)) {
+      if (/\b503\b|UNAVAILABLE|high demand|overloaded/i.test(raw)) {
+        throw ApiError.badRequest(
+          "The reader is busy just now — nothing wrong with your photograph. Try again in a moment, or type it in."
+        );
+      }
+      if (/quota|RESOURCE_EXHAUSTED|\b429\b|rate limit/i.test(raw)) {
         throw ApiError.badRequest(
           "Reading bills has hit its limit for now. Type this one in; it will work again shortly."
         );
