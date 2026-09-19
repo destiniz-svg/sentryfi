@@ -97,6 +97,8 @@ The owner's hardest job, and the reason this exists.
 - **A supplier billed twice is stopped.** Same supplier and same bill number refuses to post and the database refuses the pair as well. Same supplier and same amount within a fortnight is raised as worth a look but still posts, because a monthly charge looks exactly like that.
 - **A supplier's name is not a key.** Each supplier carries the other spellings it is known by, because one real invoice spells its own issuer two ways on one page and the bank truncates it to 35 characters.
 
+**Bills are now reachable.** Recording a bill and posting it are separate acts, deliberately: getting the bill in must never be blocked by a question, because the person holding it is standing on a site, while deciding what it means can happen later at a desk. A supplier name that matches nothing becomes a supplier rather than stopping the capture, because merging two later is cheap and losing the bill is not.
+
 **Still to come in this step:** the photograph itself and the three taps, reading the bill, the cash boxes, and the ten-second undo. None of the screens exist yet — this is the part behind them.
 
 ---
@@ -150,6 +152,14 @@ The thing nobody else does.
 **You will be able to:** add the people above and trust the boundaries. Site staff reach the camera and nothing else. A cash holder sees one number. A procurement officer sees their own orders. Directors read and never post.
 
 **Under the bonnet:** enforced in the database, not in the screens, so no missing check anywhere can leak one person's data to another. Sign-in by passkey. Changing a password ends every other session, which it does not today.
+
+**Part of this landed early, on 19 September 2026, out of order.** The plan says each step finishes before the next starts, and this is a deliberate exception rather than drift, so it is recorded here rather than quietly absorbed.
+
+Everything built in steps 1 and 2 was unreachable. The books decide what exists from which company is asking, and nothing in the app had ever said — so no screen could have read or written a single line of the ledger. The engine was real and had no door. Building bill capture on top of that would have meant building it twice.
+
+So the door exists now: a request resolves to a company, checks the person is a member of it, and carries what they may do. Roles are per company rather than per person, because the owner is a director of several companies in the group and is not the same thing in each. Permissions are one table of capabilities, so "who may post an adjustment?" is answered by reading one place rather than by searching the code.
+
+**What that leaves for this step:** the screens themselves, adding people, spending limits, passkeys, and ending other sessions on a password change. The boundaries are real in the database but nothing in the interface knows about them yet.
 
 **Done when:** each role signs in and can reach exactly their own job, proven by trying to reach someone else's and failing.
 
