@@ -1,50 +1,18 @@
-import { ResponsiveContainer, LineChart, Line, BarChart, Bar } from "recharts";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
-
-function MiniLine({ data, color }) {
-  return (
-    <ResponsiveContainer width="100%" height={42}>
-      <LineChart data={data} margin={{ top: 6, right: 0, bottom: 0, left: 0 }}>
-        <Line
-          type="monotone"
-          dataKey="v"
-          stroke={color}
-          strokeWidth={2}
-          dot={false}
-          isAnimationActive={false}
-        />
-      </LineChart>
-    </ResponsiveContainer>
-  );
-}
-
-function MiniBars({ data, color }) {
-  return (
-    <ResponsiveContainer width="100%" height={42}>
-      <BarChart data={data} margin={{ top: 6, right: 0, bottom: 0, left: 0 }}>
-        <Bar dataKey="v" fill={color} radius={[3, 3, 0, 0]} barSize={6} />
-      </BarChart>
-    </ResponsiveContainer>
-  );
-}
 
 export function StatCard({
   label,
   value,
   suffix,
   delta,
-  chart = "line",
-  data = [],
   icon: Icon,
   accent = false,
 }) {
   const positive = delta == null ? null : delta >= 0;
   const color = accent ? "#FFFFFF" : "var(--accent)";
-  const ChartCmp = chart === "bars" ? MiniBars : MiniLine;
   const displayValue = value == null || value === "" ? "—" : value;
-  const hasData = Array.isArray(data) && data.length > 0;
 
   return (
     <Card
@@ -104,12 +72,7 @@ export function StatCard({
           )}
         </div>
 
-        {hasData && (
-          <div className="w-[110px] shrink-0 self-end opacity-90">
-            <ChartCmp data={data} color={color} />
-          </div>
-        )}
-      </div>
+              </div>
     </Card>
   );
 }
