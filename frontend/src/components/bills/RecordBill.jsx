@@ -7,6 +7,7 @@ import { billsApi } from "@/api/bills";
 import { useToast } from "@/context/UIContext";
 import { useOutbox } from "@/context/OutboxContext";
 import { usePhone } from "@/lib/phone";
+import { useUndo } from "@/context/UndoContext";
 import { today } from "@/lib/utils";
 import { prepareForReading } from "@/lib/image";
 
@@ -51,12 +52,13 @@ const TAX_CHOICES = [
 ];
 
 export function RecordBill({ open, onClose }) {
-  const { record } = useBillMutations();
+  const { record, post } = useBillMutations();
   const toast = useToast();
   const outbox = useOutbox();
   // The phone board is square and the desk register is round. This is the one
   // screen both registers share, so it carries both and picks.
   const board = usePhone();
+  const { offer } = useUndo();
   const inputClass = board ? BOARD_INPUT : DESK_INPUT;
 
   const cameraButton = useRef(null);
@@ -267,6 +269,48 @@ export function RecordBill({ open, onClose }) {
       if (result.duplicates?.length) {
         setDuplicates(result.duplicates);
         return;
+      }
+
+      /**
+       * On the board, confirming finishes the job.
+       *
+       * The goal is a bill in the books three taps later, by whoever is
+       * holding it. Recording and then going somewhere else to post is four
+       * taps and two decisions, and the second one gets forgotten — which is
+       * how a drawer of unposted bills happens. The ten-second undo is what
+       * makes one commitment safe, and it is a real reversal, not a delay.
+       *
+       * The desk keeps the two steps. An accountant is reviewing what other
+       * people recorded, and that is a different act from recording it.
+       */
+      if (board) {
+        try {
+          const entry = await post.mutateAsync(result.bill.id);
+          offer({
+            billId: result.bill.id,
+            entryId: entry.entryId,
+            entryNo: entry.entryNo,
+            total: entry.total,
+            who: form.supplierName.trim(),
+          });
+          if (!paperKept) {
+            toast.error(
+              "The paper did not save",
+              "The figures are in the books. Add the photograph again from the bill."
+            );
+          }
+          onClose();
+          return;
+        } catch (ex) {
+          // Recorded but not posted is a real, honest state — not a failure to
+          // hide. Say which of the two happened and what is still needed.
+          toast.error(
+            `Recorded, but not in the books: ${form.supplierName.trim()}`,
+            ex.message || "Something is missing before it can be posted."
+          );
+          onClose();
+          return;
+        }
       }
 
       toast.success(

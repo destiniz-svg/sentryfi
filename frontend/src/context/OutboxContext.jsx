@@ -35,6 +35,7 @@ export function OutboxProvider({ children }) {
         companyId,
         record: billsApi.record,
         attach: billsApi.attach,
+        put: billsApi.post,
       });
       if (result.sent > 0) {
         queryClient.invalidateQueries({ queryKey: ["bills", companyId] });

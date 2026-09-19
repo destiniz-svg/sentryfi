@@ -122,7 +122,7 @@ export async function noteAttempt(ref, error) {
  * the entry exactly where it was. The only thing that removes a bill from here
  * is the server saying it has it.
  */
-export async function send({ companyId, record, attach }) {
+export async function send({ companyId, record, attach, put }) {
   if (!navigator.onLine) return { sent: 0, failed: 0, skipped: true };
 
   const items = (await waiting()).filter((i) => i.companyId === companyId);
@@ -132,6 +132,24 @@ export async function send({ companyId, record, attach }) {
   for (const item of items) {
     try {
       const result = await record(item.payload);
+
+      // The promise is a bill in the books once there is signal, not a bill
+      // in a list waiting for somebody to finish the job later. That is how a
+      // drawer of unposted bills happens, only invisible.
+      //
+      // Only when the server had not seen it before. If this is a retry of a
+      // send whose reply was lost, the first attempt may already have posted
+      // it, and posting again is not something to guess at — the bill is on
+      // the board either way, and a person can finish it.
+      if (put && !result.alreadyHad) {
+        try {
+          await put(result.bill.id);
+        } catch {
+          // Blocked on something a person has to decide — an unknown tax
+          // treatment, most often. It stays a recorded bill and says so.
+        }
+      }
+
       for (const file of item.files || []) {
         // A photograph that will not attach must not hold the bill hostage —
         // the figures are already safe on the server at this point.
