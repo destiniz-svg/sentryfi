@@ -59,6 +59,7 @@ export function RecordBill({ open, onClose }) {
   const [questions, setQuestions] = useState([]);
   const [readIt, setReadIt] = useState(false);
   const [photo, setPhoto] = useState(null);
+  const [supplierFacts, setSupplierFacts] = useState(null);
   const fileRef = useRef(null);
 
   function blank() {
@@ -79,6 +80,7 @@ export function RecordBill({ open, onClose }) {
       setQuestions([]);
       setReadIt(false);
       setPhoto(null);
+      setSupplierFacts(null);
     }
   }, [open]);
 
@@ -100,19 +102,27 @@ export function RecordBill({ open, onClose }) {
     setQuestions([]);
     try {
       const result = await billsApi.scan(file);
-      const read = result.read || {};
+      const extracted = result.read || {};
 
       setForm((f) => ({
         ...f,
-        supplierName: result.supplier?.name || read.supplierName || f.supplierName,
-        amount: read.grossAmount || f.amount,
-        billNo: read.billNo || f.billNo,
-        issueDate: read.issueDate || f.issueDate,
-        gstTreatment: read.gstTreatment || f.gstTreatment,
+        supplierName: result.supplier?.name || extracted.supplierName || f.supplierName,
+        amount: extracted.grossAmount || f.amount,
+        billNo: extracted.billNo || f.billNo,
+        issueDate: extracted.issueDate || f.issueDate,
+        gstTreatment: extracted.gstTreatment || f.gstTreatment,
       }));
       setQuestions(result.questions || []);
       setReadIt(true);
       setPhoto(file);
+      setSupplierFacts({
+        tin: extracted.supplierTin || undefined,
+        gst_number: extracted.supplierGstNumber || undefined,
+        address: extracted.supplierAddress || undefined,
+        phone: extracted.supplierPhone || undefined,
+        email: extracted.supplierEmail || undefined,
+        bank_account: extracted.supplierBankAccount || undefined,
+      });
     } catch (ex) {
       setErr(ex.message || "That could not be read. Type it in instead.");
     } finally {
@@ -140,6 +150,9 @@ export function RecordBill({ open, onClose }) {
         gstTreatment: form.gstTreatment,
         gstRateBp:
           form.gstTreatment === "inclusive" || form.gstTreatment === "exclusive" ? 800 : null,
+        // Whatever the photograph told us about the supplier. The record fills
+        // itself in from this over time rather than anybody typing it.
+        supplier: supplierFacts || undefined,
       });
 
       // File the photograph against the bill now that the bill exists. This

@@ -19,6 +19,7 @@ const { LEDGER_SQL } = require("../src/config/ledger-schema");
 const { VOID_SQL } = require("../src/config/void-schema");
 const { BILLS_SQL } = require("../src/config/bills-schema");
 const { ATTACHMENTS_SQL } = require("../src/config/attachments-schema");
+const { COUNTERPARTY_SQL } = require("../src/config/counterparty-schema");
 
 const url = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
 
@@ -51,6 +52,7 @@ async function applySchema() {
   await p.query(VOID_SQL);
   await p.query(BILLS_SQL);
   await p.query(ATTACHMENTS_SQL);
+  await p.query(COUNTERPARTY_SQL);
 }
 
 /**

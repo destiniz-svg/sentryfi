@@ -4,6 +4,7 @@ const { LEDGER_SQL } = require("../src/config/ledger-schema");
 const { VOID_SQL } = require("../src/config/void-schema");
 const { BILLS_SQL } = require("../src/config/bills-schema");
 const { ATTACHMENTS_SQL } = require("../src/config/attachments-schema");
+const { COUNTERPARTY_SQL } = require("../src/config/counterparty-schema");
 
 (async () => {
   try {
@@ -17,6 +18,8 @@ const { ATTACHMENTS_SQL } = require("../src/config/attachments-schema");
     console.log("Bills schema applied.");
     await pool.query(ATTACHMENTS_SQL);
     console.log("Attachment storage applied.");
+    await pool.query(COUNTERPARTY_SQL);
+    console.log("Counterparty learning applied.");
 
     // What is actually in here, so the decision about existing data is made on
     // a count rather than an assumption.

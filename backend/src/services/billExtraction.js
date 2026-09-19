@@ -77,6 +77,28 @@ const billSchema = {
       type: Type.STRING,
       description: "Who the bill is addressed to, as printed. Empty if not shown.",
     },
+    supplierAddress: {
+      type: Type.STRING,
+      description: "The supplier's address exactly as printed, on one line. Empty if not shown.",
+    },
+    supplierPhone: {
+      type: Type.STRING,
+      description: "The supplier's phone number as printed. Empty if not shown.",
+    },
+    supplierEmail: {
+      type: Type.STRING,
+      description: "The supplier's email as printed. Empty if not shown.",
+    },
+    supplierGstNumber: {
+      type: Type.STRING,
+      description: "The supplier's GST registration number, if printed separately from the TIN.",
+    },
+    supplierBankAccount: {
+      type: Type.STRING,
+      description:
+        "The bank account number the bill asks to be paid into, digits only, as printed. " +
+        "Empty if the bill does not give one.",
+    },
     confidence: {
       type: Type.OBJECT,
       required: ["supplierName", "grossAmount", "gstTreatment"],
@@ -100,6 +122,11 @@ const level = z.enum(["high", "medium", "low"]).catch("low");
 const billValidator = z.object({
   supplierName: z.string().default(""),
   supplierTin: z.string().default(""),
+  supplierAddress: z.string().default(""),
+  supplierPhone: z.string().default(""),
+  supplierEmail: z.string().default(""),
+  supplierGstNumber: z.string().default(""),
+  supplierBankAccount: z.string().default(""),
   billNo: z.string().default(""),
   issueDate: z.string().default(""),
   currency: z.string().default("MVR"),
@@ -137,6 +164,7 @@ const BILL_PROMPT = [
   "",
   "For confidence, be honest. 'low' on a field is useful information, not a failure.",
   "Amounts must be digits and at most one decimal point, with no currency symbol, no commas and no spaces.",
+  "Read the supplier's address, phone, email, GST number and the bank account the bill asks to be paid into, when they are printed. These are how the supplier's record fills itself in over time, so a blank is much better than a guess.",
   "If the bill is handwritten, faint, cropped or in Dhivehi, say so in notes and lower your confidence.",
 ].join("\n");
 

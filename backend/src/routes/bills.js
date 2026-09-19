@@ -7,6 +7,7 @@ const { requireAuth } = require("../middleware/auth");
 const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
 const { splitTax, findPossibleDuplicates, postBill } = require("../ledger/bills");
+const { findOrCreate, observe } = require("../ledger/counterparties");
 const { toLaari, formatLaari } = require("../ledger/money");
 const { uploadReceipt } = require("../middleware/upload");
 const gemini = require("../services/geminiService");
@@ -35,6 +36,18 @@ const billBody = z.object({
   gstRateBp: z.number().int().min(0).max(10000).nullish(),
   projectId: z.string().uuid().nullish(),
   billedToCompany: z.string().uuid().nullish(),
+  // What the document said about whoever sent it. All optional: a supplier is
+  // never blocked on details it did not print.
+  supplier: z
+    .object({
+      tin: z.string().trim().max(60).optional(),
+      gst_number: z.string().trim().max(60).optional(),
+      address: z.string().trim().max(400).optional(),
+      phone: z.string().trim().max(60).optional(),
+      email: z.string().trim().max(200).optional(),
+      bank_account: z.string().trim().max(60).optional(),
+    })
+    .optional(),
 });
 
 const serialize = (row) => ({
@@ -206,27 +219,35 @@ router.post(
 
     const result = await asCompany(req, async (client) => {
       let counterpartyId = b.counterpartyId || null;
+      let learned = [];
+      let conflicts = [];
 
-      // A name with no match becomes a supplier rather than blocking the
-      // capture. Merging duplicates later is cheap; losing the bill is not.
-      if (!counterpartyId && b.supplierName) {
-        const { rows: match } = await client.query(
-          `SELECT id FROM counterparties
-            WHERE company_id = $1
-              AND (lower(name) = lower($2) OR lower($2) = ANY (SELECT lower(x) FROM unnest(also_known_as) x))
-            LIMIT 1`,
-          [req.companyId, b.supplierName]
-        );
-        if (match.length) {
-          counterpartyId = match[0].id;
-        } else {
-          const { rows: made } = await client.query(
-            `INSERT INTO counterparties (company_id, name, kind)
-             VALUES ($1,$2,'{supplier}') RETURNING id`,
-            [req.companyId, b.supplierName]
-          );
-          counterpartyId = made[0].id;
-        }
+      // A name with nothing else is a perfectly good supplier. Getting the
+      // bill recorded matters more than knowing everything about who sent it,
+      // and merging two records later is cheap while losing the bill is not.
+      if (!counterpartyId && (b.supplierName || b.supplier?.tin)) {
+        const found = await findOrCreate(client, {
+          companyId: req.companyId,
+          userId: req.user.id,
+          name: b.supplierName,
+          tin: b.supplier?.tin,
+        });
+        counterpartyId = found.party.id;
+      }
+
+      // Whatever this document knew, the supplier's record now knows too.
+      // Empty fields fill in silently; anything that disagrees with what is
+      // already on file waits for a person rather than overwriting it.
+      if (counterpartyId) {
+        const taught = await observe(client, {
+          companyId: req.companyId,
+          userId: req.user.id,
+          partyId: counterpartyId,
+          facts: { name: b.supplierName, ...(b.supplier || {}) },
+          source: { kind: "bill" },
+        });
+        learned = taught.learned;
+        conflicts = taught.conflicts;
       }
 
       const { rows } = await client.query(
@@ -259,12 +280,16 @@ router.post(
         },
       });
 
-      return { bill, duplicates };
+      return { bill, duplicates, learned, conflicts };
     });
 
     res.status(201).json({
       bill: serialize(result.bill),
       duplicates: result.duplicates,
+      // What the supplier's record learned from this bill, and anything it
+      // refused to change on its own.
+      learned: result.learned,
+      conflicts: result.conflicts,
     });
   })
 );
