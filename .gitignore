@@ -12,3 +12,6 @@ reference/
 
 # build output
 frontend/dist/
+
+# Screenshots are for looking at, not for keeping.
+tools/shots/

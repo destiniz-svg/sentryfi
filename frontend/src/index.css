@@ -50,6 +50,12 @@
      is the rule DESIGN.md calls "on-yellow keeps ink", written down so it
      cannot be got wrong by reaching for the nearest-looking token. */
   --on-accent: #141414;
+  /* An ink ground that does not follow the theme. --ink flips to white at
+     night, so a panel painted with it turns white while the text on it stays
+     white — which is how the sign-in panel went blank in dark mode. Anything
+     that is dark by intent rather than by theme uses this. */
+  --ink-panel: #141414;
+  --on-ink-panel: #ffffff;
   --accent-hero: #141414;
   --accent-hero-2: #f2c300;
   --success: #167a41;
@@ -71,6 +77,12 @@
   --accent-strong: #ffffff;
   --accent-soft: #2a2408;
   --on-accent: #141414;
+  /* An ink ground that does not follow the theme. --ink flips to white at
+     night, so a panel painted with it turns white while the text on it stays
+     white — which is how the sign-in panel went blank in dark mode. Anything
+     that is dark by intent rather than by theme uses this. */
+  --ink-panel: #141414;
+  --on-ink-panel: #ffffff;
   --accent-hero: #f2c300;
   --accent-hero-2: #141414;
   --success: #3fbf71;

@@ -110,10 +110,13 @@ export default function Register() {
           </Link>
         </div>
 
-        <p className="text-[11px] text-[var(--ink-muted)]/80 text-center mt-6 leading-relaxed">
-          By creating an account you agree to our terms.
-          <br />
-          We never share your billing data with third parties.
+        {/* This said "you agree to our terms" and "we never share your billing
+            data with third parties". There are no terms to agree to, and there
+            is no billing. Both were the purchased product's, and a promise
+            about data nobody holds is worth less than nothing. */}
+        <p className="text-[13px] text-[var(--ink-muted)] text-center mt-6 leading-relaxed">
+          Your books stay in your own company's records. Nothing is shared with
+          anyone outside it.
         </p>
       </motion.div>
     </AuthShell>

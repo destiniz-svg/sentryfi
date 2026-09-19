@@ -20,5 +20,8 @@
     "verify": "node tools/verify-artboards.js",
     "ledger:selftest": "node backend/scripts/ledger-selftest.js",
     "ledger:gate": "sh -c 'if [ \"$LEDGER_SELFTEST\" = \"1\" ]; then node backend/scripts/ledger-selftest.js || true; fi'"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
   }
 }

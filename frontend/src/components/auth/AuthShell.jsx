@@ -49,7 +49,7 @@ function BoardPanel({ headline, subhead }) {
   const still = useReducedMotion();
 
   return (
-    <div className="hidden lg:flex flex-1 relative rounded-[var(--radius-card)] overflow-hidden bg-[var(--ink)] on-ink">
+    <div className="hidden lg:flex flex-1 relative rounded-[var(--radius-card)] overflow-hidden bg-[var(--ink-panel)] border border-white/10 on-ink">
       <motion.div
         initial={still ? false : { opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
@@ -90,7 +90,7 @@ function BoardPanel({ headline, subhead }) {
               </span>
               <span
                 className={`tabular text-[14px] font-semibold shrink-0 ${
-                  row.amount.startsWith("+") ? "text-[#3fbf71]" : "text-white"
+                  row.amount.startsWith("+") ? "text-[#3fbf71]" : "text-[#ff6b5e]"
                 }`}
               >
                 {row.amount}
@@ -99,7 +99,7 @@ function BoardPanel({ headline, subhead }) {
           ))}
 
           {/* The one yellow field: the thing with a date on it. */}
-          <div className="mt-5 flex items-center justify-between gap-4 bg-[var(--accent)] text-[var(--ink)] px-4 py-3 rounded-[var(--radius-control)]">
+          <div className="mt-5 flex items-center justify-between gap-4 bg-[var(--accent)] text-[var(--on-accent)] px-4 py-3 rounded-[var(--radius-control)]">
             <span className="text-[13px] font-semibold">GST return · September</span>
             <span className="tabular text-[13px] font-semibold">9 days left</span>
           </div>
