@@ -5,6 +5,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { UIProvider } from "@/context/UIContext";
 import { CompanyProvider } from "@/context/CompanyContext";
 import { OutboxProvider } from "@/context/OutboxContext";
+import { UndoProvider } from "@/context/UndoContext";
 import { router } from "@/routes";
 
 const queryClient = new QueryClient({
@@ -30,7 +31,12 @@ export default function App() {
               {/* Inside CompanyProvider: what is waiting to send belongs to a
                   company, and sending it needs the request header. */}
               <OutboxProvider>
-                <RouterProvider router={router} />
+                {/* The ten-second undo outlives the sheet that started it:
+                    the confirm loop ends by returning Home, and the offer has
+                    to still be there when it does. */}
+                <UndoProvider>
+                  <RouterProvider router={router} />
+                </UndoProvider>
               </OutboxProvider>
             </CompanyProvider>
           </AuthProvider>

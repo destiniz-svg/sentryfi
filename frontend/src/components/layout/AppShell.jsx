@@ -6,9 +6,20 @@ import { Topbar } from "./Topbar";
 import { CommandPalette } from "./CommandPalette";
 import { MobileNav } from "./MobileNav";
 import { RouteFallback } from "@/components/ui/RouteFallback";
+import { usePhone } from "@/lib/phone";
+
+/**
+ * The screens that carry the phone board's own chrome.
+ *
+ * They draw their own header, band, strip slot and nav, so the desk shell
+ * must stand out of the way entirely rather than wrapping them — two navs on
+ * one screen is not a style problem, it is two answers to "where am I".
+ */
+const BOARD = new Set(["/dashboard", "/bills"]);
 
 export function AppShell() {
   const location = useLocation();
+  const phone = usePhone();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
 
@@ -36,6 +47,14 @@ export function AppShell() {
     setPaletteOpen(false);
     setNavOpen(false);
   }, [location.pathname]);
+
+  if (phone && BOARD.has(location.pathname)) {
+    return (
+      <Suspense fallback={<RouteFallback />}>
+        <Outlet />
+      </Suspense>
+    );
+  }
 
   return (
     <div className="min-h-screen flex bg-[var(--bg)]">

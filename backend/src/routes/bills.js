@@ -6,6 +6,7 @@ const ApiError = require("../utils/ApiError");
 const { requireAuth } = require("../middleware/auth");
 const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
+const { reverseEntry } = require("../ledger/post");
 const { splitTax, findPossibleDuplicates, postBill } = require("../ledger/bills");
 const { findOrCreate, observe } = require("../ledger/counterparties");
 const { toLaari, formatLaari } = require("../ledger/money");
@@ -363,6 +364,9 @@ router.post(
       );
       res.json({
         ok: true,
+        // The entry itself, so the screen that just posted it can offer to
+        // take it back without having to go looking for what it made.
+        entryId: result.entry.id,
         entryNo: String(result.entry.entryNo),
         total: formatLaari(result.entry.totalLaari),
       });
@@ -370,6 +374,64 @@ router.post(
       // These are decisions a person has to make, not server faults.
       throw ApiError.badRequest(err.message);
     }
+  })
+);
+
+/**
+ * Takes a posted bill back out of the books.
+ *
+ * Not a delete and not an edit. The original entry stays exactly where it is
+ * and a second, opposite entry is written next to it with a reason attached,
+ * so the books show what happened and what was done about it. That is the
+ * only honest way to undo money: an entry that disappears is an entry nobody
+ * can audit, and the hash chain would notice anyway.
+ *
+ * This is what the ten-second undo on the phone calls. Ten seconds is short
+ * enough that the reason is genuinely "that was the wrong bill", and the
+ * reversal says so rather than inventing something.
+ */
+router.post(
+  "/:id/reverse",
+  requireCan("record"),
+  asyncHandler(async (req, res) => {
+    const given = z.string().trim().min(3).max(500).safeParse(req.body?.reason);
+    const reason = given.success ? given.data : null;
+
+    const result = await asCompany(req, async (client) => {
+      const { rows } = await client.query(
+        `SELECT id, entry_id, status FROM bills WHERE id = $1 AND company_id = $2`,
+        [req.params.id, req.companyId]
+      );
+      const bill = rows[0];
+      if (!bill) throw ApiError.notFound("Bill not found");
+      if (!bill.entry_id) {
+        throw ApiError.badRequest("This bill is not in the books, so there is nothing to reverse.");
+      }
+
+      const reversal = await reverseEntry(client, {
+        companyId: req.companyId,
+        userId: req.user.id,
+        entryId: bill.entry_id,
+        reason: reason || "Undone on the phone, within ten seconds of being recorded.",
+      });
+
+      // The bill goes back to being a document waiting on a decision. It is
+      // not discarded: the paper is still real and somebody may well post it
+      // again once whatever was wrong is fixed.
+      await client.query(
+        `UPDATE bills SET status = 'reversed', entry_id = NULL, updated_at = now()
+          WHERE id = $1 AND company_id = $2`,
+        [req.params.id, req.companyId]
+      );
+
+      return reversal;
+    });
+
+    res.json({
+      ok: true,
+      entryNo: String(result.entryNo),
+      note: "Taken back out of the books. Both entries stay in the journal.",
+    });
   })
 );
 

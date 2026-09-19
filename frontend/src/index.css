@@ -184,3 +184,359 @@ body {
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.14);
 }
+
+/* ------------------------------------------------------------------ *
+ * The phone board
+ *
+ * Site Board's other register, from DESIGN.md: square corners, ink on
+ * board white, one signal-yellow field, hairline rows, and amounts
+ * right-aligned against a single 2px ink rule. Not the desk register
+ * scaled down — a different design for a different scene.
+ *
+ * Written as plain CSS rather than utility classes because these are
+ * the register's own rules, and a row that is 58px with a hairline and
+ * a 2px rule is a fact about the design, not a choice each screen
+ * makes again.
+ *
+ * Colours go through the theme tokens so the night board works. The two
+ * that must not follow the theme are the yellow band's text and the ink
+ * strips, which is what --on-accent and --ink-panel exist for.
+ * ------------------------------------------------------------------ */
+
+.phone-board {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+.phone-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: max(20px, env(safe-area-inset-top)) 20px 10px;
+  flex-shrink: 0;
+}
+
+.phone-company {
+  font: 700 18px var(--font-display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* The one yellow field. */
+.phone-band {
+  background: var(--accent);
+  color: var(--on-accent);
+  padding: 16px 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.phone-band-h {
+  margin: 0;
+  font: 700 13px var(--font-display);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.phone-band-figure {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font: 700 44px/1 var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.phone-band-unit {
+  font-size: 20px;
+}
+
+.phone-band-lines {
+  font: 500 13px var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.phone-band-sync {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* The strip slot: one thing at a time, and always the same height. */
+.phone-strip,
+.phone-strip-empty {
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.phone-strip {
+  background: var(--ink-panel);
+  color: var(--on-ink-panel);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 20px;
+}
+
+.phone-strip-text {
+  font: 500 13px var(--font-sans);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phone-strip-action {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 4px 0 14px;
+  border: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  background: none;
+  color: var(--accent);
+  font: 700 13px var(--font-display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.phone-strip-count {
+  font-variant-numeric: tabular-nums;
+  min-width: 26px;
+  text-align: right;
+  opacity: 0.75;
+}
+
+.phone-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 116px;
+}
+
+/* Section headings on the board. */
+.phone-section {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 18px 20px 6px;
+}
+
+.phone-section-h {
+  font: 700 13px var(--font-display);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.phone-section-side {
+  margin-left: auto;
+  font: 500 13px var(--font-sans);
+  color: var(--ink-muted);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 4px;
+}
+
+/* The rule: every amount hangs on one 2px ink vertical line. */
+.phone-rule {
+  display: flex;
+  flex-direction: column;
+  padding: 0 20px;
+}
+
+.phone-row {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 108px;
+  column-gap: 10px;
+  align-items: center;
+  min-height: 58px;
+  padding: 8px 0;
+  box-sizing: border-box;
+  border-top: 1px solid var(--border);
+  text-align: left;
+  background: none;
+  color: inherit;
+  width: 100%;
+  cursor: pointer;
+}
+
+.phone-row-date {
+  font: 700 12px var(--font-display);
+  letter-spacing: 0.06em;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  padding-top: 3px;
+  align-self: start;
+}
+
+.phone-row-who {
+  font: 600 15px var(--font-sans);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.phone-row-what {
+  font: 400 13px var(--font-sans);
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.phone-row-amount {
+  font: 600 17px var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  padding-right: 10px;
+  border-right: 2px solid var(--ink);
+  align-self: stretch;
+  margin: -8px 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.phone-row-amount.is-out { color: var(--danger); }
+.phone-row-amount.is-in { color: var(--success); }
+.phone-row-amount.is-gone {
+  color: var(--ink-muted);
+  border-right-color: var(--ink-muted);
+  text-decoration: line-through;
+}
+
+/* Graduated bars: a levelling staff, ticked, never a rounded progress pill. */
+.phone-bar-track {
+  height: 12px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--ink) 0 2px,
+    var(--border) 2px 35px
+  );
+  position: relative;
+}
+
+.phone-bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--accent);
+  border-right: 2px solid var(--ink);
+}
+
+/* The nav lifts off the board; the shutter lifts off the nav. */
+.phone-nav {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  height: 72px;
+  background: var(--ink-panel);
+  color: var(--on-ink-panel);
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0 4px;
+}
+
+.phone-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: 56px;
+  justify-content: center;
+  color: var(--on-ink-panel);
+  text-decoration: none;
+  font: 700 11px var(--font-display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.phone-nav-item.is-active { color: var(--accent); }
+
+.phone-shutter {
+  justify-self: center;
+  position: relative;
+  width: 76px;
+  height: 76px;
+  border-radius: 9999px;
+  background: var(--accent);
+  border: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -40px;
+  box-shadow: 0 10px 24px rgba(20, 20, 20, 0.35);
+  cursor: pointer;
+}
+
+.phone-shutter-disc {
+  width: 58px;
+  height: 58px;
+  border-radius: 9999px;
+  background: var(--ink-panel);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.phone-shutter-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 9999px;
+  background: var(--ink-panel);
+  color: var(--accent);
+  border: 2px solid var(--accent);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 12px var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The ring follows the ground: ink by default, yellow on ink grounds,
+   and back to ink on anything yellow. */
+.phone-board :focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.on-ink :focus-visible, .on-ink:focus-visible { outline-color: var(--accent); }
+.on-yellow :focus-visible, .on-yellow:focus-visible { outline-color: var(--ink-panel); }
+
+/* The one action a waiting row carries, sitting under its own name rather
+   than competing with the amount for the right-hand side of the rule. */
+.phone-row-do {
+  margin-top: 6px;
+  align-self: start;
+  min-height: 44px;
+  padding: 0 14px;
+  background: var(--ink-panel);
+  color: var(--on-ink-panel);
+  border: 0;
+  font: 700 12px var(--font-display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.phone-row-do:disabled { opacity: 0.55; }

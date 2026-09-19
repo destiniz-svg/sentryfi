@@ -36,6 +36,13 @@ export const billsApi = {
   /** Puts a recorded bill into the books. */
   post: (id) => apiClient.post(`/bills/${id}/post`).then((r) => r.data),
 
+  /**
+   * Takes a posted bill back out of the books with a second, opposite entry.
+   * Both stay in the journal: an entry that disappears is one nobody can audit.
+   */
+  reverse: (id, reason) =>
+    apiClient.post(`/bills/${id}/reverse`, reason ? { reason } : {}).then((r) => r.data),
+
   /** Voided, never deleted. */
   void: (id, reason) =>
     apiClient.delete(`/bills/${id}`, { data: { reason } }).then((r) => r.data),

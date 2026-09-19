@@ -13,6 +13,7 @@ import Register from "@/pages/Register";
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
 import OpenBooks from "@/pages/OpenBooks";
+import { usePhone } from "@/lib/phone";
 
 /**
  * What loads when.
@@ -37,6 +38,22 @@ const NotReady = lazy(() => import("@/pages/NotReady"));
 // nothing routes to them: they read the purchased product's tables, and a
 // screen that looks right and is not is worse than one that is missing.
 const Settings = lazy(() => import("@/pages/Settings"));
+
+// The phone board. A separate register, not a breakpoint on the desk one —
+// see lib/phone.js and the register table in DESIGN.md.
+const PhoneHome = lazy(() => import("@/pages/phone/Home"));
+const PhoneBills = lazy(() => import("@/pages/phone/BillsBoard"));
+
+/**
+ * Which register this screen is in.
+ *
+ * Site Board is two registers, and a phone gets the phone board rather than
+ * the desk register made narrow. Chosen here, at the route, because the two
+ * are different screens with different chrome — not the same screen restyled.
+ */
+function OnPhone({ board, desk }) {
+  return usePhone() ? board : desk;
+}
 
 function ProtectedShell() {
   const { user, loading } = useAuth();
@@ -82,12 +99,12 @@ export const router = createBrowserRouter([
     element: <ProtectedShell />,
     errorElement: <ErrorPage />,
     children: [
-      { path: "dashboard", element: <Attention /> },
+      { path: "dashboard", element: <OnPhone board={<PhoneHome />} desk={<Attention />} /> },
       { path: "figures", element: <Figures /> },
       // Still on the purchased product's tables. See config/readiness.js.
       { path: "invoices", element: <NotReady /> },
       { path: "clients", element: <NotReady /> },
-      { path: "bills", element: <Bills /> },
+      { path: "bills", element: <OnPhone board={<PhoneBills />} desk={<Bills />} /> },
       { path: "expenses", element: <NotReady /> },
       { path: "payments", element: <NotReady /> },
       { path: "items", element: <NotReady /> },
