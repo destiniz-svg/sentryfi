@@ -34,6 +34,7 @@ const InvoiceEditor = lazy(() => import("@/pages/InvoiceEditor"));
 const InvoiceDetail = lazy(() => import("@/pages/InvoiceDetail"));
 const Clients = lazy(() => import("@/pages/Clients"));
 const ClientDetail = lazy(() => import("@/pages/ClientDetail"));
+const Bills = lazy(() => import("@/pages/Bills"));
 const Expenses = lazy(() => import("@/pages/Expenses"));
 const Payments = lazy(() => import("@/pages/Payments"));
 const Items = lazy(() => import("@/pages/Items"));
@@ -91,6 +92,7 @@ export const router = createBrowserRouter([
       { path: "invoices/:id/edit", element: <InvoiceEditor /> },
       { path: "clients", element: <Clients /> },
       { path: "clients/:id", element: <ClientDetail /> },
+      { path: "bills", element: <Bills /> },
       { path: "expenses", element: <Expenses /> },
       { path: "payments", element: <Payments /> },
       { path: "items", element: <Items /> },

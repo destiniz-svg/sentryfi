@@ -9,6 +9,7 @@ import {
   BarChart3,
   Settings,
   LogOut,
+  ReceiptText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -16,6 +17,7 @@ import AILogo from "./AILogo";
 
 const NAV = [
   { to: "/dashboard", icon: LayoutGrid, label: "Dashboard" },
+  { to: "/bills", icon: ReceiptText, label: "Bills" },
   { to: "/invoices", icon: FileText, label: "Invoices" },
   { to: "/clients", icon: Users, label: "Clients" },
   { to: "/expenses", icon: Receipt, label: "Expenses" },

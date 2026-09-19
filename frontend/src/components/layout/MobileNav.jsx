@@ -13,6 +13,7 @@ import {
   LogOut,
   X,
   Menu,
+  ReceiptText,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import AILogo from "./AILogo";
@@ -30,6 +31,7 @@ import AILogo from "./AILogo";
 
 const PRIMARY = [
   { to: "/dashboard", icon: LayoutGrid, label: "Home" },
+  { to: "/bills", icon: ReceiptText, label: "Bills" },
   { to: "/invoices", icon: FileText, label: "Invoices" },
   { to: "/expenses", icon: Receipt, label: "Expenses" },
 ];
