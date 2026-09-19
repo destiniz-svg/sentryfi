@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Receipt, Ban, Loader2 } from "lucide-react";
+import { Plus, Receipt, Ban, Loader2, Undo2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -9,6 +9,8 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { VoidDialog } from "@/components/ui/VoidDialog";
 import { RecordBill } from "@/components/bills/RecordBill";
 import { WaitingToSend } from "@/components/bills/WaitingToSend";
+import { useQueryClient } from "@tanstack/react-query";
+import { billsApi } from "@/api/bills";
 import { useBills, useBillMutations } from "@/hooks/useBills";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
@@ -34,12 +36,14 @@ const STATUS = {
 export default function Bills() {
   const { data: bills, isLoading } = useBills();
   const { post, voidBill } = useBillMutations();
-  const { can } = useCompany();
+  const { can, companyId } = useCompany();
   const toast = useToast();
+  const queryClient = useQueryClient();
 
   const [recording, setRecording] = useState(false);
   const [voiding, setVoiding] = useState(null);
   const [posting, setPosting] = useState(null);
+  const [reversing, setReversing] = useState(null);
 
   const canRecord = can("record");
 
@@ -57,6 +61,33 @@ export default function Bills() {
       toast.error("Not yet", err.message);
     } finally {
       setPosting(null);
+    }
+  }
+
+  /**
+   * Takes a posted bill back out of the books.
+   *
+   * A bill that is in the books cannot be voided — that used to leave its
+   * expense and its payable behind while the row said "void", so the list and
+   * the ledger disagreed about the same money. Money that has moved comes
+   * back out through a reversal, which is a second entry with a reason on it
+   * and leaves both in the journal.
+   */
+  async function onReverse(bill) {
+    setReversing(bill.id);
+    try {
+      const result = await billsApi.reverse(bill.id);
+      toast.success(
+        `Taken back out · entry ${result.entryNo}`,
+        "Both the original and its reversal stay in the journal."
+      );
+      queryClient.invalidateQueries({ queryKey: ["bills", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["figures", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["attention", companyId] });
+    } catch (err) {
+      toast.error("Not taken back out", err.message);
+    } finally {
+      setReversing(null);
     }
   }
 
@@ -122,6 +153,9 @@ export default function Bills() {
             {bills.map((bill) => {
               const status = STATUS[bill.status] || STATUS.draft;
               const isVoid = Boolean(bill.voided_at);
+              // In the books means the money has moved, and moved money is
+              // reversed, never voided.
+              const inBooks = bill.status === "posted";
               return (
                 <div
                   key={bill.id}
@@ -175,7 +209,21 @@ export default function Bills() {
                         Put in the books
                       </Button>
                     )}
-                    {canRecord && !isVoid && (
+                    {canRecord && !isVoid && inBooks && (
+                      <Button
+                        variant="outline"
+                        onClick={() => onReverse(bill)}
+                        disabled={reversing === bill.id}
+                      >
+                        {reversing === bill.id ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <Undo2 size={13} />
+                        )}
+                        Take it back out
+                      </Button>
+                    )}
+                    {canRecord && !isVoid && !inBooks && (
                       <button
                         onClick={() => setVoiding(bill)}
                         aria-label={`Void the bill from ${bill.supplier_name || "this supplier"}`}

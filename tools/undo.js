@@ -11,8 +11,8 @@
  */
 
 const { chromium } = require("playwright");
+const { signIn, putBack, BASE } = require("./session");
 
-const BASE = process.env.SHOOT_BASE || "https://sentryfi.app";
 const SUPPLIER = `Undo Test ${Date.now().toString().slice(-6)}`;
 const AMOUNT = "21.00";
 
@@ -24,21 +24,12 @@ const bad = (m) => {
 
 (async () => {
   const browser = await chromium.launch({ channel: "chrome" });
-  const context = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    deviceScaleFactor: 2,
-    isMobile: true,
-    hasTouch: true,
-  });
-  const page = await context.newPage();
+  console.log(`
+${BASE} — the ten-second undo
+`);
 
-  console.log(`\n${BASE} — the ten-second undo\n`);
-
-  await page.goto(BASE + "/login", { waitUntil: "networkidle", timeout: 60000 });
-  await page.fill("input[type=email]", process.env.SHOOT_EMAIL);
-  await page.fill("input[type=password]", process.env.SHOOT_PASSWORD);
-  await page.click("button[type=submit]");
-  await page.waitForURL((u) => !u.pathname.endsWith("/login"), { timeout: 45000 });
+  // Signs in and switches to the books a check is allowed to write in.
+  const { page, context } = await signIn(browser);
   await page.goto(BASE + "/bills", { waitUntil: "networkidle", timeout: 45000 });
   ok("on the bills board");
 
@@ -85,8 +76,8 @@ const bad = (m) => {
 
   // The books are the proof, not the screen.
   const books = await page.evaluate(async () => {
-    const ctx = await fetch("/api/companies", { credentials: "include" }).then((r) => r.json());
-    const headers = { "X-Company-Id": ctx?.companies?.[0]?.id };
+    const companyId = localStorage.getItem("sentryfi.company");
+    const headers = { "X-Company-Id": companyId };
     const f = await fetch("/api/figures", { credentials: "include", headers }).then((r) => r.json());
     return { owed: f.owedToSuppliers, recent: f.recent.slice(0, 3) };
   });
@@ -103,18 +94,7 @@ const bad = (m) => {
 
   // Take the test bill back out, so a real set of books is not left carrying
   // it. One named bill, and only if exactly one matches.
-  const cleaned = await page.evaluate(async (target) => {
-    const ctx = await fetch("/api/companies", { credentials: "include" }).then((r) => r.json());
-    const headers = { "X-Company-Id": ctx?.companies?.[0]?.id, "Content-Type": "application/json" };
-    const bills = (await fetch("/api/bills", { credentials: "include", headers }).then((r) => r.json())).bills;
-    const match = bills.filter((b) => b.supplier_name === target && !b.voided_at);
-    if (match.length !== 1) return `left alone: ${match.length} matched`;
-    const res = await fetch(`/api/bills/${match[0].id}`, {
-      method: "DELETE", credentials: "include", headers,
-      body: JSON.stringify({ reason: "Check of the ten-second undo. Not a real bill." }),
-    });
-    return res.ok ? "voided" : `could not void (${res.status})`;
-  }, SUPPLIER);
+  const cleaned = await putBack(page, SUPPLIER, "Check of the ten-second undo. Not a real bill.");
   console.log(`
   clean-up: ${SUPPLIER} — ${cleaned}`);
   await browser.close();

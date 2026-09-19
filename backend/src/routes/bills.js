@@ -446,26 +446,42 @@ router.delete(
     }
 
     const voided = await asCompany(req, async (client) => {
+      // A bill that is in the books cannot simply be marked void.
+      //
+      // It used to void the document and return a note saying "now go and
+      // reverse its entry". Nobody did. The bill showed as void while its
+      // expense and its payable were still in the books, so the list and the
+      // ledger said different things about the same money — and what is owed
+      // was overstated by exactly the bills somebody thought they had
+      // cancelled. Found in Altura's own figures, put there by this route.
+      //
+      // Voiding is for a document that never touched the books. Money that
+      // has moved comes back out the only honest way, through a reversal.
+      const { rows: found } = await client.query(
+        `SELECT id, entry_id, voided_at FROM bills WHERE id = $1 AND company_id = $2`,
+        [req.params.id, req.companyId]
+      );
+      const bill = found[0];
+      if (!bill) throw ApiError.notFound("Bill not found");
+      if (bill.voided_at) throw ApiError.badRequest("This bill was voided already.");
+      if (bill.entry_id) {
+        throw ApiError.badRequest(
+          "This bill is in the books. Reverse it first — that writes the opposite " +
+            "entry and takes the money back out — and then it can be voided."
+        );
+      }
+
       const { rows } = await client.query(
         `UPDATE bills
             SET voided_at = now(), void_reason = $3, status = 'discarded', updated_at = now()
           WHERE id = $1 AND company_id = $2 AND voided_at IS NULL
-          RETURNING id, status, entry_id`,
+          RETURNING id, status`,
         [req.params.id, req.companyId, reason.data]
       );
       return rows[0];
     });
 
     if (!voided) throw ApiError.notFound("Bill not found, or it was voided already");
-    if (voided.entry_id) {
-      // A posted bill's entry has to be reversed as well, and that is a
-      // separate, deliberate act with its own entry in the journal.
-      return res.json({
-        ok: true,
-        note: "This bill was already in the books. Reverse its journal entry to undo the money.",
-        entryId: voided.entry_id,
-      });
-    }
     res.json({ ok: true });
   })
 );

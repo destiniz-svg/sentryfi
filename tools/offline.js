@@ -13,8 +13,8 @@
  */
 
 const { chromium } = require("playwright");
+const { signIn, putBack, BASE } = require("./session");
 
-const BASE = process.env.SHOOT_BASE || "https://sentryfi.app";
 const AMOUNT = "13.37";
 const SUPPLIER = `Offline Test ${Date.now().toString().slice(-6)}`;
 
@@ -31,24 +31,12 @@ async function main() {
 
   const browser = await chromium.launch({ channel: "chrome" });
   // A phone, because that is where a bill is held.
-  const context = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    deviceScaleFactor: 2,
-    isMobile: true,
-    hasTouch: true,
-  });
-  const page = await context.newPage();
-  page.on("console", (m) => {
-    if (m.type() === "error") console.log("  console: " + m.text().slice(0, 160));
-  });
+  console.log(`
+${BASE} — a bill through a lost connection
+`);
 
-  console.log(`\n${BASE} — a bill through a lost connection\n`);
-
-  await page.goto(BASE + "/login", { waitUntil: "networkidle", timeout: 60000 });
-  await page.fill("input[type=email]", email);
-  await page.fill("input[type=password]", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL((u) => !u.pathname.endsWith("/login"), { timeout: 45000 });
+  // Signs in and switches to the books a check is allowed to write in.
+  const { page, context } = await signIn(browser);
   ok("signed in");
 
   await page.goto(BASE + "/bills", { waitUntil: "networkidle", timeout: 45000 });
@@ -140,19 +128,9 @@ async function main() {
   // Take the test bill back out. It is a draft, so it never reached the
   // books, but it is still a row in a real set of records and it does not
   // belong there. One named bill, and only if exactly one matches.
-  const cleaned = await page.evaluate(async (target) => {
-    const ctx = await fetch("/api/companies", { credentials: "include" }).then((r) => r.json());
-    const headers = { "X-Company-Id": ctx?.companies?.[0]?.id, "Content-Type": "application/json" };
-    const bills = (await fetch("/api/bills", { credentials: "include", headers }).then((r) => r.json())).bills;
-    const match = bills.filter((b) => b.supplier_name === target && !b.voided_at);
-    if (match.length !== 1) return `left alone: ${match.length} matched`;
-    const res = await fetch(`/api/bills/${match[0].id}`, {
-      method: "DELETE", credentials: "include", headers,
-      body: JSON.stringify({ reason: "Check of the offline queue. Not a real bill." }),
-    });
-    return res.ok ? "voided" : `could not void (${res.status})`;
-  }, SUPPLIER);
-  console.log(`  clean-up: ${SUPPLIER} — ${cleaned}`);
+  const cleaned = await putBack(page, SUPPLIER, "Check of the offline queue. Not a real bill.");
+  console.log(`
+  clean-up: ${SUPPLIER} — ${cleaned}`);
 
   await browser.close();
   console.log(process.exitCode ? "\nsomething is wrong\n" : "\nthe bill survived\n");
