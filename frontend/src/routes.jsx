@@ -28,7 +28,7 @@ import OpenBooks from "@/pages/OpenBooks";
  * a round trip. Everything behind the login is fetched when it is first
  * opened.
  */
-const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Figures = lazy(() => import("@/pages/Figures"));
 const Attention = lazy(() => import("@/pages/Attention"));
 const Bills = lazy(() => import("@/pages/Bills"));
 const NotReady = lazy(() => import("@/pages/NotReady"));
@@ -83,7 +83,7 @@ export const router = createBrowserRouter([
     errorElement: <ErrorPage />,
     children: [
       { path: "dashboard", element: <Attention /> },
-      { path: "figures", element: <Dashboard /> },
+      { path: "figures", element: <Figures /> },
       // Still on the purchased product's tables. See config/readiness.js.
       { path: "invoices", element: <NotReady /> },
       { path: "clients", element: <NotReady /> },

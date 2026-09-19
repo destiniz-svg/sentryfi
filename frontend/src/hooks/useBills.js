@@ -25,7 +25,8 @@ export function useBillMutations() {
   // are stale the moment it succeeds.
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["bills", companyId] });
-    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    queryClient.invalidateQueries({ queryKey: ["figures", companyId] });
+    queryClient.invalidateQueries({ queryKey: ["attention", companyId] });
   };
 
   return {
