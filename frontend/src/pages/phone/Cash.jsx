@@ -24,6 +24,35 @@ import { Button } from "@/components/ui/Button";
  * this needs.
  */
 
+/**
+ * Which tin this phone is holding.
+ *
+ * Kept per company, and only as a convenience: a phone with storage blocked
+ * simply falls back to the first box. It matters because the screen resets on
+ * every reload otherwise, and a supervisor who reopens the app and records a
+ * spend would put it in somebody else's tin without noticing — which is worse
+ * than not recording it, because the figure looks right in both places and is
+ * wrong in both.
+ */
+const HELD = (companyId) => `sentryfi.cashbox.${companyId}`;
+
+function rememberBox(companyId, boxId) {
+  try {
+    window.localStorage.setItem(HELD(companyId), boxId);
+  } catch {
+    // Private windows and blocked site data both throw. Not remembering is a
+    // small inconvenience; throwing on a cash screen is not.
+  }
+}
+
+function boxHeld(companyId) {
+  try {
+    return window.localStorage.getItem(HELD(companyId));
+  } catch {
+    return null;
+  }
+}
+
 const FIELD =
   "w-full h-[52px] px-4 bg-[var(--surface)] text-[var(--ink)] text-[17px] border-2 border-[var(--ink)] outline-none placeholder:text-[var(--ink-muted)]";
 
@@ -32,7 +61,12 @@ export default function PhoneCash() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [doing, setDoing] = useState(null); // "spend" | "count" | "ask" | "open"
-  const [picked, setPicked] = useState(null);
+  const [picked, setPickedState] = useState(() => boxHeld(companyId));
+
+  const setPicked = (id) => {
+    setPickedState(id);
+    if (companyId && id) rememberBox(companyId, id);
+  };
 
   const { data: boxes, isPending } = useQuery({
     queryKey: ["cash", companyId],
