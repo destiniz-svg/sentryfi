@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, AlertTriangle, Camera } from "lucide-react";
+import { Loader2, AlertTriangle, Camera, Paperclip, FileText, X } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { useBillMutations } from "@/hooks/useBills";
@@ -58,9 +58,13 @@ export function RecordBill({ open, onClose }) {
   const [reading, setReading] = useState(false);
   const [questions, setQuestions] = useState([]);
   const [readIt, setReadIt] = useState(false);
-  const [photo, setPhoto] = useState(null);
+  // Everything attached to this bill. A supplier invoice is often more than
+  // one page, and a delivery note photographed beside it belongs to the same
+  // record. The first is what gets read; all of them get kept.
+  const [files, setFiles] = useState([]);
   const [supplierFacts, setSupplierFacts] = useState(null);
-  const fileRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const libraryInputRef = useRef(null);
 
   function blank() {
     return {
@@ -79,29 +83,37 @@ export function RecordBill({ open, onClose }) {
       setDuplicates([]);
       setQuestions([]);
       setReadIt(false);
-      setPhoto(null);
+      setFiles([]);
       setSupplierFacts(null);
     }
   }, [open]);
 
   /**
-   * Photograph it, and let the app fill in what it can read.
+   * Takes whatever arrives — a photograph, a picture already on the phone, a
+   * PDF that came by email — and lets the app fill in what it can read.
    *
    * What comes back is put in the form rather than recorded, so the person
    * sees what was read off their own paper before any of it becomes a record.
    * Anything the reading was unsure about is listed underneath, because the
    * rule is to ask only about what is genuinely doubtful and handle the rest.
    */
-  async function onPhoto(e) {
-    const file = e.target.files?.[0];
+  async function onFiles(e) {
+    const picked = Array.from(e.target.files || []);
+    // Clear the input so picking the same file twice still fires a change.
     e.target.value = "";
-    if (!file) return;
+    if (!picked.length) return;
 
+    const all = [...files, ...picked];
+    setFiles(all);
+
+    // Only the first page is read. Reading every page would cost more and say
+    // the same thing, and the pages that are not read are still kept.
+    const first = all[0];
     setReading(true);
     setErr("");
     setQuestions([]);
     try {
-      const result = await billsApi.scan(file);
+      const result = await billsApi.scan(first);
       const extracted = result.read || {};
 
       setForm((f) => ({
@@ -114,7 +126,6 @@ export function RecordBill({ open, onClose }) {
       }));
       setQuestions(result.questions || []);
       setReadIt(true);
-      setPhoto(file);
       setSupplierFacts({
         tin: extracted.supplierTin || undefined,
         gst_number: extracted.supplierGstNumber || undefined,
@@ -155,18 +166,18 @@ export function RecordBill({ open, onClose }) {
         supplier: supplierFacts || undefined,
       });
 
-      // File the photograph against the bill now that the bill exists. This
-      // happens even when a duplicate was found, because the paper belongs to
-      // the record either way and whoever sorts the duplicate out will want to
-      // see both documents.
+      // File the paper against the bill now that the bill exists, every page
+      // in the order it was added. This happens even when a duplicate was
+      // found, because the paper belongs to the record either way and whoever
+      // sorts the duplicate out will want to see both documents.
       //
-      // A failure here does not lose the bill. The bill is recorded; the
-      // photograph can be added again. Saying so is better than rolling back
-      // work somebody has already done.
+      // A failure here does not lose the bill. The bill is recorded and the
+      // paper can be added again, which is better than rolling back work
+      // somebody has already done.
       let paperKept = true;
-      if (photo) {
+      for (const file of files) {
         try {
-          await billsApi.attach(result.bill.id, photo);
+          await billsApi.attach(result.bill.id, file);
         } catch {
           paperKept = false;
         }
@@ -182,7 +193,7 @@ export function RecordBill({ open, onClose }) {
       toast.success(
         `Recorded ${result.bill.gross} from ${form.supplierName.trim()}`,
         !paperKept
-          ? "The figures are saved, but the photograph was not. Add it again from the bill."
+          ? "The figures are saved, but the paper was not. Add it again from the bill."
           : form.gstTreatment === "unknown"
             ? "It is waiting for someone to say how its tax was quoted."
             : "Check it, then put it in the books."
@@ -203,32 +214,89 @@ export function RecordBill({ open, onClose }) {
       description="What is on the paper. You can correct any of it afterwards."
       initialFocus={cameraButton}
     >
-      {/* The camera first, because photographing it is the fast path and
-          typing is the fallback — not the other way round. */}
+      {/* Two ways in, because they are genuinely different jobs and one input
+          cannot do both. `capture` tells a phone to open the camera straight
+          away, which is right when the bill is in your hand — and it is also
+          why, with only that input, a bill already sitting in the gallery or
+          arriving as a PDF by email could not be attached at all.
+          The second input deliberately has no `capture`, so the phone offers
+          the gallery, the files app, and whatever else it has. */}
       <div className="mb-5">
         <input
-          ref={fileRef}
+          ref={cameraInputRef}
           type="file"
-          accept="image/*,application/pdf"
+          accept="image/*"
           capture="environment"
           className="hidden"
-          onChange={onPhoto}
+          onChange={onFiles}
         />
-        <Button
-          type="button"
-          ref={cameraButton}
-          variant="outline"
-          onClick={() => fileRef.current?.click()}
-          disabled={reading}
-          className="w-full h-12"
-        >
-          {reading ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
-          {reading ? "Reading it…" : "Photograph the bill"}
-        </Button>
+        <input
+          ref={libraryInputRef}
+          type="file"
+          accept="image/*,application/pdf"
+          multiple
+          className="hidden"
+          onChange={onFiles}
+        />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <Button
+            type="button"
+            ref={cameraButton}
+            variant="outline"
+            onClick={() => cameraInputRef.current?.click()}
+            disabled={reading}
+            className="h-12"
+          >
+            {reading ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
+            {reading ? "Reading it…" : "Photograph it"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => libraryInputRef.current?.click()}
+            disabled={reading}
+            className="h-12"
+          >
+            <Paperclip size={16} />
+            Choose a file
+          </Button>
+        </div>
+
+        {files.length > 0 && (
+          <ul className="mt-3 space-y-1.5">
+            {files.map((f, i) => (
+              <li
+                key={`${f.name}-${i}`}
+                className="flex items-center gap-2 text-[13px] text-[var(--ink)]"
+              >
+                <FileText size={14} className="shrink-0 text-[var(--ink-muted)]" />
+                <span className="truncate">{f.name}</span>
+                <span className="text-[var(--ink-muted)] tabular shrink-0">
+                  {Math.round(f.size / 1024)} KB
+                </span>
+                {i === 0 && files.length > 1 && (
+                  <span className="text-[11px] uppercase tracking-wider text-[var(--ink-muted)] shrink-0">
+                    read from this one
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setFiles((list) => list.filter((_, n) => n !== i))}
+                  aria-label={`Remove ${f.name}`}
+                  className="ml-auto h-11 w-11 shrink-0 rounded-full flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--danger)]"
+                >
+                  <X size={15} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
         <p className="text-[13px] text-[var(--ink-muted)] mt-2 leading-snug">
           {readIt
-            ? "Read off the photo. Check it against the paper — anything wrong, just change it."
-            : "Or fill it in below. Nothing is recorded until you say so."}
+            ? "Read off the first page. Check it against the paper — anything wrong, just change it."
+            : "A photo, a picture already on the phone, or a PDF. Several pages are fine. Nothing is recorded until you say so."}
         </p>
       </div>
 
