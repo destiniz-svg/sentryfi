@@ -161,7 +161,6 @@ export default function Bills() {
                   <div className="justify-self-end flex items-center gap-1.5">
                     {canRecord && !isVoid && bill.status !== "posted" && (
                       <Button
-                        size="sm"
                         variant="outline"
                         onClick={() => onPost(bill)}
                         disabled={posting === bill.id}
