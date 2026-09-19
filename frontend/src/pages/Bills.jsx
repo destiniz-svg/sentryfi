@@ -70,7 +70,8 @@ export default function Bills() {
         title="Bills"
         description="What you owe, and what is still waiting on a decision."
         actions={
-          canRecord && (
+          canRecord &&
+          bills?.length > 0 && (
             <Button variant="accent" onClick={() => setRecording(true)}>
               <Plus size={16} /> Record a bill
             </Button>

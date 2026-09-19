@@ -24,8 +24,33 @@ const DESK = { width: 1440, height: 900 };
 // A phone the owner might actually hold, not a designer's ideal.
 const PHONE = { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 
-async function shoot(browser, { url, name, viewport, dark, full }) {
-  const context = await browser.newContext({
+/**
+ * Signs in, so the screens behind the login can be looked at too.
+ *
+ * Credentials come from the environment and are never written anywhere: not
+ * into this file, not into a shot, not into the repository.
+ */
+async function signIn(context, base) {
+  const email = process.env.SHOOT_EMAIL;
+  const password = process.env.SHOOT_PASSWORD;
+  if (!email || !password) return false;
+
+  const page = await context.newPage();
+  await page.goto(base + "/login", { waitUntil: "networkidle", timeout: 45000 });
+  await page.fill("input[type=email]", email);
+  await page.fill("input[type=password]", password);
+  await Promise.all([
+    page.waitForURL((u) => !u.pathname.endsWith("/login"), { timeout: 30000 }).catch(() => {}),
+    page.click("button[type=submit]"),
+  ]);
+  await page.waitForTimeout(1500);
+  const landed = page.url();
+  await page.close();
+  return landed;
+}
+
+async function shoot(browser, { url, name, viewport, dark, full, context: given }) {
+  const context = given || await browser.newContext({
     viewport: { width: viewport.width, height: viewport.height },
     deviceScaleFactor: viewport.deviceScaleFactor || 1,
     isMobile: viewport.isMobile || false,
@@ -59,7 +84,7 @@ async function shoot(browser, { url, name, viewport, dark, full }) {
         el.getAttribute("aria-label") ||
         el.textContent ||
         el.getAttribute("title") ||
-        el.getAttribute("placeholder") ||
+        (el.labels && el.labels.length ? el.labels[0].textContent : "") ||
         ""
       ).trim();
 
@@ -86,7 +111,8 @@ async function shoot(browser, { url, name, viewport, dark, full }) {
     return out;
   });
 
-  await context.close();
+  await page.close();
+  if (!given) await context.close();
   return { file, problems, audit };
 }
 
@@ -135,6 +161,32 @@ function report(label, r) {
       report("DESK  /login (dark)", await shoot(browser, {
         url: base + "/login", name: "login-desk-dark", viewport: DESK, dark: true, full: true,
       }));
+    } else if (args.includes("--inside")) {
+      // The screens behind the login. Requires SHOOT_EMAIL and SHOOT_PASSWORD.
+      const viewport = args.includes("--mobile") ? PHONE : DESK;
+      const context = await browser.newContext({
+        viewport: { width: viewport.width, height: viewport.height },
+        deviceScaleFactor: viewport.deviceScaleFactor || 1,
+        isMobile: viewport.isMobile || false,
+        hasTouch: viewport.hasTouch || false,
+        colorScheme: args.includes("--dark") ? "dark" : "light",
+      });
+      const landed = await signIn(context, base);
+      if (!landed) throw new Error("Set SHOOT_EMAIL and SHOOT_PASSWORD to look inside.");
+      console.log("signed in, landed on " + landed);
+
+      const tag = args.includes("--mobile") ? "phone" : "desk";
+      for (const route of ["/dashboard", "/bills", "/invoices", "/expenses", "/settings"]) {
+        try {
+          report(tag.toUpperCase() + "  " + route, await shoot(browser, {
+            url: base + route, name: route.slice(1) + "-" + tag,
+            viewport, full: true, context,
+          }));
+        } catch (e) {
+          console.log("\n" + route + "\n  FAILED  " + e.message.split("\n")[0]);
+        }
+      }
+      await context.close();
     } else {
       const url = args[0]?.startsWith("http") ? args[0] : base + (args[0] || "/");
       const outIndex = args.indexOf("--out");

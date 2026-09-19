@@ -12,9 +12,12 @@ import { authApi } from "@/api/auth";
 import { useSettings, useUpdateSettings } from "@/hooks/useSettings";
 import { CURRENCIES, cn } from "@/lib/utils";
 
-function FieldLabel({ children }) {
+function FieldLabel({ children, htmlFor }) {
   return (
-    <label className="text-xs font-medium text-[var(--ink-muted)] mb-1.5 block">
+    <label
+      htmlFor={htmlFor}
+      className="text-xs font-medium text-[var(--ink-muted)] mb-1.5 block"
+    >
       {children}
     </label>
   );
@@ -122,22 +125,22 @@ function CompanySection() {
 
         <div className="space-y-4">
           <div>
-            <FieldLabel>Company name</FieldLabel>
-            <Input value={form.company_name} onChange={set("company_name")} placeholder="Your Company LLC" />
+            <FieldLabel htmlFor="set-company-name">Company name</FieldLabel>
+            <Input id="set-company-name" value={form.company_name} onChange={set("company_name")} placeholder="Your Company LLC" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <FieldLabel>Billing email</FieldLabel>
-              <Input type="email" value={form.email} onChange={set("email")} placeholder="billing@you.com" />
+              <FieldLabel htmlFor="set-billing-email">Billing email</FieldLabel>
+              <Input id="set-billing-email" type="email" value={form.email} onChange={set("email")} placeholder="billing@you.com" />
             </div>
             <div>
-              <FieldLabel>Phone</FieldLabel>
-              <Input value={form.phone} onChange={set("phone")} placeholder="+1 (555) 000-0000" />
+              <FieldLabel htmlFor="set-phone">Phone</FieldLabel>
+              <Input id="set-phone" value={form.phone} onChange={set("phone")} placeholder="+1 (555) 000-0000" />
             </div>
           </div>
           <div>
-            <FieldLabel>Address</FieldLabel>
-            <Input value={form.address} onChange={set("address")} placeholder="123 Main St, City, State" />
+            <FieldLabel htmlFor="set-address">Address</FieldLabel>
+            <Input id="set-address" value={form.address} onChange={set("address")} placeholder="123 Main St, City, State" />
           </div>
         </div>
       </Card>
@@ -153,8 +156,8 @@ function CompanySection() {
         </CardHeader>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <FieldLabel>Default currency</FieldLabel>
-            <select className={selectClass} value={form.currency} onChange={set("currency")}>
+            <FieldLabel htmlFor="set-default-currency">Default currency</FieldLabel>
+            <select id="set-default-currency" className={selectClass} value={form.currency} onChange={set("currency")}>
               {CURRENCIES.map((c) => (
                 <option key={c.code} value={c.code}>
                   {c.code}
@@ -163,12 +166,12 @@ function CompanySection() {
             </select>
           </div>
           <div>
-            <FieldLabel>Default tax %</FieldLabel>
-            <Input type="number" min="0" step="0.1" value={form.tax_rate} onChange={set("tax_rate")} className="tabular" />
+            <FieldLabel htmlFor="set-default-tax">Default tax %</FieldLabel>
+            <Input id="set-default-tax" type="number" min="0" step="0.1" value={form.tax_rate} onChange={set("tax_rate")} className="tabular" />
           </div>
           <div>
-            <FieldLabel>Invoice # prefix</FieldLabel>
-            <Input value={form.invoice_prefix} onChange={set("invoice_prefix")} placeholder="INV-" />
+            <FieldLabel htmlFor="set-invoice-prefix">Invoice # prefix</FieldLabel>
+            <Input id="set-invoice-prefix" value={form.invoice_prefix} onChange={set("invoice_prefix")} placeholder="INV-" />
           </div>
         </div>
       </Card>
@@ -225,13 +228,13 @@ function ProfileSection() {
         </div>
 
         <div>
-          <FieldLabel>Full name</FieldLabel>
-          <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Your name" />
+          <FieldLabel htmlFor="set-full-name">Full name</FieldLabel>
+          <Input id="set-full-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Your name" />
         </div>
 
         <div>
-          <FieldLabel>Email</FieldLabel>
-          <Input value={user?.email || ""} disabled />
+          <FieldLabel htmlFor="set-email">Email</FieldLabel>
+          <Input id="set-email" value={user?.email || ""} disabled />
           <p className="text-[11px] text-[var(--ink-muted)] mt-1.5">Email changes aren&apos;t supported yet.</p>
         </div>
 
@@ -344,19 +347,19 @@ function PasswordSection() {
 
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
-          <FieldLabel>Current password</FieldLabel>
-          <Input type="password" value={currentPassword} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" />
+          <FieldLabel htmlFor="set-current-password">Current password</FieldLabel>
+          <Input id="set-current-password" type="password" value={currentPassword} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" />
         </div>
 
         <div>
-          <FieldLabel>New password</FieldLabel>
-          <Input type="password" value={newPassword} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />
+          <FieldLabel htmlFor="set-new-password">New password</FieldLabel>
+          <Input id="set-new-password" type="password" value={newPassword} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />
           {newTooShort && <p className="text-[11px] text-[var(--danger)] mt-1.5">Needs to be at least 8 characters.</p>}
         </div>
 
         <div>
-          <FieldLabel>Confirm new password</FieldLabel>
-          <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
+          <FieldLabel htmlFor="set-confirm-new-password">Confirm new password</FieldLabel>
+          <Input id="set-confirm-new-password" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
           {mismatch && <p className="text-[11px] text-[var(--danger)] mt-1.5">Passwords don&apos;t match.</p>}
         </div>
 

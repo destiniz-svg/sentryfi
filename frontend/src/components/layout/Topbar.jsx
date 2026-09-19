@@ -15,12 +15,8 @@ export function Topbar({ onOpenPalette }) {
   return (
     <header className="flex items-start justify-between gap-6 mb-8">
       <div>
-        <h1 className="font-display text-[clamp(28px,3vw,38px)] font-semibold leading-tight text-[var(--ink)]">
-          Hello, {firstName}.
-        </h1>
-        <p className="text-sm text-[var(--ink-muted)] mt-1">
-          Here's what's happening with your billing today.
-        </p>
+        {/* A greeting, not a title. The page names itself below this. */}
+        <p className="text-sm text-[var(--ink-muted)]">Hello, {firstName}.</p>
       </div>
 
       <div className="flex items-center gap-3 shrink-0">
