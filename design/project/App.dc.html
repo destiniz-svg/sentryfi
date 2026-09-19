@@ -1,0 +1,1976 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sentryfi app flow</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&amp;family=Barlow+Condensed:wght@600;700&amp;display=swap">
+<style>
+body{margin:0;background:#FFFFFF;font-family:Barlow,"Helvetica Neue",Arial,sans-serif}
+a{color:#141414}a:hover{color:#6B7078}
+:focus-visible{outline:3px solid #141414;outline-offset:2px}
+.on-ink :focus-visible,.on-ink:focus-visible{outline-color:#F2C300}
+.on-board :focus-visible,.on-board:focus-visible,.on-yellow :focus-visible,.on-yellow:focus-visible{outline-color:#141414}
+::selection{background:#F2C300;color:#141414}
+@keyframes sf-slide{from{transform:translateX(48px);opacity:0}to{transform:none;opacity:1}}
+@keyframes sf-rise{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+@keyframes sf-pop{from{transform:scale(.9);opacity:0}to{transform:none;opacity:1}}
+.sf-in{animation:sf-slide 600ms cubic-bezier(.2,.8,.2,1)}
+.sf-sheet{animation:sf-rise 420ms cubic-bezier(.2,.8,.2,1)}
+.sf-tick{animation:sf-pop 480ms cubic-bezier(.2,.8,.2,1)}
+.sf-hide{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+@media (prefers-reduced-motion: reduce){.sf-in,.sf-sheet,.sf-tick{animation:none}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; background: #FFFFFF; color: #141414; font-family: Barlow, 'Helvetica Neue', Arial, sans-serif;">
+
+<sc-if value="{{isHome}}" hint-placeholder-val="{{true}}">
+  <div style="position: absolute; inset: 0; display: flex; flex-direction: column;">
+    <div style="display: flex; align-items: center; gap: 8px; padding: 56px 20px 12px;">
+      <button onClick="{{noop}}" style="display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0; background: none; border: 0; color: #141414; font: 700 18px 'Barlow Condensed', sans-serif; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer;">
+        <span>Altura Pvt Ltd</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+      </button>
+      <span style="font: 700 11px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; color: #FFFFFF; background: #141414; padding: 3px 6px;">Owner</span>
+      <svg width="32" height="32" viewBox="0 0 96 96" role="img" aria-label="Sentryfi" style="margin-left: auto;"><circle cx="48" cy="48" r="34" fill="#F2C300"></circle><circle cx="48" cy="48" r="34" fill="none" stroke="#141414" stroke-width="6"></circle><path d="M17.6 58 H78.4" stroke="#141414" stroke-width="7"></path><path d="M48 26 V58" stroke="#141414" stroke-width="7"></path></svg>
+    </div>
+    <div class="on-yellow" role="group" aria-labelledby="sf-band-h" style="background: #F2C300; padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 6px;">
+      <h1 id="sf-band-h" ref="{{headingRef}}" tabindex="-1" style="margin: 0; font: 700 13px 'Barlow Condensed', sans-serif; letter-spacing: 0.14em; text-transform: uppercase;">Cash &amp; bank now</h1>
+      <div style="{{bandStyle}}">
+        <span style="{{bandUnitStyle}}">MVR</span>
+        <span>{{displayTotal}}</span>
+      </div>
+      <div style="font: 500 13px Barlow, sans-serif; font-variant-numeric: tabular-nums; display: flex; gap: 14px;">
+        <span>Bank <strong style="font-weight: 700;">{{bankTotal}}</strong></span>
+        <span>Cash <strong style="font-weight: 700;">{{cashTotal}}</strong></span>
+        <span style="margin-left: auto;">{{syncLine}}</span>
+      </div>
+    </div>
+
+    <sc-if value="{{stripUndo}}" hint-placeholder-val="{{false}}">
+      <div role="status" aria-live="polite" class="on-ink" style="display: flex; align-items: center; justify-content: space-between; min-height: 44px; background: #141414; color: #FFFFFF; padding: 0 0 0 14px;">
+        <span style="font: 500 14px Barlow, sans-serif; padding: 6px 0;">Posted to your books</span>
+        <button onClick="{{undo}}" aria-label="Undo this bill" style="min-height: 44px; align-self: stretch; padding: 0 14px; background: none; border: 0; border-left: 1px solid #34353A; color: #F2C300; font: 700 15px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; gap: 8px;"><span>Undo</span><span aria-hidden="true" style="font-variant-numeric: tabular-nums;">{{undoLeft}}s</span></button>
+      </div>
+    </sc-if>
+    <sc-if value="{{stripNotice}}" hint-placeholder-val="{{false}}">
+      <div role="status" aria-live="polite" class="on-ink" style="display: flex; align-items: center; min-height: 44px; background: #141414; color: #FFFFFF; padding: 6px 14px;">
+        <span style="font: 500 14px Barlow, sans-serif;">{{noticeLine}}</span>
+        <sc-if value="{{noticeUndoable}}" hint-placeholder-val="{{false}}">
+          <button onClick="{{undoNotice}}" style="min-height: 44px; margin-left: auto; padding: 0 12px; background: none; border: 0; border-left: 1px solid #34353A; color: #F2C300; font: 700 15px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;">Undo</button>
+        </sc-if>
+      </div>
+    </sc-if>
+    <sc-if value="{{stripGst}}" hint-placeholder-val="{{true}}">
+      <a href="#tax" class="on-ink" style="{{gstStripStyle}}">
+        <sc-if value="{{gstUrgent}}" hint-placeholder-val="{{true}}">
+          <span style="width: 44px; align-self: stretch; background: repeating-linear-gradient(135deg, #F2C300 0 8px, #141414 8px 16px); flex-shrink: 0;"></span>
+        </sc-if>
+        <span style="padding: 0 14px; font: 700 17px 'Barlow Condensed', sans-serif; letter-spacing: 0.02em; white-space: nowrap;">{{gstLine}}</span>
+      </a>
+    </sc-if>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 20px 6px;">
+      <div style="font: 700 13px 'Barlow Condensed', sans-serif; letter-spacing: 0.14em; text-transform: uppercase;">{{listHeading}}</div>
+      <sc-if value="{{hasQueue}}" hint-placeholder-val="{{false}}">
+        <button onClick="{{goUploads}}" style="min-height: 44px; padding: 0 4px; background: none; border: 0; color: #141414; font: 700 13px 'Barlow Condensed', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+          <span style="min-width: 20px; height: 20px; background: #141414; color: #F2C300; display: inline-flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums;">{{queue}}</span>
+          <span>waiting</span>
+        </button>
+      </sc-if>
+      <sc-if value="{{showSeeAll}}" hint-placeholder-val="{{true}}">
+        <a href="#all" style="font: 500 13px Barlow, sans-serif; color: #6B7078; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; padding: 0 4px;">See all</a>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{listEmpty}}" hint-placeholder-val="{{false}}">
+      <div style="flex-grow: 1; padding: 6px 20px 0; display: flex; flex-direction: column; gap: 10px;">
+        <div style="border-top: 1px solid #E6E7EA; padding-top: 18px; font: 700 28px/1.05 'Barlow Condensed', sans-serif;">Nothing recorded yet</div>
+        <div style="font: 400 15px/1.45 Barlow, sans-serif; color: #141414;">Snap your first bill with the yellow button. Three taps: snap it, check what we read, record it.</div>
+      </div>
+    </sc-if>
+    <sc-if value="{{listFilled}}" hint-placeholder-val="{{true}}">
+      <div style="display: flex; flex-direction: column; padding: 0 20px; flex-grow: 1;">
+        <sc-for list="{{entries}}" as="e" hint-placeholder-count="5">
+          <button onClick="{{e.open}}" aria-label="{{e.label}}" class="{{e.rowClass}}" style="{{e.rowStyle}}">
+            <div style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.06em; color: #6B7078; text-transform: uppercase; padding-top: 3px;">{{e.date}}</div>
+            <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+              <div style="font: 600 15px Barlow, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{e.who}}</div>
+              <div style="font: 400 13px Barlow, sans-serif; color: #6B7078; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{e.what}}</div>
+            </div>
+            <div style="{{e.amountStyle}}">{{e.amount}}</div>
+          </button>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <div style="padding: 10px 20px 112px; display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; align-items: baseline; justify-content: space-between;">
+        <div style="font: 700 13px 'Barlow Condensed', sans-serif; letter-spacing: 0.14em; text-transform: uppercase;">Hotel · 48 rooms</div>
+        <div style="font: 700 20px/1 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums;">{{projectPct}}</div>
+      </div>
+      <div style="height: 14px; background: repeating-linear-gradient(90deg, #141414 0 2px, #E6E7EA 2px 35px); position: relative;">
+        <div style="{{projectFillStyle}}"></div>
+      </div>
+      <div style="font: 400 12px Barlow, sans-serif; color: #6B7078;">{{projectNote}}</div>
+    </div>
+
+    <nav aria-label="Main" class="on-ink" style="position: absolute; left: 16px; right: 16px; bottom: 16px; height: 72px; background: rgba(20,20,20,0.88); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: center; box-sizing: border-box; padding: 0 4px;">
+      <a href="#home" aria-current="page" style="display: flex; flex-direction: column; align-items: center; gap: 4px; height: 56px; justify-content: center; color: #F2C300; text-decoration: none; font: 700 11px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8v10h-6v-6H9v6H3z"></path></svg>
+        <span>Home</span>
+      </a>
+      <a href="#bills" style="display: flex; flex-direction: column; align-items: center; gap: 4px; height: 56px; justify-content: center; color: #FFFFFF; text-decoration: none; font: 700 11px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg>
+        <span>Bills</span>
+      </a>
+      <button onClick="{{goSnap}}" aria-label="{{snapButtonLabel}}" class="on-yellow" style="justify-self: center; position: relative; width: 76px; height: 76px; border-radius: 9999px; background: #F2C300; border: 0; padding: 0; display: flex; align-items: center; justify-content: center; margin-top: -40px; box-shadow: 0 10px 24px rgba(20,20,20,0.35); cursor: pointer;">
+        <span style="width: 58px; height: 58px; border-radius: 9999px; background: #141414; color: #F2C300; display: flex; align-items: center; justify-content: center;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>
+        </span>
+        <sc-if value="{{hasQueue}}" hint-placeholder-val="{{true}}">
+          <span aria-hidden="true" style="position: absolute; top: -2px; right: -2px; min-width: 24px; height: 24px; border-radius: 9999px; background: #141414; color: #F2C300; border: 2px solid #F2C300; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font: 700 12px 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums;">{{queue}}</span>
+        </sc-if>
+      </button>
+      <button onClick="{{goBoxes}}" style="display: flex; flex-direction: column; align-items: center; gap: 4px; height: 56px; justify-content: center; background: none; border: 0; padding: 0; color: #FFFFFF; cursor: pointer; font: 700 11px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="12"></rect><circle cx="12" cy="13" r="2.5"></circle></svg>
+        <span>Cash</span>
+      </button>
+      <a href="#more" style="display: flex; flex-direction: column; align-items: center; gap: 4px; height: 56px; justify-content: center; color: #FFFFFF; text-decoration: none; font: 700 11px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+        <span>More</span>
+      </a>
+    </nav>
+  </div>
+</sc-if>
+
+<sc-if value="{{isUploads}}" hint-placeholder-val="{{false}}">
+  <div style="position: absolute; inset: 0; display: flex; flex-direction: column; padding: 56px 0 24px; box-sizing: border-box;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 0 20px 14px;">
+      <button onClick="{{leaveUploads}}" aria-label="Back" style="min-width: 44px; min-height: 44px; margin-left: -10px; background: none; border: 0; color: #141414; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; flex-shrink: 0;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+      </button>
+      <h1 ref="{{headingRef}}" tabindex="-1" style="margin: 0; font: 700 28px/1 'Barlow Condensed', sans-serif; text-transform: uppercase;">{{uploadsTitle}}</h1>
+    </div>
+    <sc-if value="{{uploadsEmpty}}" hint-placeholder-val="{{false}}">
+      <div style="padding: 8px 20px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="border-top: 1px solid #E6E7EA; padding-top: 18px; font: 600 17px Barlow, sans-serif;">Nothing is waiting.</div>
+        <div style="font: 400 15px/1.45 Barlow, sans-serif; color: #6B7078;">{{uploadsEmptyBody}}</div>
+      </div>
+    </sc-if>
+    <div style="flex-grow: 1; overflow-y: auto; padding: 0 20px;">
+      <sc-for list="{{held}}" as="h" hint-placeholder-count="2">
+        <div style="display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; column-gap: 12px; align-items: center; min-height: 64px; padding: 10px 0; box-sizing: border-box; border-top: 1px solid #E6E7EA;">
+          <div style="width: 44px; height: 44px; background: #EDE9DF; display: flex; flex-direction: column; gap: 3px; padding: 8px 6px; box-sizing: border-box;">
+            <div style="height: 3px; width: 20px; background: #2A2C33;"></div>
+            <div style="height: 2px; width: 28px; background: #B9B4A6;"></div>
+            <div style="height: 2px; width: 24px; background: #8E8A7E;"></div>
+            <div style="height: 3px; width: 16px; background: #2A2C33; margin-top: auto;"></div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+            <div style="font: 600 15px Barlow, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{h.who}}</div>
+            <div style="font: 400 13px Barlow, sans-serif; color: #6B7078;">{{h.note}}</div>
+          </div>
+          <sc-if value="{{h.actionable}}" hint-placeholder-val="{{true}}">
+            <button onClick="{{h.open}}" style="{{h.style}}">{{h.action}}</button>
+          </sc-if>
+          <sc-if value="{{h.passive}}" hint-placeholder-val="{{false}}">
+            <span style="{{h.style}}">{{h.action}}</span>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{isSnap}}" hint-placeholder-val="{{false}}">
+  <div class="on-ink" style="position: absolute; inset: 0; background: #0B0B0C; color: #FFFFFF;">
+    <h1 ref="{{headingRef}}" tabindex="-1" class="sf-hide">Snap a bill</h1>
+
+    <sc-if value="{{cameraReady}}" hint-placeholder-val="{{true}}">
+      <div style="position: absolute; top: 150px; left: 45px; width: 300px; height: 420px; display: flex; align-items: center; justify-content: center;">
+        <div style="width: 236px; height: 330px; background: #EDE9DF; transform: rotate(-4deg); box-shadow: 0 30px 60px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 10px; padding: 22px 20px; box-sizing: border-box;">
+          <div style="height: 12px; width: 120px; background: #2A2C33;"></div>
+          <div style="height: 7px; width: 160px; background: #B9B4A6;"></div>
+          <div style="height: 7px; width: 140px; background: #B9B4A6;"></div>
+          <div style="height: 1px; width: 100%; background: #C9C4B6; margin: 8px 0;"></div>
+          <div style="display: flex; justify-content: space-between;"><div style="height: 7px; width: 110px; background: #8E8A7E;"></div><div style="height: 7px; width: 40px; background: #8E8A7E;"></div></div>
+          <div style="display: flex; justify-content: space-between;"><div style="height: 7px; width: 90px; background: #8E8A7E;"></div><div style="height: 7px; width: 40px; background: #8E8A7E;"></div></div>
+          <div style="display: flex; justify-content: space-between;"><div style="height: 7px; width: 120px; background: #8E8A7E;"></div><div style="height: 7px; width: 40px; background: #8E8A7E;"></div></div>
+          <div style="height: 1px; width: 100%; background: #C9C4B6; margin: 8px 0;"></div>
+          <div style="display: flex; justify-content: space-between;"><div style="height: 10px; width: 70px; background: #2A2C33;"></div><div style="height: 10px; width: 60px; background: #2A2C33;"></div></div>
+          <div style="margin-top: auto; font: 500 12px Barlow, sans-serif; color: #5A5648; text-align: center;">Camera preview</div>
+        </div>
+      </div>
+      <div style="position: absolute; top: 150px; left: 45px; width: 28px; height: 28px; border-top: 4px solid #F2C300; border-left: 4px solid #F2C300;"></div>
+      <div style="position: absolute; top: 150px; right: 45px; width: 28px; height: 28px; border-top: 4px solid #F2C300; border-right: 4px solid #F2C300;"></div>
+      <div style="position: absolute; top: 542px; left: 45px; width: 28px; height: 28px; border-bottom: 4px solid #F2C300; border-left: 4px solid #F2C300;"></div>
+      <div style="position: absolute; top: 542px; right: 45px; width: 28px; height: 28px; border-bottom: 4px solid #F2C300; border-right: 4px solid #F2C300;"></div>
+    </sc-if>
+
+    <sc-if value="{{staffFirstRun}}" hint-placeholder-val="{{false}}">
+      <div class="on-board" style="position: absolute; top: 150px; left: 24px; right: 24px; background: #FFFFFF; color: #141414; padding: 24px 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px;">
+        <svg width="40" height="40" viewBox="0 0 96 96" role="img" aria-label="Sentryfi"><circle cx="48" cy="48" r="34" fill="#F2C300"></circle><circle cx="48" cy="48" r="34" fill="none" stroke="#141414" stroke-width="6"></circle><path d="M17.6 58 H78.4" stroke="#141414" stroke-width="7"></path><path d="M48 26 V58" stroke="#141414" stroke-width="7"></path></svg>
+        <div style="font: 700 32px/1 'Barlow Condensed', sans-serif; text-transform: uppercase;">Your job: snap every bill</div>
+        <div style="font: 400 15px/1.45 Barlow, sans-serif;">Point at the bill, press the yellow button, done. The office does the rest. You will never be asked about money, accounts or tax.</div>
+        <div style="font: 400 15px/1.45 Barlow, sans-serif;">No signal on site is fine. Bills wait on this phone and go when you are back.</div>
+        <button onClick="{{startStaff}}" class="on-yellow" style="min-height: 56px; background: #F2C300; border: 0; color: #141414; font: 700 18px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;">Start snapping</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{cameraBlocked}}" hint-placeholder-val="{{false}}">
+      <div class="on-board" style="position: absolute; top: 150px; left: 24px; right: 24px; background: #FFFFFF; color: #141414; padding: 24px 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px;">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#141414" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><path d="M4 4l16 16"></path></svg>
+        <div style="font: 700 28px/1 'Barlow Condensed', sans-serif; text-transform: uppercase;">Camera is off</div>
+        <div style="font: 400 15px/1.45 Barlow, sans-serif; color: #141414;">Sentryfi cannot see the bill. Use a photo you already took, or type the bill in. You can switch the camera back on in your phone settings, under Sentryfi.</div>
+        <button onClick="{{fromGallery}}" class="on-yellow" style="min-height: 52px; background: #F2C300; border: 0; color: #141414; font: 700 17px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;">Pick a photo instead</button>
+        <sc-if value="{{canTypeIn}}" hint-placeholder-val="{{true}}">
+          <button onClick="{{typeFromCamera}}" style="min-height: 48px; background: #FFFFFF; border: 2px solid #141414; color: #141414; font: 700 17px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;">Type it in</button>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <div style="position: absolute; top: 56px; left: 16px; right: 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+      <button onClick="{{leaveSnap}}" aria-label="{{leaveSnapLabel}}" style="width: 44px; height: 44px; background: rgba(20,20,20,0.8); border: 1px solid rgba(255,255,255,0.14); color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+      </button>
+      <button onClick="{{noop}}" style="display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; background: #FFFFFF; border: 0; color: #141414; font: 700 14px 'Barlow Condensed', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;">
+        <span>Hotel project</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+      </button>
+      <button onClick="{{toggleFlash}}" aria-label="Flash" aria-pressed="{{flashAria}}" style="{{flashStyle}}">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L5 14h6l-1 8 8-12h-6z"></path></svg>
+      </button>
+    </div>
+
+    <sc-if value="{{isOffline}}" hint-placeholder-val="{{false}}">
+      <div role="status" aria-live="polite" style="position: absolute; top: 112px; left: 16px; right: 16px; display: flex; align-items: center; min-height: 40px; background: #141414; color: #FFFFFF;">
+        <span style="width: 40px; align-self: stretch; background: repeating-linear-gradient(135deg, #F2C300 0 8px, #141414 8px 16px); flex-shrink: 0;"></span>
+        <span style="padding: 8px 12px; font: 500 14px/1.3 Barlow, sans-serif;">No signal. Keep snapping: bills are held on this phone and sent when you are back.</span>
+      </div>
+    </sc-if>
+
+    <div style="position: absolute; top: 572px; left: 0; right: 0; display: flex; justify-content: center;">
+      <div style="padding: 8px 14px; background: #141414; color: #FFFFFF; font: 600 15px Barlow, sans-serif;">{{snapCaption}}</div>
+    </div>
+    <sc-if value="{{showModes}}" hint-placeholder-val="{{true}}">
+      <div role="group" aria-label="Capture mode" style="position: absolute; top: 620px; left: 0; right: 0; display: flex; justify-content: center; gap: 24px;">
+        <button aria-pressed="true" onClick="{{noop}}" style="background: none; border: 0; padding: 10px 6px; min-height: 44px; color: #F2C300; border-bottom: 3px solid #F2C300; font: 700 15px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;">Snap it</button>
+        <button onClick="{{typeFromCamera}}" aria-pressed="false" style="background: none; border: 0; padding: 10px 6px; min-height: 44px; color: #A9ADB6; font: 700 15px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;">Type it in</button>
+      </div>
+    </sc-if>
+    <div style="position: absolute; top: 700px; left: 0; right: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; justify-items: center; padding: 0 30px;">
+      <button onClick="{{fromGallery}}" style="display: flex; flex-direction: column; align-items: center; gap: 8px; background: none; border: 0; color: #FFFFFF; cursor: pointer; padding: 0;">
+        <span style="width: 56px; height: 56px; background: #1E1E21; border: 1px solid #34353A; display: flex; align-items: center; justify-content: center;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16"></rect><path d="M3 16l5-5 4 4 3-3 6 6"></path><circle cx="16" cy="9" r="1.5"></circle></svg>
+        </span>
+        <span style="font: 700 11px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: #A9ADB6;">Gallery</span>
+      </button>
+      <button onClick="{{takePhoto}}" aria-label="Take photo" aria-disabled="{{shutterAria}}" style="{{shutterStyle}}">
+        <span style="width: 68px; height: 68px; border-radius: 9999px; background: #141414; color: #F2C300; display: flex; align-items: center; justify-content: center;">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>
+        </span>
+      </button>
+      <button onClick="{{goUploads}}" aria-label="{{waitingLabel}}" style="display: flex; flex-direction: column; align-items: center; gap: 8px; background: none; border: 0; color: #FFFFFF; cursor: pointer; padding: 0;">
+        <span style="position: relative; width: 56px; height: 56px; background: #1E1E21; border: 1px solid #34353A; display: flex; align-items: center; justify-content: center;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z"></path><path d="M3 13l9 5 9-5"></path></svg>
+          <sc-if value="{{hasQueue}}" hint-placeholder-val="{{false}}">
+            <span aria-hidden="true" style="position: absolute; top: -8px; right: -8px; min-width: 22px; height: 22px; background: #141414; color: #F2C300; border: 2px solid #F2C300; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font: 700 12px 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums;">{{queue}}</span>
+          </sc-if>
+        </span>
+        <span style="font: 700 11px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: #A9ADB6;">Waiting</span>
+      </button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{isSent}}" hint-placeholder-val="{{false}}">
+  <div style="position: absolute; inset: 0; display: flex; flex-direction: column; padding: 96px 20px 24px; box-sizing: border-box; gap: 20px;">
+    <div class="sf-tick" style="width: 84px; height: 84px; border-radius: 9999px; background: #F2C300; display: flex; align-items: center; justify-content: center;">
+      <span style="width: 64px; height: 64px; border-radius: 9999px; background: #141414; color: #F2C300; display: flex; align-items: center; justify-content: center;">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-11"></path></svg>
+      </span>
+    </div>
+    <h1 ref="{{headingRef}}" tabindex="-1" style="margin: 0; font: 700 72px/0.9 'Barlow Condensed', sans-serif; letter-spacing: -0.01em; text-transform: uppercase;">{{sentTitle}}</h1>
+    <div style="font: 400 16px/1.45 Barlow, sans-serif; color: #141414;">{{sentBody}}</div>
+    <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px;">
+      <button onClick="{{goSnap}}" style="min-height: 60px; background: #141414; border: 0; color: #F2C300; display: flex; align-items: center; justify-content: center; gap: 10px; font: 700 20px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>
+        <span>Snap the next one</span>
+      </button>
+      <button onClick="{{goUploads}}" style="min-height: 52px; background: #FFFFFF; border: 2px solid #141414; color: #141414; font: 700 18px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;">See what is waiting</button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{isReview}}" hint-placeholder-val="{{false}}">
+  <div class="on-ink" style="position: absolute; inset: 0; background: #0B0B0C; color: #FFFFFF;">
+    <h1 ref="{{headingRef}}" tabindex="-1" class="sf-hide">Check this bill and confirm it</h1>
+    <div style="position: absolute; top: 56px; left: 16px; right: 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #FFFFFF;">
+      <button onClick="{{keepForLater}}" style="display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; background: none; border: 0; color: #FFFFFF; font: 700 13px 'Barlow Condensed', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg><span>Keep</span></button>
+      <div role="status" aria-live="polite" style="{{pillStyle}}">
+        <sc-if value="{{pillOk}}" hint-placeholder-val="{{false}}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-11"></path></svg>
+        </sc-if>
+        <sc-if value="{{pillWarn}}" hint-placeholder-val="{{true}}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16h.01"></path></svg>
+        </sc-if>
+        <span>{{pillText}}</span>
+      </div>
+      <button onClick="{{askRetake}}" style="display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; background: none; border: 2px solid rgba(255,255,255,0.45); color: #FFFFFF; font: 700 13px 'Barlow Condensed', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6"></path><path d="M20 4v5h-5"></path></svg><span>{{abandonLabel}}</span></button>
+    </div>
+    <sc-if value="{{hasPhoto}}" hint-placeholder-val="{{true}}">
+      <button onClick="{{openPhoto}}" aria-label="See the photo of this bill larger" style="position: absolute; top: 112px; left: 130px; width: 130px; height: 110px; background: #EDE9DF; transform: rotate(-4deg); display: flex; flex-direction: column; gap: 6px; padding: 12px; box-sizing: border-box; border: 0; cursor: pointer;">
+        <div style="height: 6px; width: 60px; background: #2A2C33;"></div>
+        <div style="height: 4px; width: 90px; background: #B9B4A6;"></div>
+        <div style="height: 4px; width: 80px; background: #B9B4A6;"></div>
+        <div style="height: 4px; width: 100px; background: #8E8A7E;"></div>
+        <div style="height: 6px; width: 50px; background: #2A2C33; margin-top: auto;"></div>
+      </button>
+    </sc-if>
+
+    <div class="sf-sheet on-board" style="position: absolute; left: 0; right: 0; bottom: 0; top: 236px; background: #FFFFFF; color: #141414; display: flex; flex-direction: column;">
+      <div style="width: 44px; height: 4px; background: #D6D8DD; margin: 10px auto 0;"></div>
+
+      <sc-if value="{{readFailed}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-direction: column; gap: 14px; padding: 16px 20px 0;">
+          <div style="font: 700 30px/1.05 'Barlow Condensed', sans-serif;">We could not read this one</div>
+          <div style="font: 400 15px/1.45 Barlow, sans-serif; color: #141414;">{{failBody}}</div>
+          <button onClick="{{typeItIn}}" class="on-yellow" style="min-height: 60px; background: #F2C300; border: 0; color: #141414; display: flex; align-items: center; justify-content: center; gap: 10px; font: 700 20px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;">Type it in</button>
+          <button onClick="{{retryPhoto}}" style="min-height: 52px; background: #FFFFFF; border: 2px solid #141414; color: #141414; font: 700 18px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;">Take the photo again</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{showFields}}" hint-placeholder-val="{{true}}">
+        <div style="display: flex; flex-direction: column; flex-grow: 1; min-height: 0;">
+
+          <sc-if value="{{amountEditing}}" hint-placeholder-val="{{false}}">
+            <div class="on-yellow" style="background: #F2C300; padding: 10px 20px 12px; display: flex; flex-direction: column; gap: 8px;">
+              <label for="sf-amount" style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase;">Amount in MVR</label>
+              <div style="display: flex; gap: 8px;">
+                <input id="sf-amount" ref="{{amountRef}}" type="text" inputmode="decimal" value="{{amount}}" onChange="{{onAmount}}" aria-invalid="{{amountInvalid}}" aria-describedby="sf-amount-error" placeholder="0.00" style="{{amountInputStyle}}">
+                <button onClick="{{saveAmount}}" style="min-height: 56px; padding: 0 16px; background: #141414; border: 0; color: #F2C300; font: 700 17px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;">Done</button>
+              </div>
+              <sc-if value="{{amountError}}" hint-placeholder-val="{{false}}">
+                <div id="sf-amount-error" role="alert" style="font: 600 13px Barlow, sans-serif; color: #141414;">Numbers only, like 3450 or 3,450.00.</div>
+              </sc-if>
+            </div>
+          </sc-if>
+          <sc-if value="{{amountFlagged}}" hint-placeholder-val="{{false}}">
+            <div class="on-yellow" style="background: #F2C300; padding: 8px 20px 12px; display: flex; flex-direction: column; gap: 2px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                <span style="display: flex; align-items: center; gap: 6px; font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16h.01"></path></svg>
+                  <span>{{amountFlagLabel}}</span>
+                </span>
+                <sc-if value="{{showAmountTick}}" hint-placeholder-val="{{true}}">
+                  <button onClick="{{settleAmount}}" aria-label="The amount is right" style="min-height: 44px; width: 44px; background: #141414; border: 0; color: #F2C300; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-11"></path></svg>
+                  </button>
+                </sc-if>
+              </div>
+              <button onClick="{{editAmount}}" aria-label="{{amountLabel}}" style="background: none; border: 0; padding: 0; text-align: left; cursor: pointer; display: flex; align-items: baseline; gap: 8px; color: #141414; font: 700 56px/1 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums;">
+                <span style="font-size: 20px;">MVR</span>
+                <span>{{amountShown}}</span>
+              </button>
+            </div>
+          </sc-if>
+          <sc-if value="{{amountPlain}}" hint-placeholder-val="{{true}}">
+            <div style="padding: 12px 20px 0;">
+              <button onClick="{{editAmount}}" aria-label="{{amountLabel}}" style="background: none; border: 0; padding: 0; text-align: left; cursor: pointer; display: flex; align-items: baseline; gap: 8px; color: #141414; font: 700 56px/1 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums;">
+                <span style="font-size: 20px;">MVR</span>
+                <span>{{amountShown}}</span>
+              </button>
+            </div>
+          </sc-if>
+
+          <div class="{{vendorRowClass}}" style="{{vendorRowStyle}}">
+            <button id="sf-trig-vendor" onClick="{{openVendor}}" aria-label="{{vendorLabel}}" style="background: none; border: 0; padding: 0; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 6px; color: #141414; font: 600 17px Barlow, sans-serif; min-height: 44px;">
+              <span>{{vendorShown}}</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+            </button>
+            <div style="{{vendorNoteStyle}}">{{vendorNote}}</div>
+          </div>
+
+          <div style="flex-grow: 1; min-height: 0; overflow-y: auto; padding: 4px 20px 0;">
+
+            <sc-if value="{{chooserOpen}}" hint-placeholder-val="{{false}}">
+              <div ref="{{chooserRef}}" onKeyDown="{{onChooserKey}}" style="padding-bottom: 8px;">
+                <div id="sf-chooser-title" style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #6B7078; padding: 4px 0 2px;">{{chooserTitle}}</div>
+                <div role="radiogroup" aria-labelledby="sf-chooser-title" style="display: flex; flex-direction: column;">
+                  <sc-for list="{{chooserOptions}}" as="o" hint-placeholder-count="5">
+                    <div style="display: flex; flex-direction: column;">
+                      <sc-if value="{{o.showHeading}}" hint-placeholder-val="{{true}}">
+                        <div style="font: 700 11px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #6B7078; padding: 10px 0 2px;">{{o.heading}}</div>
+                      </sc-if>
+                      <button onClick="{{o.pick}}" role="radio" aria-checked="{{o.aria}}" aria-label="{{o.label}}" class="{{o.cls}}" style="{{o.style}}">
+                        <span>{{o.name}}</span>
+                        <sc-if value="{{o.checked}}" hint-placeholder-val="{{false}}">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#167A41" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-11"></path></svg>
+                        </sc-if>
+                      </button>
+                    </div>
+                  </sc-for>
+                </div>
+                <button onClick="{{closeChooser}}" style="width: 100%; min-height: 56px; margin-top: 12px; background: #141414; border: 0; color: #FFFFFF; font: 700 17px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;">{{chooserCancel}}</button>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{fieldsOpen}}" hint-placeholder-val="{{true}}">
+              <div style="display: flex; flex-direction: column;">
+
+                <sc-if value="{{isDuplicate}}" hint-placeholder-val="{{false}}">
+                  <div class="{{dupeStripClass}}" style="{{dupeStripStyle}}">
+                    <div style="font: 600 15px/1.35 Barlow, sans-serif;">We already have a bill from State Trading Organisation for the same amount on the same day.</div>
+                    <div style="display: flex; gap: 8px;">
+                      <button onClick="{{openDupe}}" style="{{dupeOpenBtnStyle}}">Look at that bill</button>
+                      <button onClick="{{notDuplicate}}" style="{{dupeKeepBtnStyle}}">Not the same</button>
+                      <button onClick="{{discardDupe}}" style="{{dupeKeepBtnStyle}}">Same bill · bin it</button>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{dupeDetail}}" hint-placeholder-val="{{false}}">
+                  <div class="{{dupeDetailClass}}" style="{{dupeDetailStyle}}">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                      <div style="display: flex; flex-direction: column; gap: 3px;">
+                        <div style="font: 700 11px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase;">This bill</div>
+                        <div style="font: 700 22px/1 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums;">{{amountShown}}</div>
+                        <div style="font: 600 13px Barlow, sans-serif;">{{vendorShown}}</div>
+                        <div style="font: 400 13px Barlow, sans-serif;">14 Sep</div>
+                        <div style="font: 700 13px Barlow, sans-serif;">No. {{billNoShown}}</div>
+                      </div>
+                      <div style="display: flex; flex-direction: column; gap: 3px; border-left: 2px solid #141414; padding-left: 10px;">
+                        <div style="font: 700 11px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase;">Already recorded</div>
+                        <div style="font: 700 22px/1 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums;">3,450.00</div>
+                        <div style="font: 600 13px Barlow, sans-serif;">State Trading Organisation</div>
+                        <div style="font: 400 13px Barlow, sans-serif;">14 Sep</div>
+                        <div style="font: 700 13px Barlow, sans-serif;">No. INV-12290</div>
+                      </div>
+                    </div>
+                    <div style="font: 600 14px/1.35 Barlow, sans-serif;">Same supplier, same day, same amount. Only the bill number is different.</div>
+                    <div style="display: flex; gap: 8px;">
+                      <button onClick="{{notDuplicate}}" style="min-height: 44px; padding: 0 14px; background: #141414; border: 0; color: #F2C300; font: 700 14px 'Barlow Condensed', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;">A different bill</button>
+                      <button onClick="{{discardDupe}}" style="min-height: 44px; padding: 0 14px; background: none; border: 2px solid #141414; color: #141414; font: 700 14px 'Barlow Condensed', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;">Same bill · bin it</button>
+                      <button onClick="{{closeDupe}}" style="min-height: 44px; padding: 0 14px; background: none; border: 2px solid #141414; color: #141414; font: 700 14px 'Barlow Condensed', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;">Back</button>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <button id="sf-trig-payer" onClick="{{openPayer}}" aria-label="{{payerLabel}}" class="{{payerRowClass}}" style="{{payerRowStyle}}">
+                  <span style="{{payerLabelStyle}}">
+                    <span style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase;">Paid from</span>
+                    <span style="{{payerNoteStyle}}">{{payerNote}}</span>
+                  </span>
+                  <span style="{{payerValueStyle}}">{{payerShown}}</span>
+                </button>
+
+                <button id="sf-trig-category" onClick="{{openCategory}}" aria-label="{{categoryLabel}}" style="display: grid; grid-template-columns: minmax(0, 1fr) 150px; align-items: center; min-height: 56px; background: none; border: 0; border-top: 1px solid #E6E7EA; color: #141414; text-align: left; cursor: pointer; padding: 0; font: inherit;">
+                  <span style="display: flex; flex-direction: column; gap: 2px;">
+                    <span style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #6B7078;">What for</span>
+                    <span style="font: 400 12px Barlow, sans-serif; color: #6B7078;">On the Hotel project · our usual for this supplier</span>
+                  </span>
+                  <span style="font: 600 15px/56px Barlow, sans-serif; text-align: right; padding-right: 10px; border-right: 2px solid #141414; align-self: stretch; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{categoryShown}}</span>
+                </button>
+
+                <button onClick="{{toggleGstExplain}}" aria-expanded="{{gstExplainAria}}" style="display: grid; grid-template-columns: minmax(0, 1fr) 150px; align-items: center; min-height: 56px; background: none; border: 0; border-top: 1px solid #E6E7EA; color: #141414; text-align: left; cursor: pointer; padding: 0; font: inherit;">
+                  <span style="display: flex; flex-direction: column; gap: 2px;">
+                    <span style="display: flex; align-items: center; gap: 6px; font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #6B7078;">
+                      <span>GST 8% · included</span>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+                    </span>
+                    <span style="font: 400 12px Barlow, sans-serif; color: #6B7078;">{{gstRowNote}}</span>
+                  </span>
+                  <span style="font: 600 15px Barlow, sans-serif; font-variant-numeric: tabular-nums; text-align: right; padding-right: 10px; border-right: 2px solid #141414; align-self: stretch; display: flex; align-items: center; justify-content: flex-end;">{{gstShown}}</span>
+                </button>
+                <sc-if value="{{gstExplain}}" hint-placeholder-val="{{false}}">
+                  <div style="padding: 0 0 12px; font: 400 14px/1.45 Barlow, sans-serif; color: #141414;">Eight in every hundred rufiyaa on this bill is GST you have already paid. Sentryfi puts it on your next return, so it comes off what you owe MIRA.</div>
+                </sc-if>
+
+                <sc-if value="{{billEditing}}" hint-placeholder-val="{{false}}">
+                  <div class="on-yellow" style="background: #F2C300; border-top: 1px solid #E6E7EA; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+                    <label for="sf-billno" style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase;">Bill number</label>
+                    <div style="display: flex; gap: 8px;">
+                      <input id="sf-billno" type="text" value="{{billNo}}" onChange="{{onBillNo}}" style="flex-grow: 1; min-width: 0; min-height: 48px; padding: 0 10px; border: 2px solid #141414; background: #FFFFFF; color: #141414; font: 600 16px Barlow, sans-serif;">
+                      <button onClick="{{saveBillNo}}" style="min-height: 48px; padding: 0 16px; background: #141414; border: 0; color: #F2C300; font: 700 15px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;">Done</button>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{billFlagged}}" hint-placeholder-val="{{true}}">
+                  <div class="on-yellow" style="display: grid; grid-template-columns: minmax(0, 1fr) 56px; align-items: center; min-height: 56px; background: #F2C300; border-top: 1px solid #E6E7EA;">
+                    <button onClick="{{editBillNo}}" aria-label="{{billLabel}}" style="display: grid; grid-template-columns: minmax(0, 1fr) 86px; align-items: center; min-height: 56px; padding: 0 0 0 10px; background: none; border: 0; color: #141414; text-align: left; cursor: pointer; font: inherit;">
+                      <span style="display: flex; align-items: center; gap: 6px; font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16h.01"></path></svg>
+                        <span>Bill no. · please check</span>
+                      </span>
+                      <span style="font: 600 15px Barlow, sans-serif; text-align: right;">{{billNoShown}}</span>
+                    </button>
+                    <button onClick="{{settleBillNo}}" aria-label="The bill number is right" style="min-height: 56px; width: 56px; background: #141414; border: 0; color: #F2C300; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-11"></path></svg>
+                    </button>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{billQuiet}}" hint-placeholder-val="{{false}}">
+                  <button onClick="{{editBillNo}}" aria-label="{{billLabel}}" style="display: grid; grid-template-columns: minmax(0, 1fr) 150px; align-items: center; min-height: 56px; background: none; border: 0; border-top: 1px solid #E6E7EA; color: #141414; text-align: left; cursor: pointer; padding: 0; font: inherit;">
+                    <span style="{{billQuietLabelStyle}}">
+                      <sc-if value="{{billTick}}" hint-placeholder-val="{{true}}">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-11"></path></svg>
+                      </sc-if>
+                      <sc-if value="{{billWarn}}" hint-placeholder-val="{{false}}">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16h.01"></path></svg>
+                      </sc-if>
+                      <span>{{billQuietLabel}}</span>
+                    </span>
+                    <span style="{{billQuietValueStyle}}">{{billNoShown}}</span>
+                  </button>
+                </sc-if>
+
+                <sc-if value="{{moreOpen}}" hint-placeholder-val="{{false}}">
+                  <div style="display: flex; flex-direction: column;">
+                    <div style="display: grid; grid-template-columns: minmax(0, 1fr) 150px; align-items: center; min-height: 48px; border-top: 1px solid #E6E7EA;">
+                      <span style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #6B7078;">Supplier tax number</span>
+                      <span style="font: 600 14px Barlow, sans-serif; font-variant-numeric: tabular-nums; text-align: right; padding-right: 10px; border-right: 2px solid #141414; align-self: stretch; display: flex; align-items: center; justify-content: flex-end;">{{tinShown}}</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: minmax(0, 1fr) 150px; align-items: center; min-height: 48px; border-top: 1px solid #E6E7EA;">
+                      <span style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #6B7078;">Currency</span>
+                      <span style="font: 600 14px Barlow, sans-serif; text-align: right; padding-right: 10px; border-right: 2px solid #141414; align-self: stretch; display: flex; align-items: center; justify-content: flex-end;">MVR</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: minmax(0, 1fr) 150px; align-items: center; min-height: 48px; border-top: 1px solid #E6E7EA;">
+                      <span style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #6B7078;">How it was paid</span>
+                      <span style="font: 600 14px Barlow, sans-serif; text-align: right; padding-right: 10px; border-right: 2px solid #141414; align-self: stretch; display: flex; align-items: center; justify-content: flex-end;">{{methodShown}}</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: minmax(0, 1fr) 150px; align-items: center; min-height: 48px; border-top: 1px solid #E6E7EA;">
+                      <span style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #6B7078;">Lines on the bill</span>
+                      <span style="font: 600 14px Barlow, sans-serif; font-variant-numeric: tabular-nums; text-align: right; padding-right: 10px; border-right: 2px solid #141414; align-self: stretch; display: flex; align-items: center; justify-content: flex-end;">{{linesShown}}</span>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <div style="border-top: 1px solid #E6E7EA; padding: 10px 0 12px; display: flex; align-items: flex-start; gap: 8px; font: 400 13px/1.4 Barlow, sans-serif; color: #6B7078;">
+                  <sc-if value="{{dupeResolved}}" hint-placeholder-val="{{true}}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#167A41" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 3px;"><path d="M5 12l5 5 9-11"></path></svg>
+                  </sc-if>
+                  <sc-if value="{{dupePending}}" hint-placeholder-val="{{false}}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#141414" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 3px;"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16h.01"></path></svg>
+                  </sc-if>
+                  <span style="{{dupeTextStyle}}">{{dupeLine}}</span>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+
+          <sc-if value="{{dupeAsk}}" hint-placeholder-val="{{false}}">
+            <div class="on-ink" ref="{{askRef}}" role="group" aria-label="This may be a bill you already recorded" style="margin: 0 20px 8px; background: #141414; color: #FFFFFF; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;">
+              <span style="font: 600 15px/1.35 Barlow, sans-serif;">{{dupeAskLine}}</span>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <button onClick="{{openDupe}}" class="on-yellow" style="min-height: 48px; padding: 0 14px; background: #F2C300; border: 0; color: #141414; font: 700 15px 'Barlow Condensed', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;">Put them side by side</button>
+                <button onClick="{{discardDupe}}" style="min-height: 44px; padding: 0 14px; background: none; border: 2px solid #FFFFFF; color: #FFFFFF; font: 700 14px 'Barlow Condensed', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;">Same bill · bin this one</button>
+                <button onClick="{{recordBoth}}" style="min-height: 44px; padding: 0 14px; background: none; border: 2px solid #6B7078; color: #A9ADB6; font: 700 14px 'Barlow Condensed', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;">{{recordBothLabel}}</button>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{retakeAsk}}" hint-placeholder-val="{{false}}">
+            <div class="on-ink" ref="{{askRef}}" role="group" aria-label="{{retakeAskLine}}" style="margin: 0 20px 8px; background: #141414; color: #FFFFFF; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;">
+              <span style="font: 600 15px/1.35 Barlow, sans-serif;">{{retakeAskLine}}</span>
+              <div style="display: flex; gap: 8px;">
+                <button onClick="{{cancelRetake}}" class="on-yellow" style="min-height: 44px; padding: 0 14px; background: #F2C300; border: 0; color: #141414; font: 700 14px 'Barlow Condensed', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;">Keep editing</button>
+                <button onClick="{{doRetake}}" style="min-height: 44px; padding: 0 14px; background: none; border: 2px solid #6B7078; color: #A9ADB6; font: 700 14px 'Barlow Condensed', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;">{{retakeGoLabel}}</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{actionsVisible}}" hint-placeholder-val="{{true}}">
+            <div style="padding: 0 20px 24px; display: flex; flex-direction: column; gap: 8px;">
+              <sc-if value="{{showConfirmReason}}" hint-placeholder-val="{{false}}">
+                <div id="sf-confirm-reason" role="alert" style="font: 600 13px Barlow, sans-serif; color: #C62B20;">{{confirmReason}}</div>
+              </sc-if>
+              <button onClick="{{confirm}}" aria-disabled="{{confirmAriaDisabled}}" aria-label="{{confirmAria}}" aria-describedby="{{confirmDescribedBy}}" class="{{confirmClass}}" style="{{confirmStyle}}">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-11"></path></svg>
+                <span style="display: flex; flex-direction: column; align-items: flex-start; gap: 1px;">
+                  <span>{{confirmTop}}</span>
+                  <sc-if value="{{showConfirmSub}}" hint-placeholder-val="{{true}}">
+                    <span style="font: 500 12px Barlow, sans-serif; letter-spacing: 0.01em; text-transform: none;">{{confirmSub}}</span>
+                  </sc-if>
+                </span>
+              </button>
+              <button onClick="{{toggleMore}}" aria-expanded="{{moreOpenAria}}" style="min-height: 44px; background: none; border: 0; color: #6B7078; font: 500 14px Barlow, sans-serif; cursor: pointer;">{{moreText}}</button>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{photoOpen}}" hint-placeholder-val="{{false}}">
+      <div class="on-ink" style="position: absolute; inset: 0; background: #0B0B0C; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 24px; box-sizing: border-box;">
+        <div style="width: 300px; height: 440px; background: #EDE9DF; display: flex; flex-direction: column; gap: 13px; padding: 26px 24px; box-sizing: border-box;">
+          <div style="height: 15px; width: 150px; background: #2A2C33;"></div>
+          <div style="height: 9px; width: 200px; background: #B9B4A6;"></div>
+          <div style="height: 9px; width: 175px; background: #B9B4A6;"></div>
+          <div style="height: 1px; width: 100%; background: #C9C4B6; margin: 10px 0;"></div>
+          <div style="display: flex; justify-content: space-between;"><div style="height: 9px; width: 140px; background: #8E8A7E;"></div><div style="height: 9px; width: 52px; background: #8E8A7E;"></div></div>
+          <div style="display: flex; justify-content: space-between;"><div style="height: 9px; width: 116px; background: #8E8A7E;"></div><div style="height: 9px; width: 52px; background: #8E8A7E;"></div></div>
+          <div style="display: flex; justify-content: space-between;"><div style="height: 9px; width: 152px; background: #8E8A7E;"></div><div style="height: 9px; width: 52px; background: #8E8A7E;"></div></div>
+          <div style="height: 1px; width: 100%; background: #C9C4B6; margin: 10px 0;"></div>
+          <div style="display: flex; justify-content: space-between;"><div style="height: 13px; width: 90px; background: #2A2C33;"></div><div style="height: 13px; width: 78px; background: #2A2C33;"></div></div>
+          <div style="margin-top: auto; font: 500 12px Barlow, sans-serif; color: #5A5648; text-align: center;">The photo you took</div>
+        </div>
+        <button onClick="{{closePhoto}}" style="min-height: 52px; padding: 0 24px; background: #F2C300; border: 0; color: #141414; font: 700 17px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;">Back to the bill</button>
+      </div>
+    </sc-if>
+  </div>
+</sc-if>
+
+<sc-if value="{{isDone}}" hint-placeholder-val="{{false}}">
+  <div style="position: absolute; inset: 0; display: flex; flex-direction: column; padding: 72px 20px 24px; box-sizing: border-box; gap: 18px;">
+    <div class="sf-tick" style="width: 84px; height: 84px; border-radius: 9999px; background: #F2C300; display: flex; align-items: center; justify-content: center;">
+      <span style="width: 64px; height: 64px; border-radius: 9999px; background: #141414; color: #F2C300; display: flex; align-items: center; justify-content: center;">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-11"></path></svg>
+      </span>
+    </div>
+    <h1 ref="{{headingRef}}" tabindex="-1" style="margin: 0; font: 700 72px/0.9 'Barlow Condensed', sans-serif; letter-spacing: -0.01em; text-transform: uppercase;">{{doneTitle}}</h1>
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <div style="font: 600 17px Barlow, sans-serif; font-variant-numeric: tabular-nums;">MVR {{amountShown}} · {{categoryShown}} · Hotel</div>
+      <div style="font: 400 14px Barlow, sans-serif; color: #6B7078;">{{vendorShown}} · paid from {{payerShown}}</div>
+      <div style="font: 400 14px Barlow, sans-serif; color: #6B7078;">{{recordedLine}}</div>
+    </div>
+    <div role="status" aria-live="polite" class="on-ink" style="display: flex; align-items: center; justify-content: space-between; background: #141414; color: #FFFFFF; padding: 0 0 0 14px; min-height: 48px;">
+      <span style="font: 500 14px/1.3 Barlow, sans-serif; padding: 8px 0;">{{postedLine}}</span>
+      <sc-if value="{{undoOpen}}" hint-placeholder-val="{{true}}">
+        <button onClick="{{undo}}" aria-label="Undo this bill" style="min-height: 48px; align-self: stretch; padding: 0 16px; background: none; border: 0; border-left: 1px solid #34353A; color: #F2C300; font: 700 15px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; gap: 8px;"><span>Undo</span><span aria-hidden="true" style="font-variant-numeric: tabular-nums;">{{undoLeft}}s</span></button>
+      </sc-if>
+      <sc-if value="{{undoClosed}}" hint-placeholder-val="{{false}}">
+        <button onClick="{{openBill}}" style="min-height: 48px; align-self: stretch; padding: 0 16px; background: none; border: 0; border-left: 1px solid #34353A; color: #F2C300; font: 700 15px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; display: flex; align-items: center; cursor: pointer;">Open it</button>
+      </sc-if>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <button onClick="{{toggleBalanced}}" aria-expanded="{{explainBalancedAria}}" style="display: flex; align-items: center; gap: 8px; min-height: 44px; background: none; border: 0; padding: 0; text-align: left; cursor: pointer; font: 600 14px Barlow, sans-serif; color: #167A41;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-11"></path></svg>
+        <span>Balanced · full journal on desktop</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+      </button>
+      <sc-if value="{{explainBalanced}}" hint-placeholder-val="{{false}}">
+        <div style="font: 400 14px/1.45 Barlow, sans-serif; color: #141414;">Every bill is written twice: once against what you bought, once against the account it left. The two always match, which is how the books stay right. Your accountant reads the full record on a computer.</div>
+      </sc-if>
+      <button onClick="{{toggleArchive}}" aria-expanded="{{explainArchiveAria}}" style="min-height: 44px; background: none; border: 0; padding: 0; text-align: left; cursor: pointer; font: 400 13px/1.4 Barlow, sans-serif; color: #6B7078;">{{savedLine}}</button>
+      <sc-if value="{{explainArchive}}" hint-placeholder-val="{{false}}">
+        <div style="font: 400 14px/1.45 Barlow, sans-serif; color: #141414;">The photo is filed in your OneDrive under the supplier, the amount and the bill number, so you or an auditor can find it without opening Sentryfi. MIRA expects you to keep it for five years.</div>
+      </sc-if>
+    </div>
+    <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px;">
+      <button onClick="{{snapAnother}}" style="min-height: 60px; background: #141414; border: 0; color: #F2C300; display: flex; align-items: center; justify-content: center; gap: 10px; font: 700 20px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>
+        <span>Snap another</span>
+      </button>
+      <button onClick="{{backHome}}" style="min-height: 52px; background: #FFFFFF; border: 2px solid #141414; color: #141414; font: 700 18px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;">Home</button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{isBill}}" hint-placeholder-val="{{false}}">
+  <div style="position: absolute; inset: 0; display: flex; flex-direction: column; padding: 56px 0 24px; box-sizing: border-box; background: #FFFFFF;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 0 20px 12px;">
+      <button onClick="{{leaveBill}}" aria-label="Back" style="min-width: 44px; min-height: 44px; margin-left: -10px; background: none; border: 0; color: #141414; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; flex-shrink: 0;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+      </button>
+      <h1 ref="{{headingRef}}" tabindex="-1" style="margin: 0; font: 700 28px/1 'Barlow Condensed', sans-serif; text-transform: uppercase;">{{billTitle}}</h1>
+    </div>
+    <div style="flex-grow: 1; overflow-y: auto; padding: 0 20px;">
+      <div style="display: flex; align-items: baseline; gap: 8px; font: 700 48px/1 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums; padding-bottom: 4px;">
+        <span style="font-size: 20px;">MVR</span><span>{{billAmount}}</span>
+      </div>
+      <div style="font: 600 17px Barlow, sans-serif;">{{billWho}}</div>
+      <div style="font: 400 14px Barlow, sans-serif; color: #6B7078; padding-bottom: 10px;">{{billWhen}}</div>
+      <div style="display: grid; grid-template-columns: minmax(0, 1fr) 150px; align-items: center; min-height: 48px; border-top: 1px solid #E6E7EA;"><span style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #6B7078;">What for</span><span style="font: 600 15px/48px Barlow, sans-serif; text-align: right; padding-right: 10px; border-right: 2px solid #141414; align-self: stretch; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{billWhat}}</span></div>
+      <div style="display: grid; grid-template-columns: minmax(0, 1fr) 150px; align-items: center; min-height: 48px; border-top: 1px solid #E6E7EA;"><span style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #6B7078;">Paid from</span><span style="font: 600 15px/48px Barlow, sans-serif; text-align: right; padding-right: 10px; border-right: 2px solid #141414; align-self: stretch; display: block;">{{billPaidFrom}}</span></div>
+      <div style="display: grid; grid-template-columns: minmax(0, 1fr) 150px; align-items: center; min-height: 48px; border-top: 1px solid #E6E7EA;"><span style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #6B7078;">Bill number</span><span style="font: 600 15px/48px Barlow, sans-serif; text-align: right; padding-right: 10px; border-right: 2px solid #141414; align-self: stretch; display: block;">{{billRef}}</span></div>
+      <div style="display: grid; grid-template-columns: minmax(0, 1fr) 150px; align-items: center; min-height: 48px; border-top: 1px solid #E6E7EA; border-bottom: 2px solid #141414;"><span style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #6B7078;">GST 8% · included</span><span style="font: 600 15px/48px Barlow, sans-serif; font-variant-numeric: tabular-nums; text-align: right; padding-right: 10px; border-right: 2px solid #141414; align-self: stretch; display: block;">{{billGst}}</span></div>
+      <div style="{{billStateStyle}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-11"></path></svg><span>{{billState}}</span></div>
+      <div style="font: 400 13px/1.4 Barlow, sans-serif; color: #6B7078; padding-top: 6px;">{{billArchive}}</div>
+    </div>
+    <sc-if value="{{voidQuiet}}" hint-placeholder-val="{{true}}">
+      <div style="padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px;">
+        <sc-if value="{{billVoidable}}" hint-placeholder-val="{{true}}">
+          <button onClick="{{askVoid}}" style="min-height: 52px; background: #FFFFFF; border: 2px solid #141414; color: #141414; font: 700 17px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;">Reverse it · give a reason</button>
+        </sc-if>
+        <button onClick="{{leaveBill}}" style="min-height: 52px; background: #141414; border: 0; color: #F2C300; font: 700 17px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;">Back to the books</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{voidAsk}}" hint-placeholder-val="{{false}}">
+      <div class="on-ink" ref="{{askRef}}" role="group" aria-label="Why are you reversing this bill" style="margin: 12px 20px 0; background: #141414; color: #FFFFFF; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+        <span style="font: 600 15px/1.35 Barlow, sans-serif;">Why are you reversing it? The bill stays in the record with your reason on it.</span>
+        <sc-for list="{{voidReasons}}" as="r">
+          <button onClick="{{r.pick}}" style="min-height: 48px; padding: 0 14px; background: none; border: 2px solid #FFFFFF; color: #FFFFFF; font: 700 15px 'Barlow Condensed', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; text-align: left;">{{r.label}}</button>
+        </sc-for>
+        <button onClick="{{cancelVoid}}" class="on-yellow" style="min-height: 48px; padding: 0 14px; background: #F2C300; border: 0; color: #141414; font: 700 15px 'Barlow Condensed', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;">Keep it as it is</button>
+      </div>
+    </sc-if>
+  </div>
+</sc-if>
+
+
+<sc-if value="{{isCash}}" hint-placeholder-val="{{false}}">
+  <div style="position: absolute; inset: 0; display: flex; flex-direction: column; padding: 56px 0 0; box-sizing: border-box; background: #FFFFFF;">
+    <div style="display: flex; align-items: center; gap: 8px; padding: 0 20px 10px;">
+      <h1 ref="{{headingRef}}" tabindex="-1" style="margin: 0; font: 700 26px/1 'Barlow Condensed', sans-serif; text-transform: uppercase;">Site cash</h1>
+      <svg width="28" height="28" viewBox="0 0 96 96" role="img" aria-label="Sentryfi" style="margin-left: auto;"><circle cx="48" cy="48" r="34" fill="#F2C300"></circle><circle cx="48" cy="48" r="34" fill="none" stroke="#141414" stroke-width="6"></circle><path d="M17.6 58 H78.4" stroke="#141414" stroke-width="7"></path><path d="M48 26 V58" stroke="#141414" stroke-width="7"></path></svg>
+    </div>
+
+    <div class="{{boxBandClass}}" role="group" aria-labelledby="sf-box-h" style="{{boxBandStyle}}">
+      <h2 id="sf-box-h" style="margin: 0; font: 700 13px 'Barlow Condensed', sans-serif; letter-spacing: 0.14em; text-transform: uppercase;">What is left</h2>
+      <div style="display: flex; align-items: baseline; gap: 8px; font: 700 60px/1 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums; letter-spacing: -0.01em;">
+        <span style="font-size: 22px;">MVR</span><span>{{boxLeftShown}}</span>
+      </div>
+      <div style="font: 500 13px Barlow, sans-serif;">{{boxSubLine}}</div>
+    </div>
+
+    <sc-if value="{{boxLow}}" hint-placeholder-val="{{false}}">
+      <div class="on-ink" role="status" aria-live="polite" style="display: flex; align-items: center; justify-content: space-between; min-height: 44px; background: #141414; color: #FFFFFF; padding: 0 0 0 14px;">
+        <span style="font: 500 14px Barlow, sans-serif; padding: 6px 10px 6px 0;">{{boxLowLine}}</span>
+        <button onClick="{{askTopUp}}" style="min-height: 44px; align-self: stretch; padding: 0 14px; background: none; border: 0; border-left: 1px solid #34353A; color: #F2C300; font: 700 14px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; flex-shrink: 0;">{{topUpLabel}}</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{boxNotice}}" hint-placeholder-val="{{false}}">
+      <div class="on-ink" role="status" aria-live="polite" style="display: flex; align-items: center; min-height: 44px; background: #141414; color: #FFFFFF; padding: 6px 14px;">
+        <span style="font: 500 14px/1.3 Barlow, sans-serif;">{{noticeLine}}</span>
+      </div>
+    </sc-if>
+
+    <div style="padding: 14px 20px 0; display: flex; flex-direction: column; gap: 8px;">
+      <button onClick="{{goSpendBill}}" class="{{spendBillClass}}" style="{{spendBillStyle}}">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>
+        <span>Spend with a bill</span>
+      </button>
+      <button onClick="{{goNoBill}}" style="min-height: 56px; background: #FFFFFF; border: 2px solid #141414; color: #141414; display: flex; align-items: center; justify-content: center; gap: 10px; font: 700 18px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M8 7l8 8M16 7l-8 8"></path></svg>
+        <span>Spend, no bill</span>
+      </button>
+    </div>
+
+    <div style="flex-grow: 1; min-height: 0; overflow-y: auto; padding: 18px 20px 0;">
+      <h2 style="margin: 0 0 2px; font: 700 13px 'Barlow Condensed', sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: #6B7078;">{{boxListHeading}}</h2>
+      <sc-if value="{{boxListEmpty}}" hint-placeholder-val="{{false}}">
+        <div style="border-top: 1px solid #E6E7EA; padding: 14px 0 0; font: 400 15px/1.45 Barlow, sans-serif; color: #6B7078;">Nothing spent yet today. Every bill you snap and every spend without a bill shows here.</div>
+      </sc-if>
+      <sc-for list="{{boxSpends}}" as="sp">
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) 104px; column-gap: 10px; align-items: center; min-height: 56px; padding: 8px 0; box-sizing: border-box; border-top: 1px solid #E6E7EA;">
+          <span style="min-width: 0;">
+            <span style="display: block; font: 600 16px Barlow, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{sp.what}}</span>
+            <span style="display: block; font: 400 13px Barlow, sans-serif; color: #6B7078; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{sp.note}}</span>
+          </span>
+          <span style="{{sp.amountStyle}}">{{sp.amount}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="padding: 10px 20px 22px; border-top: 1px solid #E6E7EA;">
+      <button onClick="{{goCount}}" style="width: 100%; min-height: 48px; background: none; border: 0; color: #141414; font: 700 16px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14"></rect><path d="M3 10h18"></path></svg>
+        <span>Count the cash box</span>
+      </button>
+      <div style="font: 400 12px Barlow, sans-serif; color: #6B7078; text-align: center;">{{boxCountedLine}}</div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{isNoBill}}" hint-placeholder-val="{{false}}">
+  <div style="position: absolute; inset: 0; display: flex; flex-direction: column; padding: 56px 0 0; box-sizing: border-box; background: #FFFFFF;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 0 20px 10px;">
+      <button onClick="{{leaveEntry}}" aria-label="Back to site cash" style="min-width: 44px; min-height: 44px; margin-left: -10px; background: none; border: 0; color: #141414; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; flex-shrink: 0;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+      </button>
+      <h1 ref="{{headingRef}}" tabindex="-1" style="margin: 0; font: 700 26px/1 'Barlow Condensed', sans-serif; text-transform: uppercase;">{{spendTitle}}</h1>
+    </div>
+
+    <div style="flex-grow: 1; min-height: 0; overflow-y: auto;">
+      <div class="{{nbAmountClass}}" style="{{nbAmountStyle}}">
+        <label for="sf-nb-amount" style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase;">{{nbAmountLabel}}</label>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font: 700 22px 'Barlow Condensed', sans-serif;">MVR</span>
+          <input id="sf-nb-amount" ref="{{amountRef}}" type="text" inputmode="decimal" value="{{nbAmount}}" onChange="{{onNbAmount}}" aria-invalid="{{nbInvalid}}" aria-describedby="sf-nb-error" placeholder="0.00" style="{{nbInputStyle}}">
+        </div>
+        <sc-if value="{{nbError}}" hint-placeholder-val="{{false}}">
+          <div id="sf-nb-error" role="alert" style="font: 600 13px Barlow, sans-serif; color: #141414;">Numbers only, like 450 or 450.00.</div>
+        </sc-if>
+      </div>
+
+      <div class="{{nbWhatClass}}" style="{{nbWhatStyle}}">
+        <div id="sf-nb-what" style="{{nbWhatLabelStyle}}">What was it for?</div>
+        <div role="radiogroup" aria-labelledby="sf-nb-what" style="display: flex; flex-wrap: wrap; gap: 8px;">
+          <sc-for list="{{whatOptions}}" as="w">
+            <button onClick="{{w.pick}}" role="radio" aria-checked="{{w.aria}}" class="{{w.cls}}" style="{{w.style}}">{{w.label}}</button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="padding: 18px 20px 0;">
+        <label for="sf-nb-note" style="display: block; font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #6B7078; padding-bottom: 8px;">Note, if it helps</label>
+        <input id="sf-nb-note" type="text" value="{{nbNote}}" onChange="{{onNbNote}}" placeholder="Maalhos to Male, 1 pax" style="width: 100%; box-sizing: border-box; min-height: 52px; padding: 0 12px; background: #FFFFFF; border: 2px solid #D6D8DD; color: #141414; font: 500 16px Barlow, sans-serif;">
+      </div>
+
+      <div style="padding: 18px 20px 0;">
+        <button onClick="{{toggleSelf}}" role="switch" aria-checked="{{nbSelfAria}}" style="{{nbSelfStyle}}">
+          <span style="{{nbSelfBoxStyle}}">
+            <sc-if value="{{nbSelf}}" hint-placeholder-val="{{false}}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-11"></path></svg>
+            </sc-if>
+          </span>
+          <span style="display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0;">
+            <span style="font: 600 16px Barlow, sans-serif;">I paid it myself</span>
+            <span style="font: 400 13px/1.35 Barlow, sans-serif; color: #6B7078; text-align: left;">{{nbSelfNote}}</span>
+          </span>
+        </button>
+      </div>
+
+      <sc-if value="{{nbNoBill}}" hint-placeholder-val="{{true}}">
+        <div style="padding: 16px 20px 0; display: flex; align-items: flex-start; gap: 8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7078" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 2px;"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16h.01"></path></svg>
+          <span style="font: 400 13px/1.4 Barlow, sans-serif; color: #6B7078;">No bill, so no tax back on this one. The office will still see it against the project.</span>
+        </div>
+      </sc-if>
+      <sc-if value="{{nbPhoto}}" hint-placeholder-val="{{false}}">
+        <div style="padding: 16px 20px 0; display: flex; align-items: center; gap: 12px;">
+          <span style="width: 54px; height: 46px; flex-shrink: 0; background: #EDE9DF; display: flex; flex-direction: column; gap: 4px; padding: 7px 6px; box-sizing: border-box;">
+            <span style="height: 4px; width: 26px; background: #2A2C33;"></span>
+            <span style="height: 3px; width: 38px; background: #B9B4A6;"></span>
+            <span style="height: 3px; width: 32px; background: #B9B4A6;"></span>
+            <span style="height: 4px; width: 22px; background: #2A2C33; margin-top: auto;"></span>
+          </span>
+          <span style="font: 400 13px/1.4 Barlow, sans-serif; color: #6B7078;">{{nbPhotoLine}}</span>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="padding: 12px 20px 22px; display: flex; flex-direction: column; gap: 8px;">
+      <sc-if value="{{nbBlocked}}" hint-placeholder-val="{{true}}">
+        <div id="sf-nb-reason" role="alert" style="font: 600 13px Barlow, sans-serif; color: #C62B20;">{{nbBlockedReason}}</div>
+      </sc-if>
+      <button onClick="{{recordNoBill}}" aria-disabled="{{nbAriaDisabled}}" aria-label="{{nbConfirmAria}}" aria-describedby="{{nbDescribedBy}}" class="{{nbConfirmClass}}" style="{{nbConfirmStyle}}">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-11"></path></svg>
+        <span style="display: flex; flex-direction: column; align-items: flex-start; gap: 1px;">
+          <span>{{nbConfirmTop}}</span>
+          <sc-if value="{{nbShowSub}}" hint-placeholder-val="{{true}}">
+            <span style="font: 500 12px Barlow, sans-serif; letter-spacing: 0.01em; text-transform: none;">{{nbConfirmSub}}</span>
+          </sc-if>
+        </span>
+      </button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{isCount}}" hint-placeholder-val="{{false}}">
+  <div style="position: absolute; inset: 0; display: flex; flex-direction: column; padding: 56px 0 0; box-sizing: border-box; background: #FFFFFF;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 0 20px 10px;">
+      <button onClick="{{leaveEntry}}" aria-label="Back to site cash" style="min-width: 44px; min-height: 44px; margin-left: -10px; background: none; border: 0; color: #141414; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; flex-shrink: 0;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+      </button>
+      <h1 ref="{{headingRef}}" tabindex="-1" style="margin: 0; font: 700 26px/1 'Barlow Condensed', sans-serif; text-transform: uppercase;">Count the cash box</h1>
+    </div>
+
+    <div style="flex-grow: 1; min-height: 0; overflow-y: auto;">
+      <div style="padding: 0 20px 14px; font: 400 15px/1.45 Barlow, sans-serif; color: #141414;">Take everything out of the box, count it, and type what is actually there. Nobody is checking up on you: this is how the office finds what is missing before it grows.</div>
+
+      <div class="{{countClass}}" style="{{countStyle}}">
+        <label for="sf-count" style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase;">What is in the box</label>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font: 700 22px 'Barlow Condensed', sans-serif;">MVR</span>
+          <input id="sf-count" ref="{{amountRef}}" type="text" inputmode="decimal" value="{{countAmount}}" onChange="{{onCountAmount}}" aria-invalid="{{countInvalid}}" aria-describedby="sf-count-help" placeholder="0.00" style="{{countInputStyle}}">
+        </div>
+        <div id="sf-count-help" style="font: 600 13px Barlow, sans-serif;">{{countHelp}}</div>
+      </div>
+
+      <sc-if value="{{countDiffers}}" hint-placeholder-val="{{false}}">
+        <div class="{{countWhyClass}}" style="{{countWhyStyle}}">
+          <div id="sf-count-why" style="{{countWhyLabelStyle}}">{{countWhyHeading}}</div>
+          <div role="radiogroup" aria-labelledby="sf-count-why" style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <sc-for list="{{countReasons}}" as="cr">
+              <button onClick="{{cr.pick}}" role="radio" aria-checked="{{cr.aria}}" class="{{cr.cls}}" style="{{cr.style}}">{{cr.label}}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="padding: 10px 20px 0;">
+          <div style="font: 400 13px/1.4 Barlow, sans-serif; color: #6B7078;">Not sure is a real answer. The office would rather know the gap than read a reason you do not believe.</div>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="padding: 12px 20px 22px; display: flex; flex-direction: column; gap: 8px;">
+      <sc-if value="{{countBlocked}}" hint-placeholder-val="{{true}}">
+        <div id="sf-count-reason" role="alert" style="font: 600 13px Barlow, sans-serif; color: #C62B20;">{{countBlockedReason}}</div>
+      </sc-if>
+      <button onClick="{{recordCount}}" aria-disabled="{{countAriaDisabled}}" aria-label="{{countConfirmAria}}" aria-describedby="{{countDescribedBy}}" class="{{countConfirmClass}}" style="{{countConfirmStyle}}">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-11"></path></svg>
+        <span style="display: flex; flex-direction: column; align-items: flex-start; gap: 1px;">
+          <span>{{countConfirmTop}}</span>
+          <sc-if value="{{countShowSub}}" hint-placeholder-val="{{true}}">
+            <span style="font: 500 12px Barlow, sans-serif; letter-spacing: 0.01em; text-transform: none;">{{countConfirmSub}}</span>
+          </sc-if>
+        </span>
+      </button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{isBoxes}}" hint-placeholder-val="{{false}}">
+  <div style="position: absolute; inset: 0; display: flex; flex-direction: column; padding: 56px 0 0; box-sizing: border-box; background: #FFFFFF;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 0 20px 10px;">
+      <button onClick="{{leaveBoxes}}" aria-label="Back" style="min-width: 44px; min-height: 44px; margin-left: -10px; background: none; border: 0; color: #141414; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; flex-shrink: 0;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+      </button>
+      <h1 ref="{{headingRef}}" tabindex="-1" style="margin: 0; font: 700 26px/1 'Barlow Condensed', sans-serif; text-transform: uppercase;">Cash boxes</h1>
+    </div>
+    <sc-if value="{{boxNotice}}" hint-placeholder-val="{{false}}">
+      <div class="on-ink" role="status" aria-live="polite" style="display: flex; align-items: center; min-height: 44px; background: #141414; color: #FFFFFF; padding: 6px 14px;">
+        <span style="font: 500 14px/1.3 Barlow, sans-serif;">{{noticeLine}}</span>
+      </div>
+    </sc-if>
+    <div style="flex-grow: 1; min-height: 0; overflow-y: auto; padding: 8px 20px 0;">
+      <sc-for list="{{allBoxes}}" as="bx">
+        <div class="{{bx.cls}}" style="{{bx.style}}">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px;">
+            <span style="font: 600 17px Barlow, sans-serif; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{bx.name}}</span>
+            <span style="font: 700 22px 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums; flex-shrink: 0;">{{bx.left}}</span>
+          </div>
+          <div style="font: 400 13px Barlow, sans-serif; color: {{bx.noteColor}};">{{bx.note}}</div>
+          <button onClick="{{bx.topUp}}" style="{{bx.btnStyle}}">{{bx.btnLabel}}</button>
+        </div>
+      </sc-for>
+      <div style="border-top: 2px solid #141414; margin-top: 6px; padding: 14px 0 0; display: flex; align-items: baseline; justify-content: space-between; gap: 10px;">
+        <span style="font: 700 13px 'Barlow Condensed', sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: #6B7078;">We owe our people</span>
+        <span style="font: 700 24px 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums;">{{owedShown}}</span>
+      </div>
+      <div style="font: 400 13px/1.4 Barlow, sans-serif; color: #6B7078; padding-top: 4px;">{{owedNote}}</div>
+    </div>
+    <div style="padding: 12px 20px 22px;">
+      <button onClick="{{leaveBoxes}}" style="width: 100%; min-height: 52px; background: #141414; border: 0; color: #F2C300; font: 700 17px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;">Back to the books</button>
+    </div>
+  </div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"role":{"editor":"enum","default":"Owner","options":["Owner","Site staff","Site staff · holds cash"],"section":"Who is using it"},"scenario":{"editor":"enum","default":"Everything works","options":["Everything works","Bill number unclear","First day","Amount unclear","Offline on site","Camera is off","Could not read the bill","Might be a duplicate"],"section":"States"},"gstDays":{"editor":"int","default":9,"min":0,"max":40,"unit":"days","section":"States"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      screen: null,
+      total: 1284650,
+      displayTotal: 1284650,
+      cash: 80000,
+      justAdded: false,
+      undoLeft: 0,
+      noticeLeft: 0,
+      noticeLine: '',
+      lastPosted: 0,
+      lastFromCash: false,
+      lastEvicted: null,
+      lastHeld: null,
+      lastQueue: 0,
+      ledgerStarted: false,
+      staffSeen: false,
+      dupeAsk: false,
+      explainBalanced: false,
+      explainArchive: false,
+      noticeUndo: null,
+      heldIndex: -1,
+      viewBill: null,
+      uploadsFrom: 'home',
+      queue: 0,
+      held: [],
+      tries: 0,
+      flashOn: false,
+      blank: false,
+      amount: '3,450.00',
+      vendor: 'State Trading Organisation',
+      paidFrom: 'BML · MVR ····4471',
+      category: 'Materials',
+      billNo: 'INV-12345',
+      amountEditing: false,
+      amountSettled: false,
+      billEditing: false,
+      billSettled: false,
+      chooser: null,
+      moreOpen: false,
+      gstExplain: false,
+      photoOpen: false,
+      dupeDetail: false,
+      retakeAsk: false,
+      manualEntry: false,
+      dupeCleared: false,
+      touched: false,
+      voidAsk: false,
+      boxName: 'Site cash box · Hotel',
+      boxTopUp: 5000,
+      boxLeft: 2340,
+      boxTopUpDate: '14 Sep',
+      boxCounted: '16 Sep',
+      boxSpends: [
+        { what: 'Boat or transport', note: 'Maalhos to Male, 1 pax', amount: 450, bill: false },
+        { what: 'Fuel', note: 'Diesel for the mixer · bill snapped', amount: 1200, bill: true }
+      ],
+      nbAmount: '',
+      nbWhat: '',
+      nbNote: '',
+      nbSelf: false,
+      nbTouched: false,
+      nbPhoto: false,
+      countAmount: '',
+      countReason: '',
+      countTouched: false,
+      owed: 1850,
+      officeBoxLeft: 14200,
+      officeBoxCounted: '11 Sep',
+      entries: [
+        { date: '18 Sep', who: 'Steva Enterprises', what: 'Money in · advance · Hotel', amount: 250000, dir: 'in', paidFrom: 'BML · MVR ····4471', billNo: 'ADV-0031' },
+        { date: '17 Sep', who: 'Road Development Corp.', what: 'Excavator rental · Sept', amount: 42000, dir: 'in', paidFrom: 'BML · MVR ····4471', billNo: 'RDC-2209' },
+        { date: '16 Sep', who: 'Fuel Supplies Maldives', what: 'Diesel, 400 litres · Hotel', amount: 6120, dir: 'out', paidFrom: 'Site cash box · Hotel', billNo: 'FS-2291' },
+        { date: '15 Sep', who: 'Villa Hakatha', what: 'Cement, 120 bags · Hotel', amount: 28400, dir: 'out', paidFrom: 'BML · MVR ····4471', billNo: 'VH-7740' },
+        { date: '15 Sep', who: 'MTCC Ferry', what: 'Boat freight · Hotel', amount: 3900, dir: 'out', paidFrom: 'Office cash box', billNo: 'MTCC-1183' }
+      ]
+    };
+    this.setHeading = (el) => { if (el) { this.headingEl = el; } };
+    this.setAmountEl = (el) => { if (el) { this.amountEl = el; } };
+    this.setChooserEl = (el) => { this.chooserEl = el; };
+    this.setAskEl = (el) => { this.askEl = el; };
+    this.triggerId = null;
+    this.voidUndo = null;
+    this.keepUndo = null;
+    this.dupeUndo = null;
+    this.undoTimer = null;
+    this.noticeTimer = null;
+    this.countTimer = null;
+    this.tailTimer = null;
+  }
+  fmt(n) { return Math.round(n).toLocaleString('en-US').replace('-', '−'); }
+  money(n) { return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  parseAmt(v) {
+    const t = String(v).replace(/,/g, '').trim();
+    if (t === '') { return null; }
+    if (!/^[0-9]+(\.[0-9]{1,2})?$/.test(t)) { return NaN; }
+    return parseFloat(t);
+  }
+  maskLabel(name) { return String(name).replace(/····/g, 'ending ').replace(/\s*·\s*/g, ', '); }
+  calmMotion() {
+    return typeof window !== 'undefined' && window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+  stopTimers() { if (this.countTimer) { cancelAnimationFrame(this.countTimer); this.countTimer = null; } }
+  stopUndo() { if (this.undoTimer) { clearInterval(this.undoTimer); this.undoTimer = null; } }
+  stopNotice() { if (this.noticeTimer) { clearInterval(this.noticeTimer); this.noticeTimer = null; } }
+  stopTail() { if (this.tailTimer) { clearTimeout(this.tailTimer); this.tailTimer = null; } }
+  allStop() { this.stopTimers(); this.stopUndo(); this.stopTail(); this.stopNotice(); }
+  componentWillUnmount() { this.stopTimers(); this.stopUndo(); this.stopNotice(); this.stopTail(); }
+  componentDidUpdate(prevProps, prevState) {
+    const s = this.state;
+    if (prevState.screen !== s.screen && this.headingEl && this.headingEl.focus) {
+      this.headingEl.focus();
+      return;
+    }
+    if (!prevState.amountEditing && s.amountEditing && this.amountEl && this.amountEl.focus) {
+      this.amountEl.focus();
+    }
+    if (!prevState.chooser && s.chooser && this.chooserEl && this.chooserEl.querySelector) {
+      const first = this.chooserEl.querySelector('[role="radio"]');
+      if (first && first.focus) { first.focus(); }
+    }
+    const asking = s.dupeAsk || s.retakeAsk || s.voidAsk;
+    const wasAsking = prevState.dupeAsk || prevState.retakeAsk || prevState.voidAsk;
+    if (asking && !wasAsking && this.askEl && this.askEl.querySelector) {
+      const firstBtn = this.askEl.querySelector('button');
+      if (firstBtn && firstBtn.focus) { firstBtn.focus(); return; }
+    }
+    if (prevState.chooser && !s.chooser && this.triggerId && this.headingEl && this.headingEl.ownerDocument) {
+      const back = this.headingEl.ownerDocument.getElementById(this.triggerId);
+      if (back && back.focus) { back.focus(); }
+      this.triggerId = null;
+    }
+  }
+  animateTotal(from, to) {
+    if (this.calmMotion()) { this.setState({ displayTotal: to }); return; }
+    const start = performance.now();
+    const dur = 900;
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / dur);
+      const e = 1 - Math.pow(1 - t, 3);
+      this.setState({ displayTotal: from + (to - from) * e });
+      if (t < 1) { this.countTimer = requestAnimationFrame(tick); } else { this.countTimer = null; }
+    };
+    this.countTimer = requestAnimationFrame(tick);
+  }
+  startUndo() {
+    this.stopUndo();
+    this.setState({ undoLeft: 10 });
+    this.undoTimer = setInterval(() => {
+      const left = this.state.undoLeft - 1;
+      this.setState({ undoLeft: Math.max(0, left) });
+      if (left <= 0) { this.stopUndo(); }
+    }, 1000);
+  }
+  startNotice(line, undoTo) {
+    this.stopNotice();
+    this.setState({ noticeLeft: 6, noticeLine: line, noticeUndo: undoTo === undefined ? null : undoTo });
+    this.noticeTimer = setInterval(() => {
+      const left = this.state.noticeLeft - 1;
+      this.setState({ noticeLeft: Math.max(0, left) });
+      if (left <= 0) { this.stopNotice(); }
+    }, 1000);
+  }
+  topUpBox(i) {
+    this.allStop();
+    const add = 5000;
+    this.startNotice('Topped up · MVR ' + this.money(add) + ' moved to the ' + (i === 0 ? 'site' : 'office') + ' cash box.', null);
+    if (i === 0) { this.setState({ boxLeft: this.state.boxLeft + add, cash: this.state.cash + add }); }
+    else { this.setState({ officeBoxLeft: this.state.officeBoxLeft + add, cash: this.state.cash + add }); }
+  }
+  voidWith(reason) {
+    this.allStop();
+    const b = this.state.viewBill;
+    const back = b ? b.amount : 0;
+    const fromCash = b ? String(b.paidFrom || '').indexOf('cash box') !== -1 : false;
+    this.voidUndo = { total: this.state.total, cash: this.state.cash, entries: this.state.entries };
+    let marked = false;
+    const entries = this.state.entries.map((e) => {
+      if (!marked && b && e.who === b.who && e.amount === b.amount && e.date === b.date && !e.voided) {
+        marked = true;
+        const copy = {};
+        for (const k in e) { copy[k] = e[k]; }
+        copy.voided = true;
+        copy.voidReason = reason;
+        return copy;
+      }
+      return e;
+    });
+    this.startNotice('Reversed · ' + reason.toLowerCase() + ' · MVR ' + this.money(back) + ' put back. The bill stays in the record.', 'bill');
+    this.setState({
+      screen: 'home', viewBill: null, voidAsk: false, undoLeft: 0,
+      total: this.state.total + back,
+      displayTotal: this.state.total + back,
+      cash: fromCash ? this.state.cash + back : this.state.cash,
+      entries: entries
+    });
+  }
+  freshReview(extra) {
+    const base = {
+      blank: false,
+      amount: '3,450.00',
+      vendor: 'State Trading Organisation',
+      paidFrom: 'BML · MVR ····4471',
+      category: 'Materials',
+      billNo: 'INV-12345',
+      amountEditing: false,
+      amountSettled: false,
+      billEditing: false,
+      billSettled: false,
+      chooser: null,
+      moreOpen: false,
+      gstExplain: false,
+      photoOpen: false,
+      dupeDetail: false,
+      retakeAsk: false,
+      manualEntry: false,
+      dupeCleared: false,
+      dupeAsk: false,
+      heldIndex: -1,
+      touched: false
+    };
+    base.billSettled = (this.props.scenario || "") !== "Bill number unclear";
+    for (const k in extra) { base[k] = extra[k]; }
+    return base;
+  }
+  blankReview(extra) {
+    const base = this.freshReview(extra);
+    base.blank = true;
+    base.manualEntry = true;
+    base.amount = '';
+    base.vendor = '';
+    base.paidFrom = '';
+    base.billNo = '';
+    base.amountEditing = true;
+    base.billSettled = true;
+    base.heldIndex = -1;
+    base.touched = true;
+    return base;
+  }
+  renderVals() {
+    const s = this.state;
+    const role = this.props.role || 'Owner';
+    const holder = role === 'Site staff · holds cash';
+    const staff = role === 'Site staff' || holder;
+    const scenario = this.props.scenario || 'Everything works';
+    const firstDay = scenario === 'First day' && !s.ledgerStarted;
+    const offline = scenario === 'Offline on site';
+    const blocked = scenario === 'Camera is off';
+    const failed = scenario === 'Could not read the bill' && !s.manualEntry;
+    const dupe = scenario === 'Might be a duplicate';
+    const days = this.props.gstDays === undefined ? 9 : this.props.gstDays;
+    const urgent = days <= 10;
+    let screen = s.screen === null ? (holder ? 'cash' : (staff ? 'snap' : 'home')) : s.screen;
+    const ownerOnly = ['home', 'bill', 'boxes'];
+    const cashOnly = ['cash', 'nobill', 'count'];
+    if (holder && ownerOnly.indexOf(screen) !== -1) { screen = 'cash'; }
+    if (staff && !holder && (ownerOnly.indexOf(screen) !== -1 || cashOnly.indexOf(screen) !== -1)) { screen = 'snap'; }
+    if (!staff && cashOnly.indexOf(screen) !== -1) { screen = 'home'; }
+
+    const parsed = this.parseAmt(s.amount);
+    const amountBad = typeof parsed === 'number' && isNaN(parsed);
+    const amountVal = (parsed === null || amountBad) ? null : parsed;
+    const gstVal = (amountVal === null || amountVal <= 0) ? null : amountVal * 8 / 108;
+    const hasAmount = amountVal !== null && amountVal > 0;
+    const hasPayer = s.paidFrom !== '';
+    const hasVendor = s.vendor !== '';
+
+    const dupeOpen = dupe && !s.dupeCleared;
+    const amountRisky = !hasAmount || (scenario === 'Amount unclear' && !s.amountSettled);
+    const payerRisky = !hasPayer;
+    const vendorRisky = !hasVendor;
+    const billRisky = !s.blank && !s.billSettled;
+    const firstRun = staff && !s.staffSeen;
+
+    let risk = 'none';
+    if (s.retakeAsk) { risk = 'retake'; }
+    else if (s.dupeAsk) { risk = 'dupe'; }
+    else if (s.chooser !== null) { risk = 'chooser'; }
+    else if (s.amountEditing) { risk = 'amount'; }
+    else if (s.billEditing) { risk = 'bill'; }
+    else if (dupeOpen || s.dupeDetail) { risk = 'dupe'; }
+    else if (amountRisky) { risk = 'amount'; }
+    else if (payerRisky) { risk = 'payer'; }
+    else if (vendorRisky) { risk = 'vendor'; }
+    else if (billRisky) { risk = 'bill'; }
+
+    const pending = (dupeOpen ? 1 : 0) + (amountRisky ? 1 : 0) + (payerRisky ? 1 : 0) + (vendorRisky ? 1 : 0) + (billRisky ? 1 : 0);
+    const blockers = (hasAmount ? 0 : 1) + (hasPayer ? 0 : 1) + (hasVendor ? 0 : 1);
+
+    const total = firstDay ? 0 : s.displayTotal;
+    const cash = firstDay ? 0 : s.cash;
+    const totalStr = this.fmt(total);
+    const bandPx = totalStr.length >= 13 ? 40 : totalStr.length >= 11 ? 48 : totalStr.length >= 10 ? 56 : 64;
+    const unitPx = bandPx >= 56 ? 22 : 18;
+
+    const listRows = firstDay ? [] : s.entries;
+    const entries = listRows.map((e, i) => {
+      const fresh = s.justAdded && i === 0;
+      const gone = e.voided === true;
+      return {
+        date: e.date,
+        who: e.who,
+        what: gone ? (e.what + ' · reversed, ' + String(e.voidReason).toLowerCase()) : e.what,
+        amount: (gone ? '' : (e.dir === 'in' ? '+' : '−')) + this.fmt(e.amount),
+        label: e.who + ', ' + e.what + ', ' + (gone ? 'reversed, ' + String(e.voidReason).toLowerCase() + ', ' : (e.dir === 'in' ? 'money in ' : 'money out ')) + this.fmt(e.amount) + ' rufiyaa, open it',
+        open: () => this.setState({ screen: 'bill', voidAsk: false, viewBill: { who: e.who, what: e.what, amount: e.amount, date: e.date, paidFrom: e.paidFrom || '', billNo: e.billNo || '', dir: e.dir, voided: gone, voidReason: e.voidReason || '' } }),
+        rowClass: fresh ? 'sf-in' : '',
+        rowStyle: 'display: grid; grid-template-columns: 46px minmax(0, 1fr) 104px; column-gap: 10px; align-items: center; min-height: 58px; padding: 8px 0; box-sizing: border-box; border-top: 1px solid #E6E7EA; text-decoration: none; color: ' + (gone ? '#6B7078' : '#141414') + ';',
+        amountStyle: 'font: 600 17px Barlow, sans-serif; font-variant-numeric: tabular-nums; text-align: right; padding-right: 10px; border-right: 2px solid ' + (gone ? '#6B7078' : '#141414') + '; align-self: stretch; margin: -8px 0; display: flex; align-items: center; justify-content: flex-end; text-decoration: ' + (gone ? 'line-through' : 'none') + '; color: ' + (gone ? '#6B7078' : (e.dir === 'in' ? '#167A41' : '#C62B20')) + ';'
+      };
+    });
+
+    const heldStyle = 'display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; border: 0; font: 700 13px "Barlow Condensed", sans-serif; letter-spacing: 0.08em; text-transform: uppercase; background: ' + (staff ? 'none' : '#141414') + '; color: ' + (staff ? '#167A41' : '#F2C300') + '; cursor: ' + (staff ? 'default' : 'pointer') + ';';
+    const held = s.held.map((h, i) => ({
+      who: h.who,
+      note: h.note + (h.amount ? ' · MVR ' + this.fmt(h.amount) : '') + (h.date ? ' · ' + h.date : ''),
+      action: staff ? (h.note === 'Waiting for signal' ? 'Holding' : 'Sent') : 'Read it',
+      style: heldStyle,
+      actionable: !staff,
+      passive: staff,
+      open: () => this.setState(this.freshReview({
+        screen: 'review', heldIndex: i,
+        blank: h.blank === true, manualEntry: h.blank === true,
+        vendor: h.vendor || '', amount: h.amount ? this.money(h.amount) : '',
+        paidFrom: h.paidFrom || '', category: h.category || 'Materials', billNo: h.billNo || ''
+      }))
+    }));
+
+    const banks = ['BML · MVR ····4471', 'BML · USD ····9902', 'MIB · MVR ····1120'];
+    const boxes = ['Site cash box · Hotel', 'Office cash box'];
+    const suppliers = ['State Trading Organisation', 'Villa Hakatha', 'Fuel Supplies Maldives', 'MTCC Ferry'];
+    const codes = ['Materials', 'Labour', 'Subcontractors', 'Equipment', 'Fuel', 'Transport and boat freight', 'Site overheads'];
+    const usual = { Materials: 1, Labour: 1, Fuel: 1 };
+    const optStyle = (on) => 'display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 52px; padding: 0 10px; border: 0; border-top: 1px solid #E6E7EA; color: #141414; text-align: left; cursor: pointer; font: 600 15px Barlow, sans-serif; background: ' + (on ? '#F2C300' : 'none') + ';';
+    const optClass = (on) => (on ? 'on-yellow' : '');
+    const opt = (n, label, heading, first, on, set) => ({
+      name: n, label: label, heading: heading, showHeading: first, aria: on ? "true" : "false",
+      checked: on, style: optStyle(on), cls: optClass(on),
+      pick: () => this.setState(set)
+    });
+    let chooserOptions = [];
+    if (s.chooser === 'payer') {
+      chooserOptions = banks.map((n, i) => opt(n, this.maskLabel(n), 'Bank accounts', i === 0, n === s.paidFrom, { paidFrom: n, chooser: null, touched: true }))
+        .concat(boxes.map((n, i) => opt(n, this.maskLabel(n), 'Cash boxes', i === 0, n === s.paidFrom, { paidFrom: n, chooser: null, touched: true })));
+    } else if (s.chooser === 'vendor') {
+      chooserOptions = suppliers.map((n, i) => opt(n, n, 'Suppliers you have used', i === 0, n === s.vendor, { vendor: n, chooser: null, touched: true }));
+    } else if (s.chooser === 'category') {
+      const often = codes.filter((n) => usual[n]);
+      const rest = codes.filter((n) => !usual[n]);
+      chooserOptions = often.map((n, i) => opt(n, n + ', on the Hotel project', 'Usual on the Hotel project', i === 0, n === s.category, { category: n, chooser: null, touched: true }))
+        .concat(rest.map((n, i) => opt(n, n + ', on the Hotel project', 'Every cost code', i === 0, n === s.category, { category: n, chooser: null, touched: true })));
+    }
+
+    const initials = hasVendor
+      ? s.vendor.split(' ').map((w) => w.charAt(0)).join('').toUpperCase().slice(0, 4)
+      : 'BILL';
+    const bill = s.viewBill;
+    const quiet = s.chooser === null && !s.retakeAsk && !s.dupeAsk;
+    const amountOpen = s.amountEditing && quiet;
+    const billOpen = s.billEditing && quiet && !s.amountEditing;
+    // ---- site cash ----------------------------------------------------------
+    const boxLeft = s.boxLeft;
+    const boxLow = holder && boxLeft <= s.boxTopUp * 0.2;
+    const nbParsed = this.parseAmt(s.nbAmount);
+    const nbBad = typeof nbParsed === 'number' && isNaN(nbParsed);
+    const nbVal = (nbParsed === null || nbBad) ? null : nbParsed;
+    const nbHasAmount = nbVal !== null && nbVal > 0;
+    const nbHasWhat = s.nbWhat !== '';
+    const nbBlocked = !nbHasAmount || !nbHasWhat;
+    const nbOverspend = nbHasAmount && !s.nbSelf && nbVal > boxLeft;
+    const countParsed = this.parseAmt(s.countAmount);
+    const countBad = typeof countParsed === 'number' && isNaN(countParsed);
+    const countVal = (countParsed === null || countBad) ? null : countParsed;
+    const countHas = countVal !== null;
+    const countDiff = countHas ? countVal - boxLeft : 0;
+    const countDiffers = countHas && Math.abs(countDiff) >= 0.005;
+    const countNeedsReason = countDiffers && s.countReason === '';
+    const countBlocked = !countHas || countNeedsReason;
+    const chipStyle = (on) => 'min-height: 44px; padding: 0 14px; cursor: pointer; font: 700 14px "Barlow Condensed", sans-serif; letter-spacing: 0.06em; text-transform: uppercase; ' + (on ? 'background: #141414; border: 2px solid #141414; color: #F2C300;' : 'background: #FFFFFF; border: 2px solid #D6D8DD; color: #141414;');
+    const chip = (label, on, set) => ({ label: label, aria: on ? 'true' : 'false', cls: on ? 'on-ink' : '', style: chipStyle(on), pick: () => this.setState(set) });
+    const askStyle = (hot, pad) => 'padding: ' + pad + '; display: flex; flex-direction: column; gap: 8px;' + (hot ? ' background: #F2C300; color: #141414;' : '');
+    const askLabelStyle = (hot) => 'font: 700 12px "Barlow Condensed", sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: ' + (hot ? '#141414' : '#6B7078') + ';';
+    const nbWhatHot = nbHasAmount && !nbHasWhat;
+    const countWhyHot = countNeedsReason;
+    const grab = (id) => { this.triggerId = id; };
+    const postBill = () => {
+      this.allStop();
+      this.stopNotice();
+      const posted = amountVal;
+      const fromCash = s.paidFrom.indexOf('cash box') !== -1;
+      const entry = {
+        date: s.blank ? '19 Sep' : '14 Sep',
+        who: s.vendor,
+        what: s.category + ' · Hotel',
+        amount: posted,
+        dir: 'out',
+        paidFrom: s.paidFrom,
+        billNo: s.billNo === '' ? '—' : s.billNo
+      };
+      const base = firstDay ? [] : this.state.entries;
+      const heldNow = s.heldIndex >= 0;
+      this.setState({
+        screen: 'done',
+        ledgerStarted: true,
+        tries: 0,
+        total: (firstDay ? 0 : this.state.total) - posted,
+        cash: firstDay ? 0 : (fromCash ? this.state.cash - posted : this.state.cash),
+        displayTotal: (firstDay ? 0 : this.state.displayTotal),
+        lastPosted: posted,
+        lastFromCash: fromCash,
+        lastEvicted: base[4],
+        lastHeld: heldNow ? this.state.held : null,
+        lastQueue: this.state.queue,
+        held: heldNow ? this.state.held.filter((h, i) => i !== s.heldIndex) : this.state.held,
+        queue: heldNow && this.state.queue > 0 ? this.state.queue - 1 : this.state.queue,
+        entries: [entry].concat(base.slice(0, 4)),
+        noticeLeft: 0
+      });
+      this.startUndo();
+    };
+    const onChooserKey = (ev) => {
+      if (!ev) { return; }
+      if (ev.key === 'Escape') { ev.preventDefault(); this.setState({ chooser: null }); return; }
+      if (ev.key !== 'ArrowDown' && ev.key !== 'ArrowUp') { return; }
+      if (!this.chooserEl || !this.chooserEl.querySelectorAll) { return; }
+      const radios = this.chooserEl.querySelectorAll('[role="radio"]');
+      if (!radios.length) { return; }
+      let at = -1;
+      for (let i = 0; i < radios.length; i++) { if (radios[i] === ev.target) { at = i; } }
+      const next = ev.key === 'ArrowDown' ? (at + 1) % radios.length : (at <= 0 ? radios.length - 1 : at - 1);
+      ev.preventDefault();
+      radios[next].focus();
+    };
+
+    return {
+      headingRef: this.setHeading,
+      amountRef: this.setAmountEl,
+      chooserRef: this.setChooserEl,
+      isHome: screen === 'home',
+      isSnap: screen === 'snap',
+      isReview: screen === 'review',
+      isDone: screen === 'done',
+      isUploads: screen === 'uploads',
+      isSent: screen === 'sent',
+      isBill: screen === 'bill',
+      isCash: screen === 'cash',
+      isNoBill: screen === 'nobill',
+      isCount: screen === 'count',
+      isBoxes: screen === 'boxes',
+      holdsCash: holder,
+
+      boxLeftShown: this.money(boxLeft),
+      boxSubLine: 'of MVR ' + this.money(s.boxTopUp) + ' topped up on ' + s.boxTopUpDate,
+      boxBandClass: boxLow ? '' : 'on-yellow',
+      boxBandStyle: 'padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 6px; background: ' + (boxLow ? '#141414' : '#F2C300') + '; color: ' + (boxLow ? '#FFFFFF' : '#141414') + ';',
+      boxLow: boxLow,
+      boxLowLine: 'Running low. About ' + Math.max(0, Math.round(boxLeft / 600)) + ' days left at your usual spend.',
+      topUpLabel: 'Ask for more',
+      boxNotice: s.noticeLeft > 0,
+      spendBillClass: boxLow ? '' : '',
+      spendBillStyle: 'min-height: 60px; border: 0; display: flex; align-items: center; justify-content: center; gap: 10px; font: 700 20px "Barlow Condensed", sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; background: #141414; color: #F2C300;',
+      boxListHeading: s.boxSpends.length === 0 ? 'Spent today' : 'Spent today · MVR ' + this.money(s.boxSpends.reduce((a, x) => a + x.amount, 0)),
+      boxListEmpty: s.boxSpends.length === 0,
+      boxSpends: s.boxSpends.map((x) => ({
+        what: x.what,
+        note: x.bill ? x.note : (x.note === '' ? 'No bill' : x.note + ' · no bill'),
+        amount: '\u2212' + this.fmt(x.amount),
+        amountStyle: 'font: 600 17px Barlow, sans-serif; font-variant-numeric: tabular-nums; text-align: right; padding-right: 10px; border-right: 2px solid #141414; align-self: stretch; margin: -8px 0; display: flex; align-items: center; justify-content: flex-end; color: #141414;'
+      })),
+      boxCountedLine: 'Last counted ' + s.boxCounted,
+
+      nbAmount: s.nbAmount,
+      nbPhoto: s.nbPhoto,
+      spendTitle: s.nbPhoto ? 'Spend with a bill' : 'Spend, no bill',
+      nbAmountLabel: s.nbPhoto ? 'We read this off the bill' : 'How much did you spend?',
+      nbNoBill: !s.nbPhoto,
+      nbPhotoLine: 'Bill snapped. The office reads the rest.',
+      nbAmountClass: nbHasAmount ? '' : 'on-yellow',
+      nbAmountStyle: 'padding: 12px 20px 14px; display: flex; flex-direction: column; gap: 8px; background: ' + (nbHasAmount ? '#FFFFFF' : '#F2C300') + ';',
+      nbInputStyle: 'flex-grow: 1; min-width: 0; min-height: 56px; padding: 0 12px; box-sizing: border-box; background: #FFFFFF; border: ' + (nbBad ? '4px' : '2px') + ' solid #141414; color: #141414; font: 700 28px "Barlow Condensed", sans-serif; font-variant-numeric: tabular-nums;',
+      nbInvalid: nbBad ? 'true' : 'false',
+      nbError: nbBad,
+      nbWhatClass: nbWhatHot ? 'on-yellow' : '',
+      nbWhatStyle: askStyle(nbWhatHot, nbWhatHot ? '14px 20px 16px' : '16px 20px 0'),
+      nbWhatLabelStyle: askLabelStyle(nbWhatHot),
+      countWhyClass: countWhyHot ? 'on-yellow' : '',
+      countWhyStyle: askStyle(countWhyHot, countWhyHot ? '14px 20px 16px' : '18px 20px 0'),
+      countWhyLabelStyle: askLabelStyle(countWhyHot),
+      whatOptions: ['Fuel', 'Boat or transport', 'Food for the crew', 'Small materials', 'Something else']
+        .map((w) => chip(w, s.nbWhat === w, { nbWhat: w, nbTouched: true })),
+      nbNote: s.nbNote,
+      nbSelf: s.nbSelf,
+      nbSelfAria: s.nbSelf ? 'true' : 'false',
+      nbSelfStyle: 'width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 12px; background: #FFFFFF; border: 2px solid ' + (s.nbSelf ? '#141414' : '#D6D8DD') + '; color: #141414; cursor: pointer; text-align: left;',
+      nbSelfBoxStyle: 'width: 26px; height: 26px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: ' + (s.nbSelf ? '#141414' : '#FFFFFF') + '; border: 2px solid #141414; color: #F2C300;',
+      nbSelfNote: s.nbSelf ? 'The company owes this back to you' : 'Leave it off if the money came out of the box',
+      nbBlocked: nbBlocked || nbOverspend,
+      nbBlockedReason: !nbHasAmount
+        ? 'Put in how much you spent.'
+        : (!nbHasWhat ? 'Say what it was for.' : 'That is more than the box holds. Tick "I paid it myself", or count the box first.'),
+      nbDescribedBy: (nbBlocked || nbOverspend) ? 'sf-nb-reason' : '',
+      nbAriaDisabled: nbBlocked ? 'true' : 'false',
+      nbConfirmClass: nbBlocked ? '' : 'on-yellow',
+      nbConfirmStyle: nbBlocked
+        ? 'min-height: 60px; background: #FFFFFF; border: 2px solid #6B7078; color: #6B7078; display: flex; align-items: center; justify-content: center; gap: 10px; font: 700 18px "Barlow Condensed", sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: not-allowed;'
+        : 'min-height: 60px; background: #F2C300; border: 0; color: #141414; display: flex; align-items: center; justify-content: center; gap: 10px; font: 700 18px "Barlow Condensed", sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;',
+      nbConfirmTop: !nbHasAmount ? 'Add how much' : (!nbHasWhat ? 'Say what for' : 'Record MVR ' + s.nbAmount),
+      nbShowSub: !nbBlocked,
+      nbConfirmSub: s.nbSelf ? 'you paid, we owe you back' : 'from the cash box',
+      nbConfirmAria: !nbHasAmount
+        ? 'Put in how much you spent'
+        : (!nbHasWhat
+          ? 'Say what it was for'
+          : ('Record MVR ' + s.nbAmount + ', ' + s.nbWhat + ', ' + (s.nbSelf ? 'you paid it yourself and the company owes you back' : 'from the site cash box'))),
+
+      countAmount: s.countAmount,
+      countClass: countHas ? '' : 'on-yellow',
+      countStyle: 'padding: 12px 20px 14px; margin: 0 0 4px; display: flex; flex-direction: column; gap: 8px; background: ' + (countHas ? '#FFFFFF' : '#F2C300') + '; color: #141414;',
+      countInputStyle: 'flex-grow: 1; min-width: 0; min-height: 56px; padding: 0 12px; box-sizing: border-box; background: #FFFFFF; border: ' + (countBad ? '4px' : '2px') + ' solid #141414; color: #141414; font: 700 28px "Barlow Condensed", sans-serif; font-variant-numeric: tabular-nums;',
+      countInvalid: countBad ? 'true' : 'false',
+      countHelp: countBad
+        ? 'Numbers only, like 2290 or 2,290.00.'
+        : (!countHas
+          ? 'The record says MVR ' + this.money(boxLeft) + '.'
+          : (countDiffers
+            ? 'MVR ' + this.money(Math.abs(countDiff)) + (countDiff < 0 ? ' less' : ' more') + ' than the record says.'
+            : 'That matches the record exactly.')),
+      countDiffers: countDiffers,
+      countWhyHeading: countDiff < 0 ? 'Why is there less?' : 'Why is there more?',
+      countReasons: (countDiff < 0
+        ? ['Spent it, no bill yet', 'Lost', 'Miscounted before', 'Not sure']
+        : ['Money put back', 'Miscounted before', 'Not sure'])
+        .map((r) => chip(r, s.countReason === r, { countReason: r, countTouched: true })),
+      countBlocked: countBlocked,
+      countBlockedReason: !countHas ? 'Type what is actually in the box.' : 'Pick a reason. "Not sure" is fine.',
+      countDescribedBy: countBlocked ? 'sf-count-reason' : '',
+      countAriaDisabled: countBlocked ? 'true' : 'false',
+      countConfirmClass: countBlocked ? '' : 'on-yellow',
+      countConfirmStyle: countBlocked
+        ? 'min-height: 60px; background: #FFFFFF; border: 2px solid #6B7078; color: #6B7078; display: flex; align-items: center; justify-content: center; gap: 10px; font: 700 18px "Barlow Condensed", sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: not-allowed;'
+        : 'min-height: 60px; background: #F2C300; border: 0; color: #141414; display: flex; align-items: center; justify-content: center; gap: 10px; font: 700 18px "Barlow Condensed", sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;',
+      countConfirmTop: !countHas ? 'Type the count' : (countNeedsReason ? 'Pick a reason' : 'Record the count'),
+      countShowSub: !countBlocked,
+      countConfirmSub: countDiffers ? 'and the MVR ' + this.money(Math.abs(countDiff)) + ' difference' : 'the box matches',
+      countConfirmAria: !countHas
+        ? 'Type what is actually in the box'
+        : (countNeedsReason
+          ? 'Pick a reason for the difference'
+          : (countDiffers
+            ? 'Record the count of MVR ' + this.money(countVal) + ' and the difference of MVR ' + this.money(Math.abs(countDiff))
+            : 'Record the count of MVR ' + this.money(countVal) + ', the box matches')),
+
+      allBoxes: [
+        { name: s.boxName, left: boxLeft, counted: s.boxCounted, holderNote: 'Held on site', low: boxLeft <= s.boxTopUp * 0.2 },
+        { name: 'Office cash box', left: s.officeBoxLeft, counted: s.officeBoxCounted, holderNote: 'Held at the office', low: false }
+      ].map((b, i) => ({
+        name: b.name,
+        left: 'MVR ' + this.fmt(b.left),
+        note: b.holderNote + ' · last counted ' + b.counted + (b.low ? ' · running low' : ''),
+        noteColor: b.low ? '#141414' : '#6B7078',
+        cls: b.low ? 'on-yellow' : '',
+        style: 'display: flex; flex-direction: column; gap: 8px; padding: 14px; margin-bottom: 10px; border: 2px solid #141414; background: ' + (b.low ? '#F2C300' : '#FFFFFF') + ';',
+        btnLabel: b.low ? 'Top this box up' : 'Top up',
+        btnStyle: 'min-height: 44px; padding: 0 14px; cursor: pointer; font: 700 14px "Barlow Condensed", sans-serif; letter-spacing: 0.08em; text-transform: uppercase; background: ' + (b.low ? '#141414' : '#FFFFFF') + '; color: ' + (b.low ? '#F2C300' : '#141414') + '; border: 2px solid #141414;',
+        topUp: () => this.topUpBox(i)
+      })),
+      owedShown: 'MVR ' + this.fmt(s.owed),
+      owedNote: s.owed === 0 ? 'Nobody is out of pocket.' : 'Money your people spent themselves and have not been paid back yet.',
+
+      staffFirstRun: firstRun,
+      askRef: this.setAskEl,
+      recordBothLabel: 'Two real bills · record this one too',
+      voidAsk: s.voidAsk,
+      voidQuiet: !s.voidAsk,
+      voidReasons: ['Wrong amount', 'Paid twice', 'Not ours'].map((r) => ({
+        label: r,
+        pick: () => this.voidWith(r)
+      })),
+      explainBalanced: s.explainBalanced,
+      explainBalancedAria: s.explainBalanced ? 'true' : 'false',
+      explainArchive: s.explainArchive,
+      explainArchiveAria: s.explainArchive ? 'true' : 'false',
+      dupeAsk: s.dupeAsk && !s.retakeAsk,
+      dupeAskLine: 'Record a second bill from ' + (hasVendor ? s.vendor : 'this supplier') + ' for MVR ' + s.amount + ' on the same day?',
+      billTitle: bill ? (bill.dir === 'in' ? 'Money in' : 'Bill') : 'Bill',
+      billAmount: bill ? this.money(bill.amount) : '—',
+      billWho: bill ? bill.who : '—',
+      billWhen: bill ? ('Dated ' + bill.date + ' · recorded by you') : '',
+      billWhat: bill ? bill.what : '—',
+      billPaidFrom: bill ? (bill.paidFrom === '' ? 'Not recorded' : bill.paidFrom) : '—',
+      billRef: bill ? (bill.billNo === '' ? 'Not recorded' : bill.billNo) : '—',
+      billGst: bill ? this.money(bill.amount * 8 / 108) : '—',
+      billState: bill && bill.voided
+        ? 'Reversed · ' + String(bill.voidReason).toLowerCase() + ' · the bill stays in the record'
+        : 'Balanced · nothing here can be deleted, only reversed',
+      billStateStyle: 'display: flex; align-items: center; gap: 8px; padding: 12px 0 0; font: 600 14px Barlow, sans-serif; color: ' + (bill && bill.voided ? '#6B7078' : '#167A41') + ';',
+      billArchive: bill
+        ? ('Photo filed in OneDrive under ' + bill.who + ', MVR ' + this.fmt(bill.amount) + (bill.billNo ? ', ' + bill.billNo : ''))
+        : '',
+      billVoidable: bill ? (bill.dir === 'out' && !bill.voided) : false,
+
+      bandStyle: 'display: flex; align-items: baseline; gap: 8px; font: 700 ' + bandPx + 'px/1 "Barlow Condensed", sans-serif; font-variant-numeric: tabular-nums; letter-spacing: -0.01em;',
+      bandUnitStyle: 'font-size: ' + unitPx + 'px;',
+      displayTotal: totalStr,
+      bankTotal: this.fmt(total - cash),
+      cashTotal: this.fmt(cash),
+      syncLine: offline ? 'No signal' : (firstDay ? 'Nothing to sync' : 'Synced 08:12'),
+      entries: entries,
+      listEmpty: firstDay,
+      listFilled: !firstDay,
+      listHeading: firstDay ? 'Your books' : 'Latest recorded',
+      showSeeAll: !firstDay,
+      projectPct: listRows.length === 0 ? '0%' : '62%',
+      projectFillStyle: 'position: absolute; left: 0; top: 0; bottom: 0; width: ' + (listRows.length === 0 ? '0' : '62') + '%; background: #F2C300; border-right: ' + (firstDay ? '0' : '2px') + ' solid #141414;',
+      projectNote: listRows.length === 0 ? 'No budget set yet · add one in Projects' : 'MVR 8.4M spent of 13.5M budget · materials leading',
+
+      stripUndo: s.undoLeft > 0,
+      stripNotice: s.undoLeft === 0 && s.noticeLeft > 0,
+      stripGst: s.undoLeft === 0 && s.noticeLeft === 0 && !firstDay,
+      noticeLine: s.noticeLine,
+      noticeUndoable: s.noticeUndo !== null && s.noticeLeft > 0,
+      gstUrgent: urgent,
+      gstLine: days === 0
+        ? 'GST · due today · MVR 21,480'
+        : (urgent
+          ? 'GST · ' + days + ' days · MVR 21,480 · by 28 Sep'
+          : 'Next GST return · MVR 21,480 · ' + days + ' days away'),
+      gstStripStyle: 'display: flex; align-items: center; min-height: 44px; background: #141414; color: ' + (urgent ? '#F2C300' : '#FFFFFF') + '; text-decoration: none;',
+
+      queue: s.queue,
+      hasQueue: s.queue > 0,
+      held: held,
+      uploadsEmpty: s.held.length === 0,
+      snapButtonLabel: s.queue > 0 ? 'Snap a bill, ' + s.queue + ' waiting' : 'Snap a bill',
+      leaveSnapLabel: staff ? 'Waiting' : 'Close camera',
+      waitingLabel: s.queue > 0 ? 'Waiting, ' + s.queue + ' bills' : 'Waiting',
+      showModes: !staff && !blocked && !firstRun,
+      canTypeIn: !staff,
+
+      cameraReady: !blocked,
+      cameraBlocked: blocked && !firstRun,
+      isOffline: offline,
+      flashAria: s.flashOn ? 'true' : 'false',
+      gstExplainAria: s.gstExplain ? 'true' : 'false',
+      moreOpenAria: s.moreOpen ? 'true' : 'false',
+      shutterAria: blocked ? 'true' : 'false',
+      flashStyle: 'width: 44px; height: 44px; background: ' + (s.flashOn ? '#FFFFFF' : 'rgba(20,20,20,0.8)') + '; border: 1px solid rgba(255,255,255,0.14); color: ' + (s.flashOn ? '#141414' : '#FFFFFF') + '; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;',
+      shutterStyle: 'width: 88px; height: 88px; border-radius: 9999px; background: #F2C300; border: 0; padding: 0; display: flex; align-items: center; justify-content: center; box-shadow: 0 12px 28px rgba(0,0,0,0.55); opacity: ' + (blocked ? '0.4' : '1') + '; cursor: ' + (blocked ? 'not-allowed' : 'pointer') + ';',
+      snapCaption: blocked
+        ? 'Turn the camera on to snap'
+        : (staff ? 'Snap every bill you are handed.' : 'Line up the bill. We read the rest.'),
+
+      sentTitle: offline ? 'Held.' : 'Sent.',
+      sentBody: offline
+        ? 'It is on this phone and goes to the office as soon as you have signal. Keep snapping.'
+        : 'The office has it. There is nothing else for you to do with this bill.',
+
+      readFailed: failed,
+      failBody: s.tries > 0
+        ? 'Still too blurred to trust. A second try rarely helps in this light, and typing the four things we need is faster.'
+        : 'The photo is too blurred to trust. Take it again in better light, or type the bill in yourself.',
+      showFields: !failed,
+      hasPhoto: !s.blank,
+      photoOpen: s.photoOpen,
+      fieldsOpen: s.chooser === null && !s.dupeAsk,
+      actionsVisible: s.chooser === null && !s.retakeAsk && !s.dupeDetail && !s.dupeAsk,
+      retakeAsk: s.retakeAsk,
+      abandonLabel: s.blank ? 'Start again' : 'Retake',
+      retakeAskLine: s.blank
+        ? 'Start again? What you have typed goes with it.'
+        : 'Take it again? What you changed here goes with it.',
+      retakeGoLabel: s.blank ? 'Start again' : 'Take it again',
+      chooserOpen: s.chooser !== null,
+      chooserTitle: s.chooser === 'vendor' ? 'Who is this bill from?' : (s.chooser === 'category' ? 'What was this for?' : 'Which account paid this?'),
+      chooserCancel: (s.chooser === 'vendor' ? hasVendor : (s.chooser === 'category' ? true : hasPayer)) ? ('Cancel · keep ' + (s.chooser === 'vendor' ? s.vendor : (s.chooser === 'category' ? s.category : s.paidFrom))) : 'Cancel',
+      chooserOptions: chooserOptions,
+
+      amountEditing: amountOpen,
+      amountFlagged: !amountOpen && risk === 'amount',
+      amountPlain: !amountOpen && risk !== 'amount',
+      amountShown: hasAmount ? s.amount : '—',
+      amountLabel: hasAmount ? 'Amount, MVR ' + s.amount + ', tap to change' : 'Add the amount',
+      amount: s.amount,
+      amountError: amountBad,
+      amountInvalid: amountBad ? 'true' : 'false',
+      amountFlagLabel: hasAmount ? 'Amount · please check' : 'Amount is missing',
+      showAmountTick: hasAmount,
+      amountInputStyle: 'flex-grow: 1; min-width: 0; min-height: 56px; padding: 0 10px; background: #FFFFFF; color: #141414; font: 700 30px "Barlow Condensed", sans-serif; font-variant-numeric: tabular-nums; border: ' + (amountBad ? '4px solid #141414' : '2px solid #141414') + ';',
+
+      vendorShown: hasVendor ? s.vendor : 'Who is this from?',
+      vendorLabel: hasVendor ? 'From ' + s.vendor + ', tap to change' : 'Choose who this bill is from',
+      vendorRowClass: risk === 'vendor' ? 'on-yellow' : '',
+      vendorRowStyle: risk === 'vendor'
+        ? 'padding: 8px 20px 10px; margin-bottom: 4px; display: flex; flex-direction: column; gap: 2px; background: #F2C300; color: #141414;'
+        : 'padding: 4px 20px 8px; display: flex; flex-direction: column; gap: 2px; color: #141414;',
+      vendorNoteStyle: risk === 'vendor'
+        ? 'font: 600 14px Barlow, sans-serif; color: #141414;'
+        : 'font: 400 14px Barlow, sans-serif; color: #6B7078;',
+      vendorNote: !hasVendor
+        ? 'Tap to say who the bill is from'
+        : (s.blank
+          ? 'You are typing this one in'
+          : 'Bill dated 14 Sep 2026 · paid in full · we have read 11 bills from them before'),
+      dateLine: s.blank
+        ? 'You are typing this one in'
+        : 'Bill dated 14 Sep 2026 · paid in full · we have read 11 bills from them before',
+
+      payerShown: hasPayer ? s.paidFrom : 'Choose',
+      payerLabel: hasPayer ? 'Paid from ' + this.maskLabel(s.paidFrom) + ', tap to change' : 'Choose which account paid',
+      payerNote: !hasPayer ? 'Pick the account the money left' : 'We used the same account as last time',
+      payerRowClass: risk === 'payer' ? 'on-yellow' : '',
+      payerRowStyle: 'display: grid; grid-template-columns: minmax(0, 1fr) 150px; align-items: center; min-height: 56px; border: 0; border-top: 1px solid #E6E7EA; color: #141414; text-align: left; cursor: pointer; padding: 0 0 0 ' + (risk === 'payer' ? '10px' : '0') + '; font: inherit; background: ' + (risk === 'payer' ? '#F2C300' : 'none') + ';',
+      payerLabelStyle: 'display: flex; flex-direction: column; gap: 2px; color: ' + (risk === 'payer' ? '#141414' : '#6B7078') + ';',
+      payerNoteStyle: 'font: 400 12px Barlow, sans-serif; color: ' + (risk === 'payer' ? '#141414' : '#6B7078') + ';',
+      payerValueStyle: 'font: 600 15px Barlow, sans-serif; text-align: right; padding-right: 10px; border-right: 2px solid #141414; align-self: stretch; display: flex; align-items: center; justify-content: flex-end; color: ' + (hasPayer ? '#141414' : '#6B7078') + ';',
+
+      categoryShown: s.category,
+      categoryLabel: 'What for, ' + s.category + ' on the Hotel project, tap to change',
+
+      gstShown: gstVal === null ? '—' : this.money(gstVal),
+      gstRowNote: gstVal === null ? 'Worked out once the amount is in' : 'Worked out from the amount · tap to see why',
+      gstExplain: s.gstExplain,
+
+      billNo: s.billNo,
+      billNoShown: s.billNo === '' ? 'Add' : s.billNo,
+      billLabel: s.billNo === '' ? 'Add the bill number' : 'Bill number ' + s.billNo + ', tap to change',
+      billEditing: billOpen,
+      billFlagged: !billOpen && risk === 'bill',
+      billQuiet: !billOpen && risk !== 'bill',
+      billTick: !s.billEditing && risk !== 'bill' && !billRisky && !s.blank,
+      billWarn: !s.billEditing && risk !== 'bill' && billRisky,
+      billQuietLabel: s.blank ? 'Bill no. · add it later' : (billRisky ? 'Bill no. · still to check' : 'Bill no. · checked'),
+      billQuietLabelStyle: 'display: flex; align-items: center; gap: 6px; font: 700 12px "Barlow Condensed", sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: ' + (s.blank ? '#6B7078' : (billRisky ? '#141414' : '#167A41')) + ';',
+      billQuietValueStyle: 'font: 600 15px Barlow, sans-serif; text-align: right; padding-right: 10px; border-right: 2px solid #141414; align-self: stretch; display: flex; align-items: center; justify-content: flex-end; color: ' + (s.billNo === '' ? '#6B7078' : '#141414') + ';',
+
+      isDuplicate: dupeOpen && !s.dupeDetail && !s.dupeAsk,
+      dupeDetail: s.dupeDetail,
+      dupeStripStyle: 'display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; margin-bottom: 10px; background: ' + (risk === 'dupe' ? '#F2C300' : '#141414') + '; color: ' + (risk === 'dupe' ? '#141414' : '#FFFFFF') + ';',
+      dupeStripClass: risk === 'dupe' ? 'on-yellow' : 'on-ink',
+      dupeOpenBtnStyle: 'min-height: 44px; padding: 0 14px; cursor: pointer; font: 700 14px "Barlow Condensed", sans-serif; letter-spacing: 0.08em; text-transform: uppercase; ' + (risk === 'dupe' ? 'border: 0; background: #141414; color: #F2C300;' : 'border: 2px solid #FFFFFF; background: none; color: #FFFFFF;'),
+      dupeKeepBtnStyle: 'min-height: 44px; padding: 0 14px; background: none; cursor: pointer; font: 700 14px "Barlow Condensed", sans-serif; letter-spacing: 0.08em; text-transform: uppercase; border: 2px solid ' + (risk === 'dupe' ? '#141414' : '#FFFFFF') + '; color: ' + (risk === 'dupe' ? '#141414' : '#FFFFFF') + ';',
+      dupePending: dupeOpen,
+      dupeResolved: !dupeOpen,
+      dupeLine: dupeOpen
+        ? 'Same supplier, same day, same amount as one already recorded. Look before you confirm.'
+        : (s.dupeCleared ? 'You marked this as a different bill from the 14 Sep one.' : 'No duplicate found.'),
+      dupeTextStyle: dupeOpen ? 'color: #141414; font-weight: 600;' : '',
+
+      tinShown: s.blank ? 'Add' : '1024567890123',
+      methodShown: s.blank ? 'Add' : 'Bank transfer',
+      linesShown: s.blank ? '—' : '4',
+
+      pillOk: !failed && pending === 0 && !s.blank,
+      pillWarn: failed || pending > 0 || s.blank,
+      pillText: failed
+        ? 'Not read'
+        : (s.blank
+          ? (pending > 0 ? 'Typing it in · ' + pending + (pending === 1 ? ' thing left' : ' things left') : 'Typing it in · ready')
+          : (pending === 0 ? 'Read · all checked' : 'Read · ' + pending + (pending === 1 ? ' thing to check' : ' things to check'))),
+      pillStyle: 'display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #141414; color: ' + (!failed && pending === 0 && !s.blank ? '#FFFFFF' : '#F2C300') + '; font: 700 13px "Barlow Condensed", sans-serif; letter-spacing: 0.1em; text-transform: uppercase;',
+
+      confirmAriaDisabled: blockers > 0 ? 'true' : 'false',
+      confirmClass: (blockers === 0 && risk === 'none') ? 'on-yellow' : '',
+      uploadsTitle: 'Waiting',
+      uploadsEmptyBody: staff
+        ? 'Every bill you snap shows here with whether it has reached the office yet.'
+        : 'Bills you keep for later, and anything snapped while you were offline, sit here until they are read.',
+      dupeDetailClass: risk === 'dupe' ? 'on-yellow' : '',
+      dupeDetailStyle: 'padding: 12px 14px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 10px; border: 2px solid #141414; background: ' + (risk === 'dupe' ? '#F2C300' : '#FFFFFF') + ';',
+      showConfirmReason: blockers > 0,
+      confirmDescribedBy: blockers > 0 ? 'sf-confirm-reason' : '',
+      confirmReason: !hasAmount
+        ? 'Put the amount in before you record this.'
+        : (!hasPayer ? 'Choose which account paid before you record this.' : 'Say who the bill is from before you record it.'),
+      confirmTop: blockers > 0
+        ? (!hasAmount ? 'Add the amount' : (!hasPayer ? 'Choose the account' : 'Add the supplier'))
+        : (dupeOpen ? 'Check for a duplicate' : (offline ? 'Hold MVR ' + s.amount : 'Record MVR ' + s.amount)),
+      showConfirmSub: blockers === 0,
+      confirmSub: dupeOpen
+        ? 'one like this is already recorded'
+        : (offline ? 'on this phone, from ' + s.paidFrom : 'from ' + s.paidFrom),
+      confirmAria: blockers > 0
+        ? (!hasAmount ? 'Put the amount in before you record this bill' : (!hasPayer ? 'Choose which account paid before you record this bill' : 'Say who the bill is from before you record it'))
+        : (dupeOpen
+          ? 'Check for a duplicate: one like this is already recorded'
+          : ((offline ? 'Hold ' : 'Record ') + 'MVR ' + s.amount + ' from ' + this.maskLabel(s.paidFrom))),
+      confirmStyle: (blockers > 0)
+        ? 'min-height: 60px; background: #FFFFFF; border: 2px solid #6B7078; color: #6B7078; display: flex; align-items: center; justify-content: center; gap: 10px; font: 700 18px "Barlow Condensed", sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: not-allowed;'
+        : (risk === 'none'
+          ? 'min-height: 60px; background: #F2C300; border: 0; color: #141414; display: flex; align-items: center; justify-content: center; gap: 10px; font: 700 18px "Barlow Condensed", sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;'
+          : 'min-height: 60px; background: #141414; border: 0; color: #F2C300; display: flex; align-items: center; justify-content: center; gap: 10px; font: 700 18px "Barlow Condensed", sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;'),
+      moreOpen: s.moreOpen,
+      moreText: s.moreOpen ? 'Hide the other details' : 'See the other details',
+
+      doneTitle: offline ? 'Held.' : 'Recorded.',
+      recordedLine: s.blank ? 'Typed in by you · recorded just now' : 'Bill dated 14 Sep 2026 · recorded just now',
+      savedLine: offline
+        ? 'Held on this phone · it goes to your books and OneDrive when you are back online'
+        : 'Bill saved to OneDrive as ' + (s.blank ? '2026-09-19' : '2026-09-14') + '_' + initials + '_MVR' + this.fmt(amountVal === null ? 0 : amountVal) + '_' + (s.billNo === '' ? 'noref' : s.billNo) + '.jpg',
+      undoOpen: s.undoLeft > 0,
+      undoClosed: s.undoLeft === 0,
+      undoLeft: s.undoLeft,
+      postedLine: s.undoLeft > 0
+        ? (offline ? 'Held on this phone' : 'Posted to your books')
+        : (offline ? 'Held on this phone · open it to remove it' : 'Posted to your books · open it to reverse it'),
+
+      noop: () => {},
+      startStaff: () => this.setState({ staffSeen: true }),
+      toggleBalanced: () => this.setState({ explainBalanced: !this.state.explainBalanced }),
+      toggleArchive: () => this.setState({ explainArchive: !this.state.explainArchive }),
+      openBill: () => this.setState({ screen: 'bill', viewBill: { who: s.vendor, what: s.category + ' · Hotel', amount: amountVal === null ? 0 : amountVal, date: s.blank ? '19 Sep' : '14 Sep', paidFrom: s.paidFrom, billNo: s.billNo === '' ? '—' : s.billNo, dir: 'out' } }),
+      leaveBill: () => this.setState({ screen: 'home', viewBill: null, voidAsk: false, displayTotal: this.state.total }),
+      goNoBill: () => { this.allStop(); this.setState({ screen: 'nobill', nbPhoto: false, nbAmount: '', nbWhat: '', nbNote: '', nbSelf: false, nbTouched: false, noticeLeft: 0 }); },
+      goSpendBill: () => { this.allStop(); this.setState({ screen: 'snap', nbPhoto: false, noticeLeft: 0 }); },
+      goCount: () => { this.allStop(); this.setState({ screen: 'count', countAmount: '', countReason: '', countTouched: false, noticeLeft: 0 }); },
+      goBoxes: () => { this.allStop(); this.setState({ screen: 'boxes', noticeLeft: 0 }); },
+      leaveEntry: () => { this.allStop(); this.setState({ screen: 'cash', noticeLeft: 0 }); },
+      leaveBoxes: () => { this.allStop(); this.setState({ screen: 'home', displayTotal: this.state.total, noticeLeft: 0 }); },
+      onNbAmount: (ev) => this.setState({ nbAmount: ev.target.value, nbTouched: true }),
+      onNbNote: (ev) => this.setState({ nbNote: ev.target.value, nbTouched: true }),
+      toggleSelf: () => this.setState({ nbSelf: !this.state.nbSelf, nbTouched: true }),
+      onCountAmount: (ev) => this.setState({ countAmount: ev.target.value, countReason: '', countTouched: true }),
+      askTopUp: () => { this.allStop(); this.startNotice('Asked the office for a top-up. They can see your box.', null); },
+      recordNoBill: () => {
+        if (nbBlocked || nbOverspend) { return; }
+        this.allStop();
+        this.cashUndo = { boxLeft: s.boxLeft, boxSpends: s.boxSpends, owed: s.owed };
+        this.startNotice('Recorded · MVR ' + s.nbAmount + ' · ' + s.nbWhat + (s.nbPhoto ? ' · bill attached.' : ' · no bill.'), 'cash');
+        this.setState({
+          screen: 'cash',
+          boxLeft: s.nbSelf ? s.boxLeft : s.boxLeft - nbVal,
+          owed: s.nbSelf ? s.owed + nbVal : s.owed,
+          boxSpends: [{ what: s.nbWhat, note: s.nbSelf ? (s.nbNote === '' ? 'You paid it yourself' : s.nbNote + ' · you paid it yourself') : s.nbNote, amount: nbVal, bill: s.nbPhoto }].concat(s.boxSpends),
+          nbAmount: '', nbWhat: '', nbNote: '', nbSelf: false, nbTouched: false
+        });
+      },
+      recordCount: () => {
+        if (countBlocked) { return; }
+        this.allStop();
+        this.cashUndo = { boxLeft: s.boxLeft, boxSpends: s.boxSpends, owed: s.owed, boxCounted: s.boxCounted };
+        this.startNotice(countDiffers
+          ? 'Counted · MVR ' + this.money(Math.abs(countDiff)) + (countDiff < 0 ? ' short' : ' over') + ' · ' + s.countReason.toLowerCase() + '.'
+          : 'Counted · the box matches.', 'cash');
+        this.setState({
+          screen: 'cash',
+          boxLeft: countVal,
+          boxCounted: 'just now',
+          boxSpends: countDiffers
+            ? [{ what: 'Difference at the count', note: s.countReason, amount: Math.abs(countDiff), bill: false }].concat(s.boxSpends)
+            : s.boxSpends,
+          countAmount: '', countReason: '', countTouched: false
+        });
+      },
+      askVoid: () => this.setState({ voidAsk: true }),
+      cancelVoid: () => this.setState({ voidAsk: false }),
+      discardDupe: () => {
+        this.allStop();
+        this.dupeUndo = { held: this.state.held, queue: this.state.queue, heldIndex: s.heldIndex };
+        this.startNotice('Binned · we already have this one from 14 Sep.', 'review');
+        this.setState(this.freshReview({
+          screen: 'home', undoLeft: 0, displayTotal: this.state.total,
+          held: s.heldIndex >= 0 ? this.state.held.filter((h, i) => i !== s.heldIndex) : this.state.held,
+          queue: s.heldIndex >= 0 && this.state.queue > 0 ? this.state.queue - 1 : this.state.queue
+        }));
+      },
+      undoNotice: () => {
+        this.stopNotice();
+        const to = this.state.noticeUndo;
+        if (to === 'bill' && this.voidUndo) {
+          const b = this.voidUndo;
+          this.voidUndo = null;
+          this.setState({ screen: 'home', noticeLeft: 0, total: b.total, cash: b.cash, displayTotal: b.total, entries: b.entries });
+          return;
+        }
+        if (to === 'queue' && this.keepUndo) {
+          const k = this.keepUndo;
+          this.keepUndo = null;
+          this.setState(this.freshReview(Object.assign({ screen: 'review', noticeLeft: 0, held: k.held, queue: k.queue }, k.bill)));
+          return;
+        }
+        const d = this.dupeUndo;
+        this.dupeUndo = null;
+        this.setState(this.freshReview(Object.assign({ screen: 'review', noticeLeft: 0 }, d ? { held: d.held, queue: d.queue, heldIndex: d.heldIndex } : {})));
+      },
+      goSnap: () => { this.allStop(); this.setState(this.freshReview({ screen: 'snap', justAdded: false, tries: 0, undoLeft: 0, displayTotal: this.state.total })); },
+      leaveSnap: () => {
+        this.allStop();
+        if (staff) { this.setState({ screen: 'uploads', uploadsFrom: 'snap' }); }
+        else { this.setState({ screen: 'home', justAdded: false, undoLeft: 0, displayTotal: this.state.total }); }
+      },
+      goUploads: () => this.setState({ screen: 'uploads', uploadsFrom: screen }),
+      leaveUploads: () => this.setState({ screen: s.uploadsFrom === 'snap' ? 'snap' : (staff ? 'snap' : 'home') }),
+      toggleFlash: () => this.setState({ flashOn: !this.state.flashOn }),
+      takePhoto: () => {
+        if (blocked) { return; }
+        if (holder) { this.setState({ screen: 'nobill', nbPhoto: true, nbAmount: '1,200.00', nbWhat: '', nbNote: '', nbSelf: false, nbTouched: false }); return; }
+        if (staff) {
+          this.setState({
+            screen: 'sent',
+            held: [{ who: 'Bill · Hotel project', note: offline ? 'Waiting for signal' : 'Sent to the office' }].concat(this.state.held),
+            queue: offline ? this.state.queue + 1 : this.state.queue
+          });
+          return;
+        }
+        this.setState(this.freshReview({ screen: 'review' }));
+      },
+      fromGallery: () => {
+        if (holder) { this.setState({ screen: 'nobill', nbPhoto: true, nbAmount: '1,200.00', nbWhat: '', nbNote: '', nbSelf: false, nbTouched: false }); return; }
+        if (staff) {
+          this.setState({ screen: 'sent', held: [{ who: 'Bill · Hotel project', note: 'Sent to the office' }].concat(this.state.held) });
+          return;
+        }
+        this.setState(this.freshReview({ screen: 'review' }));
+      },
+      typeFromCamera: () => this.setState(this.blankReview({ screen: 'review' })),
+      retryPhoto: () => this.setState(this.freshReview({ screen: 'snap', tries: this.state.tries + 1 })),
+      askRetake: () => {
+        if (this.state.touched) { this.setState({ retakeAsk: true, amountEditing: false, billEditing: false, chooser: null, dupeDetail: false, dupeAsk: false }); }
+        else { this.setState(this.freshReview({ screen: 'snap' })); }
+      },
+      doRetake: () => this.setState(this.freshReview({ screen: 'snap' })),
+      cancelRetake: () => this.setState({ retakeAsk: false }),
+      keepForLater: () => {
+        const who = hasVendor ? s.vendor : 'Bill · not read yet';
+        const reopen = s.heldIndex >= 0;
+        this.allStop();
+        this.keepUndo = {
+          held: this.state.held,
+          queue: this.state.queue,
+          bill: { vendor: s.vendor, amount: s.amount, paidFrom: s.paidFrom, category: s.category, billNo: s.billNo, blank: s.blank, manualEntry: s.manualEntry, heldIndex: s.heldIndex }
+        };
+        const row = { who: who, vendor: s.vendor, note: 'Waiting to be read', amount: amountVal, date: '14 Sep', paidFrom: s.paidFrom, category: s.category, billNo: s.billNo, blank: s.blank };
+        const nextHeld = reopen
+          ? this.state.held.map((h, i) => (i === s.heldIndex ? row : h))
+          : [row].concat(this.state.held);
+        const nextQueue = reopen ? this.state.queue : this.state.queue + 1;
+        this.startNotice('Kept. ' + nextQueue + (nextQueue === 1 ? ' bill waiting to be read.' : ' bills waiting to be read.'), 'queue');
+        this.setState(this.freshReview({
+          screen: 'home',
+          undoLeft: 0,
+          displayTotal: this.state.total,
+          queue: nextQueue,
+          held: nextHeld
+        }));
+      },
+      typeItIn: () => this.setState(this.blankReview({})),
+      notDuplicate: () => this.setState({ dupeCleared: true, dupeDetail: false, dupeAsk: false, touched: true }),
+      openDupe: () => this.setState({ dupeDetail: true }),
+      closeDupe: () => this.setState({ dupeDetail: false }),
+      openPhoto: () => this.setState({ photoOpen: true }),
+      closePhoto: () => this.setState({ photoOpen: false }),
+      toggleGstExplain: () => this.setState({ gstExplain: !this.state.gstExplain }),
+      onChooserKey: onChooserKey,
+      openPayer: () => { grab('sf-trig-payer'); this.setState({ chooser: 'payer', amountEditing: false, billEditing: false }); },
+      openVendor: () => { grab('sf-trig-vendor'); this.setState({ chooser: 'vendor', amountEditing: false, billEditing: false }); },
+      openCategory: () => { grab('sf-trig-category'); this.setState({ chooser: 'category', amountEditing: false, billEditing: false }); },
+      closeChooser: () => this.setState({ chooser: null }),
+      editAmount: () => this.setState({ amountEditing: true, billEditing: false, chooser: null, dupeAsk: false }),
+      onAmount: (ev) => this.setState({ amount: ev.target.value, touched: true }),
+      saveAmount: () => { if (!amountBad) { this.setState({ amountEditing: false, amountSettled: true }); } },
+      settleAmount: () => this.setState({ amountSettled: true }),
+      editBillNo: () => this.setState({ billEditing: true, amountEditing: false, chooser: null, dupeAsk: false }),
+      onBillNo: (ev) => this.setState({ billNo: ev.target.value, touched: true }),
+      saveBillNo: () => this.setState({ billEditing: false, billSettled: true }),
+      settleBillNo: () => this.setState({ billSettled: true }),
+      toggleMore: () => this.setState({ moreOpen: !this.state.moreOpen }),
+
+      confirm: () => {
+        if (blockers > 0) {
+          if (!hasAmount) { this.setState({ amountEditing: true, billEditing: false, chooser: null, dupeAsk: false }); }
+          else if (!hasPayer) { this.triggerId = 'sf-trig-payer'; this.setState({ chooser: 'payer', amountEditing: false, billEditing: false, dupeAsk: false }); }
+          else { this.triggerId = 'sf-trig-vendor'; this.setState({ chooser: 'vendor', amountEditing: false, billEditing: false, dupeAsk: false }); }
+          return;
+        }
+        if (dupeOpen) { this.setState({ dupeAsk: true, amountEditing: false, billEditing: false, chooser: null }); return; }
+        postBill();
+      },
+      recordBoth: () => { if (blockers === 0) { postBill(); } },
+      undo: () => {
+        this.stopTimers();
+        this.stopUndo();
+        const back = this.state.lastPosted;
+        const restored = this.state.total + back;
+        const rest = this.state.entries.slice(1);
+        const evicted = this.state.lastEvicted;
+        this.startNotice('Not recorded · MVR ' + this.money(back) + ' put back.');
+        this.setState({
+          screen: 'home',
+          total: restored,
+          displayTotal: restored,
+          cash: this.state.lastFromCash ? this.state.cash + back : this.state.cash,
+          entries: evicted ? rest.concat([evicted]) : rest,
+          lastEvicted: null,
+          held: this.state.lastHeld === null ? this.state.held : this.state.lastHeld,
+          queue: this.state.lastHeld === null ? this.state.queue : this.state.lastQueue,
+          lastHeld: null,
+          ledgerStarted: this.state.entries.length > 1,
+          undoLeft: 0,
+          justAdded: false
+        });
+      },
+      snapAnother: () => { this.allStop(); this.setState(this.freshReview({ screen: 'snap', undoLeft: 0, displayTotal: this.state.total })); },
+      backHome: () => {
+        this.stopTimers();
+        this.stopTail();
+        const from = this.state.displayTotal;
+        this.setState(this.freshReview({ screen: 'home', justAdded: true }));
+        this.animateTotal(from, this.state.total);
+        this.tailTimer = setTimeout(() => { this.tailTimer = null; this.setState({ justAdded: false }); }, 900);
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,652 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-19T04:10:00+05:00",
+  "title": "Design System: Sentryfi",
+  "source": {
+    "world": "Site Board",
+    "chosen": "2026-09-19",
+    "seedKey": "49afc33d",
+    "artifacts": [
+      "design/project/App.dc.html",
+      "design/project/Desktop.dc.html",
+      "design/project/Brand.dc.html",
+      "brand/sentryfi-mark.svg",
+      "brand/sentryfi-logo.svg",
+      "brand/sentryfi-logo-on-dark.svg",
+      "brand/sentryfi-app-icon.svg"
+    ],
+    "gaps": [
+      "No empty, offline, or error states built",
+      "No night board (ink ground) built; planned to follow device appearance with a Settings override and a keep-daylight lock",
+      "No receipt raster; the receipt is a placeholder of paper-toned bars",
+      "No hover or active states; only :focus-visible is styled",
+      "No disabled or error input states"
+    ]
+  },
+  "extensions": {
+    "colorMeta": {
+      "signal-yellow": {
+        "role": "primary",
+        "displayName": "Signal Yellow",
+        "canonical": "#F2C300",
+        "tonalRamp": [
+          "oklch(22% 0.06 92)",
+          "oklch(34% 0.09 92)",
+          "oklch(46% 0.12 92)",
+          "oklch(58% 0.15 92)",
+          "oklch(70% 0.17 92)",
+          "oklch(83% 0.17 92)",
+          "oklch(91% 0.10 92)",
+          "oklch(96% 0.04 92)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#141414",
+        "tonalRamp": [
+          "oklch(14% 0 0)",
+          "oklch(18% 0 0)",
+          "oklch(28% 0 0)",
+          "oklch(40% 0 0)",
+          "oklch(53% 0 0)",
+          "oklch(68% 0 0)",
+          "oklch(84% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "board-white": {
+        "role": "neutral",
+        "displayName": "Board White",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(30% 0 0)",
+          "oklch(45% 0 0)",
+          "oklch(60% 0 0)",
+          "oklch(75% 0 0)",
+          "oklch(88% 0 0)",
+          "oklch(96% 0 0)",
+          "oklch(100% 0 0)"
+        ]
+      },
+      "concrete": {
+        "role": "neutral",
+        "displayName": "Concrete",
+        "canonical": "#6B7078",
+        "tonalRamp": [
+          "oklch(16% 0.012 260)",
+          "oklch(26% 0.014 260)",
+          "oklch(36% 0.015 260)",
+          "oklch(46% 0.015 260)",
+          "oklch(53% 0.015 260)",
+          "oklch(68% 0.012 260)",
+          "oklch(84% 0.008 260)",
+          "oklch(95% 0.004 260)"
+        ]
+      },
+      "money-in": {
+        "role": "semantic",
+        "displayName": "Money In",
+        "canonical": "#167A41",
+        "tonalRamp": [
+          "oklch(16% 0.05 152)",
+          "oklch(26% 0.08 152)",
+          "oklch(38% 0.11 152)",
+          "oklch(50% 0.13 152)",
+          "oklch(62% 0.14 152)",
+          "oklch(74% 0.12 152)",
+          "oklch(86% 0.08 152)",
+          "oklch(95% 0.03 152)"
+        ]
+      },
+      "money-out": {
+        "role": "semantic",
+        "displayName": "Money Out",
+        "canonical": "#C62B20",
+        "tonalRamp": [
+          "oklch(16% 0.07 30)",
+          "oklch(28% 0.11 30)",
+          "oklch(40% 0.15 30)",
+          "oklch(53% 0.19 30)",
+          "oklch(64% 0.18 30)",
+          "oklch(75% 0.13 30)",
+          "oklch(86% 0.07 30)",
+          "oklch(95% 0.03 30)"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#E6E7EA",
+        "tonalRamp": [
+          "oklch(15% 0.004 260)",
+          "oklch(28% 0.004 260)",
+          "oklch(42% 0.004 260)",
+          "oklch(56% 0.004 260)",
+          "oklch(70% 0.004 260)",
+          "oklch(82% 0.004 260)",
+          "oklch(92% 0.004 260)",
+          "oklch(97% 0.002 260)"
+        ]
+      },
+      "camera-ground": {
+        "role": "neutral",
+        "displayName": "Camera Ground",
+        "canonical": "#0B0B0C",
+        "tonalRamp": [
+          "oklch(10% 0.003 280)",
+          "oklch(16% 0.003 280)",
+          "oklch(26% 0.003 280)",
+          "oklch(38% 0.003 280)",
+          "oklch(52% 0.003 280)",
+          "oklch(66% 0.003 280)",
+          "oklch(82% 0.003 280)",
+          "oklch(95% 0.002 280)"
+        ]
+      },
+      "camera-muted": {
+        "role": "neutral",
+        "displayName": "Camera Muted",
+        "canonical": "#A9ADB6",
+        "tonalRamp": [
+          "oklch(16% 0.008 260)",
+          "oklch(28% 0.010 260)",
+          "oklch(40% 0.012 260)",
+          "oklch(52% 0.012 260)",
+          "oklch(64% 0.012 260)",
+          "oklch(74% 0.010 260)",
+          "oklch(86% 0.008 260)",
+          "oklch(95% 0.004 260)"
+        ]
+      },
+      "camera-tile": {
+        "role": "neutral",
+        "displayName": "Camera Tile",
+        "canonical": "#1E1E21",
+        "tonalRamp": [
+          "oklch(14% 0.004 280)",
+          "oklch(22% 0.004 280)",
+          "oklch(32% 0.004 280)",
+          "oklch(44% 0.004 280)",
+          "oklch(56% 0.004 280)",
+          "oklch(70% 0.004 280)",
+          "oklch(84% 0.004 280)",
+          "oklch(95% 0.002 280)"
+        ]
+      },
+      "camera-tile-edge": {
+        "role": "neutral",
+        "displayName": "Camera Tile Edge",
+        "canonical": "#34353A",
+        "tonalRamp": [
+          "oklch(15% 0.006 280)",
+          "oklch(24% 0.006 280)",
+          "oklch(31% 0.006 280)",
+          "oklch(44% 0.006 280)",
+          "oklch(56% 0.006 280)",
+          "oklch(70% 0.006 280)",
+          "oklch(84% 0.004 280)",
+          "oklch(95% 0.002 280)"
+        ]
+      },
+      "grabber": {
+        "role": "neutral",
+        "displayName": "Grabber",
+        "canonical": "#D6D8DD",
+        "tonalRamp": [
+          "oklch(15% 0.006 260)",
+          "oklch(28% 0.006 260)",
+          "oklch(42% 0.006 260)",
+          "oklch(56% 0.006 260)",
+          "oklch(70% 0.006 260)",
+          "oklch(80% 0.006 260)",
+          "oklch(88% 0.006 260)",
+          "oklch(96% 0.003 260)"
+        ]
+      },
+      "receipt-paper": {
+        "role": "neutral",
+        "displayName": "Receipt Paper",
+        "canonical": "#EDE9DF",
+        "tonalRamp": [
+          "oklch(16% 0.010 90)",
+          "oklch(28% 0.012 90)",
+          "oklch(42% 0.014 90)",
+          "oklch(56% 0.014 90)",
+          "oklch(70% 0.014 90)",
+          "oklch(82% 0.014 90)",
+          "oklch(93% 0.014 90)",
+          "oklch(97% 0.008 90)"
+        ]
+      },
+      "receipt-caption": {
+        "role": "neutral",
+        "displayName": "Receipt Caption",
+        "canonical": "#5A5648",
+        "tonalRamp": [
+          "oklch(16% 0.014 90)",
+          "oklch(26% 0.018 90)",
+          "oklch(35% 0.020 90)",
+          "oklch(43% 0.020 90)",
+          "oklch(55% 0.020 90)",
+          "oklch(68% 0.018 90)",
+          "oklch(84% 0.012 90)",
+          "oklch(95% 0.006 90)"
+        ]
+      },
+      "receipt-ink": {
+        "role": "neutral",
+        "displayName": "Receipt Ink",
+        "canonical": "#2A2C33",
+        "tonalRamp": [
+          "oklch(16% 0.009 273)",
+          "oklch(26% 0.012 273)",
+          "oklch(35% 0.013 273)",
+          "oklch(43% 0.013 273)",
+          "oklch(55% 0.013 273)",
+          "oklch(68% 0.012 273)",
+          "oklch(84% 0.008 273)",
+          "oklch(95% 0.004 273)"
+        ]
+      },
+      "receipt-line": {
+        "role": "neutral",
+        "displayName": "Receipt Line",
+        "canonical": "#B9B4A6",
+        "tonalRamp": [
+          "oklch(16% 0.014 91)",
+          "oklch(26% 0.018 91)",
+          "oklch(35% 0.020 91)",
+          "oklch(43% 0.020 91)",
+          "oklch(55% 0.020 91)",
+          "oklch(68% 0.018 91)",
+          "oklch(84% 0.012 91)",
+          "oklch(95% 0.006 91)"
+        ]
+      },
+      "receipt-figure": {
+        "role": "neutral",
+        "displayName": "Receipt Figure",
+        "canonical": "#8E8A7E",
+        "tonalRamp": [
+          "oklch(16% 0.013 92)",
+          "oklch(26% 0.016 92)",
+          "oklch(35% 0.018 92)",
+          "oklch(43% 0.018 92)",
+          "oklch(55% 0.018 92)",
+          "oklch(68% 0.016 92)",
+          "oklch(84% 0.011 92)",
+          "oklch(95% 0.005 92)"
+        ]
+      },
+      "receipt-rule": {
+        "role": "neutral",
+        "displayName": "Receipt Rule",
+        "canonical": "#C9C4B6",
+        "tonalRamp": [
+          "oklch(16% 0.014 91)",
+          "oklch(26% 0.018 91)",
+          "oklch(35% 0.020 91)",
+          "oklch(43% 0.020 91)",
+          "oklch(55% 0.020 91)",
+          "oklch(68% 0.018 91)",
+          "oklch(84% 0.012 91)",
+          "oklch(95% 0.006 91)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The one big figure or word per screen: 72px/0.9 for Recorded, 64px band total, 56px Review amount, 44px desktop journal title. Currency code at 22px or 20px on the same baseline."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Desktop aside amount (28px), project percentage (20px), and primary button labels (20px, 0.10em, uppercase)."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "The row's who line, the Review vendor, the Recorded summary, table total rows, Review field values (15px)."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Journal rows, black strip message, band bank-and-cash line (13px), input text. Tabular numerals."
+      },
+      "body-secondary": {
+        "displayName": "Body secondary",
+        "purpose": "Concrete-coloured descriptions, dates, filenames, captions at 13px and 12px in Barlow 400."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Field labels and column headers: 12px, 0.12em, uppercase, Concrete. Scales to 14px at 0.10em for the desktop rail and desktop buttons."
+      },
+      "label-section": {
+        "displayName": "Section label",
+        "purpose": "Section headings in ink: Cash & bank · today, Latest, Hotel · 48 rooms, Selected entry. 13px, 0.14em, uppercase."
+      },
+      "label-nav": {
+        "displayName": "Nav label",
+        "purpose": "Phone nav labels and camera captions at 11px, 0.10em, uppercase; the role tag at 0.12em."
+      },
+      "wordmark": {
+        "displayName": "Wordmark",
+        "purpose": "Sentryfi in Barlow 600 at -0.03em beside the mark; 56px in the SVG lockups, 58px on the brand sheet, 24px in the desktop rail."
+      },
+      "currency-code": {
+        "displayName": "Currency Code",
+        "purpose": "The MVR mark set on the same baseline as a display figure: 22px beside the 64px Home band total, 20px beside the 56px Review amount. Always paired with a display number, never used alone."
+      },
+      "currency-code-sm": {
+        "displayName": "Currency Code (small)",
+        "purpose": "The 20px currency mark used beside the 56px Review amount."
+      },
+      "title-sm": {
+        "displayName": "Title (small)",
+        "purpose": "Row names and field values: 15px, weight 600. The workhorse of the ruled list, the Review field values, the account chooser, and the desktop aside entry line."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shutter-lift-nav",
+        "value": "0 10px 24px rgba(20,20,20,0.35)",
+        "purpose": "The 76px shutter raised 40px out of the phone nav bar."
+      },
+      {
+        "name": "shutter-lift-camera",
+        "value": "0 12px 28px rgba(0,0,0,0.55)",
+        "purpose": "The 88px shutter on the camera ground."
+      },
+      {
+        "name": "receipt-lift",
+        "value": "0 30px 60px rgba(0,0,0,0.6)",
+        "purpose": "The placeholder receipt in the viewfinder, rotated -4deg."
+      }
+    ],
+    "surfaces": [
+      {
+        "name": "nav-glass",
+        "value": "background: rgba(20,20,20,0.88); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);",
+        "purpose": "The phone nav bar. The only blurred surface."
+      },
+      {
+        "name": "camera-control",
+        "value": "background: rgba(20,20,20,0.8); border: 1px solid rgba(255,255,255,0.14);",
+        "purpose": "44px close, back, and flash controls on the camera ground. No blur."
+      },
+      {
+        "name": "hazard-stripe",
+        "value": "repeating-linear-gradient(135deg, #F2C300 0 8px, #141414 8px 16px)",
+        "purpose": "The chevron swatch at the left edge of a deadline or blocker strip. 6/12px stripes in the desktop aside; 14/28px on the brand sheet swatch only."
+      },
+      {
+        "name": "graduation-ticks",
+        "value": "repeating-linear-gradient(90deg, #141414 0 2px, #E6E7EA 2px 35px)",
+        "purpose": "The graduated bar's track: 2px ink ticks every 35px, ten percent of the 350px phone content width."
+      },
+      {
+        "name": "focus-ring",
+        "value": "outline: 3px solid #F2C300; outline-offset: 2px;",
+        "purpose": ":focus-visible on every focusable element: ink by default, yellow on dark grounds."
+      },
+      {
+        "name": "selection",
+        "value": "background: #F2C300; color: #141414;",
+        "purpose": "::selection."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-site",
+        "value": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+        "purpose": "The one easing. Every screen-change animation uses it."
+      },
+      {
+        "name": "sf-rise",
+        "value": "@keyframes sf-rise { from { transform: translateY(40px); opacity: 0 } to { transform: none; opacity: 1 } } 420ms",
+        "purpose": "The Review sheet rising off the camera ground."
+      },
+      {
+        "name": "sf-pop",
+        "value": "@keyframes sf-pop { from { transform: scale(0.9); opacity: 0 } to { transform: none; opacity: 1 } } 480ms",
+        "purpose": "The Recorded shutter with its tick."
+      },
+      {
+        "name": "sf-slide",
+        "value": "@keyframes sf-slide { from { transform: translateX(48px); opacity: 0 } to { transform: none; opacity: 1 } } 600ms",
+        "purpose": "The new row sliding onto the rule when Home returns after a confirm."
+      },
+      {
+        "name": "band-count",
+        "value": "900ms, ease-out cubic (1 - (1 - t)^3) in script via requestAnimationFrame",
+        "purpose": "The band total re-counting to the new figure."
+      },
+      {
+        "name": "undo-window",
+        "value": "10 s, 1 s ticks",
+        "purpose": "The black strip's undo countdown after a confirm."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "390px",
+        "purpose": "Artboard width for Home, Snap, Review, Recorded. 20px gutters, 56px top safe padding, 16px nav inset, 112px bottom clearance."
+      },
+      {
+        "name": "desktop",
+        "value": "1280px",
+        "purpose": "Artboard width for the Accountant / CFO journal. 216px rail, fluid main with 28px gutters, 320px aside."
+      }
+    ],
+    "appearance": [
+      {
+        "name": "daylight-board",
+        "status": "shipped",
+        "value": "background #FFFFFF, text #141414"
+      },
+      {
+        "name": "night-board",
+        "status": "planned",
+        "value": "ink ground; follows the device appearance setting with a manual override in Settings and a keep-daylight lock for site use. Not built; the on-dark lockup (brand/sentryfi-logo-on-dark.svg) is the only night asset."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Band",
+      "kind": "custom",
+      "refersTo": "band",
+      "description": "The one yellow field per screen: section label, display figure with currency code on the baseline, and a tabular detail line.",
+      "html": "<div class=\"ds-band\"><div class=\"ds-band-label\">Cash &amp; bank · today</div><div class=\"ds-band-figure\"><span class=\"ds-band-ccy\">MVR</span><span>1,284,650</span></div><div class=\"ds-band-line\"><span>Bank <strong>1,204,650</strong></span><span>Cash <strong>80,000</strong></span><span class=\"ds-band-sync\">Synced 08:12 · illustrative</span></div></div>",
+      "css": ".ds-band { background: #F2C300; color: #141414; padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 6px; font-family: Barlow, 'Helvetica Neue', Arial, sans-serif; } .ds-band-label { font: 700 13px 'Barlow Condensed', sans-serif; letter-spacing: 0.14em; text-transform: uppercase; } .ds-band-figure { display: flex; align-items: baseline; gap: 8px; font: 700 64px/1 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; } .ds-band-ccy { font-size: 22px; } .ds-band-line { font: 500 13px Barlow, sans-serif; font-variant-numeric: tabular-nums; display: flex; gap: 14px; } .ds-band-line strong { font-weight: 700; } .ds-band-sync { margin-left: auto; }"
+    },
+    {
+      "name": "Chevron Strip",
+      "kind": "custom",
+      "refersTo": "chevron-strip",
+      "description": "Deadlines and blockers only. Ink strip with a hazard swatch at the left edge and one condensed sentence in yellow.",
+      "html": "<a class=\"ds-chevron\" href=\"#tax\"><span class=\"ds-chevron-swatch\"></span><span class=\"ds-chevron-text\">GST due in 9 days · MVR 21,480 · file by 28 Sep</span></a>",
+      "css": ".ds-chevron { display: flex; align-items: center; height: 40px; background: #141414; color: #F2C300; text-decoration: none; } .ds-chevron-swatch { width: 44px; height: 40px; flex-shrink: 0; background: repeating-linear-gradient(135deg, #F2C300 0 8px, #141414 8px 16px); } .ds-chevron-text { padding: 0 14px; font: 700 17px 'Barlow Condensed', sans-serif; letter-spacing: 0.02em; white-space: nowrap; } .ds-chevron:focus-visible { outline: 3px solid #F2C300; outline-offset: 2px; }"
+    },
+    {
+      "name": "Ruled Row",
+      "kind": "card",
+      "refersTo": "review-field",
+      "description": "A row on the rule: date, who and what, and the amount right-aligned against a continuous 2px ink vertical rule. Money In green with plus, Money Out red with a true minus.",
+      "html": "<div class=\"ds-rule\"><div class=\"ds-rule-row\"><div class=\"ds-rule-date\">18 Sep</div><div class=\"ds-rule-body\"><div class=\"ds-rule-who\">Steva Enterprises</div><div class=\"ds-rule-what\">Money in · advance · Hotel</div></div><div class=\"ds-rule-amt ds-in\">+250,000</div></div><div class=\"ds-rule-row\"><div class=\"ds-rule-date\">16 Sep</div><div class=\"ds-rule-body\"><div class=\"ds-rule-who\">Fuel Supplies Maldives</div><div class=\"ds-rule-what\">Fuel · Hotel</div></div><div class=\"ds-rule-amt ds-out\">−6,120</div></div></div>",
+      "css": ".ds-rule { display: flex; flex-direction: column; background: #FFFFFF; color: #141414; font-family: Barlow, 'Helvetica Neue', Arial, sans-serif; } .ds-rule-row { display: grid; grid-template-columns: 46px minmax(0, 1fr) 104px; column-gap: 10px; align-items: center; min-height: 58px; padding: 8px 0; box-sizing: border-box; border-top: 1px solid #E6E7EA; } .ds-rule-date { font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.06em; color: #6B7078; text-transform: uppercase; padding-top: 3px; } .ds-rule-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; } .ds-rule-who { font: 600 15px Barlow, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-rule-what { font: 400 13px Barlow, sans-serif; color: #6B7078; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-rule-amt { font: 600 17px Barlow, sans-serif; font-variant-numeric: tabular-nums; text-align: right; padding-right: 10px; border-right: 2px solid #141414; align-self: stretch; margin: -8px 0; display: flex; align-items: center; justify-content: flex-end; } .ds-in { color: #167A41; } .ds-out { color: #C62B20; }"
+    },
+    {
+      "name": "Graduated Bar",
+      "kind": "custom",
+      "refersTo": "band",
+      "description": "Project progress as a levelling staff: 2px ink ticks every ten percent, yellow fill with an ink leading edge, label and percentage above, caption below.",
+      "html": "<div class=\"ds-grad\"><div class=\"ds-grad-head\"><div class=\"ds-grad-label\">Hotel · 48 rooms</div><div class=\"ds-grad-pct\">62%</div></div><div class=\"ds-grad-track\"><div class=\"ds-grad-fill\" style=\"width: 62%\"></div></div><div class=\"ds-grad-cap\">MVR 8.4M spent of 13.5M budget · materials leading</div></div>",
+      "css": ".ds-grad { display: flex; flex-direction: column; gap: 8px; width: 350px; color: #141414; font-family: Barlow, 'Helvetica Neue', Arial, sans-serif; } .ds-grad-head { display: flex; align-items: baseline; justify-content: space-between; } .ds-grad-label { font: 700 13px 'Barlow Condensed', sans-serif; letter-spacing: 0.14em; text-transform: uppercase; } .ds-grad-pct { font: 700 20px/1 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums; } .ds-grad-track { height: 14px; position: relative; background: repeating-linear-gradient(90deg, #141414 0 2px, #E6E7EA 2px 35px); } .ds-grad-fill { position: absolute; left: 0; top: 0; bottom: 0; background: #F2C300; border-right: 2px solid #141414; } .ds-grad-cap { font: 400 12px Barlow, sans-serif; color: #6B7078; }"
+    },
+    {
+      "name": "Black Strip",
+      "kind": "custom",
+      "refersTo": "black-strip",
+      "description": "The app's single voice for confirmation, undo, and warnings. Message on the left, optional yellow action with a countdown on the right.",
+      "html": "<div class=\"ds-strip\"><span class=\"ds-strip-msg\">Posted to the books</span><button class=\"ds-strip-action\" type=\"button\"><span>Undo</span><span class=\"ds-strip-count\">10</span></button></div>",
+      "css": ".ds-strip { display: flex; align-items: center; justify-content: space-between; background: #141414; color: #FFFFFF; padding: 0 0 0 14px; min-height: 48px; font-family: Barlow, 'Helvetica Neue', Arial, sans-serif; } .ds-strip-msg { font: 500 14px Barlow, sans-serif; } .ds-strip-action { min-height: 48px; padding: 0 16px; background: none; border: 0; border-left: 1px solid #34353A; color: #F2C300; font: 700 15px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; gap: 8px; } .ds-strip-count { font-variant-numeric: tabular-nums; } .ds-strip-action:focus-visible { outline: 3px solid #F2C300; outline-offset: 2px; }"
+    },
+    {
+      "name": "Shutter",
+      "kind": "button",
+      "refersTo": "shutter",
+      "description": "An ink disc inside a yellow ring, the only circle in the interface. 76/58px in the nav, 88/68px on the camera, 84/64px on Recorded.",
+      "html": "<button class=\"ds-shutter\" type=\"button\" aria-label=\"Snap a bill\"><span class=\"ds-shutter-disc\"><svg width=\"28\" height=\"28\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4 8h3l2-3h6l2 3h3v11H4z\"></path><circle cx=\"12\" cy=\"13\" r=\"3.5\"></circle></svg></span></button>",
+      "css": ".ds-shutter { width: 76px; height: 76px; border-radius: 38px; background: #F2C300; border: 0; padding: 0; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 24px rgba(20,20,20,0.35); cursor: pointer; } .ds-shutter-disc { width: 58px; height: 58px; border-radius: 29px; background: #141414; color: #F2C300; display: flex; align-items: center; justify-content: center; } .ds-shutter:focus-visible { outline: 3px solid #F2C300; outline-offset: 2px; }"
+    },
+    {
+      "name": "Glass Nav",
+      "kind": "nav",
+      "refersTo": "nav-glass",
+      "description": "The phone's floating tinted-ink glass bar: five columns, icon over an 11px condensed label, active in yellow, the shutter raised out of the centre.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Main\"><a class=\"ds-nav-item ds-active\" href=\"#home\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 11l9-8 9 8v10h-6v-6H9v6H3z\"></path></svg><span>Home</span></a><a class=\"ds-nav-item\" href=\"#bills\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M6 3h12v18l-3-2-3 2-3-2-3 2z\"></path><path d=\"M9 8h6M9 12h6\"></path></svg><span>Bills</span></a><button class=\"ds-nav-shutter\" type=\"button\" aria-label=\"Snap a bill\"><span class=\"ds-nav-shutter-disc\"><svg width=\"28\" height=\"28\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4 8h3l2-3h6l2 3h3v11H4z\"></path><circle cx=\"12\" cy=\"13\" r=\"3.5\"></circle></svg></span></button><a class=\"ds-nav-item\" href=\"#cash\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"3\" y=\"7\" width=\"18\" height=\"12\"></rect><circle cx=\"12\" cy=\"13\" r=\"2.5\"></circle></svg><span>Cash</span></a><a class=\"ds-nav-item\" href=\"#more\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4 7h16M4 12h16M4 17h16\"></path></svg><span>More</span></a></nav>",
+      "css": ".ds-nav { width: 358px; height: 72px; margin-top: 48px; background: rgba(20,20,20,0.88); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: center; box-sizing: border-box; padding: 0 4px; } .ds-nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; height: 56px; justify-content: center; color: #FFFFFF; text-decoration: none; font: 700 11px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; } .ds-nav-item.ds-active { color: #F2C300; } .ds-nav-shutter { justify-self: center; width: 76px; height: 76px; border-radius: 38px; background: #F2C300; border: 0; padding: 0; display: flex; align-items: center; justify-content: center; margin-top: -40px; box-shadow: 0 10px 24px rgba(20,20,20,0.35); cursor: pointer; } .ds-nav-shutter-disc { width: 58px; height: 58px; border-radius: 29px; background: #141414; color: #F2C300; display: flex; align-items: center; justify-content: center; } .ds-nav-item:focus-visible, .ds-nav-shutter:focus-visible { outline: 3px solid #F2C300; outline-offset: 2px; }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ink fill, yellow condensed caps, 60px on phone. The confirm and snap-another actions.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12l5 5 9-11\"></path></svg><span>Confirm · Record it</span></button>",
+      "css": ".ds-btn-primary { height: 60px; width: 350px; background: #141414; border: 0; border-radius: 0; color: #F2C300; display: flex; align-items: center; justify-content: center; gap: 10px; font: 700 20px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; } .ds-btn-primary:focus-visible { outline: 3px solid #F2C300; outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "White fill with a 2px ink border and ink condensed caps. 52px on phone, 44px on desktop.",
+      "html": "<button class=\"ds-btn-secondary\" type=\"button\">Home</button>",
+      "css": ".ds-btn-secondary { height: 52px; width: 350px; background: #FFFFFF; border: 2px solid #141414; border-radius: 0; color: #141414; font: 700 18px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; } .ds-btn-secondary:focus-visible { outline: 3px solid #F2C300; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "The desktop journal filter: 36px, 2px ink border, square, with a condensed Concrete label.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-field-label\" for=\"ds-journal-search\">Filter</label><input class=\"ds-input\" id=\"ds-journal-search\" type=\"text\" placeholder=\"Account, vendor, project, amount\"></div>",
+      "css": ".ds-field { display: flex; align-items: center; gap: 8px; font-family: Barlow, 'Helvetica Neue', Arial, sans-serif; } .ds-field-label { font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #6B7078; } .ds-input { height: 36px; width: 320px; padding: 0 10px; border: 2px solid #141414; border-radius: 0; font: 500 14px Barlow, sans-serif; color: #141414; background: #FFFFFF; box-sizing: border-box; } .ds-input:focus-visible { outline: 3px solid #F2C300; outline-offset: 2px; }"
+    },
+    {
+      "name": "Review Field",
+      "kind": "input",
+      "refersTo": "review-field",
+      "description": "A 56px tappable field row on the Review sheet: label left, value right on the rule. A field the reader must check inverts to the yellow field with an info icon.",
+      "html": "<div class=\"ds-review\"><button class=\"ds-review-field\" type=\"button\"><span class=\"ds-review-label\">Paid from</span><span class=\"ds-review-value\">BML · MVR ····4471</span></button><button class=\"ds-review-field ds-flagged\" type=\"button\"><span class=\"ds-review-label\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"></circle><path d=\"M12 8v5M12 16h.01\"></path></svg><span>Bill no. · please check</span></span><span class=\"ds-review-value\">INV-12345</span></button></div>",
+      "css": ".ds-review { display: flex; flex-direction: column; width: 350px; background: #FFFFFF; font-family: Barlow, 'Helvetica Neue', Arial, sans-serif; } .ds-review-field { display: grid; grid-template-columns: minmax(0, 1fr) 150px; align-items: center; height: 56px; background: none; border: 0; border-top: 1px solid #E6E7EA; color: #141414; text-align: left; cursor: pointer; padding: 0; font: inherit; } .ds-review-label { display: flex; align-items: center; gap: 6px; font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #6B7078; } .ds-review-value { font: 600 15px Barlow, sans-serif; font-variant-numeric: tabular-nums; text-align: right; padding-right: 10px; border-right: 2px solid #141414; height: 56px; display: flex; align-items: center; justify-content: flex-end; } .ds-review-field.ds-flagged { background: #F2C300; padding-left: 10px; } .ds-review-field.ds-flagged .ds-review-label { color: #141414; } .ds-review-field:focus-visible { outline: 3px solid #F2C300; outline-offset: 2px; }"
+    },
+    {
+      "name": "Role Tag",
+      "kind": "chip",
+      "refersTo": "role-tag",
+      "description": "Ink block with white condensed caps beside the company name.",
+      "html": "<span class=\"ds-tag\">Owner</span>",
+      "css": ".ds-tag { display: inline-block; font: 700 11px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #FFFFFF; background: #141414; padding: 3px 6px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Site Board",
+    "overview": "Sentryfi's books are a construction site notice board read at arm's length in equatorial sun: a white board, ink lettering, and one signal-yellow field for whatever matters now. The world borrows from site signage and survey instruments (hazard chevrons for deadlines, a levelling-staff rule that every amount hangs on, a graduated bar with ticks, a stencil-weight condensed face) and refuses the dark bento dashboard of rounded glowing cards and the grid of metric tiles. Chosen 19 September 2026 (candidate 3 of 7 on the grounded list, seed key 49afc33d) and shipped first as three interactive artboards under `design/project/`: the phone flow (Home, Snap, Review, Recorded), the desktop journal, and the brand sheet.\n\nDensity is high and flat. Rows are 44 to 58px tall, separated by hairlines, with amounts right-aligned against a single 2px ink rule. Nothing is elevated except what physically lifts off the board: the shutter and the photographed receipt. Colour is rationed: one yellow field per screen, chevrons only on a countdown or a blocker, green and red only on amounts. Corners are square everywhere except the shutter, the brand mark, and the platform-masked app icon.\n\nThe signature interaction is the confirm loop: confirm posts the entry, Recorded shows the balanced journal with a ten-second undo in the black strip, and returning Home slides the new row onto the rule while the band's total counts down to the new figure. Motion is one exponential ease-out moment per screen change, never decoration.",
+    "keyCharacteristics": [
+      "White board, ink type, one signal-yellow field per screen",
+      "Every amount right-aligns to a single 2px ink vertical rule with hairline graduations per row",
+      "Barlow Condensed 700 uppercase labels with 0.10 to 0.14em tracking; Barlow 400/500/600 body with tabular numerals",
+      "Square corners on every field, strip, button, and input; circles only for the shutter and the mark",
+      "Flat by default; the only soft shadows lift the shutter and the photographed receipt",
+      "Hazard chevrons mean a deadline or a blocker, nothing else",
+      "One ease-out motion per screen change on `cubic-bezier(0.2, 0.8, 0.2, 1)`, 420 to 900ms"
+    ],
+    "rules": [
+      {
+        "name": "The One Yellow Field Rule",
+        "body": "Each screen carries exactly one signal-yellow field, and it marks the number or action that matters now. A second yellow surface competing for that job is a defect, not emphasis. Two things are exempt because they are not screen content: the shutter, which is persistent chrome and keeps its yellow everywhere, and the graduated bar fill, which is data. The camera project selector was yellow until 19 September 2026 and is now white for this reason.",
+        "section": "colors"
+      },
+      {
+        "name": "The Chevrons Mean Deadlines Rule",
+        "body": "The hazard stripe (`repeating-linear-gradient(135deg, #F2C300 0 8px, #141414 8px 16px)`) appears only on a countdown or a blocker: the GST deadline, the TIN blocker, the time-of-supply note. Never as decoration and never on a brand surface except the brand sheet's swatch.",
+        "section": "colors"
+      },
+      {
+        "name": "The Money Colours Are Text Rule",
+        "body": "Green and red colour amounts and status lines only. They never fill a field, a badge, or a button.",
+        "section": "colors"
+      },
+      {
+        "name": "The Condensed Names, Grotesque Reads Rule",
+        "body": "Barlow Condensed 700 is for labels, headings, figures, and button text. Anything a person reads as a sentence (descriptions, captions, strip messages in the black strip, empty-state copy when it exists) is set in Barlow.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "Every numeral that can sit under another numeral is `font-variant-numeric: tabular-nums`. Incoming amounts are prefixed \"+\", outgoing with U+2212 minus, never a hyphen.",
+        "section": "typography"
+      },
+      {
+        "name": "The Only Objects Cast Shadows Rule",
+        "body": "Shadows are reserved for the shutter and the photographed bill. Fields, strips, buttons, sheets, and tables are flat; the Review sheet rises with motion, not with a shadow.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Glass Is Navigation Rule",
+        "body": "Tinted ink glass with blur belongs to the phone nav bar only.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Yellow Follows The Risk Rule",
+        "body": "On Review the yellow field lands on whatever is most uncertain about the money, ranked by what it costs if wrong: a suspected duplicate first, then the amount, then the account that paid, then the bill number. Anything the user has opened outranks that list: a blocking question, then an open chooser (whose currently-set option carries the yellow), then an open editor. When nothing is uncertain the yellow moves to the Confirm button. A field that is uncertain but not first renders quiet, with an ink warning glyph and no fill."
+      },
+      {
+        "name": "The Strip Slot Rule",
+        "body": "Home has one strip slot directly under the band, 44px tall, holding exactly one thing: the undo strip while an undo is live, the reversal notice for six seconds after an undo, otherwise the GST countdown. They never stack and the slot never changes height. The undo strip is never drawn over the shutter."
+      },
+      {
+        "name": "The Plain Proof Rule",
+        "body": "Debit and credit vocabulary never appears on the phone. Recorded proves the entry in the owner own words and closes with one green line, Balanced, full journal on desktop. The journal lives in the desktop Accountant / CFO shell."
+      },
+      {
+        "name": "The Ring Follows The Ground",
+        "body": "The focus ring is 3px ink by default, because every primary surface is board white and signal yellow on white is 1.67 to 1, below the 3 to 1 floor a focus indicator has to clear. Dark grounds carry class on-ink and flip the ring to yellow; white cards and sheets sitting on a dark ground carry class on-board and flip it back; yellow fields carry class on-yellow and keep it ink. Corrected on 19 September 2026: the ring shipped yellow everywhere and this system had recorded the defect as the rule."
+      },
+      {
+        "name": "The Latin-Only Casing Rule",
+        "body": "Uppercase and positive tracking belong to the Latin labels, not to the label role. A Dhivehi build sets the same labels in sentence case with no tracking."
+      },
+      {
+        "name": "The Commitment Names The Money Rule",
+        "body": "The button that performs the irreversible act carries the figure and the account, not a verb: Record MVR 3,450 over from BML MVR ending 4471. It falls back to the blocker when one exists, and to Record it anyway while a duplicate is unresolved."
+      },
+      {
+        "name": "The Review Only Asks What It Doubts Rule",
+        "body": "A field arrives checked when the model is confident, so a clean bill confirms in two taps. A yellow field means the app genuinely could not read something. Always leaving one field unchecked turns the review into a ritual tap."
+      }
+    ],
+    "dos": [
+      "Do give every screen exactly one signal-yellow field, and put the number or action that matters now in it.",
+      "Do right-align every amount to a single 2px ink rule with 10px right padding, and separate rows with 1px hairlines.",
+      "Do set labels in Barlow Condensed 700 uppercase at 0.10 to 0.14em, scaled 11/12/13px, and body in Barlow 400/500/600 with tabular numerals.",
+      "Do keep every field, strip, button, input, and table square; circles are for the shutter and the mark only.",
+      "Do use the chevron strip for a countdown or a blocker and the black strip for confirmation, undo, and warnings.",
+      "Do colour incoming amounts Money In with \"+\" and outgoing amounts Money Out with a true minus, and use those colours only on text and strokes.",
+      "Do animate one ease-out moment per screen change on `cubic-bezier(0.2, 0.8, 0.2, 1)` between 420 and 900ms.",
+      "Do keep touch targets at 44px or taller, and primary actions at 60px on phone.",
+      "Do ship icons as inline stroke SVG in `currentColor`."
+    ],
+    "donts": [
+      "Don't build dark bento dashboards, rounded metric cards, or grids of metric tiles; amounts hang on the rule, not in cards.",
+      "Don't use the hazard chevrons as decoration, as a brand device on product surfaces, or on anything that is not a deadline or blocker.",
+      "Don't put shadows on fields, strips, buttons, sheets, or tables; only the shutter and the photographed bill lift off the board.",
+      "Don't use blurred glass anywhere except the phone nav bar.",
+      "Don't fill a field, badge, or button with Money In green or Money Out red.",
+      "Don't round corners on fields or controls; the app icon's platform mask is the only rounded rectangle.",
+      "Don't set sentence-length copy in Barlow Condensed; the chevron strip's single line is the one condensed sentence the world allows.",
+      "Don't use accounting terms (debit, credit, Dr, Cr) outside the Accountant view; the phone shows \"Paid from\", \"What for\", \"Money in\"."
+    ]
+  }
+}

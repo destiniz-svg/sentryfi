@@ -1,0 +1,103 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "App.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Sentryfi · phone flow (Home → Snap → Review → Recorded) · illustrative data",
+      "w": 390,
+      "x": 0,
+      "y": 0
+    },
+    "Desktop.dc.html": {
+      "h": 800,
+      "title": "Sentryfi · desktop journal (Accountant / CFO) · illustrative data",
+      "w": 1280,
+      "x": 470,
+      "y": 0
+    },
+    "Brand.dc.html": {
+      "h": 800,
+      "title": "Sentryfi · Brand sheet",
+      "w": 1280,
+      "x": 0,
+      "y": 1240
+    },
+    "Done.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "4 · Recorded",
+      "w": 390,
+      "x": 1410,
+      "y": 2440
+    },
+    "Main.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "1 · Home",
+      "w": 390,
+      "x": 0,
+      "y": 2440
+    },
+    "Review.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "3 · Review AI result",
+      "w": 390,
+      "x": 940,
+      "y": 2440
+    },
+    "Snap.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "2 · Snap",
+      "w": 390,
+      "x": 470,
+      "y": 2440
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-09-19T09:00:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "t1": {
+      "kind": "title1",
+      "maxW": 1800,
+      "text": "Superseded · first direction (Ink & Gold, LedgerOS)",
+      "w": 240,
+      "x": 0,
+      "y": 2160
+    },
+    "t2": {
+      "kind": "title1",
+      "maxW": 1760,
+      "text": "Sentryfi · Site Board · press Play on the phone",
+      "x": 0,
+      "y": -280
+    },
+    "t3": {
+      "kind": "title1",
+      "maxW": 1280,
+      "text": "Sentryfi · brand",
+      "x": 0,
+      "y": 960
+    }
+  },
+  "order": [
+    "App.dc.html",
+    "Desktop.dc.html",
+    "Brand.dc.html",
+    "Main.dc.html",
+    "Snap.dc.html",
+    "Review.dc.html",
+    "Done.dc.html"
+  ],
+  "pages": [],
+  "title": "Sentryfi Design"
+}

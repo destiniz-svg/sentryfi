@@ -1,0 +1,54 @@
+{
+  "buildPath": "code",
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "repeating-stripes-gradient",
+        "value": "*",
+        "files": [
+          "design/project/App.dc.html"
+        ],
+        "createdAt": "2026-09-18T22:42:37.493Z",
+        "reason": "owner chose the Site Board direction (seed 49afc33d): hazard chevrons mark deadlines and staff graduations mark the budget bar; both are the world's material, not decoration"
+      },
+      {
+        "rule": "repeating-stripes-gradient",
+        "value": "*",
+        "files": [
+          "design/project/Desktop.dc.html"
+        ],
+        "createdAt": "2026-09-18T22:42:37.702Z",
+        "reason": "owner chose the Site Board direction (seed 49afc33d): hazard chevrons mark deadlines and staff graduations mark the budget bar; both are the world's material, not decoration"
+      },
+      {
+        "rule": "repeating-stripes-gradient",
+        "value": "*",
+        "files": [
+          "design/project/Brand.dc.html"
+        ],
+        "createdAt": "2026-09-18T22:42:37.921Z",
+        "reason": "owner chose the Site Board direction (seed 49afc33d): hazard chevrons mark deadlines and staff graduations mark the budget bar; both are the world's material, not decoration"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "design/project/App.dc.html"
+        ],
+        "createdAt": "2026-09-18T23:46:02.539Z",
+        "reason": "critique Assessment B (2026-09-18): findings are fixed-height signage strips (black strip, chevron strip, yellow band rows) whose single line is flex-centred with 14px or more clear above and below; no text meets a boundary"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "design/project/Desktop.dc.html"
+        ],
+        "createdAt": "2026-09-18T23:46:02.842Z",
+        "reason": "critique Assessment B (2026-09-18): findings are fixed-height signage strips (black strip, chevron strip, yellow band rows) whose single line is flex-centred with 14px or more clear above and below; no text meets a boundary"
+      }
+    ]
+  }
+}

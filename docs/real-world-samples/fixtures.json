@@ -1,0 +1,511 @@
+{
+  "$comment": "Demo-safe seed derived from docs/real-world-samples/source. Real document shapes, real money movements, real tax situations, with every identifier that points at a real person or account removed: bank accounts are reduced to their last four digits, individuals are replaced by role descriptions, company and tax identification numbers are placeholders, and the BLAZ references are re-randomised. Company counterparties keep their real names because they are public businesses. This is the only file in this folder that is tracked in version control, and it is safe to publish, screenshot and demo. The unmasked reference documents (README.md, bml-csv-import.md, extraction-cases.md, mira-revenue-types.md) and the source files live beside it on the owner machine only. Generated 19 September 2026.",
+  "companies": [
+    {
+      "id": "altura",
+      "name": "Altura Pvt Ltd",
+      "role": "contractor",
+      "companyNo": "C0000000",
+      "tin": "0000000GST501",
+      "address": "6F, G. Velimaa, Majeedhee Magu, Male', Kaafu",
+      "gstRegistered": true,
+      "registeredDate": "2022-05-09",
+      "state": "Registered",
+      "smeClassification": null,
+      "contact": {
+        "phone": "+960 000 0000",
+        "email": "accounts@example.mv",
+        "web": "example.mv"
+      },
+      "authorisedCapitalMvr": 49950,
+      "shares": {
+        "type": "Ordinary",
+        "total": 999,
+        "allocated": 999,
+        "faceValueMvr": 50
+      },
+      "shareholders": [
+        {
+          "name": "Shareholder and managing director",
+          "shares": 949
+        },
+        {
+          "name": "Shareholder, director and company secretary",
+          "shares": 50
+        }
+      ],
+      "directors": 2,
+      "directorsQuorum": 2,
+      "appointedDate": "2022-04-30",
+      "businessActivities": [
+        {
+          "number": "BP00012024",
+          "code": "410001",
+          "name": "Construction of all types of residential buildings",
+          "registered": "2024-02-04"
+        },
+        {
+          "number": "BP00022024",
+          "code": "6810",
+          "name": "Real estate activities with own or leased property",
+          "registered": "2024-02-04"
+        },
+        {
+          "number": "BP00032024",
+          "code": "432103",
+          "name": "Installation of computer network and cable television wiring, including fibre optic",
+          "registered": "2024-02-04"
+        }
+      ],
+      "objectives": [
+        "F1 Construction of buildings",
+        "F2 Civil engineering",
+        "F3 Specialized construction activities",
+        "G1 Wholesale and retail trade and repair of motor vehicles and motorcycles",
+        "G2 Wholesale trade, except of motor vehicles and motorcycles",
+        "G3 Retail trade, except of motor vehicles and motor cycles",
+        "G4 Wholesale and retail trade of food and related products",
+        "G5 Wholesale and retail trade of electric and electronic products",
+        "G7 Wholesale and retail trade of construction materials",
+        "L1 Real estate activities"
+      ],
+      "registryAsAt": "2024-09-08"
+    },
+    {
+      "id": "steva-hotels",
+      "name": "Steva Hotels Pvt Ltd",
+      "role": "client and project owner",
+      "gstRegistered": true
+    },
+    {
+      "id": "steva-enterprises",
+      "name": "Steva Enterprises Pvt Ltd",
+      "role": "group parent",
+      "gstRegistered": true
+    }
+  ],
+  "accounts": [
+    {
+      "id": "bml-mvr",
+      "label": "BML · MVR ····6508",
+      "bank": "Bank of Maldives",
+      "currency": "MVR",
+      "company": "altura",
+      "kind": "bank"
+    },
+    {
+      "id": "bml-usd",
+      "label": "BML · USD ····9902",
+      "bank": "Bank of Maldives",
+      "currency": "USD",
+      "company": "altura",
+      "kind": "bank"
+    },
+    {
+      "id": "mib-mvr",
+      "label": "MIB · MVR ····1120",
+      "bank": "Maldives Islamic Bank",
+      "currency": "MVR",
+      "company": "altura",
+      "kind": "bank"
+    },
+    {
+      "id": "cash-site",
+      "label": "Site cash box · Hotel",
+      "currency": "MVR",
+      "company": "altura",
+      "kind": "cash"
+    },
+    {
+      "id": "cash-office",
+      "label": "Office cash box",
+      "currency": "MVR",
+      "company": "altura",
+      "kind": "cash"
+    }
+  ],
+  "costCodes": [
+    "Materials",
+    "Labour",
+    "Subcontractors",
+    "Equipment",
+    "Fuel",
+    "Transport and boat freight",
+    "Site overheads",
+    "Rent",
+    "Travel"
+  ],
+  "suppliers": [
+    {
+      "name": "State Trading Organisation Plc",
+      "alsoSeenAs": [
+        "STATE TRADING ORGANIZATION PLC",
+        "STO"
+      ],
+      "gstRegistered": true,
+      "tin": "0000000GST501",
+      "customerNo": "10000021",
+      "usualCode": "Materials",
+      "gstConvention": "exclusive"
+    },
+    {
+      "name": "Island Zone Construction and Carpentry Pvt Ltd",
+      "alsoSeenAs": [
+        "Island Zone Constraction And Carpentry",
+        "ISLAND ZONE CONSTRUCTION AND CARPEN"
+      ],
+      "gstRegistered": false,
+      "usualCode": "Subcontractors",
+      "gstConvention": "none"
+    },
+    {
+      "name": "Sonee Hardware Private Limited",
+      "gstRegistered": true,
+      "usualCode": "Materials",
+      "gstConvention": "inclusive"
+    },
+    {
+      "name": "Alia Investments Pvt Ltd",
+      "gstRegistered": true,
+      "usualCode": "Materials",
+      "gstConvention": "inclusive"
+    },
+    {
+      "name": "MITTS E. Pvt Ltd",
+      "gstRegistered": true,
+      "usualCode": "Equipment",
+      "gstConvention": "inclusive"
+    },
+    {
+      "name": "Beaver Builders Private Limited",
+      "gstRegistered": true,
+      "usualCode": "Subcontractors",
+      "gstConvention": "inclusive"
+    },
+    {
+      "name": "Stokzpro Private Limited",
+      "gstRegistered": true,
+      "usualCode": "Materials",
+      "gstConvention": "inclusive"
+    },
+    {
+      "name": "Secretariat of the Maalhos Council",
+      "gstRegistered": false,
+      "usualCode": "Site overheads",
+      "gstConvention": "none"
+    }
+  ],
+  "bills": [
+    {
+      "id": "demo-bill-no-gst",
+      "teaches": "a supplier who is not registered for GST",
+      "supplier": "Island Zone Construction and Carpentry Pvt Ltd",
+      "billNo": "244",
+      "issued": "2026-08-30",
+      "currency": "MVR",
+      "lines": [
+        {
+          "description": "5 inch full block",
+          "qty": 500,
+          "unitPrice": 8.5,
+          "amount": 4250
+        }
+      ],
+      "subtotal": 4250,
+      "gst": null,
+      "gstConvention": "none",
+      "total": 4250,
+      "paidFrom": "bml-mvr",
+      "costCode": "Materials",
+      "note": "No tax line and no supplier TIN on the document. Input tax must not be claimed."
+    },
+    {
+      "id": "demo-quote-gst-added",
+      "teaches": "GST added on top, and a quotation rather than a bill",
+      "documentType": "quotation",
+      "supplier": "State Trading Organisation Plc",
+      "documentNo": "4200149171",
+      "issued": "2026-08-31",
+      "validTo": "2026-08-31",
+      "paymentTerms": "Pay immediately w/o",
+      "currency": "MVR",
+      "lines": [
+        {
+          "code": "10019842",
+          "description": "Makita diamond wheel 105mm A-83646 (dry)",
+          "site": "S002",
+          "qty": 5,
+          "uom": "EA",
+          "unitPrice": 360.19,
+          "taxCode": "A5",
+          "amount": 1800.95
+        }
+      ],
+      "subtotal": 1800.95,
+      "gst": 144.08,
+      "gstRate": 0.08,
+      "gstConvention": "exclusive",
+      "total": 1945.03,
+      "note": "A quotation is an offer, not a payable. Do not create a bill from it."
+    },
+    {
+      "id": "demo-bill-intercompany",
+      "teaches": "billed to one company, paid by another",
+      "supplier": "Secretariat of the Maalhos Council",
+      "billNo": "INV-1389/2026/0449",
+      "issued": "2026-09-04",
+      "billedTo": "steva-enterprises",
+      "paidBy": "altura",
+      "currency": "MVR",
+      "lines": [
+        {
+          "description": "Permit fee",
+          "qty": 1,
+          "uom": "PKD",
+          "unitPrice": 60,
+          "amount": 60
+        }
+      ],
+      "subtotal": 60,
+      "gst": null,
+      "gstConvention": "none",
+      "total": 60,
+      "dueWithinDays": 15,
+      "termsLanguage": "Dhivehi in Latin transliteration",
+      "note": "Needs an intercompany mirror. Neither document names the other company."
+    }
+  ],
+  "salesInvoices": [
+    {
+      "id": "demo-sales-rdc-26",
+      "teaches": "output tax, and Altura as the seller",
+      "invoiceNo": "ALT/INV-000026",
+      "issued": "2026-05-25",
+      "customer": "Road Development Corporation Ltd",
+      "customerTin": "0000000GST501",
+      "purchaseOrder": "PO-RDC-2026-003151",
+      "subject": "Invoice from 25 May 2026 to 30 days",
+      "lines": [
+        {
+          "description": "Excavator rental fee for Komatsu PC 56-7 (BV1A C3695), 25 May 2026 to 30 days",
+          "qty": 30,
+          "uom": "DAY",
+          "unitPrice": 3000,
+          "amount": 90000
+        }
+      ],
+      "subtotal": 90000,
+      "gst": 7200,
+      "gstRate": 0.08,
+      "gstConvention": "exclusive",
+      "total": 97200,
+      "currency": "MVR"
+    },
+    {
+      "id": "demo-sales-rdc-28",
+      "invoiceNo": "ALT/INV-000028",
+      "issued": "2026-07-25",
+      "customer": "Road Development Corporation Ltd",
+      "customerTin": "0000000GST501",
+      "purchaseOrder": "PO-RDC-2026-004276",
+      "subject": "Invoice from 25 July 2026 to 30 days",
+      "lines": [
+        {
+          "description": "Excavator rental fee for Komatsu PC 56-7 (BV1A C3695), 25 July 2026 to 30 days",
+          "qty": 30,
+          "uom": "DAY",
+          "unitPrice": 3000,
+          "amount": 90000
+        }
+      ],
+      "subtotal": 90000,
+      "gst": 7200,
+      "gstRate": 0.08,
+      "gstConvention": "exclusive",
+      "total": 97200,
+      "currency": "MVR"
+    }
+  ],
+  "transferReceipts": [
+    {
+      "id": "demo-tr-1",
+      "bank": "Bank of Maldives",
+      "status": "SUCCESS",
+      "reference": "BLAZ400118256390",
+      "transactedAt": "2026-09-05T10:00",
+      "from": "Altura Pvt Ltd",
+      "to": "MITTS E. Pvt Ltd",
+      "toAccount": "····2001",
+      "amount": 10100,
+      "currency": "MVR",
+      "remarks": "Payment for: Quote #: MQ-2026/1805",
+      "teaches": "the remark points at a quotation number"
+    },
+    {
+      "id": "demo-tr-2",
+      "bank": "Bank of Maldives",
+      "status": "SUCCESS",
+      "reference": "BLAZ705224913866",
+      "transactedAt": "2026-09-01T08:46",
+      "from": "Altura Pvt Ltd",
+      "to": "Landlord, Maavina",
+      "toAccount": "····2807",
+      "amount": 5500,
+      "currency": "MVR",
+      "remarks": "Rent September 2026 (Maavina, AA Maalhos)",
+      "costCode": "Rent",
+      "coversPeriod": "2026-09",
+      "teaches": "paid in the month it covers"
+    },
+    {
+      "id": "demo-tr-3",
+      "bank": "Bank of Maldives",
+      "status": "SUCCESS",
+      "reference": "BLAZ318640577245",
+      "transactedAt": "2026-09-17T19:00",
+      "from": "Altura Pvt Ltd",
+      "to": "Landlord, G. Velimaa 6F",
+      "toAccount": "····2101",
+      "amount": 18000,
+      "currency": "MVR",
+      "remarks": "Rent – July 2026. 6F – G. Velimaa",
+      "costCode": "Rent",
+      "coversPeriod": "2026-07",
+      "teaches": "paid two months after the period it covers"
+    },
+    {
+      "id": "demo-tr-4",
+      "bank": "Bank of Maldives",
+      "status": "SUCCESS",
+      "reference": "BLAZ962031884517",
+      "transactedAt": "2026-09-16T22:12",
+      "from": "Altura Pvt Ltd",
+      "to": "Boat operator, Maalhos route",
+      "toAccount": "····9101",
+      "amount": 450,
+      "currency": "MVR",
+      "remarks": "Maalhos-Male 1 Pax",
+      "costCode": "Transport and boat freight",
+      "teaches": "the remark is the only description of what was bought"
+    },
+    {
+      "id": "demo-tr-5",
+      "bank": "Bank of Maldives",
+      "status": "SUCCESS",
+      "reference": "BLAZ553907142280",
+      "transactedAt": "2026-09-05T11:30",
+      "from": "Altura Pvt Ltd",
+      "to": "Alia Investments Pvt Ltd",
+      "toAccount": "····8722",
+      "amount": 1900.8,
+      "currency": "MVR",
+      "remarks": "Payment for: AS/SIQ/26/30052",
+      "teaches": "a reference of unstated type"
+    },
+    {
+      "id": "demo-tr-6",
+      "bank": "Bank of Maldives",
+      "status": "SUCCESS",
+      "reference": "BLAZ281455036914",
+      "transactedAt": "2026-09-06T09:55",
+      "from": "Altura Pvt Ltd",
+      "to": "Secretariat of the Maalhos Council",
+      "toAccount": "····4001",
+      "amount": 60,
+      "currency": "MVR",
+      "remarks": "Payment for: INV-1389/2026/0449",
+      "matchesBill": "demo-bill-intercompany",
+      "teaches": "matches a bill addressed to a different company"
+    }
+  ],
+  "statementShape": {
+    "bank": "Bank of Maldives",
+    "hasHeaderRow": false,
+    "columns": [
+      "postingDate",
+      "valueDate",
+      "type",
+      "reference",
+      "internalRef",
+      "timestamp",
+      "counterparty",
+      "channel",
+      "debit",
+      "credit",
+      "balance"
+    ],
+    "dateFormats": {
+      "postingDate": "YYYY/MM/DD",
+      "valueDate": "YYYY/MM/DD",
+      "timestamp": "DD-MM-YYYY HH-MM-SS"
+    },
+    "excelFormulaEscaped": [
+      "reference",
+      "internalRef",
+      "timestamp",
+      "counterparty"
+    ],
+    "transactionTypes": [
+      "Transfer Debit",
+      "Transfer Credit",
+      "Favara Debit",
+      "Favara Credit",
+      "Purchase",
+      "Cash Deposit-ATM",
+      "ATM Withdrawal",
+      "Debit Card Issuance Fee"
+    ],
+    "matchKey": "reference",
+    "observedVolume": {
+      "days": 252,
+      "rows": 1094,
+      "debits": 997,
+      "credits": 97,
+      "transactionsPerDay": 4.3
+    }
+  },
+  "miraRevenueTypes": [
+    "Income Tax",
+    "Goods & Services Tax",
+    "Green Tax",
+    "Airport Tax & Fee",
+    "Business Profit Tax",
+    "Withholding Tax",
+    "Remittance Tax",
+    "Tourism Land Rent",
+    "Agricultural Land Rent",
+    "Uninhabited Island Lease Rent",
+    "Varuvaa",
+    "Guest House Registration Fee",
+    "Dive School Registration Fee",
+    "Tourism related Mortgage Registration Fee",
+    "Other Registration and Licence Fee",
+    "Tourism related Ownership Transfer Fee",
+    "Tourism related Motor Vehicle and Vessel Registration Fee",
+    "Tourism related other fees & charges",
+    "Company Annual Fee",
+    "Co-operative Society Annual Fee",
+    "Fines and Interest related to taxes",
+    "Corporate Social Responsibility Fee",
+    "Tourism Fines for breach of laws, regulations & agreements related to Ministry of Tourism",
+    "Ministry of Fisheries and Marine Resources related"
+  ],
+  "taxClearance": {
+    "issuer": "Maldives Inland Revenue Authority",
+    "subject": "altura",
+    "statement": "The taxpayer has no tax related dues",
+    "conditional": true,
+    "conditionNote": "Refer to remarks on the certificate",
+    "verifyAt": "mira.gov.mv/verify",
+    "verifyNeeds": [
+      "reference number",
+      "date of issue"
+    ],
+    "excludes": [
+      "payments not yet realised",
+      "payments still processing",
+      "returns under review"
+    ],
+    "note": "Reference number and date of issue are not reproduced here; read them off the source document."
+  }
+}

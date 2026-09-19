@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 96" width="400" height="96" role="img" aria-label="Sentryfi">
+  <!-- Horizontal lockup on light grounds. The wordmark is live text in Barlow 600; outline it to paths before print or embedding where the font is not loaded. -->
+  <circle cx="48" cy="48" r="34" fill="#F2C300"/>
+  <circle cx="48" cy="48" r="34" fill="none" stroke="#141414" stroke-width="6"/>
+  <path d="M17.6 58 H78.4" stroke="#141414" stroke-width="7"/>
+  <path d="M48 26 V58" stroke="#141414" stroke-width="7"/>
+  <text x="104" y="67" font-family="Barlow, 'Barlow Semi Condensed', 'Helvetica Neue', Arial, sans-serif" font-weight="600" font-size="56" letter-spacing="-1.5" fill="#141414">Sentryfi</text>
+</svg>

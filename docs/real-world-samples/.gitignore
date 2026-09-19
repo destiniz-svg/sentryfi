@@ -1,0 +1,15 @@
+# Everything in this folder either is, or describes, real Altura and Steva records:
+# live bank account numbers, tax identification numbers, registry identifiers and
+# the names of real people. None of it is tracked.
+#
+# The one exception is fixtures.json, the masked demo seed. That is safe to commit,
+# safe to publish and safe to put in a screenshot. Use it for anything anyone other
+# than the owner will see.
+#
+# Locally this folder also holds README.md (the index and entity facts),
+# bml-csv-import.md, extraction-cases.md, mira-revenue-types.md and source/.
+# Read those on the owner's machine.
+
+*
+!.gitignore
+!fixtures.json

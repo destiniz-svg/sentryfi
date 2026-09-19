@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 96" width="400" height="96" role="img" aria-label="Sentryfi">
+  <!-- Horizontal lockup for ink grounds. The ring merges with the ground; the wordmark turns white. -->
+  <circle cx="48" cy="48" r="34" fill="#F2C300"/>
+  <path d="M17.6 58 H78.4" stroke="#141414" stroke-width="7"/>
+  <path d="M48 26 V58" stroke="#141414" stroke-width="7"/>
+  <text x="104" y="67" font-family="Barlow, 'Barlow Semi Condensed', 'Helvetica Neue', Arial, sans-serif" font-weight="600" font-size="56" letter-spacing="-1.5" fill="#FFFFFF">Sentryfi</text>
+</svg>
