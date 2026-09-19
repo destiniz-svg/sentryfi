@@ -40,9 +40,12 @@ export function UIProvider({ children }) {
     ({ title, description, variant = "info", duration = 4200 } = {}) => {
       const id = nextId();
       setToasts((prev) => [...prev, { id, title, description, variant }]);
-      if (duration > 0) {
-        const timer = t.variant === "error" ? null : setTimeout(() => dismiss(id), duration);
-        timers.current.set(id, timer);
+      // An error stays until it is dismissed: it is the one kind of message a
+      // person may need to read twice, or read after looking away. Everything
+      // else clears itself. Storing no timer at all for errors — rather than a
+      // null one — keeps the map to entries that can actually be cleared.
+      if (duration > 0 && variant !== "error") {
+        timers.current.set(id, setTimeout(() => dismiss(id), duration));
       }
       return id;
     },

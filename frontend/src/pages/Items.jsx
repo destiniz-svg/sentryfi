@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Plus, Package, Pencil, Trash2, X, Loader2 } from "lucide-react";
+import { Plus, Package, Trash2, X, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
+import { CardLink } from "@/components/ui/CardLink";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -53,26 +54,30 @@ export default function Items() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((item) => (
-            <Card key={item.id} padding="lg" className="group cursor-pointer" onClick={() => setModal(item)}>
+            <Card key={item.id} padding="lg" className="relative group cursor-pointer">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="font-semibold text-[var(--ink)] truncate">{item.name}</div>
+                  <CardLink
+                    onClick={() => setModal(item)}
+                    label={`${item.name}, edit this item`}
+                    className="block text-left font-semibold text-[var(--ink)] truncate"
+                  >
+                    {item.name}
+                  </CardLink>
                   {item.description && (
                     <p className="text-xs text-[var(--ink-muted)] mt-1 line-clamp-2">{item.description}</p>
                   )}
                 </div>
-                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 transition-opacity shrink-0">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setModal(item); }}
-                    className="h-7 w-7 rounded-full flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
-                  >
-                    <Pencil size={13} />
-                  </button>
+                {/* Above the stretched target, so these stay separately clickable
+                    and separately reachable. Delete is the only one that needs a
+                    button of its own: opening the card already edits it. */}
+                <div className="relative z-10 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 transition-opacity shrink-0">
                   <button
                     onClick={(e) => onDelete(e, item)}
-                    className="h-7 w-7 rounded-full flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--danger)]"
+                    aria-label={`Delete ${item.name}`}
+                    className="h-11 w-11 rounded-full flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--danger)]"
                   >
-                    <Trash2 size={13} />
+                    <Trash2 size={15} />
                   </button>
                 </div>
               </div>

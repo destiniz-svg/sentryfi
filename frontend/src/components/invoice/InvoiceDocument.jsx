@@ -8,10 +8,15 @@ import {
 } from "@react-pdf/renderer";
 import { formatMoney, formatDate } from "@/lib/utils";
 
-const ACCENT = "#f2c300";
+// This document is the one thing a customer keeps, and it is often printed or
+// read on a phone in daylight, so it is held to the same contrast floor as the
+// screen. The signal yellow is not used as a text colour here: #f2c300 on
+// white is 1.67:1, which is unreadable and was how the invoice total was set.
+// Text that wants to carry the signal uses the deep tone instead, at 5.04:1.
+const SIGNAL_DEEP = "#806400";
 const DARK = "#141414";
-const MUTED = "#5c7570";
-const LINE = "#e2ece9";
+const MUTED = "#6b7078";
+const LINE = "#e6e7ea";
 
 const styles = StyleSheet.create({
   page: {
@@ -24,7 +29,7 @@ const styles = StyleSheet.create({
   logo: { width: 48, height: 48, objectFit: "contain", marginBottom: 8 },
   company: { fontSize: 15, fontFamily: "Helvetica-Bold", color: DARK },
   muted: { color: MUTED },
-  invoiceTitle: { fontSize: 26, fontFamily: "Helvetica-Bold", color: ACCENT, letterSpacing: 1 },
+  invoiceTitle: { fontSize: 26, fontFamily: "Helvetica-Bold", color: DARK, letterSpacing: 1 },
   badge: {
     marginTop: 6,
     alignSelf: "flex-end",
@@ -32,7 +37,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: 10,
     backgroundColor: "#fff3c2",
-    color: ACCENT,
+    color: SIGNAL_DEEP,
     fontSize: 9,
     fontFamily: "Helvetica-Bold",
     textTransform: "uppercase",
@@ -68,7 +73,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: DARK,
   },
-  grand: { fontSize: 14, fontFamily: "Helvetica-Bold", color: ACCENT },
+  grand: { fontSize: 14, fontFamily: "Helvetica-Bold", color: DARK },
   notes: { marginTop: 30, paddingTop: 12, borderTopWidth: 1, borderTopColor: LINE },
   footer: { marginTop: 30, textAlign: "center", color: MUTED, fontSize: 8 },
 });

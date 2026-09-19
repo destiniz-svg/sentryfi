@@ -57,6 +57,22 @@
         ],
         "createdAt": "2026-09-19T11:32:49.578Z",
         "reason": "Fixed-height chips, pills and 44px field rows whose single line is flex-centred with 14px or more clear. Measured on the rendered panels, not assumed. The desk register uses compact rows by design, recorded in DESIGN.md."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "helvetica",
+        "files": [
+          "frontend/src/components/invoice/InvoiceDocument.jsx"
+        ],
+        "createdAt": "2026-09-19T13:11:00.165Z"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "helvetica-bold",
+        "files": [
+          "frontend/src/components/invoice/InvoiceDocument.jsx"
+        ],
+        "createdAt": "2026-09-19T13:11:00.503Z"
       }
     ]
   }

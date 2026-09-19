@@ -315,7 +315,7 @@ export default function Landing() {
                     <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#141414] text-[#F2C300]">
                       <s.icon size={19} strokeWidth={1.9} />
                     </span>
-                    <span className="tabular-nums text-[13px] font-semibold tracking-[.14em] text-[#9AA0A8]">
+                    <span className="tabular-nums text-[13px] font-semibold tracking-[.14em] text-[#6B7078]">
                       {s.n}
                     </span>
                   </div>
@@ -472,7 +472,7 @@ export default function Landing() {
           <p className="text-[14px] text-[#6B7078]">
             Altura Pvt Ltd &middot; Male&apos;, Maldives
           </p>
-          <p className="ml-auto text-[13px] text-[#9AA0A8]">
+          <p className="ml-auto text-[13px] text-[#6B7078]">
             Figures shown on this page are illustrative.
           </p>
         </div>

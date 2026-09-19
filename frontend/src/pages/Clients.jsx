@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Plus, Users, Search, ArrowRight } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
+import { CardLink } from "@/components/ui/CardLink";
 import { Button } from "@/components/ui/Button";
 import { SearchInput } from "@/components/ui/Input";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -12,7 +12,6 @@ import { useClients } from "@/hooks/useClients";
 import { formatMoney } from "@/lib/utils";
 
 export default function Clients() {
-  const nav = useNavigate();
   const { data, isLoading } = useClients();
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -75,17 +74,20 @@ export default function Clients() {
             <Card
               key={c.id}
               padding="lg"
-              className="cursor-pointer group"
-              onClick={() => nav(`/clients/${c.id}`)}
+              className="relative cursor-pointer group"
             >
               <div className="flex items-start gap-3">
                 <div className="h-11 w-11 rounded-full bg-[var(--accent-soft)] text-[var(--accent-strong)] flex items-center justify-center font-semibold shrink-0">
                   {c.name?.[0]?.toUpperCase() || "?"}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-[var(--ink)] truncate group-hover:text-[var(--accent-strong)]">
+                  <CardLink
+                    to={`/clients/${c.id}`}
+                    label={`${c.name}, open this customer`}
+                    className="block text-left font-semibold text-[var(--ink)] truncate group-hover:text-[var(--accent-strong)]"
+                  >
                     {c.name}
-                  </div>
+                  </CardLink>
                   <div className="text-xs text-[var(--ink-muted)] truncate">
                     {c.company || c.email || "—"}
                   </div>

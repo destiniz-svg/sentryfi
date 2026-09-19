@@ -261,7 +261,7 @@ function ThemeOption({ value, label, icon: Icon, current, onSelect }) {
       <div
         className={cn(
           "h-9 w-9 rounded-xl flex items-center justify-center",
-          active ? "bg-[var(--accent-strong)] text-white" : "bg-[var(--surface-2)] text-[var(--ink-muted)]"
+          active ? "bg-[var(--accent)] text-[var(--on-accent)]" : "bg-[var(--surface-2)] text-[var(--ink-muted)]"
         )}
       >
         <Icon size={16} />
@@ -273,7 +273,7 @@ function ThemeOption({ value, label, icon: Icon, current, onSelect }) {
         </div>
       </div>
       {active && (
-        <span className="absolute top-3 right-3 h-5 w-5 rounded-full bg-[var(--accent-strong)] text-white flex items-center justify-center">
+        <span className="absolute top-3 right-3 h-5 w-5 rounded-full bg-[var(--accent)] text-[var(--on-accent)] flex items-center justify-center">
           <Check size={12} />
         </span>
       )}
