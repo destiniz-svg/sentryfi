@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { invoicesApi } from "@/api/invoices";
 
 export const invoicesKey = (params) => ["invoices", params || {}];
@@ -8,7 +8,7 @@ export function useInvoices(params) {
   return useQuery({
     queryKey: invoicesKey(params),
     queryFn: () => invoicesApi.list(params),
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 }
 

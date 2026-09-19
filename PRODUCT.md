@@ -24,9 +24,25 @@ Next.js 15 (App Router) with React 19 and TypeScript, Tailwind CSS v4, shadcn/ui
 
 ## Product Purpose
 
-Sentryfi is a mobile-first business finance app whose promise is "Snap it. Record it. Done." A user photographs a bill, reviews what the AI read, and confirms in three taps. Behind the plain-language interface a correct double-entry ledger keeps the books right without the user ever seeing the word "debit."
+**The goal: Altura's books are kept in Sentryfi. Every bill is recorded within minutes of arriving, by whoever is holding it, and every GST return is filed from the app by the 28th.**
 
-It exists because the owner needs to run Altura's books, the hotel construction project, and Maldives tax obligations without an accountant on staff and without accounting vocabulary. Success is: the bill backlog is cleared, every receipt is recorded within minutes of arriving, cash and bank balances are always current, director and intercompany funding is tracked by source, and each GST period produces a filing pack the owner can key into MIRAconnect with confidence.
+That sentence is the whole of it, it is final, and every decision is judged against it. Does this get a bill into the books faster, or a return filed more safely? If neither, it waits. The ordered plan to reach it is `TODO.md`.
+
+Sentryfi's promise to the user is "Snap it. Record it. Done." Photograph a bill, check what was read, confirm. Behind the plain-language interface a correct double-entry ledger keeps the books right without anyone reading the word debit.
+
+It exists because the owner runs a construction company, three related entities and a hotel build without an accountant on staff and without accounting vocabulary, and because no product built elsewhere files a Maldivian return.
+
+## Current state, honestly
+
+Recorded 19 September 2026 after a design critique of the running web app scored it **14 out of 40**. This section exists so nobody, including a future session, mistakes what is deployed for what is designed.
+
+**What is deployed** at `sentryfi.app` is the purchased PERN invoice manager with Sentryfi's brand applied. It is a competent single-user freelancer invoicing tool. It is not this product. It has no ledger, no double entry, no payables, no projects or cost codes, no petty cash, no multi-company, no roles at all, and it stores money as floating point. Its tax model is one flat percentage, which cannot express what the real documents in `docs/real-world-samples/` prove: GST quoted inclusive by some suppliers, added on top by others, and absent entirely from suppliers who are not registered.
+
+**What is designed** is the product: the phone flow in 45 rendered panels, the web suite in 7, the tax centre, bank reconciliation, and the data model in `docs/data-model.md`.
+
+**The direction is to grow the first into the second, foundation upward**, replacing the purchased domain model rather than decorating it. Not a parallel rewrite, and not more features on the current chassis.
+
+Two findings from that critique are worth carrying as standing warnings rather than tasks. The first: the design system's own rules were being broken in code while being correctly recorded in `DESIGN.md`, including a colour the document explicitly records as tested and rejected. The document is the authority; when they disagree, the code is wrong. The second: the landing page was the only file authored from this product record, and it held more domain truth than the five thousand lines behind the login. Treat the product record as the specification, not as marketing.
 
 ## Positioning
 
@@ -45,6 +61,9 @@ A Maldives-native finance app. It produces MIRA-format GST return figures and th
 - **Runtime AI:** requires a separate Anthropic API key with pay-as-you-go billing. The owner's Claude Max subscription covers building, not runtime.
 
 ## Capabilities and Constraints
+
+The ordered plan for building these, and the rule that no phase starts before the one above it, is `TODO.md`. This section is what the product does when finished; it is not a sequence.
+
 
 - Snap flow: capture (camera, gallery, batch multi-select), client-side compress and strip EXIF, upload to R2 by signed URL, Claude vision extraction to typed JSON with a confidence score per field, auto-categorisation by vendor memory rules, duplicate detection, one-tap confirm that posts a balanced journal, and learning from every manual correction.
 - Never auto-post below a confidence threshold. The review step is mandatory.
