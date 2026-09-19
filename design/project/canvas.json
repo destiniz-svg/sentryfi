@@ -22,7 +22,7 @@
       "title": "Sentryfi · Brand sheet",
       "w": 1280,
       "x": 0,
-      "y": 2000
+      "y": 2900
     },
     "Done.dc.html": {
       "h": 844,
@@ -62,7 +62,7 @@
       "title": "Sentryfi · tax centre (GST return, filing pack) · illustrative data",
       "w": 1280,
       "x": 470,
-      "y": 900
+      "y": 1900
     },
     "Bank.dc.html": {
       "h": 800,
@@ -70,6 +70,14 @@
       "title": "Sentryfi · bank import and reconciliation · illustrative data",
       "w": 1280,
       "x": 1790,
+      "y": 1900
+    },
+    "Web.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "title": "Sentryfi · web suite (desk register) · illustrative data",
+      "w": 1440,
+      "x": 0,
       "y": 900
     }
   },
@@ -102,11 +110,12 @@
       "maxW": 1280,
       "text": "Sentryfi · brand",
       "x": 0,
-      "y": 1720
+      "y": 2620
     }
   },
   "order": [
     "App.dc.html",
+    "Web.dc.html",
     "Desktop.dc.html",
     "Tax.dc.html",
     "Bank.dc.html",

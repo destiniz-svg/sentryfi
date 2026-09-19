@@ -294,6 +294,31 @@
           "oklch(84% 0.012 91)",
           "oklch(95% 0.006 91)"
         ]
+      },
+      "signal-soft": {
+        "role": "primary",
+        "displayName": "Signal Soft",
+        "canonical": "#FFF3C2"
+      },
+      "signal-deep": {
+        "role": "primary",
+        "displayName": "Signal Deep",
+        "canonical": "#806400"
+      },
+      "faint": {
+        "role": "neutral",
+        "displayName": "Faint",
+        "canonical": "#70767E"
+      },
+      "ground": {
+        "role": "neutral",
+        "displayName": "Ground",
+        "canonical": "#F4F5F6"
+      },
+      "sunk": {
+        "role": "neutral",
+        "displayName": "Sunk",
+        "canonical": "#F9FAFB"
       }
     },
     "typographyMeta": {

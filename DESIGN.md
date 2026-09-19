@@ -277,6 +277,15 @@ A signage palette: one saturated yellow, near-black ink, white, a concrete grey,
 - **Camera Tile** and **Camera Tile Edge** (`{colors.camera-tile}` / `{colors.camera-tile-edge}`): the 56px Gallery and Waiting tiles (fill and 1px edge). The edge colour also divides the undo action from the black strip's message.
 - **Receipt Paper** and **Receipt Caption** (`{colors.receipt-paper}` / `{colors.receipt-caption}`): the placeholder receipt in the viewfinder, the Review thumbnail, and the desktop "Selected entry" attachment. The printed marks on it use `{colors.receipt-ink}` for headings and totals, `{colors.receipt-line}` for address lines, `{colors.receipt-figure}` for line items, and `{colors.receipt-rule}` for its horizontal rules. All six are placeholder values for a drawn receipt; no receipt raster exists yet, and they belong to that object only, never to interface chrome.
 
+### Desk register tones
+
+These five exist only in the desk register described above, and all of them are derived rather than new: three from signal yellow, two from board white.
+
+- **Signal Soft** (`{colors.signal-soft}`): the tint behind a yellow-family chip, avatar or notice on the web. Never a page background.
+- **Signal Deep** (`{colors.signal-deep}`): text and icons on signal soft, at 5.04:1 there and 5.61:1 on white. The obvious `#8A6D00` was tried first and reads 4.42:1 on signal soft, which fails, so it is not in the system.
+- **Faint** (`{colors.faint}`): column headers and hints, below concrete, at 4.58:1 on white. Anything lighter fails as text; `#9AA0A8` was tried and reads 2.64:1.
+- **Ground** (`{colors.ground}`) and **Sunk** (`{colors.sunk}`): the page ground the web's white cards sit on, and the recessed fill of a search field or table header.
+
 ### Semantic
 - **Money In** (`{colors.money-in}`): incoming amounts on the rule (prefixed "+"), the "Balanced · hash" and "Period balanced · chain intact" lines, the chain-intact ticks in the journal, and the duplicate-check tick on Review. Text and stroke only, never a fill.
 - **Money Out** (`{colors.money-out}`): outgoing amounts on the rule (prefixed with a true minus sign), and the "TIN" flag in the journal hash column. Text only, never a fill.
@@ -301,6 +310,31 @@ A signage palette: one saturated yellow, near-black ink, white, a concrete grey,
 **The Chevrons Mean Deadlines Rule.** The hazard stripe (`repeating-linear-gradient(135deg, #F2C300 0 8px, #141414 8px 16px)`) appears only on a countdown or a blocker: the GST deadline, the TIN blocker, the time-of-supply note. Never as decoration and never on a brand surface except the brand sheet's swatch.
 
 **The Money Colours Are Text Rule.** Green and red colour amounts and status lines only. They never fill a field, a badge, or a button.
+
+### The Desk Register (added 19 September 2026)
+
+Site Board has two registers. Everything above describes the **phone board**: square, loud, high contrast, built for a phone held one-handed in bright sun on a building site. The **desk register** is the same system at a desk, where the scene is long sessions, dense tables and no glare, and where the owner's supplied references are soft and roomy.
+
+The constants do not change. One signal yellow, used sparingly and only on the action that matters. Ink for type. Tabular figures on every number. Barlow throughout. Money colours as text, never as fills. The rule that at most one element per screen carries a yellow field holds in both.
+
+What changes is register, not identity:
+
+| | Phone board | Desk register |
+|---|---|---|
+| Corners | Square, 0px | `--r` 14px cards, `--rs` 10px controls, 9999px pills |
+| Ground | Board white | `--ground` `#F4F5F6`, with white cards on it |
+| Elevation | Only objects cast shadows, hard | Soft lift: `0 1px 2px rgba(20,20,20,.04), 0 8px 24px rgba(20,20,20,.06)` |
+| Display type | Barlow Condensed, uppercase | Barlow, sentence case, tight tracking |
+| Density | Generous, thumb-sized | Compact rows, 42 to 62px |
+
+Two tones exist only in this register, both derived from signal yellow so nothing new enters the palette:
+
+- **Signal soft** `#FFF3C2`: the tint behind a yellow-family chip, avatar or notice. Never a page background.
+- **Signal deep** `#806400`: text and icons on signal soft. It is 5.04:1 there and 5.61:1 on white. The obvious `#8A6D00` was tried first and reads 4.42:1 on signal soft, which fails, so it is not in the system.
+
+One further grey, **faint** `#70767E` at 4.58:1 on white, sits below concrete for column headers and hints. Anything lighter fails as text; `#9AA0A8` was tried and reads 2.64:1.
+
+**Which register applies.** The phone board governs `App.dc.html` and the installed phone app. The desk register governs the web suite: `Web.dc.html` and the running web application. The earlier desktop artboards `Tax.dc.html`, `Bank.dc.html` and `Desktop.dc.html` were drawn in the phone board and now sit outside this rule; they are superseded by `Web.dc.html` as the reference for the web.
 
 ## Typography
 
@@ -352,7 +386,7 @@ The floating nav on the phone is tinted ink glass: `rgba(20,20,20,0.88)` with `b
 
 ## Shapes
 
-Square. Every field, strip, button, input, tag, pill, tile, and table cell has `border-radius: 0`. Circles are reserved for the shutter (an ink disc inside a yellow ring, at a 76:58, 88:68, or 84:64 ratio), the brand mark (a yellow disc with a 6-unit ink ring, one horizontal rule, one vertical post), and the app icon's platform-masked tile (`rx` 116 on 512). The receipt placeholder sits at -4deg to read as a physical object; nothing else rotates.
+Square **on the phone board**. Every field, strip, button, input, tag, pill, tile, and table cell has `border-radius: 0` there. **The desk register rounds**, on the scale `0`, `10px` for controls, `14px` for cards and `9999px` for pills and avatars; nothing else is permitted. Circles are reserved for the shutter (an ink disc inside a yellow ring, at a 76:58, 88:68, or 84:64 ratio), the brand mark (a yellow disc with a 6-unit ink ring, one horizontal rule, one vertical post), and the app icon's platform-masked tile (`rx` 116 on 512). The receipt placeholder sits at -4deg to read as a physical object; nothing else rotates.
 
 Borders are ink and heavy: 2px for the vertical rule, secondary buttons, inputs, shell dividers, and table brackets; 3px for the brand sheet's rules and the active camera tab underline; 4px for the viewfinder's corner brackets (28px, yellow). Hairlines are 1px in `{colors.hairline}`.
 

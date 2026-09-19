@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sentryfi web suite</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&amp;display=swap">
+<style>
+/* Site Board, desk register. The phone board is square and loud because it is
+   held one-handed in bright sun. The desk is long sessions and dense tables, so
+   radius returns and the ground goes soft. The constants carry: one signal
+   yellow used sparingly, ink, tabular figures, Barlow. */
+:root{
+  --signal:#F2C300; --signal-deep:#806400; --signal-soft:#FFF3C2;
+  --ink:#141414; --concrete:#6B7078; --faint:#70767E;
+  --board:#FFFFFF; --ground:#F4F5F6; --sunk:#F9FAFB; --line:#E6E7EA;
+  --in:#167A41; --out:#C62B20;
+  --lift:0 1px 2px rgba(20,20,20,.04), 0 8px 24px rgba(20,20,20,.06);
+  --r:14px; --rs:10px;
+}
+body{margin:0;background:var(--ground);font-family:Barlow,"Helvetica Neue",Arial,sans-serif;color:var(--ink)}
+*{box-sizing:border-box}
+:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.on-ink :focus-visible,.on-ink:focus-visible{outline-color:var(--signal)}
+.on-yellow :focus-visible,.on-yellow:focus-visible{outline-color:var(--ink)}
+::selection{background:var(--signal);color:var(--ink)}
+.tab{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+
+<div style="width: 1440px; height: 900px; background: var(--ground); display: grid; grid-template-columns: 236px minmax(0, 1fr); overflow: hidden;">
+
+  <!-- rail -->
+  <nav aria-label="Sections" style="background: var(--board); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 22px 14px;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 0 8px 22px;">
+      <svg width="34" height="34" viewBox="0 0 96 96" role="img" aria-label="Sentryfi"><circle cx="48" cy="48" r="34" fill="#F2C300"></circle><circle cx="48" cy="48" r="34" fill="none" stroke="#141414" stroke-width="6"></circle><path d="M17.6 58 H78.4" stroke="#141414" stroke-width="7"></path><path d="M48 26 V58" stroke="#141414" stroke-width="7"></path></svg>
+      <span style="display: flex; flex-direction: column;">
+        <span style="font: 600 20px/1.1 Barlow, sans-serif; letter-spacing: -0.02em;">Sentryfi</span>
+        <span style="font: 500 12px Barlow, sans-serif; color: var(--concrete);">Altura Pvt Ltd</span>
+      </span>
+    </div>
+
+    <div style="font: 600 11px Barlow, sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); padding: 0 8px 8px;">Menu</div>
+    <sc-for list="{{navItems}}" as="n">
+      <a href="{{n.href}}" aria-current="{{n.current}}" style="{{n.style}}">
+        <span style="{{n.dotStyle}}"></span>
+        <span>{{n.label}}</span>
+        <sc-if value="{{n.hasBadge}}" hint-placeholder-val="{{false}}">
+          <span style="{{n.badgeStyle}}">{{n.badge}}</span>
+        </sc-if>
+      </a>
+    </sc-for>
+
+    <div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 12px 8px 0; border-top: 1px solid var(--line);">
+      <span style="width: 34px; height: 34px; border-radius: 9999px; background: var(--signal-soft); color: var(--signal-deep); display: flex; align-items: center; justify-content: center; font: 600 13px Barlow, sans-serif;">AT</span>
+      <span style="display: flex; flex-direction: column; min-width: 0;">
+        <span style="font: 600 14px Barlow, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Abdulla Thinan</span>
+        <span style="font: 400 12px Barlow, sans-serif; color: var(--concrete);">Owner</span>
+      </span>
+    </div>
+  </nav>
+
+  <!-- main -->
+  <div style="display: flex; flex-direction: column; min-width: 0; overflow: hidden;">
+
+    <div style="display: flex; align-items: center; gap: 16px; padding: 18px 28px; background: var(--board); border-bottom: 1px solid var(--line);">
+      <span style="display: flex; flex-direction: column; min-width: 0;">
+        <h1 style="margin: 0; font: 600 23px/1.2 Barlow, sans-serif; letter-spacing: -0.02em;">{{title}}</h1>
+        <span style="font: 400 13px Barlow, sans-serif; color: var(--concrete);">{{subtitle}}</span>
+      </span>
+      <label style="margin-left: auto; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; background: var(--sunk); border: 1px solid var(--line); border-radius: 9999px; color: var(--faint); min-width: 260px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <span style="font: 400 14px Barlow, sans-serif;">Search anything</span>
+        <span style="margin-left: auto; font: 500 12px Barlow, sans-serif; color: var(--faint);">⌘K</span>
+      </label>
+      <button onClick="{{primary}}" class="on-yellow" style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; background: var(--signal); border: 0; border-radius: 9999px; color: var(--ink); font: 600 14px Barlow, sans-serif; cursor: pointer; flex-shrink: 0;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+        <span>{{primaryLabel}}</span>
+      </button>
+    </div>
+
+    <div style="flex-grow: 1; min-height: 0; overflow-y: auto; padding: 22px 28px 28px;">
+
+      <!-- ============ dashboard ============ -->
+      <sc-if value="{{isDash}}" hint-placeholder-val="{{true}}">
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px;">
+          <sc-for list="{{stats}}" as="s">
+            <div style="background: var(--board); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--lift); padding: 18px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                <span style="font: 500 13px Barlow, sans-serif; color: var(--concrete);">{{s.label}}</span>
+                <span style="{{s.chipStyle}}">{{s.chip}}</span>
+              </div>
+              <div style="display: flex; align-items: baseline; gap: 6px; padding-top: 10px;">
+                <span style="font: 500 14px Barlow, sans-serif; color: var(--concrete);">MVR</span>
+                <span class="tab" style="font: 600 30px/1 Barlow, sans-serif; letter-spacing: -0.02em;">{{s.value}}</span>
+              </div>
+              <div style="font: 400 12px Barlow, sans-serif; color: var(--faint); padding-top: 6px;">{{s.note}}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 16px; padding-top: 16px;">
+          <div style="background: var(--board); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--lift); padding: 20px;">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px;">
+              <span style="font: 600 16px Barlow, sans-serif;">Money out, by month</span>
+              <span style="font: 400 13px Barlow, sans-serif; color: var(--concrete);">Last six months</span>
+            </div>
+            <div style="display: flex; align-items: flex-end; gap: 16px; height: 190px; padding: 22px 0 0;">
+              <sc-for list="{{bars}}" as="b">
+                <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                  <span class="tab" style="font: 600 12px Barlow, sans-serif; color: var(--concrete);">{{b.value}}</span>
+                  <span style="{{b.barStyle}}"></span>
+                  <span style="font: 500 12px Barlow, sans-serif; color: var(--faint);">{{b.month}}</span>
+                </span>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="background: var(--board); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--lift); padding: 20px;">
+            <span style="font: 600 16px Barlow, sans-serif;">Where it went</span>
+            <div style="padding-top: 16px;">
+              <sc-for list="{{codes}}" as="c">
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 84px; column-gap: 12px; align-items: center; padding: 9px 0;">
+                  <span style="min-width: 0;">
+                    <span style="display: block; font: 500 14px Barlow, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{c.name}}</span>
+                    <span style="display: block; height: 7px; border-radius: 9999px; background: var(--sunk); margin-top: 6px;"><span style="{{c.fillStyle}}"></span></span>
+                  </span>
+                  <span class="tab" style="font: 600 14px Barlow, sans-serif; text-align: right;">{{c.value}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ============ list: invoices / expenses ============ -->
+      <sc-if value="{{isList}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; align-items: center; gap: 8px; padding-bottom: 14px;">
+          <sc-for list="{{tabs}}" as="t">
+            <button onClick="{{t.pick}}" aria-pressed="{{t.aria}}" style="{{t.style}}">{{t.label}}</button>
+          </sc-for>
+        </div>
+
+        <div style="background: var(--board); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--lift); overflow: hidden;">
+          <div style="display: grid; grid-template-columns: {{listCols}}; column-gap: 14px; align-items: center; padding: 12px 18px; background: var(--sunk); border-bottom: 1px solid var(--line);">
+            <sc-for list="{{listHead}}" as="h">
+              <span style="{{h.style}}">{{h.label}}</span>
+            </sc-for>
+          </div>
+          <sc-for list="{{rows}}" as="r">
+            <div style="display: grid; grid-template-columns: {{listCols}}; column-gap: 14px; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line);">
+              <span style="min-width: 0; display: flex; align-items: center; gap: 11px;">
+                <span style="{{r.avatarStyle}}">{{r.initials}}</span>
+                <span style="min-width: 0; display: flex; flex-direction: column;">
+                  <span style="font: 600 14px Barlow, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{r.who}}</span>
+                  <span style="font: 400 12px Barlow, sans-serif; color: var(--concrete); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{r.sub}}</span>
+                </span>
+              </span>
+              <span style="font: 400 13px Barlow, sans-serif; color: var(--concrete);">{{r.ref}}</span>
+              <span style="font: 400 13px Barlow, sans-serif; color: var(--concrete);">{{r.date}}</span>
+              <span><span style="{{r.pillStyle}}">{{r.status}}</span></span>
+              <span class="tab" style="font: 600 15px Barlow, sans-serif; text-align: right; color: {{r.amountColor}};">{{r.amount}}</span>
+            </div>
+          </sc-for>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 18px;">
+            <span style="font: 400 13px Barlow, sans-serif; color: var(--concrete);">{{listFooter}}</span>
+            <span style="display: flex; gap: 6px;">
+              <span style="height: 32px; min-width: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--rs); display: flex; align-items: center; justify-content: center; font: 500 13px Barlow, sans-serif; color: var(--concrete);">Prev</span>
+              <span style="height: 32px; min-width: 32px; border: 1px solid var(--ink); background: var(--ink); color: var(--board); border-radius: var(--rs); display: flex; align-items: center; justify-content: center; font: 600 13px Barlow, sans-serif;">1</span>
+              <span style="height: 32px; min-width: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--rs); display: flex; align-items: center; justify-content: center; font: 500 13px Barlow, sans-serif; color: var(--concrete);">Next</span>
+            </span>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ============ invoice editor ============ -->
+      <sc-if value="{{isEditor}}" hint-placeholder-val="{{false}}">
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) 452px; gap: 16px;">
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <div style="background: var(--board); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--lift); padding: 20px;">
+              <span style="font: 600 16px Barlow, sans-serif;">Who it is for</span>
+              <div style="display: flex; align-items: center; gap: 12px; height: 62px; padding: 0 14px; margin-top: 12px; background: var(--sunk); border: 1px solid var(--line); border-radius: var(--rs);">
+                <span style="width: 36px; height: 36px; border-radius: 9999px; background: var(--signal-soft); color: var(--signal-deep); display: flex; align-items: center; justify-content: center; font: 600 13px Barlow, sans-serif;">RD</span>
+                <span style="display: flex; flex-direction: column; min-width: 0;">
+                  <span style="font: 600 14px Barlow, sans-serif;">Road Development Corporation</span>
+                  <span style="font: 400 12px Barlow, sans-serif; color: var(--concrete);">TIN 1110219GST501</span>
+                </span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--concrete)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left: auto;"><path d="M6 9l6 6 6-6"></path></svg>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding-top: 14px;">
+                <sc-for list="{{metaFields}}" as="m">
+                  <span style="display: flex; flex-direction: column; gap: 6px;">
+                    <span style="font: 500 12px Barlow, sans-serif; color: var(--concrete);">{{m.label}}</span>
+                    <span style="height: 44px; display: flex; align-items: center; padding: 0 12px; background: var(--board); border: 1px solid var(--line); border-radius: var(--rs); font: 500 14px Barlow, sans-serif;">{{m.value}}</span>
+                  </span>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="background: var(--board); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--lift); padding: 20px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                <span style="font: 600 16px Barlow, sans-serif;">What they are being charged for</span>
+                <span style="display: flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px; border: 1px solid var(--line); border-radius: 9999px; font: 500 13px Barlow, sans-serif; color: var(--concrete);">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.2"></circle></svg>
+                  <span>Read it off a bill</span>
+                </span>
+              </div>
+              <div style="display: grid; grid-template-columns: 22px minmax(0, 1fr) 68px 96px 104px 32px; column-gap: 10px; padding: 14px 0 8px;">
+                <span></span>
+                <span style="font: 500 12px Barlow, sans-serif; color: var(--concrete);">Description</span>
+                <span style="font: 500 12px Barlow, sans-serif; color: var(--concrete); text-align: right;">Qty</span>
+                <span style="font: 500 12px Barlow, sans-serif; color: var(--concrete); text-align: right;">Rate</span>
+                <span style="font: 500 12px Barlow, sans-serif; color: var(--concrete); text-align: right;">Amount</span>
+                <span></span>
+              </div>
+              <sc-for list="{{lines}}" as="l">
+                <div style="display: grid; grid-template-columns: 22px minmax(0, 1fr) 68px 96px 104px 32px; column-gap: 10px; align-items: center; padding: 5px 0;">
+                  <span style="display: flex; align-items: center; justify-content: center; color: var(--faint); cursor: grab;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.5"></circle><circle cx="15" cy="6" r="1.5"></circle><circle cx="9" cy="12" r="1.5"></circle><circle cx="15" cy="12" r="1.5"></circle><circle cx="9" cy="18" r="1.5"></circle><circle cx="15" cy="18" r="1.5"></circle></svg>
+                  </span>
+                  <span style="height: 44px; display: flex; align-items: center; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--rs); font: 500 14px Barlow, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{l.what}}</span>
+                  <span class="tab" style="height: 44px; display: flex; align-items: center; justify-content: flex-end; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--rs); font: 500 14px Barlow, sans-serif;">{{l.qty}}</span>
+                  <span class="tab" style="height: 44px; display: flex; align-items: center; justify-content: flex-end; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--rs); font: 500 14px Barlow, sans-serif;">{{l.rate}}</span>
+                  <span class="tab" style="font: 600 14px Barlow, sans-serif; text-align: right;">{{l.amount}}</span>
+                  <span style="display: flex; align-items: center; justify-content: center; color: var(--faint);">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M7 7l1 13h8l1-13"></path></svg>
+                  </span>
+                </div>
+              </sc-for>
+              <button onClick="{{noop}}" style="display: flex; align-items: center; gap: 7px; height: 40px; margin-top: 10px; padding: 0 12px; background: none; border: 1px dashed var(--line); border-radius: var(--rs); color: var(--concrete); font: 500 14px Barlow, sans-serif; cursor: pointer; width: 100%;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+                <span>Add a line</span>
+              </button>
+              <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding-top: 16px; margin-top: 14px; border-top: 1px solid var(--line);">
+                <span style="display: flex; flex-direction: column; gap: 6px;">
+                  <span style="font: 500 12px Barlow, sans-serif; color: var(--concrete);">GST</span>
+                  <span style="height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--rs); font: 500 14px Barlow, sans-serif;"><span>8% added on top</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--concrete)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></span>
+                </span>
+                <span style="display: flex; flex-direction: column; gap: 6px;">
+                  <span style="font: 500 12px Barlow, sans-serif; color: var(--concrete);">Discount</span>
+                  <span class="tab" style="height: 44px; display: flex; align-items: center; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--rs); font: 500 14px Barlow, sans-serif; color: var(--faint);">None</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- the document -->
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+              <span style="font: 500 13px Barlow, sans-serif; color: var(--concrete);">What they will receive</span>
+              <span style="display: flex; gap: 6px; color: var(--concrete);">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 16v3h16v-3M12 4v11M7 10l5 5 5-5"></path></svg>
+              </span>
+            </div>
+            <div style="background: var(--board); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--lift); padding: 24px; flex-grow: 1;">
+              <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding-bottom: 18px;">
+                <span style="display: flex; flex-direction: column;">
+                  <span style="font: 600 18px Barlow, sans-serif;">Altura Pvt Ltd</span>
+                  <span style="font: 400 12px/1.5 Barlow, sans-serif; color: var(--concrete);">6F, G. Velimaa, Majeedhee Magu<br>Male', Maldives</span>
+                </span>
+                <span style="text-align: right;">
+                  <span style="display: block; font: 600 17px Barlow, sans-serif;">Invoice</span>
+                  <span class="tab" style="display: block; font: 400 12px Barlow, sans-serif; color: var(--concrete);">ALT/INV-000029</span>
+                </span>
+              </div>
+              <div style="height: 1px; background: var(--ink);"></div>
+              <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 16px 0;">
+                <span style="display: flex; flex-direction: column; gap: 3px;">
+                  <span style="font: 500 11px Barlow, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint);">Billed to</span>
+                  <span style="font: 600 14px Barlow, sans-serif;">Road Development Corporation</span>
+                  <span style="font: 400 12px Barlow, sans-serif; color: var(--concrete);">MSL Building, Orchid Magu, Male'</span>
+                </span>
+                <span style="display: flex; flex-direction: column; gap: 6px;">
+                  <span style="display: flex; justify-content: space-between; gap: 10px;"><span style="font: 500 11px Barlow, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint);">Issued</span><span class="tab" style="font: 500 13px Barlow, sans-serif;">25 Sep 2026</span></span>
+                  <span style="display: flex; justify-content: space-between; gap: 10px;"><span style="font: 500 11px Barlow, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint);">Due</span><span class="tab" style="font: 500 13px Barlow, sans-serif;">25 Oct 2026</span></span>
+                </span>
+              </div>
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) 40px 78px 88px; column-gap: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--ink);">
+                <span style="font: 500 11px Barlow, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint);">Item</span>
+                <span style="font: 500 11px Barlow, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); text-align: right;">Qty</span>
+                <span style="font: 500 11px Barlow, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); text-align: right;">Rate</span>
+                <span style="font: 500 11px Barlow, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); text-align: right;">Amount</span>
+              </div>
+              <sc-for list="{{docLines}}" as="d">
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 40px 78px 88px; column-gap: 8px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--line);">
+                  <span style="font: 400 13px Barlow, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{d.what}}</span>
+                  <span class="tab" style="font: 400 13px Barlow, sans-serif; text-align: right;">{{d.qty}}</span>
+                  <span class="tab" style="font: 400 13px Barlow, sans-serif; text-align: right;">{{d.rate}}</span>
+                  <span class="tab" style="font: 600 13px Barlow, sans-serif; text-align: right;">{{d.amount}}</span>
+                </div>
+              </sc-for>
+              <div style="display: flex; justify-content: flex-end; padding-top: 14px;">
+                <span style="width: 232px; display: flex; flex-direction: column; gap: 7px;">
+                  <sc-for list="{{docTotals}}" as="dt">
+                    <span style="display: flex; justify-content: space-between; gap: 12px;"><span style="font: 400 13px Barlow, sans-serif; color: var(--concrete);">{{dt.label}}</span><span class="tab" style="font: 500 13px Barlow, sans-serif;">{{dt.value}}</span></span>
+                  </sc-for>
+                  <span style="height: 1px; background: var(--ink); margin: 3px 0;"></span>
+                  <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px;">
+                    <span style="font: 600 13px Barlow, sans-serif;">Amount due</span>
+                    <span class="tab" style="font: 600 24px/1 Barlow, sans-serif; letter-spacing: -0.02em;">97,200.00</span>
+                  </span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ============ tax centre ============ -->
+      <sc-if value="{{isTax}}" hint-placeholder-val="{{false}}">
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;">
+          <sc-for list="{{taxFigures}}" as="tf">
+            <div style="background: var(--board); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--lift); padding: 18px;">
+              <span style="font: 500 13px Barlow, sans-serif; color: var(--concrete);">{{tf.label}}</span>
+              <div style="display: flex; align-items: baseline; gap: 6px; padding-top: 9px;">
+                <span style="font: 500 14px Barlow, sans-serif; color: var(--concrete);">MVR</span>
+                <span class="tab" style="font: 600 30px/1 Barlow, sans-serif; letter-spacing: -0.02em;">{{tf.value}}</span>
+              </div>
+              <div style="font: 400 12px/1.4 Barlow, sans-serif; color: var(--faint); padding-top: 7px;">{{tf.note}}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="{{askStyle}}">
+          <span style="display: flex; align-items: center; gap: 10px;">
+            <span style="{{askIconStyle}}">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v6M12 17h.01"></path></svg>
+            </span>
+            <span style="display: flex; flex-direction: column;">
+              <span style="font: 600 15px Barlow, sans-serif;">{{askHeading}}</span>
+              <span style="font: 400 13px Barlow, sans-serif; color: {{askNoteColor}};">{{askNote}}</span>
+            </span>
+          </span>
+        </div>
+
+        <div style="background: var(--board); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--lift); overflow: hidden; margin-top: 14px;">
+          <sc-for list="{{checks}}" as="c">
+            <div style="display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; column-gap: 14px; align-items: center; padding: 15px 18px; border-bottom: 1px solid var(--line);">
+              <span style="{{c.iconStyle}}">
+                <sc-if value="{{c.clear}}" hint-placeholder-val="{{false}}">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-11"></path></svg>
+                </sc-if>
+                <sc-if value="{{c.open}}" hint-placeholder-val="{{true}}">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v6M12 17h.01"></path></svg>
+                </sc-if>
+              </span>
+              <span style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font: 600 14px Barlow, sans-serif;">{{c.title}}</span>
+                <span style="font: 400 13px/1.4 Barlow, sans-serif; color: var(--concrete);">{{c.note}}</span>
+              </span>
+              <sc-if value="{{c.open}}" hint-placeholder-val="{{true}}">
+                <button onClick="{{c.act}}" style="height: 34px; padding: 0 13px; background: var(--board); border: 1px solid var(--ink); border-radius: 9999px; color: var(--ink); font: 600 13px Barlow, sans-serif; cursor: pointer;">{{c.btn}}</button>
+              </sc-if>
+              <sc-if value="{{c.clear}}" hint-placeholder-val="{{false}}">
+                <span style="font: 600 12px Barlow, sans-serif; color: var(--in);">{{c.clearLabel}}</span>
+              </sc-if>
+            </div>
+          </sc-for>
+          <div style="display: flex; align-items: center; gap: 14px; padding: 15px 18px;">
+            <button onClick="{{noop}}" aria-disabled="{{fileAria}}" class="{{fileClass}}" style="{{fileStyle}}">{{fileLabel}}</button>
+            <span style="font: 400 13px Barlow, sans-serif; color: {{fileReasonColor}};">{{fileReason}}</span>
+          </div>
+        </div>
+      </sc-if>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"screen":{"editor":"enum","default":"Dashboard","options":["Dashboard","Invoices","Invoice editor","Expenses","Tax centre"],"section":"Screen"},"taxState":{"editor":"enum","default":"Things to check","options":["Things to check","Ready to file"],"section":"Screen"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { resolved: {}, tab: 0 }; }
+  fmt(n) { return Math.round(n).toLocaleString('en-US'); }
+  money(n) { return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+  renderVals() {
+    const s = this.state;
+    const screen = this.props.screen || 'Dashboard';
+    const isExpenses = screen === 'Expenses';
+    const isInvoices = screen === 'Invoices';
+    const taxReady = (this.props.taxState || 'Things to check') === 'Ready to file';
+
+    const nav = [
+      ['Dashboard', '#dash', 'Dashboard', 0],
+      ['Invoices', '#invoices', 'Invoices', 4],
+      ['Bills', '#bills', null, 3],
+      ['Expenses', '#expenses', 'Expenses', 0],
+      ['Clients', '#clients', null, 0],
+      ['Projects', '#projects', null, 0],
+      ['Bank', '#bank', null, 5],
+      ['Cash boxes', '#boxes', null, 0],
+      ['Reports', '#reports', null, 0],
+      ['Tax centre', '#tax', 'Tax centre', 0],
+      ['Settings', '#settings', null, 0]
+    ];
+
+    const head = (label, align, w) => ({
+      label: label,
+      style: 'font: 500 12px Barlow, sans-serif; color: var(--concrete);' + (align === 'r' ? ' text-align: right;' : '')
+    });
+
+    const pill = (tone) => {
+      const map = {
+        paid: ['var(--in)', '#E7F4EC'], sent: ['var(--signal-deep)', 'var(--signal-soft)'],
+        overdue: ['var(--out)', '#FBEAE8'], draft: ['var(--concrete)', 'var(--sunk)']
+      };
+      const [fg, bg] = map[tone] || map.draft;
+      return 'display: inline-flex; align-items: center; height: 26px; padding: 4px 11px; border-radius: 9999px; background: ' + bg + '; color: ' + fg + '; font: 600 12px Barlow, sans-serif; text-transform: capitalize;';
+    };
+    const avatar = 'width: 34px; height: 34px; border-radius: 9999px; background: var(--sunk); color: var(--concrete); display: flex; align-items: center; justify-content: center; font: 600 12px Barlow, sans-serif; flex-shrink: 0;';
+
+    const invoiceRows = [
+      ['Road Development Corp.', 'Excavator rental · Sept', 'RD', 'ALT/INV-000029', '25 Sep', 'sent', 97200, 'out'],
+      ['Road Development Corp.', 'Excavator rental · July', 'RD', 'ALT/INV-000028', '25 Jul', 'paid', 97200, 'out'],
+      ['Steva Hotels Pvt Ltd', 'Progress claim 3 · Hotel', 'SH', 'ALT/INV-000027', '18 Sep', 'overdue', 412500, 'out'],
+      ['Road Development Corp.', 'Excavator rental · May', 'RD', 'ALT/INV-000026', '25 May', 'paid', 97200, 'out'],
+      ['Steva Enterprises', 'Equipment hire', 'SE', 'ALT/INV-000025', '02 Sep', 'draft', 18400, 'out']
+    ];
+    const expenseRows = [
+      ['State Trading Organisation', 'Materials · Hotel', 'ST', 'INV-12345', '14 Sep', 'paid', 3450, 'out'],
+      ['Island Zone Construction', 'Subcontractors · no GST', 'IZ', '244', '30 Aug', 'paid', 4250, 'out'],
+      ['Fuel Supplies Maldives', 'Fuel · site cash box', 'FS', 'FS-2291', '16 Sep', 'paid', 6120, 'out'],
+      ['Sonee Hardware', 'Materials · Hotel', 'SH', 'SH-8821', '19 Jul', 'paid', 132840, 'out'],
+      ['Maalhos Council', 'Site overheads · billed to Steva', 'MC', 'INV-1389', '04 Sep', 'sent', 60, 'out']
+    ];
+    const src = isExpenses ? expenseRows : invoiceRows;
+
+    const tabNames = isExpenses
+      ? ['All', 'Materials', 'Fuel', 'Subcontractors', 'No bill']
+      : ['All', 'Draft', 'Sent', 'Paid', 'Overdue'];
+
+    const rawChecks = [
+      { id: 'noline', title: 'Two bills carry no GST line at all', note: 'Island Zone and the Maalhos Council are not registered. MVR 4,310.00 correctly left out of input tax.', open: false, clearLabel: 'Left out' },
+      { id: 'nobill', title: 'Six site cash spends have no bill', note: 'MVR 3,180.00 against the project, no input tax claimed.', open: false, clearLabel: 'Left out' },
+      { id: 'quote', title: 'A quotation is sitting in the bills list', note: 'State Trading 4200149171 is an offer with a valid-to date, not a payable.', open: true, btn: 'Open it' },
+      { id: 'inter', title: 'One bill is addressed to another company', note: 'INV-1389/2026/0449 is billed to Steva and was paid from Altura.', open: true, btn: 'Fix it' },
+      { id: 'waiting', title: 'Three bills are still waiting to be read', note: 'Snapped on site, not yet extracted. Any of them moves the input tax figure.', open: true, btn: 'Open queue' }
+    ];
+    const checks = rawChecks.map((c) => {
+      const open = c.open && !s.resolved[c.id] && !taxReady;
+      return {
+        title: c.title, note: c.note, open: open, clear: !open,
+        clearLabel: open ? '' : (c.open ? 'Sorted' : c.clearLabel),
+        btn: c.btn || '',
+        iconStyle: 'width: 26px; height: 26px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; background: ' + (open ? 'var(--signal-soft)' : '#E7F4EC') + '; color: ' + (open ? 'var(--signal-deep)' : 'var(--in)') + ';',
+        act: () => this.setState({ resolved: Object.assign({}, s.resolved, { [c.id]: true }) })
+      };
+    });
+    const openChecks = checks.filter((c) => c.open).length;
+    const clear = openChecks === 0;
+
+    const titles = {
+      'Dashboard': ['Dashboard', 'What Altura has spent and earned this month'],
+      'Invoices': ['Invoices', 'What customers owe you'],
+      'Invoice editor': ['New invoice', 'A number is assigned when you save'],
+      'Expenses': ['Expenses', 'Every bill and site cash spend'],
+      'Tax centre': ['GST return · September 2026', 'Due 28 October 2026 · nine days left']
+    };
+    const primaries = {
+      'Dashboard': 'Snap a bill', 'Invoices': 'New invoice', 'Invoice editor': 'Send invoice',
+      'Expenses': 'Add an expense', 'Tax centre': 'Build the pack'
+    };
+
+    return {
+      navItems: nav.map(([label, href, match, badge]) => {
+        const on = match === screen || (screen === 'Invoice editor' && label === 'Invoices');
+        return {
+          label: label, href: href, current: on ? 'page' : 'false',
+          hasBadge: badge > 0, badge: String(badge),
+          badgeStyle: 'margin-left: auto; min-width: 22px; height: 22px; padding: 3px 7px; border-radius: 9999px; background: ' + (on ? 'rgba(20,20,20,.08)' : 'var(--sunk)') + '; color: var(--concrete); display: inline-flex; align-items: center; justify-content: center; font: 600 11px Barlow, sans-serif;',
+          dotStyle: 'width: 7px; height: 7px; border-radius: 9999px; flex-shrink: 0; background: ' + (on ? 'var(--signal)' : 'transparent') + ';',
+          style: 'display: flex; align-items: center; gap: 11px; height: 42px; padding: 0 12px; margin-bottom: 2px; border-radius: 10px; text-decoration: none; font: ' + (on ? '600' : '500') + ' 14px Barlow, sans-serif; color: ' + (on ? 'var(--ink)' : 'var(--concrete)') + '; background: ' + (on ? 'var(--sunk)' : 'transparent') + ';'
+        };
+      }),
+      title: (titles[screen] || ['', ''])[0],
+      subtitle: (titles[screen] || ['', ''])[1],
+      primaryLabel: primaries[screen] || 'New',
+      primary: () => {},
+      noop: () => {},
+
+      isDash: screen === 'Dashboard',
+      isList: isInvoices || isExpenses,
+      isEditor: screen === 'Invoice editor',
+      isTax: screen === 'Tax centre',
+
+      stats: [
+        { label: 'Spent this month', value: this.fmt(412880), note: 'Across 43 bills and 12 cash spends', chip: '+8%', tone: 'out' },
+        { label: 'Owed to you', value: this.fmt(509700), note: 'One invoice is overdue', chip: '1 late', tone: 'out' },
+        { label: 'In bank and cash', value: this.fmt(1284650), note: 'Three accounts, two cash boxes', chip: 'Synced', tone: 'flat' },
+        { label: 'GST to pay', value: this.money(2387.45), note: 'Due 28 October', chip: '9 days', tone: 'warn' }
+      ].map((x) => ({
+        label: x.label, value: x.value, note: x.note, chip: x.chip,
+        chipStyle: 'display: inline-flex; align-items: center; height: 24px; padding: 4px 9px; border-radius: 9999px; font: 600 11px Barlow, sans-serif; background: ' + (x.tone === 'warn' ? 'var(--signal-soft)' : 'var(--sunk)') + '; color: ' + (x.tone === 'warn' ? 'var(--signal-deep)' : 'var(--concrete)') + ';'
+      })),
+
+      bars: [['Apr', 318], ['May', 402], ['Jun', 288], ['Jul', 466], ['Aug', 351], ['Sep', 413]].map(([m, v]) => ({
+        month: m, value: this.fmt(v) + 'k',
+        barStyle: 'display: block; width: 100%; border-radius: 8px 8px 0 0; height: ' + Math.round((v / 466) * 132) + 'px; background: ' + (m === 'Sep' ? 'var(--signal)' : 'var(--sunk)') + '; border: 1px solid ' + (m === 'Sep' ? 'var(--signal)' : 'var(--line)') + ';'
+      })),
+
+      codes: [['Materials', 182400], ['Labour', 96200], ['Subcontractors', 61300], ['Everything else', 72980]].map(([n, v]) => ({
+        name: n, value: this.fmt(v),
+        fillStyle: 'display: block; height: 7px; border-radius: 9999px; width: ' + Math.round((v / 182400) * 100) + '%; background: var(--ink);'
+      })),
+
+      tabs: tabNames.map((t, i) => ({
+        label: t, aria: s.tab === i ? 'true' : 'false',
+        pick: () => this.setState({ tab: i }),
+        style: 'height: 36px; padding: 0 14px; border-radius: 9999px; cursor: pointer; font: ' + (s.tab === i ? '600' : '500') + ' 13px Barlow, sans-serif; border: 1px solid ' + (s.tab === i ? 'var(--ink)' : 'var(--line)') + '; background: ' + (s.tab === i ? 'var(--ink)' : 'var(--board)') + '; color: ' + (s.tab === i ? 'var(--board)' : 'var(--concrete)') + ';'
+      })),
+      listCols: 'minmax(0, 1fr) 150px 96px 110px 130px',
+      listHead: [head('Who'), head('Reference'), head('Date'), head('Status'), head('Amount', 'r')],
+      rows: src.map(([who, sub, initials, ref, date, status, amount]) => ({
+        who: who, sub: sub, initials: initials, ref: ref, date: date, status: status,
+        avatarStyle: avatar, pillStyle: pill(status),
+        amount: 'MVR ' + this.fmt(amount),
+        amountColor: 'var(--ink)'
+      })),
+      listFooter: 'Showing 5 of ' + (isExpenses ? '312' : '29') + (isExpenses ? ' expenses' : ' invoices'),
+
+      metaFields: [
+        { label: 'Invoice number', value: 'Assigned on save' },
+        { label: 'Issued', value: '25 Sep 2026' },
+        { label: 'Due', value: '25 Oct 2026' }
+      ],
+      lines: [
+        { what: 'Excavator rental · Komatsu PC 56-7', qty: '30', rate: '3,000.00', amount: '90,000.00' }
+      ],
+      docLines: [
+        { what: 'Excavator rental, 25 Sep to 30 days', qty: '30', rate: '3,000.00', amount: '90,000.00' }
+      ],
+      docTotals: [
+        { label: 'Subtotal', value: '90,000.00' },
+        { label: 'GST 8%', value: '7,200.00' }
+      ],
+
+      taxFigures: [
+        { label: 'GST you charged', value: this.money(7200), note: 'Output tax on one excavator rental invoice.' },
+        { label: 'GST you paid', value: this.money(4812.55), note: 'Input tax on fifteen bills carrying a tax line.' },
+        { label: 'Net payable', value: this.money(2387.45), note: 'What you owe if nothing below changes it.' }
+      ],
+      askStyle: 'display: flex; align-items: center; gap: 12px; margin-top: 16px; padding: 14px 18px; border-radius: var(--r); background: ' + (clear ? 'var(--board)' : 'var(--signal-soft)') + '; border: 1px solid ' + (clear ? 'var(--line)' : 'var(--signal)') + ';',
+      askIconStyle: 'width: 30px; height: 30px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; background: ' + (clear ? '#E7F4EC' : 'var(--signal)') + '; color: ' + (clear ? 'var(--in)' : 'var(--ink)') + '; flex-shrink: 0;',
+      askHeading: clear ? 'Nothing left to check' : 'Three things to look at before you file',
+      askNote: clear
+        ? 'Every question was answered. The pack will carry the figures above and every receipt behind them.'
+        : 'Two of them would make the return wrong. Sentryfi will not file around them.',
+      askNoteColor: clear ? 'var(--concrete)' : 'var(--ink)',
+      checks: checks,
+
+      fileAria: clear ? 'false' : 'true',
+      fileClass: clear ? 'on-yellow' : '',
+      fileStyle: 'height: 42px; padding: 0 18px; border-radius: 9999px; font: 600 14px Barlow, sans-serif; flex-shrink: 0; ' + (clear
+        ? 'background: var(--signal); border: 0; color: var(--ink); cursor: pointer;'
+        : 'background: var(--board); border: 1px solid var(--line); color: var(--faint); cursor: not-allowed;'),
+      fileLabel: clear ? 'Build the filing pack' : 'Build the filing pack',
+      fileReason: clear
+        ? 'Figures, both Excel statements and 41 receipt images, into OneDrive.'
+        : 'Answer the ' + openChecks + ' above first. Leaving one for later counts as an answer.',
+      fileReasonColor: clear ? 'var(--concrete)' : 'var(--out)'
+    };
+  }
+}
+</script>
+</body>
+</html>

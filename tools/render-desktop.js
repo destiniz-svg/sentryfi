@@ -12,6 +12,19 @@ const OUT = process.argv[2] || 'design/preview/desktop.html';
 // renders once, from an empty state.
 const BOARDS = [
   {
+    file: "design/project/Web.dc.html",
+    w: 1440, h: 900,
+    panels: [
+      ["Web · dashboard", { screen: "Dashboard" }, {}],
+      ["Web · invoices", { screen: "Invoices" }, {}],
+      ["Web · invoices, sent only", { screen: "Invoices" }, { tab: 2 }],
+      ["Web · new invoice, with the live document", { screen: "Invoice editor" }, {}],
+      ["Web · expenses", { screen: "Expenses" }, {}],
+      ["Web · tax centre, three things to check", { screen: "Tax centre" }, {}],
+      ["Web · tax centre, ready to file", { screen: "Tax centre", taxState: "Ready to file" }, {}]
+    ]
+  },
+  {
     file: 'design/project/Tax.dc.html',
     w: 1280, h: 800,
     panels: [

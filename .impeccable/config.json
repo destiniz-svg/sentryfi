@@ -48,6 +48,15 @@
         ],
         "createdAt": "2026-09-18T23:46:02.842Z",
         "reason": "critique Assessment B (2026-09-18): findings are fixed-height signage strips (black strip, chevron strip, yellow band rows) whose single line is flex-centred with 14px or more clear above and below; no text meets a boundary"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "design/project/Web.dc.html"
+        ],
+        "createdAt": "2026-09-19T11:32:49.578Z",
+        "reason": "Fixed-height chips, pills and 44px field rows whose single line is flex-centred with 14px or more clear. Measured on the rendered panels, not assumed. The desk register uses compact rows by design, recorded in DESIGN.md."
       }
     ]
   }
