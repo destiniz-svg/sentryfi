@@ -46,33 +46,29 @@ ${BASE} — the ten-second undo
   await page.locator("button[type=submit]").last().click();
   await page.waitForTimeout(2500);
 
+  // Confirming on the board records and posts in one act, so the undo is
+  // offered straight away rather than after a second trip to the list.
+  const strip = page.locator(".phone-strip");
+  if ((await strip.count()) > 0) ok("the strip offered the undo");
+  else return void bad("nothing offered an undo after confirming");
+
+  const counting = await strip.innerText().catch(() => "");
+  if (/[0-9]+ *s/i.test(counting)) ok("it is counting down: " + counting.replace(/\n/g, " "));
+  else bad("no countdown in the strip");
+
   const row = page.locator(".phone-row", { hasText: SUPPLIER });
-  if ((await row.count()) > 0) ok("the bill is on the rule");
-  else return void bad("the bill never appeared");
-
-  const put = row.getByRole("button", { name: /put it in the books/i });
-  if ((await put.count()) === 0) {
-    bad("no way to put it in the books — it is probably blocked on its tax");
-    console.log("    row said: " + (await row.innerText()).replace(/\n/g, " · "));
+  if ((await row.count()) > 0 && /in the books/i.test(await row.innerText())) {
+    ok("and it went straight into the books");
   } else {
-    await put.click();
-    await page.waitForTimeout(2500);
-
-    const strip = page.locator(".phone-strip");
-    if ((await strip.count()) > 0) ok("the strip offered the undo");
-    else bad("nothing offered an undo");
-
-    const counting = await strip.innerText().catch(() => "");
-    if (/[0-9]+ *s/i.test(counting)) ok("it is counting down: " + counting.replace(/\n/g, " "));
-    else bad("no countdown in the strip");
-
-    await strip.getByRole("button", { name: /undo/i }).click();
-    await page.waitForTimeout(3000);
-
-    const after = await page.locator(".phone-strip").innerText().catch(() => "");
-    if (/taken back out/i.test(after)) ok("it said what it did: " + after.replace(/\n/g, " "));
-    else bad("no honest account of the undo: " + after.replace(/\n/g, " "));
+    bad("confirming did not put it in the books: " + (await row.innerText().catch(() => "no row")).replace(/\n/g, " · "));
   }
+
+  await strip.getByRole("button", { name: /undo/i }).click();
+  await page.waitForTimeout(3000);
+
+  const after = await page.locator(".phone-strip").innerText().catch(() => "");
+  if (/taken back out/i.test(after)) ok("it said what it did: " + after.replace(/\n/g, " "));
+  else bad("no honest account of the undo: " + after.replace(/\n/g, " "));
 
   // The books are the proof, not the screen.
   const books = await page.evaluate(async () => {
