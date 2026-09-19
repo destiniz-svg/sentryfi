@@ -414,6 +414,12 @@ body {
 
 .phone-row-amount.is-out { color: var(--danger); }
 .phone-row-amount.is-in { color: var(--success); }
+/* Held on the phone: real, but not yet anywhere anyone else can see. */
+.phone-row-amount.is-waiting {
+  color: var(--ink-muted);
+  border-right-color: var(--ink-muted);
+}
+
 .phone-row-amount.is-gone {
   color: var(--ink-muted);
   border-right-color: var(--ink-muted);
@@ -442,6 +448,10 @@ body {
 
 /* The nav lifts off the board; the shutter lifts off the nav. */
 .phone-nav {
+  /* On the night board the nav's ink ground is the board's ground, so without
+     an edge the bar disappears and the shutter floats over nothing. The edge
+     is invisible on board white, where the ink already separates it. */
+  border: 1px solid var(--border);
   position: absolute;
   left: 16px;
   right: 16px;

@@ -100,7 +100,7 @@ export default function PhoneHome() {
                   <div className="phone-row-who">{who(e.narrative)}</div>
                   <div className="phone-row-what">Entry {e.entryNo}</div>
                 </div>
-                <div className="phone-row-amount is-out">{e.amount}</div>
+                <div className="phone-row-amount is-out">−{e.amount}</div>
               </div>
             ))}
           </div>

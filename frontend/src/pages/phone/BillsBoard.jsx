@@ -86,7 +86,7 @@ export default function PhoneBillsBoard() {
                   </div>
                   <div className="phone-row-what">Sends itself when there is signal</div>
                 </div>
-                <div className="phone-row-amount is-gone">{item.payload?.amount}</div>
+                <div className="phone-row-amount is-waiting">{item.payload?.amount}</div>
               </div>
             ))}
           </div>
@@ -145,8 +145,11 @@ export default function PhoneBillsBoard() {
                     </button>
                   )}
                 </div>
-                <div className={`phone-row-amount ${inBooks ? "is-out" : "is-gone"}`}>
-                  {bill.gross}
+                {/* Red and signed once the money has moved; plain ink while
+                    it is still only a document. Struck through means voided,
+                    and a bill waiting on a decision is not that. */}
+                <div className={`phone-row-amount${inBooks ? " is-out" : ""}`}>
+                  {inBooks ? `−${bill.gross}` : bill.gross}
                 </div>
               </div>
             );

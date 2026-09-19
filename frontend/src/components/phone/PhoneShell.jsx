@@ -49,7 +49,9 @@ function PhoneHeader() {
       <span className="phone-company">Altura Pvt Ltd</span>
       <svg width="28" height="28" viewBox="0 0 96 96" role="img" aria-label="Sentryfi" className="ml-auto">
         <circle cx="48" cy="48" r="34" fill="#F2C300" />
-        <circle cx="48" cy="48" r="34" fill="none" stroke="#141414" strokeWidth="6" />
+        {/* The ring follows the ground. On the night board an ink ring is
+            invisible and the mark reads as a cut disc. */}
+        <circle cx="48" cy="48" r="34" fill="none" stroke="var(--ink)" strokeWidth="6" />
         <path d="M17.6 58 H78.4" stroke="#141414" strokeWidth="7" />
         <path d="M48 26 V58" stroke="#141414" strokeWidth="7" />
       </svg>
