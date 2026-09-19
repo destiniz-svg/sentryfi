@@ -32,7 +32,7 @@ Not a warning, not a penalty, a fact. The real documents in `docs/real-world-sam
 **4. Site staff never choose a cost code.**
 `PRODUCT.md` gives them tagging and nothing else, and describes them as untrained in bookkeeping. "What for" is five plain things they actually buy: fuel, boat or transport, food for the crew, small materials, something else. The office maps those to cost codes. Asking an untrained person to pick between "Site overheads" and "Equipment" produces confident wrong answers, which are worse than blanks.
 
-**5. Staff can ask for a top-up. Only the Owner or Office admin can move the money.**
+**5. Staff can ask for a top-up. Only the Administrator or Manager can move the money.**
 A request is a message, not a transaction. Authority to move money stays where the role matrix already puts it.
 
 **6. A count that does not balance is recorded, not hidden, and "not sure" is an allowed reason.**

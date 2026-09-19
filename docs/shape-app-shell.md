@@ -1,6 +1,8 @@
 # Sentryfi app shell and screens: shape brief
 
-Status: confirmed by the owner on 19 September 2026 with three answers: roles are Owner, Director, Accountant / CFO, Office admin (plus Site staff from the earlier round; External auditor retained pending confirmation); Directors view only; the night board follows the device appearance automatically with an override. Written from the shape interview and the direction round (seed key 49afc33d, assigned direction "Site Board", chosen by the owner). The direction contract lives in the surface brief for `design/project/App.dc.html`.
+Status: superseded in part on 19 September 2026. The role names here predate the move to the standard business-software set (Administrator, Accountant, Manager, Approver, Viewer, Auditor, plus site staff, cash holders and procurement officers). PRODUCT.md is the authority for roles; the flow maps and per-screen briefs below still hold.
+
+Original status: confirmed by the owner on 19 September 2026 with three answers: roles are Owner, Director, Accountant / CFO, Manager (plus Site staff from the earlier round; External auditor retained pending confirmation); Directors view only; the night board follows the device appearance automatically with an override. Written from the shape interview and the direction round (seed key 49afc33d, assigned direction "Site Board", chosen by the owner). The direction contract lives in the surface brief for `design/project/App.dc.html`.
 
 ## 1. Job and audience
 
@@ -36,7 +38,7 @@ Status: confirmed by the owner on 19 September 2026 with three answers: roles ar
 
 ## 5. Flow map and role matrix
 
-**Phone shell (Owner, Director, Office admin):** five-slot bottom bar. Home · Bills · Snap (raised shutter) · Cash · More. More opens a full-screen board: Projects, Money In, Directors, Reports, Tax centre, Settings, Switch company.
+**Phone shell (Owner, Director, Manager):** five-slot bottom bar. Home · Bills · Snap (raised shutter) · Cash · More. More opens a full-screen board: Projects, Money In, Directors, Reports, Tax centre, Settings, Switch company.
 
 **Site staff shell:** one screen. The camera opens on launch with the project tag and a queue count. A second screen lists their own uploads with sync status. Nothing else is reachable.
 
@@ -44,7 +46,7 @@ Status: confirmed by the owner on 19 September 2026 with three answers: roles ar
 
 **Company switcher:** a pull-down on the Home band. Switching swaps content in place; the layout never moves.
 
-| Screen | Owner | Director | Accountant | Auditor | Site staff | Office admin (proposed) |
+| Screen | Owner | Director | Accountant | Auditor | Site staff | Manager |
 |---|---|---|---|---|---|---|
 | Home | full | balances, projects | full | read | no | full |
 | Snap, Review, Recorded | full | no | no | no | capture only, no review | full |
@@ -120,5 +122,5 @@ Each brief: purpose, hierarchy, key states, data ranges. Layout intent only.
 - Platform: installable PWA, Next.js 15, Tailwind v4, shadcn/ui rebuilt in the Site Board vocabulary, Motion for the one authored moment.
 - Accessibility: contrast checked for yellow fields (ink on yellow only, never white on yellow), focus rings in ink, screen-reader labels on every icon, reduced-motion respected.
 - Localization: English now, Dhivehi later, so labels are strings, numerals tabular, and direction-agnostic layouts.
-- Open for the owner: whether the Office admin role exists; whether Directors may post Money In themselves or only view; whether the night board (ink ground) is a user setting or automatic.
+- Open for the owner: whether the Manager role exists; whether Directors may post Money In themselves or only view; whether the night board (ink ground) is a user setting or automatic.
 - Open for the accountant: funding treatment, excavator ownership, MIRA template wording. The Tax centre copy must not assert these.
