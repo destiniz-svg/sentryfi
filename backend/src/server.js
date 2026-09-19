@@ -26,6 +26,7 @@ const billsRouter = require("./routes/bills");
 const attentionRouter = require("./routes/attention");
 const attachmentsRouter = require("./routes/attachments");
 const figuresRouter = require("./routes/figures");
+const cashRouter = require("./routes/cash");
 
 
 
@@ -75,6 +76,7 @@ app.use("/api/bills", billsRouter);
 app.use("/api/attention", attentionRouter);
 app.use("/api/attachments", attachmentsRouter);
 app.use("/api/figures", figuresRouter);
+app.use("/api/cash", cashRouter);
 
 
 // In production the API also serves the built web app, so Railway runs one

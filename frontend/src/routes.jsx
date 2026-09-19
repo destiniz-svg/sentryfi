@@ -43,6 +43,7 @@ const Settings = lazy(() => import("@/pages/Settings"));
 // see lib/phone.js and the register table in DESIGN.md.
 const PhoneHome = lazy(() => import("@/pages/phone/Home"));
 const PhoneBills = lazy(() => import("@/pages/phone/BillsBoard"));
+const PhoneCash = lazy(() => import("@/pages/phone/Cash"));
 
 /**
  * Which register this screen is in.
@@ -109,6 +110,9 @@ export const router = createBrowserRouter([
       { path: "payments", element: <NotReady /> },
       { path: "items", element: <NotReady /> },
       { path: "reports", element: <NotReady /> },
+      // Cash is a phone job. At a desk it is a report, and that comes with
+      // the rest of the bank work in milestone two.
+      { path: "cash", element: <OnPhone board={<PhoneCash />} desk={<NotReady />} /> },
       { path: "settings", element: <Settings /> },
     ],
   },

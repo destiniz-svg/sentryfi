@@ -128,13 +128,20 @@ async function requireCompany(req, res, next) {
  * Guards a route by what the person may do rather than by what they are
  * called. Routes ask for the capability, so adding a role later means editing
  * the table above and nothing else.
+ *
+ * Takes one capability or several. Several means any of them is enough, which exists for
+ * a real case rather than for convenience: a cash holder can spend and count
+ * the tin they carry, and deliberately cannot read the company's books. The
+ * cash routes have to let them in without handing them "read", because "read"
+ * on this table means the whole ledger.
  */
-function requireCan(action) {
+function requireCan(...actions) {
+  const wanted = actions.flat();
   return function (req, res, next) {
     if (!req.roles) {
       return next(new Error("requireCan: put requireCompany in front of this route."));
     }
-    if (!req.can(action)) {
+    if (!wanted.some((action) => req.can(action))) {
       return next(
         ApiError.forbidden(
           `Your role in ${req.company?.name || "this company"} does not allow that.`

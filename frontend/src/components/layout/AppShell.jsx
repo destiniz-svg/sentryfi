@@ -15,7 +15,7 @@ import { usePhone } from "@/lib/phone";
  * must stand out of the way entirely rather than wrapping them — two navs on
  * one screen is not a style problem, it is two answers to "where am I".
  */
-const BOARD = new Set(["/dashboard", "/bills"]);
+const BOARD = new Set(["/dashboard", "/bills", "/cash"]);
 
 export function AppShell() {
   const location = useLocation();

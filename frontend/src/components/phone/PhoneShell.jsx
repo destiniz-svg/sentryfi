@@ -97,7 +97,7 @@ const NAV = [
   { to: "/bills", label: "Bills", d: "M6 3h12v18l-3-2-3 2-3-2-3 2z M9 8h6 M9 12h6" },
 ];
 const NAV_RIGHT = [
-  { to: "/figures", label: "Figures", d: "M4 20V10 M10 20V4 M16 20v-7 M22 20H2" },
+  { to: "/cash", label: "Cash", d: "M3 7h18v12H3z M12 13h.01" },
   { to: "/settings", label: "More", d: "M4 7h16M4 12h16M4 17h16" },
 ];
 
