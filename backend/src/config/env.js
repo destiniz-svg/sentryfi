@@ -22,6 +22,9 @@ module.exports = {
     .map((o) => o.trim())
     .filter(Boolean),
   geminiApiKey: process.env.GEMINI_API_KEY || "",
-  geminiModel: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+  // gemini-2.5-flash was retired for new API keys on 19 September 2026: the
+  // API answers 404 with "no longer available to new users". Keep this
+  // current, and keep it overridable, because it will happen again.
+  geminiModel: process.env.GEMINI_MODEL || "gemini-3.6-flash",
   isProd: process.env.NODE_ENV === "production",
 };
