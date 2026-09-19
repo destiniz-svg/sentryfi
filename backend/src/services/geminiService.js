@@ -28,29 +28,104 @@ function requireAI() {
  * the same answer.
  */
 const TRANSIENT = /\b(503|429)\b|UNAVAILABLE|RESOURCE_EXHAUSTED|high demand|overloaded/i;
+const GONE = /\b404\b|NOT_FOUND|no longer available|is not supported|not found/i;
 
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Which model to use, discovered rather than guessed.
+ *
+ * Two things went wrong in one afternoon that this answers. A model was
+ * retired for newly-created keys and the configured name 404'd; then the
+ * replacement came back 503 "experiencing high demand" often enough to be
+ * unusable. Hard-coding a second name would only move the problem, because
+ * which models a key can reach is a property of the key and the day.
+ *
+ * So when the configured model fails, the list of models the key can actually
+ * reach is fetched once and the usable ones are tried in order. The working
+ * one is remembered for the life of the process, so this costs one extra call
+ * on the first bad day and nothing afterwards.
+ */
+let discovered = null;
+/** The model that last worked, remembered for the life of the process. */
+let chosen = null;
+
+async function reachableModels() {
+  if (discovered) return discovered;
+  const names = [];
+  try {
+    const page = await ai.models.list();
+    for await (const m of page) {
+      const name = String(m.name || "").replace(/^models\//, "");
+      const canGenerate =
+        !m.supportedActions || m.supportedActions.includes("generateContent");
+      // Vision and structured output are both required here, and the small
+      // fast models are the right shape for reading one page of paper.
+      if (canGenerate && /gemini/i.test(name) && !/embedding|aqa|imagen|veo|tts/i.test(name)) {
+        names.push(name);
+      }
+    }
+  } catch {
+    // If even listing fails there is nothing more to try than what we were told.
+  }
+  // Prefer flash — cheaper and quicker for a page of paper — then anything else.
+  names.sort((a, b) => (/flash/i.test(b) ? 1 : 0) - (/flash/i.test(a) ? 1 : 0));
+  discovered = names;
+  return discovered;
+}
+
+async function callModel(model, { contents, config }) {
+  const result = await ai.models.generateContent({ model, contents, config });
+  const text = typeof result.text === "function" ? result.text() : result.text;
+  if (!text) throw new Error("Empty response from Gemini");
+  return text;
+}
+
 async function generate({ contents, config }) {
   let last;
+
+  // The configured model first, retried through a short spike.
+  const preferred = chosen || env.geminiModel;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      const result = await ai.models.generateContent({
-        model: env.geminiModel,
-        contents,
-        config,
-      });
-      const text = typeof result.text === "function" ? result.text() : result.text;
-      if (!text) throw new Error("Empty response from Gemini");
+      const text = await callModel(preferred, { contents, config });
+      chosen = preferred;
       return text;
     } catch (err) {
       last = err;
-      if (!TRANSIENT.test(String(err?.message || err))) throw err;
+      const raw = String(err?.message || err);
+      if (GONE.test(raw)) break;                 // wrong name: retrying will not help
+      if (!TRANSIENT.test(raw)) throw err;       // a real failure
       if (attempt < 2) await pause(700 * (attempt + 1));
     }
   }
+
+  // Still stuck. Find out what this key can actually reach and work down it.
+  for (const model of await reachableModels()) {
+    if (model === preferred) continue;
+    try {
+      const text = await callModel(model, { contents, config });
+      // Remember it: the next bill should not pay for this search again.
+      chosen = model;
+      console.warn(
+        JSON.stringify({
+          at: "gemini",
+          note: "configured model unavailable; using another the key can reach",
+          configured: env.geminiModel,
+          using: model,
+        })
+      );
+      return text;
+    } catch (err) {
+      last = err;
+      const raw = String(err?.message || err);
+      if (!TRANSIENT.test(raw) && !GONE.test(raw)) throw err;
+    }
+  }
+
   throw last;
 }
+
 
 const receiptResponseSchema = {
   type: Type.OBJECT,
