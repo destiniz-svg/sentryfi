@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, AlertTriangle, Camera, Paperclip, FileText, X } from "lucide-react";
+import { Loader2, AlertTriangle, Camera, Paperclip, FileText, X, Check } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { useBillMutations } from "@/hooks/useBills";
@@ -61,6 +61,11 @@ export function RecordBill({ open, onClose }) {
   const { offer } = useUndo();
   const inputClass = board ? BOARD_INPUT : DESK_INPUT;
 
+  // A field the reader doubted wears the yellow; everything else stays ink on
+  // white. Two yellow fields would be a defect, not emphasis.
+  const fieldClass = (name) =>
+    atRisk === name ? `${inputClass} on-yellow bg-[var(--accent)] text-[var(--on-accent)]` : inputClass;
+
   const cameraButton = useRef(null);
 
   const [form, setForm] = useState(blank());
@@ -75,6 +80,7 @@ export function RecordBill({ open, onClose }) {
   // record. The first is what gets read; all of them get kept.
   const [files, setFiles] = useState([]);
   const [supplierFacts, setSupplierFacts] = useState(null);
+  const [sure, setSure] = useState([]);
 /**
    * The button that commits names the money.
    *
@@ -83,6 +89,25 @@ export function RecordBill({ open, onClose }) {
    * instead — so the loudest thing on the sheet is either the blocker or the
    * commitment, never a detail.
    */
+  /**
+   * Yellow Follows The Risk.
+   *
+   * The one yellow field on this sheet lands on whatever is most uncertain
+   * about the money, ranked by what it costs the owner if it is wrong: a
+   * suspected duplicate first, because paying a supplier twice and claiming
+   * the input tax twice is the most expensive mistake this flow can make;
+   * then the amount; then how the tax was quoted, which is an 8% error;
+   * then who it is from; then the bill number.
+   *
+   * When nothing is uncertain the yellow moves to the button that commits, so
+   * the loudest thing on screen is always either the doubt or the commitment,
+   * never a detail.
+   */
+  const RISK_ORDER = ["amount", "gstTreatment", "supplierName", "billNo"];
+  const atRisk = duplicates.length
+    ? "duplicate"
+    : RISK_ORDER.find((field) => questions.some((q) => q.field === field)) || null;
+
   const amountNow = Number(String(form.amount).replace(/,/g, ""));
   const commitment = !form.supplierName.trim()
     ? "Who is it from?"
@@ -108,6 +133,7 @@ export function RecordBill({ open, onClose }) {
       setErr("");
       setDuplicates([]);
       setQuestions([]);
+      setSure([]);
       setReadIt(false);
       setBlanks([]);
       setFiles([]);
@@ -172,6 +198,20 @@ export function RecordBill({ open, onClose }) {
         gstTreatment: extracted.gstTreatment || f.gstTreatment,
       }));
       setQuestions(result.questions || []);
+      // Everything the reader filled and was not asked about. A field arrives
+      // checked rather than blank, because making one field always unchecked
+      // turns the review into a ritual tap and teaches somebody to clear it
+      // without reading — which is worse than no review at all.
+      const asked = new Set((result.questions || []).map((q) => q.field));
+      setSure(
+        [
+          extracted.supplierName || result.supplier?.name ? "supplierName" : null,
+          extracted.grossAmount ? "amount" : null,
+          extracted.billNo ? "billNo" : null,
+          extracted.issueDate ? "issueDate" : null,
+          extracted.gstTreatment && extracted.gstTreatment !== "unknown" ? "gstTreatment" : null,
+        ].filter((field) => field && !asked.has(field))
+      );
       setReadIt(true);
       setBlanks(
         [
@@ -443,6 +483,10 @@ export function RecordBill({ open, onClose }) {
           <p className="text-sm font-semibold text-[var(--ink)]">
             {questions.length === 1 ? "One thing to check" : `${questions.length} things to check`}
           </p>
+          <p className="text-[13px] text-[var(--ink-muted)] mt-1 leading-snug">
+            The one in yellow is the one that costs most if it is wrong. The rest are
+            below it.
+          </p>
           <ul className="mt-2 space-y-2">
             {questions.map((q) => (
               <li key={q.field} className="text-[13px] leading-snug">
@@ -455,28 +499,28 @@ export function RecordBill({ open, onClose }) {
       )}
 
       <div className="space-y-4">
-        <Field label="Who is it from?" htmlFor="bill-supplier">
+        <Field label="Who is it from?" htmlFor="bill-supplier" read={sure.includes("supplierName")}>
           <input
             id="bill-supplier"
             value={form.supplierName}
             onChange={set("supplierName")}
             placeholder="Lily Enterprises"
-            className={inputClass}
+            className={fieldClass("supplierName")}
           />
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="How much?" htmlFor="bill-amount">
+          <Field label="How much?" htmlFor="bill-amount" read={sure.includes("amount")}>
             <input
               id="bill-amount"
               value={form.amount}
               onChange={set("amount")}
               inputMode="decimal"
               placeholder="4,250.50"
-              className={`${inputClass} tabular`}
+              className={`${fieldClass("amount")} tabular`}
             />
           </Field>
-          <Field label="Dated" htmlFor="bill-date">
+          <Field label="Dated" htmlFor="bill-date" read={sure.includes("issueDate")}>
             <input
               id="bill-date"
               type="date"
@@ -490,6 +534,7 @@ export function RecordBill({ open, onClose }) {
         <Field
           label="Bill number"
           htmlFor="bill-no"
+          read={sure.includes("billNo")}
           hint="Worth having: it is how a supplier billing twice gets caught."
         >
           <input
@@ -502,8 +547,14 @@ export function RecordBill({ open, onClose }) {
         </Field>
 
         <fieldset>
-          <legend className="text-sm font-medium text-[var(--ink)] mb-2">
+          <legend className="text-sm font-medium text-[var(--ink)] mb-2 flex items-center gap-1.5">
             How was the GST quoted?
+            {sure.includes("gstTreatment") && (
+              <span className="inline-flex items-center gap-1 text-[12px] font-normal text-[var(--success)]">
+                <Check size={13} aria-hidden="true" />
+                read off the bill
+              </span>
+            )}
           </legend>
           <div className="space-y-1.5">
             {TAX_CHOICES.map((choice) => (
@@ -512,9 +563,14 @@ export function RecordBill({ open, onClose }) {
                 className={`flex items-start gap-3 p-3 cursor-pointer transition-colors ${
                   board ? "border-2" : "rounded-[var(--radius-control)] border"
                 } ${
-                  form.gstTreatment === choice.value
-                    ? "border-[var(--ink)] bg-[var(--surface-2)]"
-                    : "border-[var(--border)] hover:bg-[var(--surface-2)]"
+                  form.gstTreatment !== choice.value
+                    ? "border-[var(--border)] hover:bg-[var(--surface-2)]"
+                    : atRisk === "gstTreatment"
+                      ? // The option that is set carries the yellow while the
+                        // tax is what is in doubt, so "what it is now" stays
+                        // visible while somebody picks.
+                        "on-yellow border-[var(--ink)] bg-[var(--accent)] text-[var(--on-accent)]"
+                      : "border-[var(--ink)] bg-[var(--surface-2)]"
                 }`}
               >
                 <input
@@ -594,9 +650,15 @@ export function RecordBill({ open, onClose }) {
           </Button>
           <Button
             type="submit"
-            variant="accent"
+            // One yellow field. While something on this sheet is in doubt, the
+            // doubt wears it and the button does not.
+            variant={atRisk ? "outline" : "accent"}
             disabled={record.isPending}
-            className={board ? "rounded-none h-[52px] flex-1" : undefined}
+            className={
+              board
+                ? `rounded-none h-[52px] flex-1${atRisk ? " border-2 border-[var(--ink)]" : ""}`
+                : undefined
+            }
           >
             {record.isPending && <Loader2 size={14} className="animate-spin" />}
             {commitment}
@@ -618,11 +680,22 @@ const DESK_INPUT =
 const BOARD_INPUT =
   `${FIELD} h-[52px] border-2 border-[var(--ink)] text-[17px] focus:outline-3 focus:outline-[var(--ink)] focus:outline-offset-2`;
 
-function Field({ label, htmlFor, hint, children }) {
+function Field({ label, htmlFor, hint, children, read }) {
   return (
     <div>
-      <label htmlFor={htmlFor} className="text-sm font-medium text-[var(--ink)] mb-1.5 block">
+      <label
+        htmlFor={htmlFor}
+        className="text-sm font-medium text-[var(--ink)] mb-1.5 flex items-center gap-1.5"
+      >
         {label}
+        {/* Read off the paper and not in doubt. Saying so is the difference
+            between a review and a form. */}
+        {read && (
+          <span className="inline-flex items-center gap-1 text-[12px] font-normal text-[var(--success)]">
+            <Check size={13} aria-hidden="true" />
+            read off the bill
+          </span>
+        )}
       </label>
       {children}
       {hint && <p className="text-[13px] text-[var(--ink-muted)] mt-1.5 leading-snug">{hint}</p>}
