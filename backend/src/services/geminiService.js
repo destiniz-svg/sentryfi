@@ -2,7 +2,7 @@ const { GoogleGenAI, Type } = require("@google/genai");
 const { z } = require("zod");
 
 const env = require("../config/env");
-const { billSchema, billValidator, BILL_PROMPT, questionsFrom } = require("./billExtraction");
+const { billSchema, billValidator, billPrompt, questionsFrom } = require("./billExtraction");
 const ApiError = require("../utils/ApiError");
 
 const ai = env.geminiApiKey
@@ -80,14 +80,14 @@ const receiptValidator = z.object({
  * receipt are not the same document: this one has to establish how the GST was
  * quoted, and must refuse to guess it. See services/billExtraction.js.
  */
-async function parseBill({ buffer, mimeType }) {
+async function parseBill({ buffer, mimeType, companyName }) {
   requireAI();
   const text = await generate({
     contents: [
       {
         role: "user",
         parts: [
-          { text: BILL_PROMPT },
+          { text: billPrompt({ companyName }) },
           { inlineData: { mimeType, data: buffer.toString("base64") } },
         ],
       },

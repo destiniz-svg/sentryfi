@@ -81,6 +81,9 @@ router.post(
       read = await gemini.parseBill({
         buffer: req.file.buffer,
         mimeType: req.file.mimetype,
+        // So it can tell which of the two businesses on the page is the
+        // customer. Without this it has to guess, and it abstains instead.
+        companyName: req.company?.name,
       });
     } catch (err) {
       // Every failure used to become "that could not be read", which is

@@ -33,7 +33,11 @@ const billSchema = {
   properties: {
     supplierName: {
       type: Type.STRING,
-      description: "The company issuing the bill, exactly as printed at the top.",
+      description:
+        "The business this money is owed TO — whoever issued the bill. Usually the most " +
+        "prominent name on the page: a letterhead, a logo, a header, or a rubber stamp. " +
+        "Copy it exactly as printed, including Pvt Ltd or similar. This is almost always " +
+        "readable on a bill; leave it empty only if no issuing business is named anywhere.",
     },
     supplierTin: {
       type: Type.STRING,
@@ -75,7 +79,9 @@ const billSchema = {
     },
     billedToName: {
       type: Type.STRING,
-      description: "Who the bill is addressed to, as printed. Empty if not shown.",
+      description:
+        "Who the bill is addressed to — the customer, who OWES the money. Often after " +
+        "'Bill To', 'Invoice To', 'To:' or 'Customer'. Empty if not shown.",
     },
     supplierAddress: {
       type: Type.STRING,
@@ -150,9 +156,18 @@ const billValidator = z.object({
   notes: z.string().default(""),
 });
 
-const BILL_PROMPT = [
+function billPrompt({ companyName } = {}) {
+  return [
   "You are reading a supplier's bill for a construction company in the Maldives.",
-  "Read only what is printed. Do not calculate figures that are not shown, and do not infer a supplier's identity from context.",
+  "Read only what is printed, and do not calculate figures that are not shown.",
+  "",
+  "**Who the bill is from is the single most useful thing on it, and it is almost always readable.**",
+  "A bill names two businesses: the one that issued it and is owed the money, and the one it is addressed to, which owes it.",
+  "supplierName is the one that ISSUED it. It is usually the most prominent name on the page — a letterhead, a logo, a header, or a rubber stamp — and it does not have to be labelled to be obvious.",
+  companyName
+    ? `You are reading this on behalf of "${companyName}". If a name on the document is that one, or close to it, that is the customer: put it in billedToName, never in supplierName.`
+    : "If one name appears under 'Bill To', 'Invoice To' or 'Customer', that one is the customer and belongs in billedToName.",
+  "Do not invent a business that is not printed anywhere. But if a business name is printed, read it — working out which of two printed names issued the bill is reading, not guessing.",
   "",
   "The most important field is gstTreatment, and it is the one you must not guess.",
   "GST in the Maldives is generally 8%. Decide as follows:",
@@ -168,7 +183,8 @@ const BILL_PROMPT = [
   "The image is a photograph of a piece of paper, often taken at an angle, on a desk or a van bonnet, in poor light, with other things in the frame. Read the document in it and ignore the surroundings. If it is rotated, read it rotated.",
   "If a field is genuinely not on the paper, leave it empty. An empty field is correct and useful; an invented one is a figure somebody will pay.",
   "If the bill is handwritten, faint, cropped or in Dhivehi, say so in notes and lower your confidence.",
-].join("\n");
+  ].join("\n");
+}
 
 /**
  * Anything the app should ask a person about before this goes in the books.
@@ -211,4 +227,4 @@ function questionsFrom(extracted) {
   return questions;
 }
 
-module.exports = { billSchema, billValidator, BILL_PROMPT, questionsFrom };
+module.exports = { billSchema, billValidator, billPrompt, questionsFrom };
