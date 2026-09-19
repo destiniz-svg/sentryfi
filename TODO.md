@@ -160,11 +160,11 @@ Before a single real figure is entered: the accountant signs off the accounts st
 | ~~Marking an invoice paid took one click, with no confirmation and no undo~~ | Fixed 19 Sep, properly in step 2 |
 | ~~The invoice list blanked on every keystroke~~ | Fixed 19 Sep |
 | Everything priced in US dollars; no tax number field | Currency and the tax numbers landed with step 1. What the screens show follows in step 2 |
-| Sign-in screen still carries the purchased product's branding | Before step 2. Half a day |
-| Four pop-ups a keyboard user cannot escape | Before step 2. One shared component, copied from the one that works |
+| Sign-in screen still carries the purchased product's branding | Still open. Before step 2. Half a day |
+| ~~Four pop-ups a keyboard user cannot escape~~ | Fixed 19 Sep. One shared dialog, copied from the one that worked |
 | No way to clear a backlog in bulk | Step 2. Batch capture, not tick-boxes |
 | No help anywhere | Step 6. The pre-filing checklist is the help |
-| The whole app loads in one 2.3 MB download | Before step 7 |
+| ~~The whole app loads in one 2.3 MB download~~ | Fixed 19 Sep. 2.35 MB to about 160 KB over the wire |
 
 ## Not doing
 
