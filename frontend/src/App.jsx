@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { UIProvider } from "@/context/UIContext";
+import { CompanyProvider } from "@/context/CompanyContext";
 import { router } from "@/routes";
 
 const queryClient = new QueryClient({
@@ -21,7 +22,12 @@ export default function App() {
       <ThemeProvider>
         <UIProvider>
           <AuthProvider>
-            <RouterProvider router={router} />
+            {/* Inside AuthProvider: which companies you belong to depends on who
+                you are, and the header it sets must be on every request the
+                router makes. */}
+            <CompanyProvider>
+              <RouterProvider router={router} />
+            </CompanyProvider>
           </AuthProvider>
         </UIProvider>
       </ThemeProvider>

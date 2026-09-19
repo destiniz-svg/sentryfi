@@ -11,6 +11,8 @@ import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import { useAuth } from "@/context/AuthContext";
+import { useCompany } from "@/context/CompanyContext";
+import OpenBooks from "@/pages/OpenBooks";
 
 /**
  * What loads when.
@@ -40,6 +42,7 @@ const Settings = lazy(() => import("@/pages/Settings"));
 
 function ProtectedShell() {
   const { user, loading } = useAuth();
+  const companies = useCompany();
   if (loading) {
     return (
       <div
@@ -52,6 +55,23 @@ function ProtectedShell() {
     );
   }
   if (!user) return <Navigate to="/login" replace />;
+
+  // Belonging to no company is the ordinary first-run state, not an error.
+  // Everything is kept per company, so there is genuinely nothing to show
+  // until one exists — a dashboard of zeroes would be worse than asking.
+  if (companies.loading) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="min-h-screen flex items-center justify-center bg-[var(--bg)] text-[var(--ink-muted)] text-sm"
+      >
+        Loading…
+      </div>
+    );
+  }
+  if (companies.needsFirstCompany) return <OpenBooks />;
+
   return <AppShell />;
 }
 
