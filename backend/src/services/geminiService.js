@@ -2,6 +2,7 @@ const { GoogleGenAI, Type } = require("@google/genai");
 const { z } = require("zod");
 
 const env = require("../config/env");
+const { billSchema, billValidator, BILL_PROMPT, questionsFrom } = require("./billExtraction");
 const ApiError = require("../utils/ApiError");
 
 const ai = env.geminiApiKey
@@ -71,6 +72,37 @@ const receiptValidator = z.object({
     )
     .default([]),
 });
+
+/**
+ * Reads a supplier bill, and says what it is unsure about.
+ *
+ * Separate from parseReceipt because a supplier bill and a freelancer expense
+ * receipt are not the same document: this one has to establish how the GST was
+ * quoted, and must refuse to guess it. See services/billExtraction.js.
+ */
+async function parseBill({ buffer, mimeType }) {
+  requireAI();
+  const text = await generate({
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { text: BILL_PROMPT },
+          { inlineData: { mimeType, data: buffer.toString("base64") } },
+        ],
+      },
+    ],
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: billSchema,
+      // Reading a document is not a task that benefits from invention.
+      temperature: 0,
+    },
+  });
+
+  const extracted = billValidator.parse(JSON.parse(text));
+  return { extracted, questions: questionsFrom(extracted) };
+}
 
 async function parseReceipt({ buffer, mimeType }) {
   requireAI();
@@ -179,6 +211,7 @@ async function writeNote({ kind, prompt, items, client }) {
 }
 
 module.exports = {
+  parseBill,
   parseReceipt,
   businessSummary,
   paymentReminder,

@@ -4,6 +4,18 @@ export const billsApi = {
   list: () => apiClient.get("/bills").then((r) => r.data.bills),
 
   /**
+   * Reads a photographed bill. Records nothing: the person sees what was read
+   * off their paper before any of it becomes a record.
+   */
+  scan: (file) => {
+    const form = new FormData();
+    form.append("file", file);
+    return apiClient
+      .post("/bills/scan", form, { headers: { "Content-Type": "multipart/form-data" } })
+      .then((r) => r.data);
+  },
+
+  /**
    * Records a bill without posting it. Returns the bill and anything that
    * looks like a duplicate, so the person can be told before it matters.
    */

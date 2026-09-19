@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { Loader2, AlertTriangle, Camera } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { useBillMutations } from "@/hooks/useBills";
+import { billsApi } from "@/api/bills";
 import { useToast } from "@/context/UIContext";
 import { today } from "@/lib/utils";
 
@@ -49,11 +50,15 @@ const TAX_CHOICES = [
 export function RecordBill({ open, onClose }) {
   const { record } = useBillMutations();
   const toast = useToast();
-  const firstField = useRef(null);
+  const cameraButton = useRef(null);
 
   const [form, setForm] = useState(blank());
   const [err, setErr] = useState("");
   const [duplicates, setDuplicates] = useState([]);
+  const [reading, setReading] = useState(false);
+  const [questions, setQuestions] = useState([]);
+  const [readIt, setReadIt] = useState(false);
+  const fileRef = useRef(null);
 
   function blank() {
     return {
@@ -70,8 +75,47 @@ export function RecordBill({ open, onClose }) {
       setForm(blank());
       setErr("");
       setDuplicates([]);
+      setQuestions([]);
+      setReadIt(false);
     }
   }, [open]);
+
+  /**
+   * Photograph it, and let the app fill in what it can read.
+   *
+   * What comes back is put in the form rather than recorded, so the person
+   * sees what was read off their own paper before any of it becomes a record.
+   * Anything the reading was unsure about is listed underneath, because the
+   * rule is to ask only about what is genuinely doubtful and handle the rest.
+   */
+  async function onPhoto(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setReading(true);
+    setErr("");
+    setQuestions([]);
+    try {
+      const result = await billsApi.scan(file);
+      const read = result.read || {};
+
+      setForm((f) => ({
+        ...f,
+        supplierName: result.supplier?.name || read.supplierName || f.supplierName,
+        amount: read.grossAmount || f.amount,
+        billNo: read.billNo || f.billNo,
+        issueDate: read.issueDate || f.issueDate,
+        gstTreatment: read.gstTreatment || f.gstTreatment,
+      }));
+      setQuestions(result.questions || []);
+      setReadIt(true);
+    } catch (ex) {
+      setErr(ex.message || "That could not be read. Type it in instead.");
+    } finally {
+      setReading(false);
+    }
+  }
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -122,13 +166,57 @@ export function RecordBill({ open, onClose }) {
       onSubmit={onSubmit}
       title="Record a bill"
       description="What is on the paper. You can correct any of it afterwards."
-      initialFocus={firstField}
+      initialFocus={cameraButton}
     >
+      {/* The camera first, because photographing it is the fast path and
+          typing is the fallback — not the other way round. */}
+      <div className="mb-5">
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*,application/pdf"
+          capture="environment"
+          className="hidden"
+          onChange={onPhoto}
+        />
+        <Button
+          type="button"
+          ref={cameraButton}
+          variant="outline"
+          onClick={() => fileRef.current?.click()}
+          disabled={reading}
+          className="w-full h-12"
+        >
+          {reading ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
+          {reading ? "Reading it…" : "Photograph the bill"}
+        </Button>
+        <p className="text-[13px] text-[var(--ink-muted)] mt-2 leading-snug">
+          {readIt
+            ? "Read off the photo. Check it against the paper — anything wrong, just change it."
+            : "Or fill it in below. Nothing is recorded until you say so."}
+        </p>
+      </div>
+
+      {questions.length > 0 && (
+        <div role="status" className="mb-5 rounded-[var(--radius-control)] border border-[var(--border)] p-4">
+          <p className="text-sm font-semibold text-[var(--ink)]">
+            {questions.length === 1 ? "One thing to check" : `${questions.length} things to check`}
+          </p>
+          <ul className="mt-2 space-y-2">
+            {questions.map((q) => (
+              <li key={q.field} className="text-[13px] leading-snug">
+                <span className="text-[var(--ink)]">{q.asks}</span>{" "}
+                <span className="text-[var(--ink-muted)]">{q.because}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="space-y-4">
         <Field label="Who is it from?" htmlFor="bill-supplier">
           <input
             id="bill-supplier"
-            ref={firstField}
             value={form.supplierName}
             onChange={set("supplierName")}
             placeholder="Lily Enterprises"

@@ -8,6 +8,8 @@ const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
 const { splitTax, findPossibleDuplicates, postBill } = require("../ledger/bills");
 const { toLaari, formatLaari } = require("../ledger/money");
+const { uploadReceipt } = require("../middleware/upload");
+const gemini = require("../services/geminiService");
 
 const router = express.Router();
 router.use(requireAuth, requireCompany);
@@ -44,6 +46,83 @@ const serialize = (row) => ({
   tax: formatLaari(BigInt(row.tax_laari)),
   gross: formatLaari(BigInt(row.gross_laari)),
 });
+
+/**
+ * Reads a photographed bill and says what it is unsure about.
+ *
+ * Reads only. Nothing is recorded here, because the person should see what was
+ * read off their bill before it becomes a record — and because a scan that
+ * silently created something would make a bad read expensive to undo.
+ *
+ * The supplier is matched against the names already known, including the other
+ * spellings each one goes by, since one real invoice spells its own issuer two
+ * ways on a single page.
+ */
+router.post(
+  "/scan",
+  requireCan("record"),
+  uploadReceipt("file"),
+  asyncHandler(async (req, res) => {
+    let read;
+    try {
+      read = await gemini.parseBill({
+        buffer: req.file.buffer,
+        mimeType: req.file.mimetype,
+      });
+    } catch (err) {
+      // Tell the truth about which failure this is. "Try a clearer
+      // photograph" is useless advice when the real problem is that reading
+      // is not switched on, and it sends somebody off to re-take a photo that
+      // was fine.
+      if (/GEMINI_API_KEY/i.test(err.message || "")) {
+        throw ApiError.badRequest(
+          "Reading bills from a photo is not switched on yet. Type it in for now."
+        );
+      }
+      throw ApiError.badRequest(
+        "That could not be read. Try a clearer photograph, or type it in."
+      );
+    }
+
+    const { extracted, questions } = read;
+
+    // Who this might be, among suppliers already known.
+    let matched = null;
+    if (extracted.supplierName) {
+      matched = await asCompany(req, async (client) => {
+        const { rows } = await client.query(
+          `SELECT id, name, gst_registered,
+                  similarity(name, $2) AS score
+             FROM counterparties
+            WHERE company_id = $1
+              AND archived_at IS NULL
+              AND (name % $2 OR lower($2) = ANY (SELECT lower(x) FROM unnest(also_known_as) x))
+            ORDER BY score DESC NULLS LAST
+            LIMIT 1`,
+          [req.companyId, extracted.supplierName]
+        );
+        return rows[0] || null;
+      });
+    }
+
+    // A supplier we know is not registered cannot have charged GST, whatever
+    // the paper seems to say. Knowing something is better than reading it.
+    let treatment = extracted.gstTreatment;
+    let questionList = questions;
+    if (matched && matched.gst_registered === false && treatment === "unknown") {
+      treatment = "none_unregistered";
+      questionList = questions.filter((q) => q.field !== "gstTreatment");
+    }
+
+    res.json({
+      read: { ...extracted, gstTreatment: treatment },
+      supplier: matched
+        ? { id: matched.id, name: matched.name, gstRegistered: matched.gst_registered }
+        : null,
+      questions: questionList,
+    });
+  })
+);
 
 /** Bills, newest first. Voided ones stay in the list, marked. */
 router.get(
