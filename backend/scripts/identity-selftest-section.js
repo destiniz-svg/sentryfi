@@ -66,6 +66,9 @@ async function testIdentity(client, ctx, { check }) {
   // ---- resolving the company -------------------------------------------
 
   // The owner is an administrator of one company only, so far.
+  // memberships is under FORCE row-level security, so even the table owner has
+  // to say which company a row belongs to before writing it.
+  await client.query("SELECT set_config('app.company_id', $1, true)", [companyId]);
   await client.query(
     `INSERT INTO memberships (user_id, company_id, role) VALUES ($1,$2,'administrator')`,
     [userId, companyId]
@@ -90,6 +93,7 @@ async function testIdentity(client, ctx, { check }) {
 
   // ---- two companies, so say which --------------------------------------
 
+  await client.query("SELECT set_config('app.company_id', $1, true)", [otherCompanyId]);
   await client.query(
     `INSERT INTO memberships (user_id, company_id, role) VALUES ($1,$2,'viewer')`,
     [userId, otherCompanyId]

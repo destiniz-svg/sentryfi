@@ -398,6 +398,11 @@ async function testLedger(client) {
 
   // ---- step 2: the bill path --------------------------------------------
 
+  // Back to the owner to create test fixtures. verifyChain above left the
+  // connection as sentryfi_app, which holds only SELECT on users — the
+  // restricted role doing precisely what it exists to do.
+  await client.query("RESET ROLE");
+
   // An outsider, to prove that belonging to nothing is refused.
   const { rows: outsiderRows } = await client.query(
     `INSERT INTO users (name, email, password_hash)
