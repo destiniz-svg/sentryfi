@@ -21,6 +21,18 @@ export const billsApi = {
    */
   record: (payload) => apiClient.post("/bills", payload).then((r) => r.data),
 
+  /** Keeps the photograph against the bill. */
+  attach: (billId, file) => {
+    const form = new FormData();
+    form.append("file", file);
+    return apiClient
+      .post(`/attachments/bills/${billId}`, form, { headers: { "Content-Type": "multipart/form-data" } })
+      .then((r) => r.data);
+  },
+
+  /** What paper a bill has. */
+  paper: (billId) => apiClient.get(`/attachments/bills/${billId}`).then((r) => r.data.attachments),
+
   /** Puts a recorded bill into the books. */
   post: (id) => apiClient.post(`/bills/${id}/post`).then((r) => r.data),
 

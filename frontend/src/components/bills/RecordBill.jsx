@@ -58,6 +58,7 @@ export function RecordBill({ open, onClose }) {
   const [reading, setReading] = useState(false);
   const [questions, setQuestions] = useState([]);
   const [readIt, setReadIt] = useState(false);
+  const [photo, setPhoto] = useState(null);
   const fileRef = useRef(null);
 
   function blank() {
@@ -77,6 +78,7 @@ export function RecordBill({ open, onClose }) {
       setDuplicates([]);
       setQuestions([]);
       setReadIt(false);
+      setPhoto(null);
     }
   }, [open]);
 
@@ -110,6 +112,7 @@ export function RecordBill({ open, onClose }) {
       }));
       setQuestions(result.questions || []);
       setReadIt(true);
+      setPhoto(file);
     } catch (ex) {
       setErr(ex.message || "That could not be read. Type it in instead.");
     } finally {
@@ -139,6 +142,23 @@ export function RecordBill({ open, onClose }) {
           form.gstTreatment === "inclusive" || form.gstTreatment === "exclusive" ? 800 : null,
       });
 
+      // File the photograph against the bill now that the bill exists. This
+      // happens even when a duplicate was found, because the paper belongs to
+      // the record either way and whoever sorts the duplicate out will want to
+      // see both documents.
+      //
+      // A failure here does not lose the bill. The bill is recorded; the
+      // photograph can be added again. Saying so is better than rolling back
+      // work somebody has already done.
+      let paperKept = true;
+      if (photo) {
+        try {
+          await billsApi.attach(result.bill.id, photo);
+        } catch {
+          paperKept = false;
+        }
+      }
+
       // A duplicate is worth stopping for, but not worth losing the bill over:
       // it is already recorded, and this says so rather than discarding it.
       if (result.duplicates?.length) {
@@ -148,9 +168,11 @@ export function RecordBill({ open, onClose }) {
 
       toast.success(
         `Recorded ${result.bill.gross} from ${form.supplierName.trim()}`,
-        form.gstTreatment === "unknown"
-          ? "It is waiting for someone to say how its tax was quoted."
-          : "Check it, then put it in the books."
+        !paperKept
+          ? "The figures are saved, but the photograph was not. Add it again from the bill."
+          : form.gstTreatment === "unknown"
+            ? "It is waiting for someone to say how its tax was quoted."
+            : "Check it, then put it in the books."
       );
       onClose();
     } catch (ex) {
