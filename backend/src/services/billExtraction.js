@@ -165,6 +165,8 @@ const BILL_PROMPT = [
   "For confidence, be honest. 'low' on a field is useful information, not a failure.",
   "Amounts must be digits and at most one decimal point, with no currency symbol, no commas and no spaces.",
   "Read the supplier's address, phone, email, GST number and the bank account the bill asks to be paid into, when they are printed. These are how the supplier's record fills itself in over time, so a blank is much better than a guess.",
+  "The image is a photograph of a piece of paper, often taken at an angle, on a desk or a van bonnet, in poor light, with other things in the frame. Read the document in it and ignore the surroundings. If it is rotated, read it rotated.",
+  "If a field is genuinely not on the paper, leave it empty. An empty field is correct and useful; an invented one is a figure somebody will pay.",
   "If the bill is handwritten, faint, cropped or in Dhivehi, say so in notes and lower your confidence.",
 ].join("\n");
 

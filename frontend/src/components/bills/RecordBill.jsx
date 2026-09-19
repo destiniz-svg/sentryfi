@@ -6,6 +6,7 @@ import { useBillMutations } from "@/hooks/useBills";
 import { billsApi } from "@/api/bills";
 import { useToast } from "@/context/UIContext";
 import { today } from "@/lib/utils";
+import { prepareForReading } from "@/lib/image";
 
 /**
  * Getting a bill in.
@@ -58,6 +59,7 @@ export function RecordBill({ open, onClose }) {
   const [reading, setReading] = useState(false);
   const [questions, setQuestions] = useState([]);
   const [readIt, setReadIt] = useState(false);
+  const [blanks, setBlanks] = useState([]);
   // Everything attached to this bill. A supplier invoice is often more than
   // one page, and a delivery note photographed beside it belongs to the same
   // record. The first is what gets read; all of them get kept.
@@ -83,6 +85,7 @@ export function RecordBill({ open, onClose }) {
       setDuplicates([]);
       setQuestions([]);
       setReadIt(false);
+      setBlanks([]);
       setFiles([]);
       setSupplierFacts(null);
     }
@@ -103,17 +106,27 @@ export function RecordBill({ open, onClose }) {
     e.target.value = "";
     if (!picked.length) return;
 
-    const all = [...files, ...picked];
+    // Straighten and shrink before anything else. A phone stores a portrait
+    // photograph as a landscape image with a note saying "turn this", and a
+    // reader that ignores the note gets sideways text — which comes back as a
+    // few fields filled and the rest blank.
+    const prepared = [];
+    for (const one of picked) {
+      const { file } = await prepareForReading(one);
+      prepared.push(file);
+    }
+
+    const all = [...files, ...prepared];
     setFiles(all);
 
-    // Only the first page is read. Reading every page would cost more and say
-    // the same thing, and the pages that are not read are still kept.
-    const first = all[0];
+    // Read what was just added, not whatever was added first. Adding a
+    // clearer picture after a poor one used to re-read the poor one.
+    const toRead = prepared[0];
     setReading(true);
     setErr("");
     setQuestions([]);
     try {
-      const result = await billsApi.scan(first);
+      const result = await billsApi.scan(toRead);
       const extracted = result.read || {};
 
       setForm((f) => ({
@@ -126,6 +139,16 @@ export function RecordBill({ open, onClose }) {
       }));
       setQuestions(result.questions || []);
       setReadIt(true);
+      setBlanks(
+        [
+          ["the supplier", extracted.supplierName],
+          ["the amount", extracted.grossAmount],
+          ["the bill number", extracted.billNo],
+          ["the date", extracted.issueDate],
+        ]
+          .filter(([, v]) => !v)
+          .map(([label]) => label)
+      );
       setSupplierFacts({
         tin: extracted.supplierTin || undefined,
         gst_number: extracted.supplierGstNumber || undefined,
@@ -295,7 +318,9 @@ export function RecordBill({ open, onClose }) {
 
         <p className="text-[13px] text-[var(--ink-muted)] mt-2 leading-snug">
           {readIt
-            ? "Read off the first page. Check it against the paper — anything wrong, just change it."
+            ? blanks.length
+              ? `Read what it could. It could not make out ${blanks.join(", ")} — fill those in below.`
+              : "Read off the first page. Check it against the paper — anything wrong, just change it."
             : "A photo, a picture already on the phone, or a PDF. Several pages are fine. Nothing is recorded until you say so."}
         </p>
       </div>
