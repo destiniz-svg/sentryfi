@@ -21,8 +21,8 @@ import {
 import { cn } from "@/lib/utils";
 import AILogo from "@/components/layout/AILogo";
 
-const TEAL = "#f2c300";
-const TEAL_DARK = "#141414";
+const ACCENT = "#f2c300";
+const ACCENT_DARK = "#141414";
 
 export default function Landing() {
   useEffect(() => {
@@ -183,13 +183,13 @@ function WallCard({ children, className }) {
 const Label = ({ children }) => <div className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">{children}</div>;
 const CardFoot = ({ children }) => (
   <div className="mt-3.5 pt-3 border-t border-gray-100 flex items-center gap-2">
-    <span className="h-4 w-4 rounded-[5px]" style={{ background: `linear-gradient(135deg,${TEAL},${TEAL_DARK})` }} />
+    <span className="h-4 w-4 rounded-[5px]" style={{ background: `linear-gradient(135deg,${ACCENT},${ACCENT_DARK})` }} />
     <span className="text-[11px] font-medium text-gray-600">{children}</span>
   </div>
 );
 
-function Pill({ children, tone = "teal" }) {
-  const s = tone === "teal" ? { background: "#d3f4ec", color: TEAL_DARK }
+function Pill({ children, tone = "accent" }) {
+  const s = tone === "accent" ? { background: "#fff3c2", color: ACCENT_DARK }
     : tone === "rose" ? { background: "#fde7ea", color: "#be123c" }
     : { background: "#fbf1e2", color: "#b45309" };
   return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={s}>{children}</span>;
@@ -207,7 +207,7 @@ function InvoiceCard() {
       ))}
       <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-gray-100">
         <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">Total</span>
-        <span className="text-[17px] font-bold tabular-nums" style={{ color: TEAL_DARK }}>$5,480</span>
+        <span className="text-[17px] font-bold tabular-nums" style={{ color: ACCENT_DARK }}>$5,480</span>
       </div>
       <CardFoot>Nova Retail Group</CardFoot>
     </WallCard>
@@ -223,7 +223,7 @@ function RevenueCard() {
       </div>
       <div className="flex items-end gap-1.5 h-12">
         {[42, 58, 50, 72, 63, 88].map((h, i) => (
-          <div key={i} className="flex-1 rounded-t-md" style={{ height: `${h}%`, background: `linear-gradient(180deg,#f2c300,${TEAL_DARK})`, opacity: 0.45 + i * 0.09 }} />
+          <div key={i} className="flex-1 rounded-t-md" style={{ height: `${h}%`, background: `linear-gradient(180deg,#f2c300,${ACCENT_DARK})`, opacity: 0.45 + i * 0.09 }} />
         ))}
       </div>
       <CardFoot>Last 6 months</CardFoot>
@@ -235,8 +235,8 @@ function ReceiptCard() {
   return (
     <WallCard>
       <div className="flex items-start justify-between mb-2.5"><Label>AI Receipt Scan</Label><Pill><ScanLine size={10} strokeWidth={2.5} /> Parsed</Pill></div>
-      <div className="rounded-xl p-3" style={{ background: "#d3f4ec" }}>
-        <div className="text-[9px] uppercase tracking-wide font-semibold mb-1" style={{ color: TEAL_DARK }}>Extracted</div>
+      <div className="rounded-xl p-3" style={{ background: "#fff3c2" }}>
+        <div className="text-[9px] uppercase tracking-wide font-semibold mb-1" style={{ color: ACCENT_DARK }}>Extracted</div>
         <div className="text-[13px] font-semibold text-gray-900">Adobe Inc.</div>
         <div className="flex items-center justify-between text-[12px] text-gray-600 mt-1"><span>Creative Cloud ×1</span><span className="tabular-nums font-bold text-gray-900">$54.99</span></div>
       </div>
@@ -262,7 +262,7 @@ function ReminderCard() {
     <WallCard>
       <div className="flex items-start justify-between mb-2.5"><Label>AI Reminder</Label><Pill><Sparkles size={10} strokeWidth={2.5} /> Drafted</Pill></div>
       <div className="rounded-xl bg-gray-50 border border-gray-100 p-3">
-        <div className="flex items-center gap-1.5 mb-1"><BellRing size={12} style={{ color: TEAL_DARK }} /><span className="text-[12px] font-semibold text-gray-900">Friendly nudge</span></div>
+        <div className="flex items-center gap-1.5 mb-1"><BellRing size={12} style={{ color: ACCENT_DARK }} /><span className="text-[12px] font-semibold text-gray-900">Friendly nudge</span></div>
         <p className="text-[11.5px] text-gray-500 leading-snug">"Hi Nova — a gentle reminder that INV-0021 for $2,400 was due last week…"</p>
       </div>
       <CardFoot>One click to send</CardFoot>
@@ -276,7 +276,7 @@ function PaidCard() {
       <div className="flex items-start justify-between mb-3"><Label>Paid this month</Label><Pill><Check size={10} strokeWidth={3} /> On track</Pill></div>
       <div className="text-[28px] font-bold text-gray-900 tabular-nums">$42,180</div>
       <div className="flex items-center gap-1 mt-2.5">
-        {Array.from({ length: 8 }).map((_, i) => <span key={i} className="h-2 flex-1 rounded-full" style={{ background: i < 6 ? TEAL : "#e5e7eb" }} />)}
+        {Array.from({ length: 8 }).map((_, i) => <span key={i} className="h-2 flex-1 rounded-full" style={{ background: i < 6 ? ACCENT : "#e5e7eb" }} />)}
       </div>
       <CardFoot>6 of 8 invoices paid</CardFoot>
     </WallCard>
@@ -287,7 +287,7 @@ function ClientCard() {
   return (
     <WallCard>
       <div className="flex items-center gap-2.5 mb-3">
-        <div className="h-9 w-9 rounded-full flex items-center justify-center text-white font-bold text-sm" style={{ background: `linear-gradient(135deg,${TEAL},${TEAL_DARK})` }}>B</div>
+        <div className="h-9 w-9 rounded-full flex items-center justify-center text-white font-bold text-sm" style={{ background: `linear-gradient(135deg,${ACCENT},${ACCENT_DARK})` }}>B</div>
         <div><div className="text-[13px] font-semibold text-gray-900">Brightline Studios</div><div className="text-[11px] text-gray-400">New York, NY</div></div>
       </div>
       <div className="grid grid-cols-2 gap-2">
@@ -302,7 +302,7 @@ function StatCard2() {
   return (
     <WallCard>
       <div className="flex items-center gap-2.5">
-        <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: "#d3f4ec" }}><Wallet size={16} style={{ color: TEAL_DARK }} /></div>
+        <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: "#fff3c2" }}><Wallet size={16} style={{ color: ACCENT_DARK }} /></div>
         <div><Label>Outstanding</Label><div className="text-[17px] font-bold text-gray-900 tabular-nums">$23,760</div></div>
       </div>
       <div className="flex items-center justify-between text-[11px] mt-3"><span className="text-gray-500">12 open invoices</span><Pill tone="rose">3 overdue</Pill></div>
@@ -331,7 +331,7 @@ function Marquee() {
       <motion.div className="flex gap-3 w-max" animate={{ x: ["0%", "-50%"] }} transition={{ duration: 28, repeat: Infinity, ease: "linear" }}>
         {doubled.map((t, i) => (
           <span key={i} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-black/[0.05] text-sm font-medium text-[#6b7078] shadow-sm whitespace-nowrap">
-            <span className="h-1.5 w-1.5 rounded-full" style={{ background: TEAL }} /> {t}
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: ACCENT }} /> {t}
           </span>
         ))}
       </motion.div>
@@ -359,7 +359,7 @@ function AISection() {
             className="group relative p-6 rounded-[26px] bg-white border border-black/[0.05] shadow-[0_2px_10px_rgba(13,42,37,0.04)] hover:shadow-[0_24px_50px_-24px_rgba(13,42,37,0.28)] hover:-translate-y-1.5 transition-all duration-300 overflow-hidden"
           >
             <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "radial-gradient(circle, rgba(45,212,191,0.18), transparent 70%)" }} />
-            <div className="relative h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-[0_8px_20px_-6px_rgba(13,148,136,0.6)]" style={{ background: `linear-gradient(135deg,#141414,${TEAL_DARK})` }}>
+            <div className="relative h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-[0_8px_20px_-6px_rgba(13,148,136,0.6)]" style={{ background: `linear-gradient(135deg,#141414,${ACCENT_DARK})` }}>
               <f.icon size={22} />
             </div>
             <div className="text-[15px] font-bold text-gray-900 mt-5">{f.title}</div>
@@ -394,7 +394,7 @@ function CoreSection() {
               transition={{ duration: 0.45, delay: (i % 3) * 0.08 }}
               className="group p-6 rounded-[26px] bg-white border border-black/[0.05] hover:border-[#f2c300]/30 shadow-[0_2px_10px_rgba(13,42,37,0.04)] hover:shadow-[0_20px_44px_-24px_rgba(13,42,37,0.25)] transition-all duration-300"
             >
-              <div className="h-11 w-11 rounded-2xl flex items-center justify-center bg-[#d3f4ec] text-[#141414] group-hover:scale-110 transition-transform">
+              <div className="h-11 w-11 rounded-2xl flex items-center justify-center bg-[#fff3c2] text-[#141414] group-hover:scale-110 transition-transform">
                 <f.icon size={20} />
               </div>
               <div className="text-[15px] font-bold text-gray-900 mt-4 flex items-center gap-1.5">

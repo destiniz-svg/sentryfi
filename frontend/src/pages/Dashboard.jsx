@@ -37,9 +37,11 @@ import { aiApi } from "@/api/ai";
 import { formatMoney, formatDate } from "@/lib/utils";
 
 // Logo palette
-const T1 = "#f2c300"; // teal-400
-const T2 = "#141414"; // teal-500
-const T3 = "#141414"; // teal-700
+// Chart colours. Site Board is ink and one yellow, so series read by
+// position and label rather than by hue.
+const T1 = "#f2c300"; // signal
+const T2 = "#141414"; // ink
+const T3 = "#6b7078"; // concrete
 
 const STATUS_COLORS = { draft: "#6b7078", sent: "#f2c300", overdue: "var(--danger)", paid: T2 };
 

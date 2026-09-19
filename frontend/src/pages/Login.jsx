@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Loader2, Mail, Lock, Sparkles } from "lucide-react";
+import { ArrowRight, Loader2, Mail, Lock } from "lucide-react";
 import {
   AuthShell,
   AuthField,
@@ -11,7 +11,7 @@ import {
 import AILogo from "@/components/layout/AILogo";
 import { useAuth } from "@/context/AuthContext";
 
-const DEMO = { email: "accounts@altura.mv", password: "Test@1234" };
+
 
 export default function Login() {
   const { login } = useAuth();
@@ -19,11 +19,6 @@ export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
-
-  function fillDemo() {
-    setForm({ ...DEMO });
-    setErr("");
-  }
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -118,13 +113,10 @@ export default function Login() {
             <div className="h-px flex-1 bg-[var(--border)]" />
           </div>
 
-          <button
-            type="button"
-            onClick={fillDemo}
-            className="w-full h-12 rounded-2xl border border-dashed border-[var(--accent)]/40 bg-[var(--accent-soft)]/40 text-sm font-semibold text-[var(--accent-strong)] hover:bg-[var(--accent-soft)] transition-colors inline-flex items-center justify-center gap-2"
-          >
-            <Sparkles size={14} /> Use demo credentials
-          </button>
+          <p className="text-[13px] leading-relaxed text-[var(--ink-muted)] text-center">
+            There is no shared demo account. This app holds real money, so every
+            person signs in as themselves.
+          </p>
         </form>
 
         <div className="text-sm text-[var(--ink-muted)] text-center mt-8">

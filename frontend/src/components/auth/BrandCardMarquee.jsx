@@ -103,9 +103,9 @@ function MarqueeRow({ cards, duration, reverse }) {
   );
 }
 
-const TEAL = "#f2c300";
-const TEAL_DARK = "#141414";
-const TEAL_SOFT = "#D3F4EC";
+const ACCENT = "#f2c300";
+const ACCENT_DARK = "#141414";
+const ACCENT_SOFT = "#FFF3C2";
 
 function PreviewCard({ children, width = 300 }) {
   return (
@@ -129,7 +129,7 @@ function Label({ children }) {
 function Footer({ subtitle }) {
   return (
     <div className="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2">
-      <span className="h-4 w-4 rounded-md" style={{ background: `linear-gradient(135deg,${TEAL},${TEAL_DARK})` }} />
+      <span className="h-4 w-4 rounded-md" style={{ background: `linear-gradient(135deg,${ACCENT},${ACCENT_DARK})` }} />
       <span className="text-[11px] font-medium text-gray-700">{subtitle || "Sentryfi"}</span>
     </div>
   );
@@ -138,7 +138,7 @@ function Footer({ subtitle }) {
 function Pill({ children, tone = "teal" }) {
   const styles =
     tone === "teal"
-      ? { background: TEAL_SOFT, color: TEAL_DARK }
+      ? { background: ACCENT_SOFT, color: ACCENT_DARK }
       : tone === "amber"
       ? { background: "#FBF1E2", color: "#B45309" }
       : { background: "#FDE7EA", color: "#BE123C" };
@@ -177,7 +177,7 @@ function RevenueCard() {
           <div
             key={i}
             className="flex-1 rounded-t-md"
-            style={{ height: `${h}%`, background: `linear-gradient(180deg,${TEAL},${TEAL_DARK})`, opacity: 0.4 + i * 0.1 }}
+            style={{ height: `${h}%`, background: `linear-gradient(180deg,${ACCENT},${ACCENT_DARK})`, opacity: 0.4 + i * 0.1 }}
           />
         ))}
       </div>
@@ -207,7 +207,7 @@ function InvoiceCard() {
       </div>
       <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100">
         <span className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold">Total</span>
-        <span className="text-[16px] font-semibold tabular" style={{ color: TEAL_DARK }}>$7,595</span>
+        <span className="text-[16px] font-semibold tabular" style={{ color: ACCENT_DARK }}>$7,595</span>
       </div>
       <Footer subtitle="Nova Retail Group" />
     </PreviewCard>
@@ -255,8 +255,8 @@ function ReceiptCard() {
           <ScanLine size={10} strokeWidth={2.5} /> Parsed
         </Pill>
       </div>
-      <div className="rounded-2xl p-3" style={{ background: TEAL_SOFT }}>
-        <div className="text-[9px] uppercase tracking-wide font-semibold mb-1" style={{ color: TEAL_DARK }}>
+      <div className="rounded-2xl p-3" style={{ background: ACCENT_SOFT }}>
+        <div className="text-[9px] uppercase tracking-wide font-semibold mb-1" style={{ color: ACCENT_DARK }}>
           Extracted
         </div>
         <div className="text-[13px] font-medium text-gray-900">Adobe Inc.</div>
@@ -282,7 +282,7 @@ function ReminderCard() {
       </div>
       <div className="rounded-2xl bg-gray-50 border border-gray-100 p-3">
         <div className="flex items-center gap-2 mb-1.5">
-          <BellRing size={12} style={{ color: TEAL_DARK }} />
+          <BellRing size={12} style={{ color: ACCENT_DARK }} />
           <span className="text-[12px] font-semibold text-gray-900">Friendly nudge</span>
         </div>
         <p className="text-[12px] text-gray-500 leading-snug">
@@ -315,7 +315,7 @@ function PaidCard() {
           <span
             key={i}
             className="h-2 flex-1 rounded-full"
-            style={{ background: i < 6 ? TEAL : "#E5E7EB" }}
+            style={{ background: i < 6 ? ACCENT : "#E5E7EB" }}
           />
         ))}
       </div>

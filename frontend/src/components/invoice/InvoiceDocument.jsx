@@ -8,7 +8,7 @@ import {
 } from "@react-pdf/renderer";
 import { formatMoney, formatDate } from "@/lib/utils";
 
-const TEAL = "#f2c300";
+const ACCENT = "#f2c300";
 const DARK = "#141414";
 const MUTED = "#5c7570";
 const LINE = "#e2ece9";
@@ -24,15 +24,15 @@ const styles = StyleSheet.create({
   logo: { width: 48, height: 48, objectFit: "contain", marginBottom: 8 },
   company: { fontSize: 15, fontFamily: "Helvetica-Bold", color: DARK },
   muted: { color: MUTED },
-  invoiceTitle: { fontSize: 26, fontFamily: "Helvetica-Bold", color: TEAL, letterSpacing: 1 },
+  invoiceTitle: { fontSize: 26, fontFamily: "Helvetica-Bold", color: ACCENT, letterSpacing: 1 },
   badge: {
     marginTop: 6,
     alignSelf: "flex-end",
     paddingVertical: 3,
     paddingHorizontal: 8,
     borderRadius: 10,
-    backgroundColor: "#d3f4ec",
-    color: TEAL,
+    backgroundColor: "#fff3c2",
+    color: ACCENT,
     fontSize: 9,
     fontFamily: "Helvetica-Bold",
     textTransform: "uppercase",
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: DARK,
   },
-  grand: { fontSize: 14, fontFamily: "Helvetica-Bold", color: TEAL },
+  grand: { fontSize: 14, fontFamily: "Helvetica-Bold", color: ACCENT },
   notes: { marginTop: 30, paddingTop: 12, borderTopWidth: 1, borderTopColor: LINE },
   footer: { marginTop: 30, textAlign: "center", color: MUTED, fontSize: 8 },
 });
