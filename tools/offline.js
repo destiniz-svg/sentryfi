@@ -129,7 +129,6 @@ async function main() {
   if (amountShown > 0) ok(`the figure came through: ${AMOUNT}`);
   else bad("the figure did not come through");
 
-  await page.screenshot({ path: "shots/offline-after.png", fullPage: true });
   await browser.close();
   console.log(process.exitCode ? "\nsomething is wrong\n" : "\nthe bill survived\n");
 }
