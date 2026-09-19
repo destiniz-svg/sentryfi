@@ -157,7 +157,11 @@ The band is meant to carry cash and bank. No statement has been imported, so the
 
 The capture sheet is in the board's register too — square, full width, rising from the bottom with a grabber — and the button that commits now names the money ("Record MVR 4,250.00"), falling back to the blocker when one exists. That rule was in `DESIGN.md` and had never been followed in either register.
 
-**Still to build:** site cash — spending it, counting it, asking for a top-up — and the board's own Snap and Review screens, which today are one sheet rather than the artboard's two.
+**Site cash is built and checked on the live app.** A tin is an account with somebody responsible for it, and what is in it is read from journal lines — never stored, because a tin already has two records and a third that can drift from both is the last thing it needs. Money out posts as it is recorded, since a cash spend that waits for approval is one that never gets recorded. Spending more than the tin holds is recorded rather than refused: the money has gone, and a box reading below zero is the finding.
+
+A count is a record, not a correction. What was counted is kept as counted and the difference becomes its own entry with the reason on it, so the books end up agreeing with the tin and the journal says how much was missing and what was said about it. A database constraint refuses a difference with no reason. `tools/cash.js` opens a tin, funds it, spends from it, counts it short, and then reads the journal rather than the screen.
+
+**Still to build:** the board's own Snap and Review screens, which today are one sheet rather than the artboard's two.
 
 **Done when:** a bill photographed on a site with no signal is in the books three taps later, once there is signal.
 

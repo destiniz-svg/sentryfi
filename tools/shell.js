@@ -9,8 +9,8 @@
  */
 
 const { chromium } = require("playwright");
+const { signIn, BASE } = require("./session");
 
-const BASE = process.env.SHOOT_BASE || "https://sentryfi.app";
 const ok = (m) => console.log("  ok   " + m);
 const bad = (m) => {
   console.log("  FAIL " + m);
@@ -23,21 +23,8 @@ const bad = (m) => {
   if (!email || !password) throw new Error("Set SHOOT_EMAIL and SHOOT_PASSWORD.");
 
   const browser = await chromium.launch({ channel: "chrome" });
-  const context = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    deviceScaleFactor: 2,
-    isMobile: true,
-    hasTouch: true,
-  });
-  const page = await context.newPage();
-
-  console.log(`\n${BASE} — opening the app with no signal\n`);
-
-  await page.goto(BASE + "/login", { waitUntil: "networkidle", timeout: 60000 });
-  await page.fill("input[type=email]", email);
-  await page.fill("input[type=password]", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL((u) => !u.pathname.endsWith("/login"), { timeout: 45000 });
+  // Signs in and switches to the books a check may look at.
+  const { page, context: ctx } = await signIn(browser);
   ok("signed in");
 
   await page.goto(BASE + "/bills", { waitUntil: "networkidle", timeout: 45000 });
@@ -55,9 +42,9 @@ const bad = (m) => {
 
   // The real thing: a closed tab, reopened on a dead connection.
   await page.close();
-  await context.setOffline(true);
+  await ctx.setOffline(true);
 
-  const fresh = await context.newPage();
+  const fresh = await ctx.newPage();
   const errors = [];
   fresh.on("pageerror", (e) => errors.push(e.message));
 
