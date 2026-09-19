@@ -12,6 +12,13 @@ const { toLaari, formatLaari } = require("../src/ledger/money");
 async function testBills(client, ctx, { check, expectRejection }) {
   const { companyId, userId, accounts } = ctx;
 
+  // The isolation section just before this deliberately cleared app.company_id
+  // to prove a forgotten identity fails closed, so this has to say who it is
+  // again before writing anything. FORCE ROW LEVEL SECURITY applies to the
+  // table owner too, which is why even setup inserts need it.
+  await client.query("SELECT set_config('app.company_id', $1, true)", [companyId]);
+  await client.query("SELECT set_config('app.user_id', $1, true)", [userId]);
+
   // ---- the arithmetic that must not be guessed --------------------------
 
   console.log("\n4. How the tax was quoted, recorded rather than inferred");
