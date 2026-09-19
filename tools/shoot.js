@@ -176,7 +176,7 @@ function report(label, r) {
       console.log("signed in, landed on " + landed);
 
       const tag = args.includes("--mobile") ? "phone" : "desk";
-      for (const route of ["/dashboard", "/bills", "/invoices", "/expenses", "/settings"]) {
+      for (const route of ["/dashboard", "/figures", "/bills", "/settings"]) {
         try {
           report(tag.toUpperCase() + "  " + route, await shoot(browser, {
             url: base + route, name: route.slice(1) + "-" + tag,

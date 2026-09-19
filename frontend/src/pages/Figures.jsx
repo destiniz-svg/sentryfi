@@ -62,7 +62,19 @@ export default function Figures() {
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Figure label="Spent this month" currency={f.currency} value={f.spentThisMonth} />
+            <Figure
+              label="Spent this month"
+              currency={f.currency}
+              value={f.spentThisMonth}
+              // A zero here right after posting a bill dated last month reads
+              // as a broken screen. Say where the money is instead.
+              pending={f.spentThisMonth === "0.00" && Boolean(f.spentElsewhere)}
+              note={
+                f.spentElsewhere
+                  ? `Nothing yet this month. ${f.currency} ${f.spentElsewhere.amount} in ${f.spentElsewhere.label}.`
+                  : undefined
+              }
+            />
             <Figure label="Owed to suppliers" currency={f.currency} value={f.owedToSuppliers} />
             <Figure label="Earned" currency={f.currency} value={f.earned} />
             <Figure
@@ -108,7 +120,11 @@ export default function Figures() {
             <Card padding="lg">
               <h2 className="text-[16px] font-semibold">Where it went</h2>
               {(f.spendByAccount || []).length === 0 ? (
-                <p className="text-[15px] text-[var(--ink-muted)] mt-4">Nothing spent this month.</p>
+                <p className="text-[15px] text-[var(--ink-muted)] mt-4">
+                  {f.spentElsewhere
+                    ? `Nothing spent this month. The most recent was ${f.spentElsewhere.label}.`
+                    : "Nothing spent this month."}
+                </p>
               ) : (
                 <div className="mt-5 space-y-3">
                   {f.spendByAccount.map((c) => (

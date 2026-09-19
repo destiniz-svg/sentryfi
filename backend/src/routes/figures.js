@@ -112,14 +112,25 @@ router.get(
       return { spend, byAccount, byType, cash: cash[0]?.amount, recent, entries: counted[0].n };
     });
 
-    const thisMonth = data.spend.find(
-      (r) => r.ym === new Date().toISOString().slice(0, 7)
-    );
+    const ym = new Date().toISOString().slice(0, 7);
+    const thisMonth = data.spend.find((r) => r.ym === ym);
+
+    // A bill dated last month is spend in last month, and a headline of zero
+    // the moment after posting one reads as a broken screen rather than as an
+    // accurate one. So when this month is empty but the books are not, say
+    // where the money actually is.
+    const elsewhere = data.spend
+      .filter((r) => r.ym !== ym && BigInt(r.amount) !== 0n)
+      .sort((a, b) => (a.ym < b.ym ? 1 : -1))[0];
 
     res.json({
       currency: req.company?.baseCurrency || "MVR",
       entries: data.entries,
       spentThisMonth: money(thisMonth?.amount),
+      // Named so the screen can explain a zero rather than just showing one.
+      spentElsewhere: elsewhere
+        ? { label: elsewhere.label, amount: money(elsewhere.amount) }
+        : null,
       spentAllTime: money(data.byType.expense),
       owedToSuppliers: money(data.byType.liability),
       earned: money(data.byType.income),
