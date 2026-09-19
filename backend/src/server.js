@@ -20,6 +20,8 @@ const itemsRouter = require("./routes/items");
 const expensesRouter = require("./routes/expenses");
 const paymentsRouter = require("./routes/payments");
 const aiRouter = require("./routes/ai");
+const companiesRouter = require("./routes/companies");
+const billsRouter = require("./routes/bills");
 
 
 
@@ -55,6 +57,11 @@ app.use("/api/items", itemsRouter);
 app.use("/api/expenses", expensesRouter);
 app.use("/api/payments", paymentsRouter);
 app.use("/api/ai", aiRouter);
+// The ledger side. Everything below here is scoped to a company by
+// requireCompany, and every write goes through asCompany so the database
+// knows whose books it is touching.
+app.use("/api/companies", companiesRouter);
+app.use("/api/bills", billsRouter);
 
 
 // In production the API also serves the built web app, so Railway runs one

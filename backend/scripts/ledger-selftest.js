@@ -20,6 +20,7 @@ const { pool } = require("../src/config/db");
 const { LEDGER_SQL } = require("../src/config/ledger-schema");
 const { BILLS_SQL } = require("../src/config/bills-schema");
 const { testBills } = require("./bills-selftest-section");
+const { testIdentity } = require("./identity-selftest-section");
 const { postEntry, reverseEntry, assumeIdentity } = require("../src/ledger/post");
 const { verifyChain, verifyTrialBalance } = require("../src/ledger/verify");
 const { toLaari, formatLaari, gstWithin, gstOnTop, allocate } = require("../src/ledger/money");
@@ -396,6 +397,18 @@ async function testLedger(client) {
   check("and its numbering starts at 1, not continuing Altura's", stevaChain.checked === 1);
 
   // ---- step 2: the bill path --------------------------------------------
+
+  // An outsider, to prove that belonging to nothing is refused.
+  const { rows: outsiderRows } = await client.query(
+    `INSERT INTO users (name, email, password_hash)
+     VALUES ('Not a member', $1, 'not-a-real-account') RETURNING id`,
+    [`outsider+${Date.now()}@sentryfi.invalid`]
+  );
+  await testIdentity(
+    client,
+    { companyId: altura, otherCompanyId: steva, userId, outsiderId: outsiderRows[0].id },
+    { check }
+  );
 
   await testBills(
     client,
