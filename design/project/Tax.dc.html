@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sentryfi tax centre</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&amp;family=Barlow+Condensed:wght@600;700&amp;display=swap">
+<style>
+body{margin:0;background:#FFFFFF;font-family:Barlow,"Helvetica Neue",Arial,sans-serif}
+a{color:#141414}a:hover{color:#6B7078}
+:focus-visible{outline:3px solid #141414;outline-offset:2px}
+.on-ink :focus-visible,.on-ink:focus-visible{outline-color:#F2C300}
+.on-board :focus-visible,.on-board:focus-visible,.on-yellow :focus-visible,.on-yellow:focus-visible{outline-color:#141414}
+::selection{background:#F2C300;color:#141414}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; box-sizing: border-box; background: #FFFFFF; color: #141414; font-family: Barlow, 'Helvetica Neue', Arial, sans-serif; display: grid; grid-template-columns: 216px minmax(0, 1fr) 320px; overflow: hidden;">
+
+  <nav class="on-board" aria-label="Sections" style="border-right: 2px solid #141414; display: flex; flex-direction: column; padding: 24px 0;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 0 20px 24px;">
+      <svg width="36" height="36" viewBox="0 0 96 96" role="img" aria-label="Sentryfi"><circle cx="48" cy="48" r="34" fill="#F2C300"></circle><circle cx="48" cy="48" r="34" fill="none" stroke="#141414" stroke-width="6"></circle><path d="M17.6 58 H78.4" stroke="#141414" stroke-width="7"></path><path d="M48 26 V58" stroke="#141414" stroke-width="7"></path></svg>
+      <span style="display: flex; flex-direction: column; gap: 2px;"><span style="font: 600 24px/1 Barlow, sans-serif; letter-spacing: -0.03em;">Sentryfi</span><span style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #6B7078;">Altura Pvt Ltd</span></span>
+    </div>
+    <sc-for list="{{navItems}}" as="n">
+      <a href="{{n.href}}" aria-current="{{n.current}}" style="{{n.style}}">{{n.label}}</a>
+    </sc-for>
+    <div style="margin-top: auto; padding: 16px 20px 0; display: flex; flex-direction: column; gap: 4px;">
+      <div style="font: 600 14px Barlow, sans-serif;">Aminath Shifa</div>
+      <div style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #6B7078;">Accountant / CFO</div>
+    </div>
+  </nav>
+
+  <main style="display: flex; flex-direction: column; min-width: 0; overflow: hidden;">
+    <div style="display: flex; align-items: flex-end; gap: 16px; padding: 24px 28px 14px; border-bottom: 2px solid #141414;">
+      <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+        <h1 style="margin: 0; font: 700 34px/1 'Barlow Condensed', sans-serif; text-transform: uppercase;">GST return · September 2026</h1>
+        <span style="font: 400 14px Barlow, sans-serif; color: #6B7078;">{{periodLine}}</span>
+      </span>
+      <span class="{{statusClass}}" style="{{statusStyle}}">{{statusText}}</span>
+      <span style="margin-left: auto; font: 700 11px 'Barlow Condensed', sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: #6B7078; flex-shrink: 0;">Illustrative data</span>
+    </div>
+
+    <div style="flex-grow: 1; min-height: 0; overflow-y: auto; padding: 0 28px 24px;">
+
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding-bottom: 18px; border-bottom: 1px solid #E6E7EA;">
+        <sc-for list="{{figures}}" as="f">
+          <div style="{{f.style}}">
+            <div style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: #6B7078;">{{f.label}}</div>
+            <div style="display: flex; align-items: baseline; gap: 7px; font: 700 40px/1 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums;"><span style="font-size: 17px;">MVR</span><span>{{f.value}}</span></div>
+            <div style="font: 400 13px/1.35 Barlow, sans-serif; color: #6B7078;">{{f.note}}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div class="{{checkClass}}" style="{{checkStyle}}">
+        <div style="display: flex; align-items: baseline; gap: 10px;">
+          <h2 style="margin: 0; font: 700 15px 'Barlow Condensed', sans-serif; letter-spacing: 0.14em; text-transform: uppercase;">Before you file</h2>
+          <span style="font: 600 13px Barlow, sans-serif; font-variant-numeric: tabular-nums;">{{checkSummary}}</span>
+        </div>
+        <sc-for list="{{checks}}" as="c">
+          <div style="display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; column-gap: 12px; align-items: start; min-height: 52px; padding: 14px 0; border-top: 1px solid {{c.rule}};">
+            <span style="{{c.iconStyle}}">
+              <sc-if value="{{c.clear}}" hint-placeholder-val="{{false}}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-11"></path></svg>
+              </sc-if>
+              <sc-if value="{{c.open}}" hint-placeholder-val="{{true}}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v6M12 17h.01"></path></svg>
+              </sc-if>
+            </span>
+            <span style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font: 600 15px Barlow, sans-serif;">{{c.title}}</span>
+              <span style="font: 400 13px/1.4 Barlow, sans-serif; color: {{c.noteColor}};">{{c.note}}</span>
+            </span>
+            <sc-if value="{{c.open}}" hint-placeholder-val="{{true}}">
+              <button onClick="{{c.act}}" style="{{c.btnStyle}}">{{c.btnLabel}}</button>
+            </sc-if>
+            <sc-if value="{{c.clear}}" hint-placeholder-val="{{false}}">
+              <span style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: #167A41; padding-top: 3px;">{{c.clearLabel}}</span>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="padding: 18px 0 0;">
+        <h2 style="margin: 0 0 2px; font: 700 15px 'Barlow Condensed', sans-serif; letter-spacing: 0.14em; text-transform: uppercase;">What the pack contains</h2>
+        <div style="font: 400 13px/1.4 Barlow, sans-serif; color: #6B7078; padding-bottom: 6px;">There is no MIRA filing API. Sentryfi produces the figures and the files; you key them into MIRAconnect and upload the statements.</div>
+        <sc-for list="{{pack}}" as="k">
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) 132px; column-gap: 12px; align-items: center; min-height: 50px; padding: 12px 0; border-top: 1px solid #E6E7EA;">
+            <span style="min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+              <span style="font: 600 15px Barlow, sans-serif;">{{k.name}}</span>
+              <span style="font: 400 13px Barlow, sans-serif; color: #6B7078; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{k.detail}}</span>
+            </span>
+            <span style="font: 600 14px Barlow, sans-serif; font-variant-numeric: tabular-nums; text-align: right; padding-right: 10px; border-right: 2px solid #141414; align-self: stretch; display: flex; align-items: center; justify-content: flex-end;">{{k.size}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 14px; padding: 14px 28px; border-top: 2px solid #141414;">
+      <button onClick="{{fileIt}}" aria-disabled="{{fileAriaDisabled}}" aria-describedby="{{fileDescribedBy}}" class="{{fileClass}}" style="{{fileStyle}}">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15v4h16v-4"></path><path d="M12 4v10M8 10l4 4 4-4"></path></svg>
+        <span>{{fileLabel}}</span>
+      </button>
+      <span id="sf-file-reason" style="font: 500 14px/1.35 Barlow, sans-serif; color: {{fileReasonColor}}; min-width: 0;">{{fileReason}}</span>
+    </div>
+  </main>
+
+  <aside class="on-board" aria-label="Other obligations" style="border-left: 1px solid #E6E7EA; display: flex; flex-direction: column; padding: 24px 22px; gap: 0; overflow: hidden;">
+    <h2 style="margin: 0 0 2px; font: 700 15px 'Barlow Condensed', sans-serif; letter-spacing: 0.14em; text-transform: uppercase;">Everything else MIRA wants</h2>
+    <div style="font: 400 13px/1.4 Barlow, sans-serif; color: #6B7078; padding-bottom: 8px;">The authority clears you against twenty-four revenue types. These are the ones that touch Altura.</div>
+    <div style="flex-grow: 1; min-height: 0; overflow-y: auto;">
+      <sc-for list="{{obligations}}" as="o">
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; align-items: baseline; min-height: 54px; padding: 13px 0; border-top: 1px solid #E6E7EA;">
+          <span style="min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+            <span style="font: 600 14px Barlow, sans-serif;">{{o.name}}</span>
+            <span style="font: 400 12px/1.35 Barlow, sans-serif; color: #6B7078;">{{o.note}}</span>
+          </span>
+          <span style="{{o.tagStyle}}">{{o.tag}}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div class="on-ink" style="background: #141414; color: #FFFFFF; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; margin-top: 10px;">
+      <span style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #F2C300;">Tax clearance</span>
+      <span style="font: 400 13px/1.4 Barlow, sans-serif;">Your certificate says no dues, and that it is a conditional clearance. It covers what was filed and processed on the day it was issued, not payments still clearing.</span>
+      <a href="#clearance" style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: #F2C300; text-decoration: none;">Check it at mira.gov.mv</a>
+    </div>
+  </aside>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"period":{"editor":"enum","default":"Things to check","options":["Things to check","Ready to file","Filed"],"section":"States"},"daysToDeadline":{"editor":"int","default":9,"min":0,"max":40,"unit":"days","section":"States"},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { resolved: {} };
+  }
+  money(n) { return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  renderVals() {
+    const s = this.state;
+    const period = this.props.period || 'Things to check';
+    const days = this.props.daysToDeadline === undefined ? 9 : this.props.daysToDeadline;
+    const filed = period === 'Filed';
+
+    // Illustrative figures. Output tax is the RDC excavator invoice; input tax is
+    // what the period's GST-bearing bills carry.
+    const output = 7200.00;
+    const input = 4812.55;
+    const net = output - input;
+
+    const rawChecks = [
+      {
+        id: 'noline',
+        title: 'Two bills carry no GST line at all',
+        note: 'Island Zone and the Maalhos Council are not registered. MVR 4,310.00 left out of input tax, which is correct.',
+        open: false, clearLabel: 'Left out'
+      },
+      {
+        id: 'nobill',
+        title: 'Six site cash spends have no bill',
+        note: 'MVR 3,180.00 of boat fares and small buys. Recorded against the project, no input tax claimed.',
+        open: false, clearLabel: 'Left out'
+      },
+      {
+        id: 'quote',
+        title: 'A quotation is sitting in the bills list',
+        note: 'State Trading document 4200149171 is an offer with a valid-to date, not a payable. Claiming its MVR 144.08 would be a false claim.',
+        open: true, act: 'Open it', weight: 3
+      },
+      {
+        id: 'inter',
+        title: 'One bill is addressed to another company',
+        note: 'INV-1389/2026/0449 is billed to Steva Enterprises and was paid from Altura. It needs an intercompany entry before either return is right.',
+        open: true, act: 'Fix it', weight: 2
+      },
+      {
+        id: 'convention',
+        title: 'One bill reads GST added on top, fourteen read it included',
+        note: 'Worth a look. Reading the convention backwards moves the claim by about eight percent either way.',
+        open: true, act: 'Review', weight: 1
+      },
+      {
+        id: 'waiting',
+        title: 'Three bills are still waiting to be read',
+        note: 'Snapped on site, not yet extracted. Anything in here changes the input tax figure above.',
+        open: true, act: 'Open queue', weight: 1
+      }
+    ];
+
+    const checks = rawChecks.map((c) => {
+      const open = c.open && !s.resolved[c.id] && !filed;
+      return {
+        id: c.id,
+        title: c.title,
+        note: c.note,
+        open: open,
+        clear: !open,
+        clearLabel: open ? '' : (c.open ? 'Sorted' : c.clearLabel),
+        weight: open ? (c.weight || 1) : 0,
+        rule: '#E6E7EA',
+        noteColor: '#6B7078',
+        iconStyle: 'width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; margin-top: 2px; background: ' + (open ? '#141414' : '#FFFFFF') + '; border: 2px solid ' + (open ? '#141414' : '#167A41') + '; color: ' + (open ? '#F2C300' : '#167A41') + ';',
+        btnLabel: c.act,
+        btnStyle: 'min-height: 36px; padding: 0 12px; background: #FFFFFF; border: 2px solid #141414; color: #141414; font: 700 12px "Barlow Condensed", sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;',
+        act: () => this.setState({ resolved: Object.assign({}, s.resolved, { [c.id]: true }) })
+      };
+    });
+
+    const openCount = checks.filter((c) => c.open).length;
+    const blocking = checks.filter((c) => c.open && c.weight >= 2).length;
+    const ready = openCount === 0;
+    const hot = !filed && !ready;
+
+    const navNames = [
+      ['Home', '#home'], ['Bills', '#bills'], ['Cash & bank', '#cash'], ['Cash boxes', '#boxes'],
+      ['Projects', '#projects'], ['Money in', '#moneyin'], ['Directors', '#directors'],
+      ['Journals', '#journals'], ['Reports', '#reports'], ['Tax centre', '#tax'], ['Archive', '#archive']
+    ];
+
+    return {
+      navItems: navNames.map(([label, href]) => {
+        const on = href === '#tax';
+        return {
+          label: label, href: href, current: on ? 'page' : 'false',
+          style: 'display: flex; align-items: center; height: 44px; padding: 0 20px; text-decoration: none; font: 700 14px "Barlow Condensed", sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: ' + (on ? '#F2C300' : '#141414') + '; background: ' + (on ? '#141414' : 'none') + ';'
+        };
+      }),
+
+      periodLine: filed
+        ? 'Filed on 12 October 2026 · MIRA 205 reference 205-2026-09-0117'
+        : '1 to 30 September 2026 · due 28 October 2026 · ' + days + (days === 1 ? ' day left' : ' days left'),
+      statusText: filed ? 'Filed' : (ready ? 'Ready to file' : openCount + (openCount === 1 ? ' thing to check' : ' things to check')),
+      statusClass: 'on-ink',
+      statusStyle: 'padding: 7px 12px; background: #141414; font: 700 13px "Barlow Condensed", sans-serif; letter-spacing: 0.1em; text-transform: uppercase; flex-shrink: 0; color: ' + (filed ? '#FFFFFF' : (ready ? '#FFFFFF' : '#F2C300')) + ';',
+
+      figures: [
+        { label: 'GST you charged', value: this.money(output), note: 'Output tax on one excavator rental invoice to Road Development Corporation.' },
+        { label: 'GST you paid', value: this.money(input), note: 'Input tax on ' + (filed ? 'fifteen' : 'fifteen') + ' bills that carry a tax line.' },
+        { label: filed ? 'Paid to MIRA' : 'Net payable', value: this.money(net), note: filed ? 'Settled from BML on 12 October.' : 'What you owe if nothing below changes the figures.' }
+      ].map((f, i) => ({
+        label: f.label, value: f.value, note: f.note,
+        style: 'display: flex; flex-direction: column; gap: 5px; padding: 18px 20px 0 ' + (i === 0 ? '0' : '20px') + '; ' + (i < 2 ? 'border-right: 2px solid #141414;' : '')
+      })),
+
+      checkClass: hot ? 'on-yellow' : '',
+      checkStyle: 'margin-top: 18px; padding: ' + (hot ? '16px 20px 8px' : '16px 0 8px') + '; display: flex; flex-direction: column; gap: 2px; background: ' + (hot ? '#F2C300' : 'none') + ';',
+      checkSummary: filed
+        ? 'All settled before filing'
+        : (ready ? 'Nothing left to check' : openCount + ' open · ' + (rawChecks.length - openCount) + ' clear'),
+      checks: checks,
+
+      pack: [
+        { name: 'MIRA 205 figures', detail: 'The boxes to key into MIRAconnect, in order', size: '1 page' },
+        { name: 'Input Tax Statement', detail: 'Excel, eleven columns, tab named Input Tax Statement', size: '15 rows' },
+        { name: 'Output Tax Statement', detail: 'Excel, in the same fixed template', size: '1 row' },
+        { name: 'Receipt archive', detail: 'Every bill image, named supplier, amount, bill number', size: '41 files' }
+      ],
+
+      fileAriaDisabled: (filed || !ready) ? 'true' : 'false',
+      fileClass: (!filed && ready) ? 'on-yellow' : '',
+      fileStyle: 'display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 20px; font: 700 17px "Barlow Condensed", sans-serif; letter-spacing: 0.1em; text-transform: uppercase; flex-shrink: 0; ' + (filed
+        ? 'background: #FFFFFF; border: 2px solid #6B7078; color: #6B7078; cursor: default;'
+        : (ready
+          ? 'background: #F2C300; border: 0; color: #141414; cursor: pointer;'
+          : 'background: #FFFFFF; border: 2px solid #6B7078; color: #6B7078; cursor: not-allowed;')),
+      fileLabel: filed ? 'Pack downloaded' : 'Build the filing pack',
+      fileDescribedBy: 'sf-file-reason',
+      fileReason: filed
+        ? 'The pack and the receipt archive are in OneDrive under GST 2026-09.'
+        : (ready
+          ? 'Nothing is outstanding. The pack will carry the figures above and every receipt behind them.'
+          : (blocking > 0
+            ? 'Sort the ' + blocking + (blocking === 1 ? ' item' : ' items') + ' above that would make the return wrong. The rest are worth a look but will not stop you.'
+            : 'Clear the items above, or open the pack anyway once you have looked at them.')),
+      fileReasonColor: (!filed && !ready && blocking > 0) ? '#C62B20' : '#6B7078',
+      fileIt: () => {},
+
+      obligations: [
+        { name: 'Company Annual Fee', note: 'Registry and MIRA both track it', tag: 'Not set up', hot: true },
+        { name: 'Withholding Tax', note: 'Likely, on payments to non-residents', tag: 'Confirm', hot: true },
+        { name: 'Remittance Tax', note: 'Likely, on wages sent abroad by staff', tag: 'Confirm', hot: true },
+        { name: 'Income Tax', note: 'Annual return by 30 June', tag: 'Not due', hot: false },
+        { name: 'Fines and Interest', note: 'Clears as its own type, not an adjustment', tag: 'Nil', hot: false },
+        { name: 'Green Tax · TGST', note: 'Only once the hotel operates', tag: 'Dormant', hot: false }
+      ].map((o) => ({
+        name: o.name, note: o.note, tag: o.tag,
+        tagStyle: 'font: 700 11px "Barlow Condensed", sans-serif; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 7px; flex-shrink: 0; ' + (o.hot
+          ? 'background: #141414; color: #F2C300;'
+          : 'color: #6B7078; border: 1px solid #E6E7EA;')
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>

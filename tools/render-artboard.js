@@ -180,7 +180,11 @@ const cards = panels.map(([title, props, state]) => {
   const c = new Component(props);
   // seed through the component's own reset so derived fields (billSettled and
   // friends) hold the values the live flow would give them, not constructor ones
-  const seed = state.blank ? c.blankReview(state) : c.freshReview(state);
+  // The phone board derives fields in its own reset, so seed through it. Boards
+  // that have no reset (the desktop ones) take the state as given.
+  const seed = typeof c.freshReview !== 'function'
+    ? state
+    : (state.blank ? c.blankReview(state) : c.freshReview(state));
   Object.assign(c.state, seed);
   const vals = c.renderVals();
   const body = render(markup, vals);
