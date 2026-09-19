@@ -217,6 +217,27 @@ async function testLedger(client) {
     await client.query("UPDATE journal_lines SET debit_laari = 1 WHERE entry_id = $1", [bill.id]);
   });
 
+  // Both of those were stopped by the permission before the trigger was
+  // reached. The triggers are the second line of defence, for anyone connecting
+  // with more authority than the application has, so they are worth proving
+  // separately rather than assuming.
+  await expectRejection(client, "deleting an entry even as the database owner", async () => {
+    await client.query("RESET ROLE");
+    await client.query("DELETE FROM journal_entries WHERE id = $1", [bill.id]);
+  });
+
+  await expectRejection(client, "rewriting an entry's seal even as the database owner", async () => {
+    await client.query("RESET ROLE");
+    await client.query("UPDATE journal_entries SET hash = '\\x00' WHERE id = $1", [bill.id]);
+  });
+
+  await expectRejection(client, "back-dating a posted entry even as the database owner", async () => {
+    await client.query("RESET ROLE");
+    await client.query("UPDATE journal_entries SET entry_date = '2026-01-01' WHERE id = $1", [bill.id]);
+  });
+
+  await assumeIdentity(client, { companyId: altura, userId });
+
   // ---- corrections ------------------------------------------------------
 
   console.log("\n   Corrections leave both records standing");
@@ -265,6 +286,11 @@ async function testLedger(client) {
   // the hash notices.
   await client.query("SAVEPOINT tamper");
   await client.query("RESET ROLE");
+  // The balance checks from the entries posted above are still queued, waiting
+  // for COMMIT, and Postgres will not alter a table with trigger events
+  // pending. Running them now clears the queue; they all pass, because
+  // everything posted so far balances.
+  await client.query("SET CONSTRAINTS ALL IMMEDIATE");
   await client.query("ALTER TABLE journal_lines DISABLE TRIGGER USER");
   await client.query(
     `UPDATE journal_lines SET debit_laari = debit_laari + 3825000
@@ -276,6 +302,10 @@ async function testLedger(client) {
     [bill.id]
   );
   await client.query("ALTER TABLE journal_lines ENABLE TRIGGER USER");
+  // Back to checking at COMMIT, which is what the rest of the run needs: the
+  // lines of one entry arrive one at a time and only balance once they are all
+  // in. Immediate checking would reject the first line of every entry.
+  await client.query("SET CONSTRAINTS ALL DEFERRED");
 
   const tamperedBalance = await verifyTrialBalance(client, { companyId: altura, userId });
   const tamperedChain = await verifyChain(client, { companyId: altura, userId });
