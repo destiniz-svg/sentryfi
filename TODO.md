@@ -149,7 +149,15 @@ The check that proves it is `tools/offline.js`: it cuts the connection, records 
 
 That check found the other half. The queue was durable but the way back into the app was not: close the tab on a site with no bars and the next attempt was the browser's error page. The shell is now precached and every navigation falls back to it, so the app opens on a dead connection; `/api` stays NetworkOnly, because a figure that is quietly three days old is worse than no figure. `tools/shell.js` checks it.
 
-**Still to build:** the phone board proper — the square register, site cash, and the ten-second undo.
+**The phone board is built and checked on the live app.** Home and Bills are the board from `DESIGN.md`, not the desk register made narrow: square corners, ink on board white, the one yellow band, hairline rows, and every amount hanging on a single 2px ink rule. An amount is red and signed once the money is in the books; a bill still waiting is a document, not a movement, so it stays ink.
+
+The band is meant to carry cash and bank. No statement has been imported, so there is no cash figure that is true, and it carries what is owed instead with a line saying why.
+
+**The ten-second undo is real.** Posting is irreversible by design, so undo writes a second, opposite entry with a reason on it and both stay in the journal. It lives in the strip slot, which never changes height and is never drawn over the shutter. `tools/undo.js` records its own bill, posts it, takes it back and then reads the journal rather than the screen: both entries present, the reversal pointing at the original, what is owed back where it started.
+
+The capture sheet is in the board's register too — square, full width, rising from the bottom with a grabber — and the button that commits now names the money ("Record MVR 4,250.00"), falling back to the blocker when one exists. That rule was in `DESIGN.md` and had never been followed in either register.
+
+**Still to build:** site cash — spending it, counting it, asking for a top-up — and the board's own Snap and Review screens, which today are one sheet rather than the artboard's two.
 
 **Done when:** a bill photographed on a site with no signal is in the books three taps later, once there is signal.
 

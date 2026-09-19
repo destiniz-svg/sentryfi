@@ -61,15 +61,21 @@ async function main() {
   await context.setOffline(true);
   ok("offline");
 
-  await page.getByRole("button", { name: /record a bill/i }).first().click();
-  await page.waitForTimeout(400);
+  // The phone board opens capture from the shutter; the desk register from a
+  // named button. This check runs on a phone, so take whichever is there.
+  const shutter = page.locator(".phone-shutter");
+  if (await shutter.count()) await shutter.click();
+  else await page.getByRole("button", { name: /record a bill/i }).first().click();
+  await page.waitForTimeout(700);
 
   await page.fill("#bill-supplier", SUPPLIER);
   await page.fill("#bill-amount", AMOUNT);
-  await page.getByRole("button", { name: /^record it$/i }).click();
+  // The commit button names the money now, so it is matched by what it does
+  // rather than by what it used to say.
+  await page.locator("button[type=submit]").last().click();
   await page.waitForTimeout(1200);
 
-  const strip = page.locator("text=/waiting on this phone/i");
+  const strip = page.locator("text=/waiting on this phone|on this phone|sends itself when there is signal/i");
   if ((await strip.count()) > 0) ok("the bill is shown as waiting on the phone");
   else bad("nothing told the person the bill was held");
 
@@ -116,7 +122,9 @@ async function main() {
   await page.reload({ waitUntil: "networkidle", timeout: 45000 });
   await page.waitForTimeout(2500);
 
-  const stillWaiting = await page.locator("text=/waiting on this phone/i").count();
+  const stillWaiting = await page
+    .locator("text=/waiting on this phone|sends itself when there is signal/i")
+    .count();
   if (stillWaiting === 0) ok("nothing is left waiting");
   else bad("it never sent");
 
@@ -128,6 +136,23 @@ async function main() {
   const amountShown = await page.locator(`text=${AMOUNT}`).count();
   if (amountShown > 0) ok(`the figure came through: ${AMOUNT}`);
   else bad("the figure did not come through");
+
+  // Take the test bill back out. It is a draft, so it never reached the
+  // books, but it is still a row in a real set of records and it does not
+  // belong there. One named bill, and only if exactly one matches.
+  const cleaned = await page.evaluate(async (target) => {
+    const ctx = await fetch("/api/companies", { credentials: "include" }).then((r) => r.json());
+    const headers = { "X-Company-Id": ctx?.companies?.[0]?.id, "Content-Type": "application/json" };
+    const bills = (await fetch("/api/bills", { credentials: "include", headers }).then((r) => r.json())).bills;
+    const match = bills.filter((b) => b.supplier_name === target && !b.voided_at);
+    if (match.length !== 1) return `left alone: ${match.length} matched`;
+    const res = await fetch(`/api/bills/${match[0].id}`, {
+      method: "DELETE", credentials: "include", headers,
+      body: JSON.stringify({ reason: "Check of the offline queue. Not a real bill." }),
+    });
+    return res.ok ? "voided" : `could not void (${res.status})`;
+  }, SUPPLIER);
+  console.log(`  clean-up: ${SUPPLIER} — ${cleaned}`);
 
   await browser.close();
   console.log(process.exitCode ? "\nsomething is wrong\n" : "\nthe bill survived\n");

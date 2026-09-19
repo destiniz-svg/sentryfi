@@ -52,7 +52,7 @@ const bad = (m) => {
   // Say how the tax was quoted, or it cannot be posted — which is the point.
   const gst = page.locator("#bill-gst");
   if (await gst.count()) await gst.selectOption("none_unregistered").catch(() => {});
-  await page.getByRole("button", { name: /^record it$/i }).click();
+  await page.locator("button[type=submit]").last().click();
   await page.waitForTimeout(2500);
 
   const row = page.locator(".phone-row", { hasText: SUPPLIER });
