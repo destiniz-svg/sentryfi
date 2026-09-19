@@ -63,6 +63,14 @@
       "w": 1280,
       "x": 470,
       "y": 900
+    },
+    "Bank.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "title": "Sentryfi · bank import and reconciliation · illustrative data",
+      "w": 1280,
+      "x": 1790,
+      "y": 900
     }
   },
   "createdOnFiles": {
@@ -101,6 +109,7 @@
     "App.dc.html",
     "Desktop.dc.html",
     "Tax.dc.html",
+    "Bank.dc.html",
     "Brand.dc.html",
     "Main.dc.html",
     "Snap.dc.html",

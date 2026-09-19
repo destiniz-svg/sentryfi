@@ -21,6 +21,16 @@ const BOARDS = [
       ['Tax centre · due today', { daysToDeadline: 0 }, {}]
     ]
   },
+  {
+    file: 'design/project/Bank.dc.html',
+    w: 1280, h: 800,
+    panels: [
+      ['Bank · nothing imported yet', { stage: 'Nothing imported' }, {}],
+      ['Bank · five need a person', {}, {}],
+      ['Bank · two answered', {}, { decided: { a: 'accepted', b: 'left' } }],
+      ['Bank · nothing left to ask', { stage: 'All matched' }, {}]
+    ]
+  },
   { file: 'design/project/Desktop.dc.html', w: 1280, h: 800, panels: [['Accountant journal', {}, {}]] }
 ];
 
