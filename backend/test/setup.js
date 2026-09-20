@@ -20,6 +20,8 @@ const { VOID_SQL } = require("../src/config/void-schema");
 const { BILLS_SQL } = require("../src/config/bills-schema");
 const { ATTACHMENTS_SQL } = require("../src/config/attachments-schema");
 const { COUNTERPARTY_SQL } = require("../src/config/counterparty-schema");
+const { CASH_SQL } = require("../src/config/cash-schema");
+const { SALES_SQL } = require("../src/config/sales-schema");
 
 const url = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
 
@@ -53,6 +55,8 @@ async function applySchema() {
   await p.query(BILLS_SQL);
   await p.query(ATTACHMENTS_SQL);
   await p.query(COUNTERPARTY_SQL);
+  await p.query(CASH_SQL);
+  await p.query(SALES_SQL);
 }
 
 /**
