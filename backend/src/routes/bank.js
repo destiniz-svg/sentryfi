@@ -37,6 +37,7 @@ router.get(
         kind: p.kind,
         balance: formatLaari(p.balance),
         overdrawn: p.balance < 0n,
+        statement: p.kind === "bank" ? { lines: p.lines, waiting: p.waiting } : undefined,
       })),
     });
   })
@@ -73,6 +74,40 @@ router.post(
         entryId: result.entry.id,
         entryNo: String(result.entry.entryNo),
         alreadyHad: result.alreadyHad,
+      });
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
+/**
+ * A statement file, as the bank sent it. The body is the CSV itself, not JSON
+ * wrapped around it: it can be megabytes, and it should reach the parser
+ * byte for byte.
+ */
+router.post(
+  "/:accountId/statement",
+  requireCan("approve", "adjust"),
+  express.text({ type: () => true, limit: "10mb" }),
+  asyncHandler(async (req, res) => {
+    if (typeof req.body !== "string" || !req.body.trim()) throw ApiError.badRequest("That file has nothing in it.");
+    try {
+      const r = await asCompany(req, (client) =>
+        bank.importStatement(client, {
+          companyId: req.companyId,
+          userId: req.user.id,
+          accountId: req.params.accountId,
+          text: req.body,
+        })
+      );
+      res.status(201).json({
+        ...r,
+        balance: {
+          ...r.balance,
+          opening: r.balance.opening === null ? null : formatLaari(r.balance.opening),
+          closing: r.balance.closing === null ? null : formatLaari(r.balance.closing),
+        },
       });
     } catch (err) {
       throw ApiError.badRequest(err.message);

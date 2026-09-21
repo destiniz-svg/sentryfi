@@ -8,4 +8,10 @@ export const bankApi = {
 
   /** clientRef makes a resend land on the first attempt instead of moving the money twice. */
   transfer: (payload) => apiClient.post("/bank/transfer", payload).then((r) => r.data),
+
+  /** The CSV exactly as the bank sent it, so the parser sees every byte. */
+  statement: (accountId, csv) =>
+    apiClient
+      .post(`/bank/${accountId}/statement`, csv, { headers: { "Content-Type": "text/csv" } })
+      .then((r) => r.data),
 };

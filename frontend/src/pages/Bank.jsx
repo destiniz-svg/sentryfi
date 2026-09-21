@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeftRight, Landmark, Loader2, Plus } from "lucide-react";
+import { ArrowLeftRight, Landmark, Loader2, Plus, Upload } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -35,6 +35,7 @@ export default function Bank() {
   const { companyId, can } = useCompany();
   const [moving, setMoving] = useState(0); // a new key each time the dialog opens, so it mounts fresh
   const [opening, setOpening] = useState(false);
+  const [bringing, setBringing] = useState(null); // the bank account a statement is being brought into
 
   const { data: places, isLoading } = useQuery({
     queryKey: ["bank", companyId],
@@ -92,8 +93,17 @@ export default function Bank() {
                     <li key={p.id} className="flex items-center gap-4 px-5 py-4">
                       <div className="min-w-0 flex-1">
                         <div className="text-[15px] font-medium truncate">{p.name.replace(/^Cash: /, "")}</div>
-                        <div className="text-[13px] text-[var(--ink-muted)] tabular">{p.code}</div>
+                        <div className="text-[13px] text-[var(--ink-muted)] tabular">
+                          {p.code}
+                          {p.statement?.lines > 0 &&
+                            ` · ${p.statement.lines.toLocaleString("en-US")} statement lines, ${p.statement.waiting.toLocaleString("en-US")} waiting`}
+                        </div>
                       </div>
+                      {p.kind === "bank" && mayMove && (
+                        <Button variant="outline" onClick={() => setBringing(p)}>
+                          <Upload size={15} /> Statement
+                        </Button>
+                      )}
                       {p.overdrawn && <Badge tone="danger">Below zero</Badge>}
                       <div
                         className={`tabular text-[17px] font-semibold ${p.overdrawn ? "text-[var(--danger)]" : ""}`}
@@ -111,6 +121,7 @@ export default function Bank() {
 
       {moving > 0 && <MoveMoney key={moving} places={places || []} onClose={() => setMoving(0)} />}
       <OpenBank open={opening} onClose={() => setOpening(false)} />
+      {bringing && <BringStatement key={bringing.id} place={bringing} onClose={() => setBringing(null)} />}
     </div>
   );
 }
@@ -256,6 +267,100 @@ function OpenBank({ open, onClose }) {
         <Button type="submit" variant="accent" disabled={make.isPending || name.trim().length < 2}>
           {make.isPending && <Loader2 size={14} className="animate-spin" />}
           Open it
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+const plainDate = (iso) =>
+  new Date(iso + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
+/**
+ * A statement file in. It records what the bank says and posts nothing, and it
+ * says whether the file agrees with itself: each line's running balance should
+ * be the one before it plus what came in less what went out, which is only true
+ * if every column was read correctly.
+ */
+function BringStatement({ place, onClose }) {
+  const refresh = useRefresh();
+  const [result, setResult] = useState(null);
+  const [err, setErr] = useState("");
+  const send = useMutation({ mutationFn: (csv) => bankApi.statement(place.id, csv) });
+
+  async function onPick(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setErr("");
+    setResult(null);
+    try {
+      setResult(await send.mutateAsync(await file.text()));
+      refresh();
+    } catch (ex) {
+      setErr(ex.message || "That file could not be read.");
+    }
+  }
+
+  const agrees = result && result.balance.breaks === 0;
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`Statement · ${place.name}`}
+      description="Export it from internet banking as a CSV and drop it here. This records what the bank says. It does not change the books."
+    >
+      <label className="block">
+        <span className="text-sm font-medium block mb-1.5">The file</span>
+        <input id="statement-file" type="file" accept=".csv,text/csv" onChange={onPick} className={FIELD + " py-2 h-auto"} />
+      </label>
+
+      {send.isPending && (
+        <p className="flex items-center gap-2 text-[13px] text-[var(--ink-muted)] mt-4">
+          <Loader2 size={14} className="animate-spin" /> Reading it.
+        </p>
+      )}
+
+      {err && (
+        <p role="alert" className="text-[13px] text-[var(--danger)] mt-4">
+          {err}
+        </p>
+      )}
+
+      {result && (
+        <div className="mt-5 space-y-2 text-[14px]" data-testid="statement-result">
+          <p>
+            <strong className="tabular">{result.read.toLocaleString("en-US")}</strong> lines, from {plainDate(result.from)} to{" "}
+            {plainDate(result.to)}. <strong className="tabular">{result.added.toLocaleString("en-US")}</strong> new
+            {result.alreadyHad > 0 && `, ${result.alreadyHad.toLocaleString("en-US")} already here`}.
+          </p>
+          {result.balance.opening !== null && (
+            <p className="text-[var(--ink-muted)]">
+              Balance <span className="tabular">{result.balance.opening}</span> to <span className="tabular">{result.balance.closing}</span>.
+            </p>
+          )}
+          {agrees ? (
+            <p>The file's own balances add up to the laari, so every column was read correctly.</p>
+          ) : (
+            <p role="alert" className="text-[var(--danger)]">
+              {result.balance.breaks} lines do not follow from the one before, starting at line {result.balance.firstBreak}. The
+              file may have been read wrongly. Do not act on it until that is explained.
+            </p>
+          )}
+          {result.flagged > 0 && (
+            <p className="text-[var(--ink-muted)]">{result.flagged} lines carry something odd in one field. They are kept, and marked.</p>
+          )}
+          {result.skipped.length > 0 && (
+            <p className="text-[var(--danger)]">
+              {result.skipped.length} lines could not be read at all: line {result.skipped[0].rowNo}, {result.skipped[0].why}.
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="flex justify-end mt-6">
+        <Button type="button" variant="outline" onClick={onClose}>
+          {result ? "Done" : "Cancel"}
         </Button>
       </div>
     </Modal>
