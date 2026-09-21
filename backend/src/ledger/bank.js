@@ -2,6 +2,7 @@ const { postEntry } = require("./post");
 const { toLaari, formatLaari } = require("./money");
 const { openAssetAccount } = require("./cash");
 const statement = require("./statement");
+const reconcile = require("./reconcile");
 
 /**
  * Where the money sits, and moving it between places.
@@ -138,8 +139,13 @@ async function importStatement(client, { companyId, userId, accountId, text, lay
     ]
   );
 
+  // What the books already know by an exact reference is linked now. That
+  // changes nothing in the books; everything else waits to be asked.
+  const matched = await reconcile.autoMatch(client, { companyId, userId, accountId });
+
   const dates = parsed.rows.map((r) => r.postedOn).sort();
   return {
+    matched,
     read: parsed.rows.length,
     added: rowCount,
     alreadyHad: parsed.rows.length - rowCount,

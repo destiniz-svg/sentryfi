@@ -14,4 +14,23 @@ export const bankApi = {
     apiClient
       .post(`/bank/${accountId}/statement`, csv, { headers: { "Content-Type": "text/csv" } })
       .then((r) => r.data),
+
+  /** The questions the bank has raised that the books cannot answer, biggest money first. */
+  waiting: (accountId) => apiClient.get(`/bank/${accountId}/waiting`).then((r) => r.data),
+
+  /** The lines behind one question, each with what the books could say about it. */
+  waitingLines: (accountId, who, moneyIn) =>
+    apiClient.get(`/bank/${accountId}/waiting/lines`, { params: { who, moneyIn } }).then((r) => r.data.lines),
+
+  answered: (accountId) => apiClient.get(`/bank/${accountId}/answered`).then((r) => r.data.lines),
+
+  /** Everything to one payee, answered the same way. Posts one entry per line. */
+  postGroup: (accountId, body) => apiClient.post(`/bank/${accountId}/group`, body).then((r) => r.data),
+  setAsideGroup: (accountId, body) => apiClient.post(`/bank/${accountId}/group/set-aside`, body).then((r) => r.data),
+
+  link: (lineId, entryId) => apiClient.post(`/bank/lines/${lineId}/link`, { entryId }).then((r) => r.data),
+  postLine: (lineId, body) => apiClient.post(`/bank/lines/${lineId}/post`, body).then((r) => r.data),
+  receive: (lineId, invoiceId) => apiClient.post(`/bank/lines/${lineId}/receive`, { invoiceId }).then((r) => r.data),
+  setAside: (lineId) => apiClient.post(`/bank/lines/${lineId}/set-aside`, {}).then((r) => r.data),
+  undo: (lineId) => apiClient.post(`/bank/lines/${lineId}/undo`).then((r) => r.data),
 };

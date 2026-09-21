@@ -69,7 +69,7 @@ const bad = (m) => {
     else bad("expected five lines read, got: " + first);
     if (/add up to the laari/i.test(first)) ok("the file's own balances add up, so the columns were read right");
     else bad("the balance check did not pass: " + first);
-    if (/1 lines carry something odd/i.test(first)) ok("the malformed line is kept and marked, not rejected");
+    if (/1 line carries something odd/i.test(first)) ok("the malformed line is kept and marked, not rejected");
     else bad("the malformed line was not reported: " + first);
     await page.screenshot({ path: "shots/statement-result.png" });
     await page.getByRole("button", { name: /done/i }).click();

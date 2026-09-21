@@ -7,6 +7,7 @@ const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
 const { formatLaari } = require("../ledger/money");
 const bank = require("../ledger/bank");
+const reconcile = require("../ledger/reconcile");
 
 /** Bank accounts and tins, and money moving between them. Every balance is read from the journal. */
 
@@ -109,6 +110,156 @@ router.post(
           closing: r.balance.closing === null ? null : formatLaari(r.balance.closing),
         },
       });
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
+/* ------------------------------------------------- what the bank shows that the books do not */
+
+const uuid = z.string().uuid();
+const ask = requireCan("approve", "adjust");
+
+const lineOut = (l, ideas) => ({
+  id: l.id,
+  on: l.posted_on,
+  kind: l.kind,
+  who: l.who,
+  remark: l.remark,
+  ref: l.bank_ref,
+  channel: l.channel,
+  flag: l.flag,
+  moneyIn: BigInt(l.credit_laari) > 0n,
+  amount: formatLaari(BigInt(l.credit_laari) > 0n ? BigInt(l.credit_laari) : BigInt(l.debit_laari)),
+  status: l.status,
+  note: l.note,
+  ...ideas,
+});
+
+/** The questions still open for one bank account, biggest money first, and the accounts an answer can name. */
+router.get(
+  "/:accountId/waiting",
+  ask,
+  asyncHandler(async (req, res) => {
+    const data = await asCompany(req, async (client) => {
+      const groups = await reconcile.groups(client, { companyId: req.companyId, accountId: req.params.accountId });
+      const { rows: counts } = await client.query(
+        `SELECT status, count(*)::int AS n FROM bank_statement_lines
+          WHERE company_id = $1 AND account_id = $2 GROUP BY status`,
+        [req.companyId, req.params.accountId]
+      );
+      const { rows: accounts } = await client.query(
+        `SELECT id, code, name, type FROM accounts
+          WHERE company_id = $1 AND archived_at IS NULL AND id <> $2
+          ORDER BY CASE type WHEN 'expense' THEN 0 WHEN 'income' THEN 1 WHEN 'liability' THEN 2 WHEN 'asset' THEN 3 ELSE 4 END, code`,
+        [req.companyId, req.params.accountId]
+      );
+      return { groups, counts, accounts };
+    });
+    res.json({
+      groups: data.groups,
+      counts: Object.fromEntries(data.counts.map((c) => [c.status, c.n])),
+      accounts: data.accounts,
+    });
+  })
+);
+
+/** The lines behind one question, each with what the books could say about it. */
+router.get(
+  "/:accountId/waiting/lines",
+  ask,
+  asyncHandler(async (req, res) => {
+    const status = ["open", "set_aside"].includes(req.query.status) ? req.query.status : "open";
+    const lines = await asCompany(req, (client) =>
+      reconcile.linesOf(client, {
+        companyId: req.companyId,
+        accountId: req.params.accountId,
+        who: String(req.query.who || ""),
+        moneyIn: req.query.moneyIn === "true",
+        status,
+      })
+    );
+    res.json({ lines: lines.map(({ line, ...ideas }) => lineOut(line, ideas)) });
+  })
+);
+
+/** What has been answered, newest first. */
+router.get(
+  "/:accountId/answered",
+  ask,
+  asyncHandler(async (req, res) => {
+    const rows = await asCompany(req, (client) =>
+      reconcile.recent(client, { companyId: req.companyId, accountId: req.params.accountId })
+    );
+    res.json({ lines: rows.map((l) => ({ ...lineOut(l, {}), entryNo: l.entry_no ? String(l.entry_no) : null })) });
+  })
+);
+
+/** Every answer goes through here, so a refusal always reads the same way. */
+const answer = (fn) =>
+  asyncHandler(async (req, res) => {
+    try {
+      const out = await asCompany(req, (client) =>
+        fn(client, { companyId: req.companyId, userId: req.user.id, lineId: req.params.id, ...req.body })
+      );
+      res.json(out);
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  });
+
+const lineBody = (shape) => (req, _res, next) => {
+  const parsed = shape.safeParse(req.body ?? {});
+  if (!parsed.success) return next(ApiError.badRequest(parsed.error.issues[0].message));
+  req.body = parsed.data;
+  next();
+};
+
+router.post("/lines/:id/link", ask, lineBody(z.object({ entryId: uuid, note: z.string().trim().max(300).nullish() })), answer(reconcile.link));
+router.post(
+  "/lines/:id/post",
+  ask,
+  lineBody(z.object({ accountId: uuid, counterpartyId: uuid.nullish(), note: z.string().trim().max(300).nullish() })),
+  answer(reconcile.post)
+);
+router.post("/lines/:id/receive", ask, lineBody(z.object({ invoiceId: uuid })), answer(reconcile.receiveAgainst));
+router.post("/lines/:id/set-aside", ask, lineBody(z.object({ note: z.string().trim().max(300).nullish() })), answer(reconcile.setAside));
+router.post("/lines/:id/undo", ask, answer(reconcile.undo));
+
+/** Everything owed to one payee, answered the same way in one go. */
+router.post(
+  "/:accountId/group",
+  ask,
+  lineBody(z.object({ who: z.string().trim().max(300), moneyIn: z.boolean(), accountId: uuid, note: z.string().trim().max(300).nullish() })),
+  asyncHandler(async (req, res) => {
+    try {
+      const out = await asCompany(req, (client) =>
+        reconcile.postGroup(client, {
+          companyId: req.companyId,
+          userId: req.user.id,
+          bankId: req.params.accountId,
+          ...req.body,
+        })
+      );
+      res.json(out);
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
+router.post(
+  "/:accountId/group/set-aside",
+  ask,
+  lineBody(z.object({ who: z.string().trim().max(300), moneyIn: z.boolean(), note: z.string().trim().max(300).nullish() })),
+  asyncHandler(async (req, res) => {
+    try {
+      res.json(
+        await asCompany(req, (client) =>
+          reconcile.setAsideGroup(client, { companyId: req.companyId, userId: req.user.id, bankId: req.params.accountId, ...req.body })
+        )
+      );
     } catch (err) {
       throw ApiError.badRequest(err.message);
     }

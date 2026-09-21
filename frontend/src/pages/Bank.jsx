@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { ArrowLeftRight, Landmark, Loader2, Plus, Upload } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -95,9 +96,18 @@ export default function Bank() {
                         <div className="text-[15px] font-medium truncate">{p.name.replace(/^Cash: /, "")}</div>
                         <div className="text-[13px] text-[var(--ink-muted)] tabular">
                           {p.code}
-                          {p.statement?.lines > 0 &&
-                            ` · ${p.statement.lines.toLocaleString("en-US")} statement lines, ${p.statement.waiting.toLocaleString("en-US")} waiting`}
+                          {p.statement?.lines > 0 && ` · ${p.statement.lines.toLocaleString("en-US")} statement lines`}
                         </div>
+                        {p.statement?.lines > 0 && (
+                          <Link
+                            to={`/bank/${p.id}`}
+                            className="inline-block text-[13px] font-medium underline underline-offset-2 mt-0.5"
+                          >
+                            {p.statement.waiting > 0
+                              ? `${p.statement.waiting.toLocaleString("en-US")} waiting to be answered`
+                              : "Nothing waiting. See what was answered"}
+                          </Link>
+                        )}
                       </div>
                       {p.kind === "bank" && mayMove && (
                         <Button variant="outline" onClick={() => setBringing(p)}>
@@ -273,6 +283,8 @@ function OpenBank({ open, onClose }) {
   );
 }
 
+const n = (x) => x.toLocaleString("en-US");
+
 const plainDate = (iso) =>
   new Date(iso + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
@@ -347,8 +359,17 @@ function BringStatement({ place, onClose }) {
               file may have been read wrongly. Do not act on it until that is explained.
             </p>
           )}
+          {result.matched > 0 && (
+            <p>
+              <strong className="tabular">{n(result.matched)}</strong> {result.matched === 1 ? "line matched" : "lines matched"} a
+              receipt already in the books by its reference, and{" "}
+              {result.matched === 1 ? "was" : "were"} linked.
+            </p>
+          )}
           {result.flagged > 0 && (
-            <p className="text-[var(--ink-muted)]">{result.flagged} lines carry something odd in one field. They are kept, and marked.</p>
+            <p className="text-[var(--ink-muted)]">
+              {result.flagged} {result.flagged === 1 ? "line carries" : "lines carry"} something odd in one field. Kept, and marked.
+            </p>
           )}
           {result.skipped.length > 0 && (
             <p className="text-[var(--danger)]">
