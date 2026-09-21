@@ -18,7 +18,10 @@
 const { chromium } = require("playwright");
 const { signIn, BASE } = require("./session");
 
-const CUSTOMER = `Check Customer ${Date.now().toString().slice(-6)}`;
+// Letters, not digits: two names that differ only in a number score as the same
+// company, and the app rightly files the invoice under the earlier one.
+const word = () => Array.from({ length: 9 }, () => "abcdefghjkmnpqrstuvwxyz"[Math.floor(Math.random() * 23)]).join("");
+const CUSTOMER = `Check ${word()} Ltd`;
 const PO = `PO-CHECK-${Date.now().toString().slice(-5)}`;
 
 const ok = (m) => console.log("  ok   " + m);
@@ -94,7 +97,11 @@ async function rowFor(page) {
 
   let row = await rowFor(page);
   if ((await row.count()) && /draft/i.test(await row.innerText())) ok("it is saved as a draft");
-  else return stop("the invoice did not appear as a draft");
+  else {
+    await page.screenshot({ path: "shots/invoices-fail.png" });
+    const said = await page.locator("[role=alert], [role=status]").allInnerTexts().catch(() => []);
+    return stop("the invoice did not appear as a draft. On screen: " + said.join(" | "));
+  }
 
   const draftFigures = await figures(page);
   if (draftFigures.owedToUs === before.owedToUs) ok("a draft moves nothing in the books");

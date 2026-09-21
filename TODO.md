@@ -203,19 +203,27 @@ The largest of the four, and the one that matters most: it ends at the first poi
 
 ---
 
-### 7. Money owed to you
+### 7. Money owed to you — done 22 September 2026
 
 Sales invoices, customers, receipts and credit notes on the ledger rather than on the purchased tool's tables.
 
 **Done when:** an invoice raised here posts a balanced entry, a receipt settles the right amount, the aged list is a ledger query, and **the purchased product's invoice and payment tables are gone.** Two places holding the same figure is how they come to disagree.
 
+**What happened.** All four hold. Invoices, receipts and credit notes post through the same door as bills, with the tax going the other way: output tax owed to the authority, not input tax claimed. The aged list and what is left on an invoice are read from documents and journal lines, never stored. The purchased invoice, item and payment tables were empty and the migration dropped them. Browser check: `node tools/invoices.js`.
+
+Worth knowing: a customer named like an existing one is filed under the existing one and the screen says so. A near match is never silent.
+
 ---
 
-### 8. Cash and bank
+### 8. Cash and bank — done 22 September 2026
 
 Bank accounts and cash boxes as real accounts, with balances derived from the ledger and stored nowhere. Transfers between them. Boxes held by named people, spending with or without a bill, counts, top-ups.
 
 **Done when:** no balance is stored anywhere, a cash count that does not balance is recorded with its reason rather than hidden, and **the purchased expenses table is gone.**
+
+**What happened.** A bank account is an 11xx account and a tin is a 12xx account; both are read from journal lines and nothing stores a balance. A transfer is one balanced entry, and the same transfer sent twice lands once. A count that disagrees keeps what was counted, posts the difference with its reason, and refuses to save without one. The purchased expenses table and route are gone (the migration drops the table only if empty). Browser checks: `node tools/bank.js`, `node tools/cash.js`.
+
+Not done, on purpose: opening balances for an existing bank account come with history import (step 14), and only rufiyaa accounts exist until step 15.
 
 ---
 
