@@ -184,6 +184,17 @@ async function rowFor(page) {
   await page.waitForTimeout(2500);
 
   const scrapRow = page.locator("div.grid", { hasText: scrap }).last();
+  const appeared = await scrapRow
+    .waitFor({ timeout: 15000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!appeared) {
+    const alerts = await page.locator("[role=alert]").allInnerTexts();
+    const dialog = await page.locator("[role=dialog]").count();
+    return stop(
+      `the scrap draft never appeared (dialog open: ${dialog > 0}, alerts: ${JSON.stringify(alerts)})`
+    );
+  }
   await scrapRow.getByRole("button", { name: /^discard$/i }).click();
   await page.waitForTimeout(700);
   await page.locator("[role=dialog] input, [role=dialog] textarea").first().fill("Raised by the check, not real");

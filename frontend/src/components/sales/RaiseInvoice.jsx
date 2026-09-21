@@ -96,10 +96,14 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
   const [lines, setLines] = useState([blankLine()]);
   const [err, setErr] = useState("");
 
+  // Never a cached number: a stale one is a number somebody else may already
+  // have used, and the save would be refused over it.
   const { data: suggested } = useQuery({
-    queryKey: ["sales-next", companyId, open],
+    queryKey: ["sales-next", companyId],
     queryFn: salesApi.nextNumber,
     enabled: Boolean(companyId) && open,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   const invoiceNo = form.invoiceNo ?? suggested ?? "";

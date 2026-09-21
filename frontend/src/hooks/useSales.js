@@ -32,7 +32,10 @@ export function useSalesMutations() {
   // Every one of these writes to the ledger or changes what is owed, so every
   // figure that reads either is stale the moment one succeeds.
   const invalidate = () => {
-    for (const key of ["sales", "sales-aged", "figures", "attention"]) {
+    // "sales-next" too: the suggested number was cached from the first time the
+    // editor opened, so the second invoice in a row was offered the number the
+    // first had just taken, and was refused.
+    for (const key of ["sales", "sales-aged", "sales-next", "figures", "attention"]) {
       queryClient.invalidateQueries({ queryKey: [key, companyId] });
     }
   };

@@ -221,6 +221,19 @@ router.post(
         alreadyHad: Boolean(result.alreadyHad),
       });
     } catch (err) {
+      // A number that is already used is an ordinary thing to run into — two
+      // people raising invoices at once, or a number typed by hand — and it
+      // used to reach the screen as a Postgres constraint name. Say it in
+      // words, with the number that is free.
+      if (err.code === "23505" && /sales_invoice_no_once/.test(err.constraint || err.message)) {
+        const free = await asCompany(req, (client) =>
+          sales.nextInvoiceNo(client, { companyId: req.companyId })
+        ).catch(() => null);
+        throw ApiError.badRequest(
+          `${b.invoiceNo || "That number"} is already used by another invoice.` +
+            (free ? ` The next free number is ${free}.` : "")
+        );
+      }
       throw ApiError.badRequest(err.message);
     }
   })
