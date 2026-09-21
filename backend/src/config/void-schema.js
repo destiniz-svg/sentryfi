@@ -20,7 +20,8 @@
  * undone" — so the interface was describing a product that no longer existed
  * underneath it.
  *
- * This applies to money records only: invoices, expenses and payments.
+ * This applies to money records only: expenses. (Invoices and payments left with
+ * the purchased tables; the ledger's own documents carry their own void rules.)
  * Customers and catalogue items are reference data, not financial events, and
  * requiring a written reason to remove a mistyped item name would be ceremony
  * rather than rigour.
@@ -30,7 +31,7 @@ const VOID_SQL = `
 DO $void$
 DECLARE t TEXT;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['invoices', 'expenses', 'payments']
+  FOREACH t IN ARRAY ARRAY['expenses']
   LOOP
     EXECUTE format('ALTER TABLE %I ADD COLUMN IF NOT EXISTS voided_at  TIMESTAMPTZ', t);
     EXECUTE format('ALTER TABLE %I ADD COLUMN IF NOT EXISTS voided_by  UUID REFERENCES users(id)', t);

@@ -27,20 +27,46 @@ const { SALES_SQL } = require("../src/config/sales-schema");
     await pool.query(SALES_SQL);
     console.log("Sales ledger applied.");
 
-    // What is actually in here, so the decision about existing data is made on
-    // a count rather than an assumption.
+    // The purchased product's invoice and payment tables. Invoices live on the
+    // ledger now, and two places holding the same figure is how they come to
+    // disagree. Dropped only if all three are empty: a row in any of them is
+    // somebody's record, and that is a decision for a person, not a migration.
+    const { rows: old } = await pool.query(`
+      SELECT to_regclass('public.invoices') IS NOT NULL
+         AND to_regclass('public.invoice_items') IS NOT NULL
+         AND to_regclass('public.payments') IS NOT NULL AS present
+    `);
+    if (old[0].present) {
+      const { rows: n } = await pool.query(`
+        SELECT (SELECT count(*) FROM invoices)::int      AS invoices,
+               (SELECT count(*) FROM invoice_items)::int AS items,
+               (SELECT count(*) FROM payments)::int      AS payments
+      `);
+      const { invoices, items, payments } = n[0];
+      if (invoices + items + payments === 0) {
+        await pool.query("DROP TABLE IF EXISTS payments, invoice_items, invoices");
+        console.log("Purchased invoice and payment tables were empty, and are gone.");
+      } else {
+        console.log(
+          `Purchased tables kept: they hold ${invoices} invoices, ${items} lines and ` +
+            `${payments} payments. Nothing reads them; move or discard those rows, then redeploy.`
+        );
+      }
+    }
+
+    // What is actually in here, so decisions about existing data are made on a
+    // count rather than an assumption.
     const { rows } = await pool.query(`
       SELECT (SELECT count(*) FROM users)            AS users,
-             (SELECT count(*) FROM invoices)         AS invoices,
              (SELECT count(*) FROM expenses)         AS expenses,
-             (SELECT count(*) FROM clients)          AS clients,
              (SELECT count(*) FROM companies)        AS companies,
-             (SELECT count(*) FROM journal_entries)  AS entries
+             (SELECT count(*) FROM journal_entries)  AS entries,
+             (SELECT count(*) FROM sales_invoices)   AS invoices
     `);
     const c = rows[0];
     console.log(
-      `Contents: ${c.users} users, ${c.invoices} invoices, ${c.expenses} expenses, ` +
-      `${c.clients} clients | ledger: ${c.companies} companies, ${c.entries} entries`
+      `Contents: ${c.users} users, ${c.expenses} old expenses | ledger: ` +
+        `${c.companies} companies, ${c.entries} entries, ${c.invoices} invoices`
     );
   } catch (err) {
     console.error("Migration failed:", err.message);

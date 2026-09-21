@@ -1,0 +1,24 @@
+const path = require("node:path"), os = require("node:os"), fs = require("node:fs");
+const { spawnSync } = require("node:child_process");
+const EmbeddedPostgres = require("embedded-postgres").default;
+const { Client } = require("pg");
+const OLD = `CREATE TABLE invoices (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), user_id UUID);
+  CREATE TABLE invoice_items (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), invoice_id UUID REFERENCES invoices(id));
+  CREATE TABLE payments (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), invoice_id UUID REFERENCES invoices(id));`;
+(async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mig-"));
+  const pg = new EmbeddedPostgres({ databaseDir: dir, user: "postgres", password: "postgres", port: 54333, persistent: false, onLog(){}, onError(){} });
+  await pg.initialise(); await pg.start();
+  const url = "postgres://postgres:postgres@localhost:54333/postgres?sslmode=disable";
+  const run = () => { const r = spawnSync(process.execPath, ["scripts/migrate.js"], { env: { ...process.env, DATABASE_URL: url, JWT_SECRET: "x".repeat(40) }, encoding: "utf8" }); return (r.stdout + r.stderr).split("\n").filter(l => /Purchased|Contents|failed/.test(l)).join("\n"); };
+  const c = new Client({ connectionString: url }); await c.connect();
+  await c.query("CREATE EXTENSION IF NOT EXISTS pgcrypto;" + OLD);
+  console.log("--- all three empty ---\n" + run());
+  console.log("invoices table:", (await c.query("SELECT to_regclass('public.invoices') AS t")).rows[0].t ?? "gone");
+  await c.query(OLD + "INSERT INTO invoices DEFAULT VALUES;");
+  console.log("--- one row ---\n" + run());
+  console.log("rows kept:", (await c.query("SELECT count(*)::int n FROM invoices")).rows[0].n);
+  await c.query("DROP TABLE payments, invoice_items, invoices");
+  console.log("--- fresh database, no old tables ---\n" + run());
+  await c.end(); await pg.stop(); fs.rmSync(dir, { recursive: true, force: true });
+})();

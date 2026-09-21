@@ -15,7 +15,6 @@
     "build": "npm run render && npm run build -w frontend",
     "start": "npm run migrate && npm run ledger:gate && node backend/src/server.js",
     "migrate": "node backend/scripts/migrate.js",
-    "seed": "node backend/scripts/seed.js",
     "render": "node tools/render-artboard.js design/project/App.dc.html frontend/public/design/phone.html && node tools/render-desktop.js frontend/public/design/desktop.html",
     "verify": "node tools/verify-artboards.js",
     "ledger:selftest": "node backend/scripts/ledger-selftest.js",

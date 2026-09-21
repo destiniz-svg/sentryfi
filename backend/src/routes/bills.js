@@ -12,6 +12,7 @@ const { findOrCreate, observe } = require("../ledger/counterparties");
 const { toLaari, formatLaari } = require("../ledger/money");
 const { uploadReceipt } = require("../middleware/upload");
 const gemini = require("../services/geminiService");
+const { aiLimiter } = require("../middleware/rateLimit");
 
 const router = express.Router();
 router.use(requireAuth, requireCompany);
@@ -79,6 +80,9 @@ const serialize = (row) => ({
 router.post(
   "/scan",
   requireCan("record"),
+  // Every scan is a paid call to the reader. The limiter used to sit only on
+  // the purchased AI routes, so this one — the one actually in use — had none.
+  aiLimiter,
   uploadReceipt("file"),
   asyncHandler(async (req, res) => {
     let read;
