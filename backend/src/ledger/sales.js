@@ -63,6 +63,16 @@ function splitTax(amount, treatment, rateBasisPoints) {
   }
 }
 
+/** A laari amount times a quantity held to four decimal places, half up. */
+function timesQuantity(unitLaari, quantity) {
+  if (!Number.isFinite(quantity) || quantity < 0) {
+    throw new Error("A line's quantity has to be a number, and not below zero.");
+  }
+  const scaled = BigInt(Math.round(quantity * 10000));
+  const product = unitLaari * scaled;
+  return (product + 5000n) / 10000n;
+}
+
 /**
  * The next invoice number.
  *
@@ -74,7 +84,19 @@ function splitTax(amount, treatment, rateBasisPoints) {
  * label on a document, and cancelling a draft should not burn one.
  */
 async function nextInvoiceNo(client, { companyId, prefix }) {
-  const use = String(prefix || "INV-").trim();
+  // With no prefix given, carry on in whatever the company has been using —
+  // Altura's is "ALT/INV-" — read off its most recent invoice. A fresh
+  // company starts at INV-000001.
+  let use = prefix ? String(prefix).trim() : null;
+  if (!use) {
+    const { rows: latest } = await client.query(
+      `SELECT invoice_no FROM sales_invoices WHERE company_id = $1
+        ORDER BY created_at DESC LIMIT 1`,
+      [companyId]
+    );
+    const found = latest[0]?.invoice_no?.match(/^(.*?)(\d+)\s*$/);
+    use = found ? found[1] : "INV-";
+  }
   const { rows } = await client.query(
     `SELECT invoice_no FROM sales_invoices
       WHERE company_id = $1 AND invoice_no LIKE $2
@@ -121,10 +143,15 @@ async function raise(client, {
   const prepared = lines.map((line, index) => {
     const quantity = Number(line.quantity ?? 1);
     const unit = toLaari(line.unitPrice ?? 0);
-    // The line total is quantity times unit price, in whole laari. A rate of
-    // 3,000.00 a day for 30 days is exact; anything that is not divides once,
-    // here, rather than once per figure that reads it.
-    const amount = line.amount !== undefined ? toLaari(line.amount) : unit * BigInt(Math.round(quantity));
+    // The line total is quantity times unit price, in whole laari, rounded
+    // once, here. It used to round the quantity first, so two and a half days
+    // at 3,000 invoiced three days: 9,000 instead of 7,500. Half-days are
+    // ordinary on a rental invoice. The quantity is carried to four places
+    // (the column holds four) and the product rounded half up.
+    const amount =
+      line.amount !== undefined
+        ? toLaari(line.amount)
+        : timesQuantity(unit, quantity);
     const split = splitTax(amount, gstTreatment, gstRateBp);
     net += split.net;
     tax += split.tax;

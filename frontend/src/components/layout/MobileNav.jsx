@@ -9,6 +9,7 @@ import {
   X,
   Menu,
   ReceiptText,
+  FileText,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import AILogo from "./AILogo";
@@ -33,7 +34,10 @@ const PRIMARY = [
   { to: "/figures", icon: Gauge, label: "Figures" },
 ];
 
-const REST = [{ to: "/settings", icon: Settings, label: "Settings" }];
+const REST = [
+  { to: "/invoices", icon: FileText, label: "Invoices" },
+  { to: "/settings", icon: Settings, label: "Settings" },
+];
 
 export function MobileNav({ open, onOpen, onClose }) {
   const still = useReducedMotion();

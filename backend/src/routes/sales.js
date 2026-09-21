@@ -132,6 +132,28 @@ router.get(
   })
 );
 
+/**
+ * Where money can land: the bank accounts and the cash tins. Both live under
+ * 11xx and 12xx in the chart, and a receipt names which one it went into.
+ */
+router.get(
+  "/money-accounts",
+  requireCan("read"),
+  asyncHandler(async (req, res) => {
+    const rows = await asCompany(req, async (client) => {
+      const { rows: found } = await client.query(
+        `SELECT id, code, name FROM accounts
+          WHERE company_id = $1 AND type = 'asset' AND archived_at IS NULL
+            AND (code LIKE '11%' OR code LIKE '12%') AND code <> '1200'
+          ORDER BY code`,
+        [req.companyId]
+      );
+      return found;
+    });
+    res.json({ accounts: rows.map((r) => ({ id: r.id, name: r.name, code: r.code })) });
+  })
+);
+
 /** The number this company's next invoice would carry. */
 router.get(
   "/next-number",

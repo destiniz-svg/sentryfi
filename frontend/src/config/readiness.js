@@ -17,7 +17,7 @@
  */
 
 /** Sections that read and write the ledger. These are real. */
-export const READY = new Set(["/dashboard", "/figures", "/bills", "/settings"]);
+export const READY = new Set(["/dashboard", "/figures", "/bills", "/invoices", "/cash", "/settings"]);
 
 /**
  * Sections still on the purchased product's own tables, with the step that
@@ -31,11 +31,6 @@ export const NOT_READY = {
     insteadName: "Bills",
     why: "Money you have spent is recorded as a bill now, which keeps the supplier, how the GST was quoted, and the photograph itself.",
   },
-  "/invoices": {
-    name: "Invoices",
-    instead: null,
-    why: "Invoicing has not moved onto the books yet. Keep raising them where you raise them today.",
-  },
   "/clients": {
     name: "Clients",
     instead: null,
@@ -43,8 +38,9 @@ export const NOT_READY = {
   },
   "/payments": {
     name: "Payments",
-    instead: null,
-    why: "Recording money received moves across with invoicing.",
+    instead: "/invoices",
+    insteadName: "Invoices",
+    why: "Money in is recorded against the invoice it pays, on the invoice itself, so what is still owed is always the invoice less what has arrived.",
   },
   "/items": {
     name: "Items",

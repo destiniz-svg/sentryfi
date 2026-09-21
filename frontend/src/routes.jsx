@@ -33,7 +33,8 @@ const Figures = lazy(() => import("@/pages/Figures"));
 const Attention = lazy(() => import("@/pages/Attention"));
 const Bills = lazy(() => import("@/pages/Bills"));
 const NotReady = lazy(() => import("@/pages/NotReady"));
-// Invoices, Clients, Expenses, Payments, Items and Reports are deliberately
+const Invoices = lazy(() => import("@/pages/Invoices"));
+// Clients, Expenses, Payments, Items and Reports are deliberately
 // not imported. Their files stay as the reference for what replaces them, but
 // nothing routes to them: they read the purchased product's tables, and a
 // screen that looks right and is not is worse than one that is missing.
@@ -103,7 +104,7 @@ export const router = createBrowserRouter([
       { path: "dashboard", element: <OnPhone board={<PhoneHome />} desk={<Attention />} /> },
       { path: "figures", element: <Figures /> },
       // Still on the purchased product's tables. See config/readiness.js.
-      { path: "invoices", element: <NotReady /> },
+      { path: "invoices", element: <Invoices /> },
       { path: "clients", element: <NotReady /> },
       { path: "bills", element: <OnPhone board={<PhoneBills />} desk={<Bills />} /> },
       { path: "expenses", element: <NotReady /> },

@@ -5,6 +5,7 @@ import {
   Settings,
   LogOut,
   ReceiptText,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -16,6 +17,7 @@ const NAV = [
   { to: "/dashboard", icon: LayoutGrid, label: "What needs you" },
   { to: "/figures", icon: Gauge, label: "Figures" },
   { to: "/bills", icon: ReceiptText, label: "Bills" },
+  { to: "/invoices", icon: FileText, label: "Invoices" },
 ];
 
 const ROW_BASE =

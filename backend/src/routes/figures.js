@@ -81,15 +81,36 @@ router.get(
       );
       const byType = Object.fromEntries(balances.map((b) => [b.type, b.amount]));
 
-      // Cash and bank specifically, rather than every asset.
+      // Cash and bank specifically, rather than every asset — and every tin.
+      // Each cash box is its own account beneath 1200 (1211, 1212, ...), so an
+      // exact match on 1200 left every tin's money out of this figure.
       const { rows: cash } = await client.query(
         `SELECT COALESCE(SUM(l.debit_laari - l.credit_laari), 0)::text AS amount
            FROM journal_lines l
            JOIN accounts a ON a.id = l.account_id
           WHERE l.company_id = $1 AND a.type = 'asset'
-            AND a.code IN ('1100','1200')`,
+            AND (a.code LIKE '11%' OR a.code LIKE '12%')`,
         [req.companyId]
       );
+
+      // The two headline balances that are one account each, read from that
+      // account rather than from a whole type. "Owed to suppliers" used to be
+      // every liability — which, once invoices post, would have counted the
+      // GST owed to the tax authority as money owed to suppliers.
+      const { rows: headline } = await client.query(
+        `SELECT a.code,
+                COALESCE(SUM(
+                  CASE WHEN a.type IN ('liability','income','equity')
+                       THEN l.credit_laari - l.debit_laari
+                       ELSE l.debit_laari - l.credit_laari END
+                ), 0)::text AS amount
+           FROM journal_lines l
+           JOIN accounts a ON a.id = l.account_id
+          WHERE l.company_id = $1 AND a.code IN ('2100','1300','2200')
+          GROUP BY a.code`,
+        [req.companyId]
+      );
+      const byCode = Object.fromEntries(headline.map((h) => [h.code, h.amount]));
 
       // The last few things that happened, in plain words.
       const { rows: recent } = await client.query(
@@ -109,7 +130,7 @@ router.get(
         [req.companyId]
       );
 
-      return { spend, byAccount, byType, cash: cash[0]?.amount, recent, entries: counted[0].n };
+      return { spend, byAccount, byType, byCode, cash: cash[0]?.amount, recent, entries: counted[0].n };
     });
 
     const ym = new Date().toISOString().slice(0, 7);
@@ -132,7 +153,10 @@ router.get(
         ? { label: elsewhere.label, amount: money(elsewhere.amount) }
         : null,
       spentAllTime: money(data.byType.expense),
-      owedToSuppliers: money(data.byType.liability),
+      owedToSuppliers: money(data.byCode["2100"]),
+      // What customers owe, and what the tax authority is owed on what was sold.
+      owedToUs: money(data.byCode["1300"]),
+      gstOwed: money(data.byCode["2200"]),
       earned: money(data.byType.income),
       inBankAndCash: money(data.cash),
       // Nothing has been imported yet, so a cash figure of zero means "not

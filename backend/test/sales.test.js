@@ -99,6 +99,17 @@ describe("raising an invoice", () => {
     });
   });
 
+  it("charges for two and a half days, not three", async () => {
+    await inRollback(async (client) => {
+      const seller = await aSellerWith(client);
+      const { invoice } = await anInvoice(client, seller, {
+        lines: [{ description: "Excavator, half day", quantity: 2.5, uom: "DAY", unitPrice: "3000.00" }],
+      });
+      expect(formatLaari(BigInt(invoice.net_laari))).toBe("7,500.00");
+      expect(formatLaari(BigInt(invoice.tax_laari))).toBe("600.00");
+    });
+  });
+
   it("refuses to be raised when nobody has said how its GST is quoted", async () => {
     await inRollback(async (client) => {
       const seller = await aSellerWith(client);
@@ -117,6 +128,23 @@ describe("raising an invoice", () => {
         prefix: "ALT/INV-",
       });
       expect(next).toBe("ALT/INV-000027");
+    });
+  });
+
+  it("carries on in the company's own prefix when none is given", async () => {
+    await inRollback(async (client) => {
+      const seller = await aSellerWith(client);
+      await anInvoice(client, seller);
+      const next = await nextInvoiceNo(client, { companyId: seller.companyId });
+      expect(next).toBe("ALT/INV-000027");
+    });
+  });
+
+  it("starts a fresh company at INV-000001", async () => {
+    await inRollback(async (client) => {
+      const seller = await aSellerWith(client);
+      const next = await nextInvoiceNo(client, { companyId: seller.companyId });
+      expect(next).toBe("INV-000001");
     });
   });
 
