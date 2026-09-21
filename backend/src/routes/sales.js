@@ -197,7 +197,10 @@ router.post(
             name: b.customerName,
             kind: "customer",
           });
-          counterpartyId = found.id;
+          // findOrCreate answers { party, created, matchedOn }. Reading .id off
+          // that wrapper gave undefined, and every invoice was saved with no
+          // customer — which then could not be posted.
+          counterpartyId = found.party.id;
         }
 
         const raised = await sales.raise(client, {
@@ -305,6 +308,48 @@ router.post(
     } catch (err) {
       throw ApiError.badRequest(err.message);
     }
+  })
+);
+
+/**
+ * Discards a draft.
+ *
+ * Only a draft. An invoice that is in the books has told the customer and the
+ * tax authority something, and it comes back out with a credit note — never
+ * by being marked void underneath its entry, which is how a bill once left
+ * 312.00 stranded in what a company owed.
+ */
+router.delete(
+  "/:id",
+  requireCan("record"),
+  asyncHandler(async (req, res) => {
+    const reason = z.string().trim().min(3).max(500).safeParse(req.body?.reason);
+    if (!reason.success) throw ApiError.badRequest("Say why this draft is being discarded.");
+
+    const voided = await asCompany(req, async (client) => {
+      const { rows: found } = await client.query(
+        `SELECT id, entry_id, voided_at FROM sales_invoices WHERE id = $1 AND company_id = $2`,
+        [req.params.id, req.companyId]
+      );
+      const invoice = found[0];
+      if (!invoice) throw ApiError.notFound("Invoice not found");
+      if (invoice.voided_at) throw ApiError.badRequest("This invoice was discarded already.");
+      if (invoice.entry_id) {
+        throw ApiError.badRequest(
+          "This invoice is in the books. Raise a credit note for it instead — that takes it " +
+            "back out of what the customer owes, and the GST with it."
+        );
+      }
+      const { rows } = await client.query(
+        `UPDATE sales_invoices
+            SET voided_at = now(), void_reason = $3, status = 'void', updated_at = now()
+          WHERE id = $1 AND company_id = $2 RETURNING id`,
+        [req.params.id, req.companyId, reason.data]
+      );
+      return rows[0];
+    });
+
+    res.json({ ok: Boolean(voided) });
   })
 );
 

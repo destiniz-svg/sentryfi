@@ -157,6 +157,25 @@ describe("raising an invoice", () => {
   });
 });
 
+describe("a customer named on the invoice", () => {
+  it("becomes the invoice's customer, found or created", async () => {
+    await inRollback(async (client) => {
+      const seller = await aSellerWith(client);
+      const { findOrCreate } = await import("../src/ledger/counterparties");
+      const found = await findOrCreate(client, {
+        companyId: seller.companyId,
+        userId: seller.userId,
+        name: "Road Development Corporation Ltd",
+        kind: "customer",
+      });
+      // The shape the invoice route depends on. It read .id off this once and
+      // saved every invoice with nobody to send it to.
+      expect(found.party?.id).toBeTruthy();
+      expect(found.party.id).toBe(seller.customerId);
+    });
+  });
+});
+
 describe("putting it in the books", () => {
   it("owes the tax authority, rather than claiming from it", async () => {
     await inRollback(async (client) => {

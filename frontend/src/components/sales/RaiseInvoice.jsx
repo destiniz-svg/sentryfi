@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Loader2, Plus, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Modal } from "@/components/ui/Modal";
@@ -80,7 +80,19 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
   const { raise } = useSalesMutations();
   const firstField = useRef(null);
 
-  const [form, setForm] = useState(null);
+  // Fresh every time it opens: the page remounts it with a new key, so there
+  // is no reset step and no moment where the last invoice's figures show.
+  const [form, setForm] = useState(() => ({
+    customerName: "",
+    // null until somebody types one, so the suggested number fills it without
+    // being copied into state — and a number they typed is never overwritten.
+    invoiceNo: null,
+    purchaseOrder: "",
+    subject: "",
+    issueDate: today(),
+    dueDate: today(30),
+    gstTreatment: "exclusive",
+  }));
   const [lines, setLines] = useState([blankLine()]);
   const [err, setErr] = useState("");
 
@@ -90,30 +102,7 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
     enabled: Boolean(companyId) && open,
   });
 
-  // A fresh form every time it opens, with the next number in the company's
-  // own run filled in the moment it is known.
-  useEffect(() => {
-    if (!open) return;
-    setForm({
-      customerName: "",
-      invoiceNo: "",
-      purchaseOrder: "",
-      subject: "",
-      issueDate: today(),
-      dueDate: today(30),
-      gstTreatment: "exclusive",
-    });
-    setLines([blankLine()]);
-    setErr("");
-  }, [open]);
-
-  useEffect(() => {
-    if (open && suggested) {
-      setForm((f) => (f && !f.invoiceNo ? { ...f, invoiceNo: suggested } : f));
-    }
-  }, [open, suggested]);
-
-  if (!form) return null;
+  const invoiceNo = form.invoiceNo ?? suggested ?? "";
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const setLine = (i, key) => (e) =>
@@ -139,7 +128,7 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
     ? "Who is it to?"
     : usable.length === 0
       ? "Add a line with a rate"
-      : `Save ${form.invoiceNo || "invoice"} · MVR ${show(gross)}`;
+      : `Save ${invoiceNo || "invoice"} · MVR ${show(gross)}`;
   const ready = form.customerName.trim() && usable.length > 0;
 
   async function onSubmit(e) {
@@ -151,7 +140,7 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
       const result = await raise.mutateAsync({
         clientRef: crypto.randomUUID(),
         customerName: form.customerName.trim(),
-        invoiceNo: form.invoiceNo.trim() || null,
+        invoiceNo: invoiceNo.trim() || null,
         purchaseOrder: form.purchaseOrder.trim() || null,
         subject: form.subject.trim() || null,
         issueDate: form.issueDate || null,
@@ -205,7 +194,7 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
           <Field label="Invoice number" htmlFor="inv-no">
             <input
               id="inv-no"
-              value={form.invoiceNo}
+              value={invoiceNo}
               onChange={set("invoiceNo")}
               placeholder="INV-000001"
               className={`${FIELD} tabular`}

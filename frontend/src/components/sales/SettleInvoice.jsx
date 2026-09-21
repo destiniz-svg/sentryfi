@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Modal } from "@/components/ui/Modal";
@@ -42,7 +42,9 @@ export function ReceiveMoney({ invoice, onClose }) {
   const toast = useToast();
   const { receive } = useSalesMutations();
 
-  const [amount, setAmount] = useState("");
+  // Seeded from the invoice when it mounts. The page keys this sheet by the
+  // invoice, so opening it for another one starts clean rather than resetting.
+  const [amount, setAmount] = useState(() => clean(invoice?.outstanding));
   const [accountId, setAccountId] = useState("");
   const [receivedOn, setReceivedOn] = useState(today());
   const [reference, setReference] = useState("");
@@ -53,14 +55,6 @@ export function ReceiveMoney({ invoice, onClose }) {
     queryFn: salesApi.moneyAccounts,
     enabled: Boolean(companyId) && open,
   });
-
-  useEffect(() => {
-    if (!invoice) return;
-    setAmount(clean(invoice.outstanding));
-    setReceivedOn(today());
-    setReference("");
-    setErr("");
-  }, [invoice]);
 
   if (!invoice) return null;
 
@@ -180,16 +174,9 @@ export function CreditInvoice({ invoice, onClose }) {
   const toast = useToast();
   const { credit } = useSalesMutations();
 
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(() => clean(invoice?.outstanding));
   const [reason, setReason] = useState("");
   const [err, setErr] = useState("");
-
-  useEffect(() => {
-    if (!invoice) return;
-    setAmount(clean(invoice.outstanding));
-    setReason("");
-    setErr("");
-  }, [invoice]);
 
   if (!invoice) return null;
 

@@ -20,5 +20,9 @@ export const salesApi = {
   /** Money in, applied to the invoices it pays. */
   receive: (payload) => apiClient.post("/sales/receipts", payload).then((r) => r.data),
 
+  /** Discards a draft. An invoice in the books is credited, never voided. */
+  discard: (id, reason) =>
+    apiClient.delete(`/sales/${id}`, { data: { reason } }).then((r) => r.data),
+
   credit: (id, payload) => apiClient.post(`/sales/${id}/credit`, payload).then((r) => r.data),
 };

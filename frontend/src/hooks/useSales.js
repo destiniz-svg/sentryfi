@@ -41,6 +41,10 @@ export function useSalesMutations() {
     raise: useMutation({ mutationFn: salesApi.raise, onSuccess: invalidate }),
     post: useMutation({ mutationFn: salesApi.post, onSuccess: invalidate }),
     receive: useMutation({ mutationFn: salesApi.receive, onSuccess: invalidate }),
+    discard: useMutation({
+      mutationFn: ({ id, reason }) => salesApi.discard(id, reason),
+      onSuccess: invalidate,
+    }),
     credit: useMutation({
       mutationFn: ({ id, ...payload }) => salesApi.credit(id, payload),
       onSuccess: invalidate,

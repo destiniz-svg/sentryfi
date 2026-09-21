@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { VoidDialog } from "@/components/ui/VoidDialog";
 import { RaiseInvoice } from "@/components/sales/RaiseInvoice";
 import { ReceiveMoney, CreditInvoice } from "@/components/sales/SettleInvoice";
 import { useAged, useSales, useSalesMutations } from "@/hooks/useSales";
@@ -65,12 +66,15 @@ function stateOf(invoice) {
 export default function Invoices() {
   const { data: invoices, isLoading } = useSales();
   const { data: aged } = useAged();
-  const { post } = useSalesMutations();
+  const { post, discard } = useSalesMutations();
+  const [discarding, setDiscarding] = useState(null);
   const { can } = useCompany();
   const toast = useToast();
 
   const [tab, setTab] = useState("all");
   const [raising, setRaising] = useState(false);
+  // A new key each time the editor opens, so it mounts fresh.
+  const [raiseKey, setRaiseKey] = useState(0);
   const [receiving, setReceiving] = useState(null);
   const [crediting, setCrediting] = useState(null);
   const [posting, setPosting] = useState(null);
@@ -109,7 +113,7 @@ export default function Invoices() {
         description="What customers owe you."
         actions={
           mayRecord && (
-            <Button variant="accent" onClick={() => setRaising(true)}>
+            <Button variant="accent" onClick={() => { setRaiseKey((k) => k + 1); setRaising(true); }}>
               <Plus size={16} /> New invoice
             </Button>
           )
@@ -190,7 +194,7 @@ export default function Invoices() {
           }
           action={
             mayRecord && (
-              <Button variant="accent" onClick={() => setRaising(true)}>
+              <Button variant="accent" onClick={() => { setRaiseKey((k) => k + 1); setRaising(true); }}>
                 <Plus size={16} /> New invoice
               </Button>
             )
@@ -250,10 +254,17 @@ export default function Invoices() {
 
                 <div className="col-span-2 md:col-span-1 justify-self-end flex items-center gap-1.5">
                   {mayRecord && inv.status === "draft" && !inv.voided && (
-                    <Button variant="outline" onClick={() => onPost(inv)} disabled={posting === inv.id}>
-                      {posting === inv.id && <Loader2 size={13} className="animate-spin" />}
-                      Put in the books
-                    </Button>
+                    <>
+                      <Button variant="outline" onClick={() => onPost(inv)} disabled={posting === inv.id}>
+                        {posting === inv.id && <Loader2 size={13} className="animate-spin" />}
+                        Put in the books
+                      </Button>
+                      {/* Only a draft can be discarded. Once it is in the
+                          books it comes back out with a credit note. */}
+                      <Button variant="ghost" onClick={() => setDiscarding(inv)}>
+                        Discard
+                      </Button>
+                    </>
                   )}
                   {mayRecord && inv.status === "posted" && !inv.settled && (
                     <Button variant="outline" onClick={() => setReceiving(inv)}>
@@ -272,9 +283,22 @@ export default function Invoices() {
         </Card>
       )}
 
-      <RaiseInvoice open={raising} onClose={() => setRaising(false)} />
-      <ReceiveMoney invoice={receiving} onClose={() => setReceiving(null)} />
-      <CreditInvoice invoice={crediting} onClose={() => setCrediting(null)} />
+      <RaiseInvoice key={raiseKey} open={raising} onClose={() => setRaising(false)} />
+      <ReceiveMoney key={receiving?.id || "none"} invoice={receiving} onClose={() => setReceiving(null)} />
+      <CreditInvoice key={crediting?.id || "none"} invoice={crediting} onClose={() => setCrediting(null)} />
+
+      <VoidDialog
+        open={Boolean(discarding)}
+        onClose={() => setDiscarding(null)}
+        onConfirm={async (reason) => {
+          await discard.mutateAsync({ id: discarding.id, reason });
+          toast.success(`${discarding.invoiceNo} discarded`, "It was never in the books, so nothing moves.");
+          setDiscarding(null);
+        }}
+        busy={discard.isPending}
+        what={discarding ? `draft ${discarding.invoiceNo}` : "this draft"}
+        amount={discarding ? discarding.gross : null}
+      />
     </div>
   );
 }
