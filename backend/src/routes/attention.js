@@ -167,6 +167,28 @@ router.get(
         });
       }
 
+      // 6. Money the bank shows that the books do not explain. One item, not
+      //    one per line: the statement is four transactions a day, and a list
+      //    that grows with routine work would mean the rule was broken. Leaving
+      //    a line for later takes it out, so this can always be cleared.
+      const { rows: unexplained } = await client.query(
+        `SELECT count(*)::int AS n, COALESCE(SUM(debit_laari + credit_laari), 0) AS total,
+                min(posted_on)::text AS oldest, (current_date - min(posted_on))::int AS days
+           FROM bank_statement_lines
+          WHERE company_id = $1 AND status = 'open' AND debit_laari + credit_laari > 0`,
+        [req.companyId]
+      );
+      if (unexplained[0].n > 0) {
+        const u = unexplained[0];
+        found.push({
+          kind: u.days > 30 ? "ageing" : "waiting",
+          title: `${u.n} bank ${u.n === 1 ? "line" : "lines"} the books do not explain`,
+          detail: `MVR ${formatLaari(BigInt(u.total))} moved at the bank with nothing in the books behind it. The oldest is from ${u.oldest}.`,
+          does: "Say what they were, or leave them for later",
+          href: `/bank`,
+        });
+      }
+
       found.sort((a, b) => SEVERITY[a.kind] - SEVERITY[b.kind]);
       return found;
     });

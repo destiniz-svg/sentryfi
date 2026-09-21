@@ -88,6 +88,11 @@ const show = (c) => (c / 100).toLocaleString("en-US", { minimumFractionDigits: 2
     else bad("the question does not read as three lines, MVR 600.00 out: " + text.replace(/\n/g, " | "));
     await page.screenshot({ path: "shots/reconcile-waiting.png" });
 
+    // It is also in "What needs you", as one item and not one per line.
+    const items = (await api("/attention")).items.filter((i) => /bank lines? the books do not explain/.test(i.title));
+    if (items.length === 1) ok(`what needs you says so, once: "${items[0].title}"`);
+    else bad(`expected one bank item in what needs you, found ${items.length}`);
+
     // Nothing to press until it is said what it was.
     if (await card.getByRole("button", { name: /^pick what it was$/i }).isDisabled()) ok("nothing can be posted until somebody says what it was");
     else bad("the post button was live before an account was chosen");
@@ -113,7 +118,8 @@ const show = (c) => (c / 100).toLocaleString("en-US", { minimumFractionDigits: 2
     else bad(`Answered shows ${await answered.count()} lines, not 3`);
     const amountBack = cents((await answered.first().locator(".tabular").last().innerText()).trim());
     await answered.first().getByRole("button", { name: /take back/i }).click();
-    await page.getByText("Taken back").waitFor({ timeout: 10000 });
+    // Exactly: an earlier toast says "can be taken back", and a loose match resolves on that.
+    await page.getByText("Taken back", { exact: true }).waitFor({ timeout: 10000 });
     const afterUndo = await balance();
     if (afterUndo - afterPost === amountBack) ok(`taking one back moved the books by exactly that line, ${show(amountBack)}`);
     else bad(`taking one back moved the books by ${show(afterUndo - afterPost)}, expected ${show(amountBack)}`);
