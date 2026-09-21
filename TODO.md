@@ -227,13 +227,22 @@ Not done, on purpose: opening balances for an existing bank account come with hi
 
 ---
 
-### 9. The bank agrees with the books
+### 9. The bank agrees with the books — built 22 September 2026, real file not yet imported
 
 **You will be able to:** export a statement from internet banking, drop it in, and have most of it match itself. The app answers what it can and asks about the rest. Leaving one for later counts as an answer, so the list always clears.
 
 **Under the bonnet:** the bank prints the same reference on the statement and on the transfer receipt your staff photograph, which is why most rows need no guessing. Card purchases carry no reference, which is why those are the ones it asks about. The column layout is read, not assumed, so another bank is configuration.
 
 **Done when:** a real nine-month export imports cleanly, most rows match without help, nothing posts without a person saying so, and what is left unmatched appears in step 3.
+
+**What happened.** Three of the four hold, and the fourth holds in a way worth stating plainly.
+
+- **It imports cleanly.** The real file reads as 1,094 rows, none skipped, the two malformed ones flagged, debits and credits to the laari, and every running balance equal to the one before plus what came in less what went out (20,405.23 to 97,513.94). That balance check is what proves the columns were read right. `backend/test/statement.real.test.js` runs it whenever the file is on the machine.
+- **Nothing posts without a person.** Importing writes no entry. A line already in the books by an exact receipt reference is linked, which changes nothing. Everything that would write an entry waits for the button that names the count, the account and the money, and every answer can be taken back: the entry is reversed, both stay.
+- **What is left appears in step 3**, as one item, and leaving lines for later clears it.
+- **"Most rows match without help" is not true yet, and cannot be on new books.** A row matches when the books already hold it: a receipt with the same reference, a transfer to a tin. Altura's books start in September and the statement starts in January, so most of it has nothing to match. What holds instead is that questions are asked by payee: the 1,094 lines are 326 questions, and 684 of the lines sit in questions of five or more. Matching bites once history is brought in (step 14) or from the first statement kept up as it arrives.
+
+Not done, on purpose: the real file is **not imported into Altura's books**. A line cannot be deleted, and it puts 326 questions in front of the owner. That is a decision for the owner. A bill paid from a statement line is posted against Suppliers we owe by supplier, not against the single bill: per-bill paid state comes with payables allocation, and the screen says which bill it thinks a line pays.
 
 ---
 

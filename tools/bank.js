@@ -65,7 +65,9 @@ const cents = (text) => Math.round(Number(String(text).replace(/,/g, "")) * 100)
       await page.selectOption("#move-to", to.id);
       await page.fill("#move-amount", amount);
       await page.getByRole("button", { name: new RegExp(`move mvr ${amount.replace(".", "\\.")}`, "i") }).click();
-      await page.getByText(/moved · entry/).waitFor({ timeout: 10000 });
+      // The dialog closes only once the server has answered. Waiting for the toast
+      // resolves on the previous move's toast, which is still on screen.
+      await page.locator("#move-amount").waitFor({ state: "detached", timeout: 10000 });
     };
 
     const before = { bank: cents(bank.balance), other: cents(other.balance) };
