@@ -188,6 +188,7 @@ router.post(
         }
 
         let counterpartyId = b.counterpartyId || null;
+        let matchedTo = null;
         if (!counterpartyId && b.customerName) {
           // The customer's record fills itself in over time, exactly as a
           // supplier's does. Nobody types a customer into existence first.
@@ -201,6 +202,13 @@ router.post(
           // that wrapper gave undefined, and every invoice was saved with no
           // customer — which then could not be posted.
           counterpartyId = found.party.id;
+          // A close-but-not-exact name was taken as an existing customer. That
+          // is right for "Road Development Corp." and wrong for two different
+          // councils whose names happen to overlap, so it is never silent: the
+          // screen says which customer the invoice was filed under.
+          if (found.matchedOn === "similar-name" && found.party.name !== b.customerName) {
+            matchedTo = found.party.name;
+          }
         }
 
         const raised = await sales.raise(client, {
@@ -209,7 +217,7 @@ router.post(
           ...b,
           counterpartyId,
         });
-        return { invoice: raised.invoice };
+        return { invoice: raised.invoice, matchedTo };
       });
 
       res.status(result.alreadyHad ? 200 : 201).json({
@@ -219,6 +227,7 @@ router.post(
           gross: result.invoice.gross_laari ? money(result.invoice.gross_laari) : undefined,
         },
         alreadyHad: Boolean(result.alreadyHad),
+        matchedTo: result.matchedTo || null,
       });
     } catch (err) {
       // A number that is already used is an ordinary thing to run into — two

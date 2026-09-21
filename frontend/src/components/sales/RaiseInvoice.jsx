@@ -160,9 +160,14 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
       });
       toast.success(
         `${result.invoice.invoiceNo} saved · MVR ${result.invoice.gross}`,
-        form.purchaseOrder.trim()
-          ? "Put it in the books when it goes to the customer."
-          : "It has no purchase order. Their accounts department may not be able to match it."
+        result.matchedTo
+          ? // A close name was taken as an existing customer. Right for a
+            // shortened name, wrong for two different bodies whose names
+            // overlap — so it is said, never silent.
+            `Filed under ${result.matchedTo}, an existing customer with a similar name. If that is a different company, discard this draft and raise it again.`
+          : form.purchaseOrder.trim()
+            ? "Put it in the books when it goes to the customer."
+            : "It has no purchase order. Their accounts department may not be able to match it."
       );
       onRaised?.(result.invoice);
       onClose();

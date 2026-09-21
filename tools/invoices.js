@@ -175,7 +175,9 @@ async function rowFor(page) {
     bad("a posted invoice offers to be discarded");
   }
 
-  const scrap = `${CUSTOMER} scrap`;
+  // A name nothing like the first, so the fuzzy customer match — which is
+  // meant to catch "Road Development Corp." — does not file it under the first.
+  const scrap = `Scrap Draft ${Date.now().toString().slice(-6)}`;
   await page.getByRole("button", { name: /new invoice/i }).first().click();
   await page.waitForTimeout(900);
   await page.fill("#inv-customer", scrap);
