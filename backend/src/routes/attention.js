@@ -138,6 +138,35 @@ router.get(
         });
       }
 
+      // 5. Money customers owe that is late. Read from the invoices and what
+      // has been applied to them, the same way the aged list is — never from a
+      // "paid" flag, because there is none.
+      const { rows: late } = await client.query(
+        `SELECT s.invoice_no, c.name AS customer, s.due_date,
+                s.gross_laari
+                  - COALESCE((SELECT SUM(a.amount_laari) FROM receipt_allocations a
+                               JOIN receipts r ON r.id = a.receipt_id AND r.voided_at IS NULL
+                              WHERE a.invoice_id = s.id), 0)
+                  - COALESCE((SELECT SUM(n.gross_laari) FROM credit_notes n
+                              WHERE n.invoice_id = s.id), 0) AS left_laari,
+                (current_date - s.due_date) AS days_over
+           FROM sales_invoices s
+           LEFT JOIN counterparties c ON c.id = s.counterparty_id
+          WHERE s.company_id = $1 AND s.status = 'posted' AND s.voided_at IS NULL
+            AND s.due_date < current_date
+          ORDER BY s.due_date ASC`,
+        [req.companyId]
+      );
+      for (const row of late.filter((r) => BigInt(r.left_laari) > 0n)) {
+        found.push({
+          kind: "ageing",
+          title: `${row.customer || "A customer"} is ${row.days_over} ${row.days_over === 1 ? "day" : "days"} late`,
+          detail: `${row.invoice_no} · MVR ${formatLaari(BigInt(row.left_laari))} still owed.`,
+          does: "Chase it, or record the money if it came in",
+          href: `/invoices`,
+        });
+      }
+
       found.sort((a, b) => SEVERITY[a.kind] - SEVERITY[b.kind]);
       return found;
     });

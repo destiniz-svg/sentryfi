@@ -5,20 +5,22 @@ import {
   Search,
   LayoutGrid,
   FileText,
-  Users,
+  ReceiptText,
+  Wallet,
+  Gauge,
   Settings as SettingsIcon,
-  Plus,
   CornerDownLeft,
 } from "lucide-react";
-import { cn, formatMoney } from "@/lib/utils";
-import { useInvoices } from "@/hooks/useInvoices";
-import { useClients } from "@/hooks/useClients";
+import { cn } from "@/lib/utils";
+import { useBills } from "@/hooks/useBills";
+import { useSales } from "@/hooks/useSales";
 
 const NAV_ITEMS = [
-  { id: "nav:dashboard", kind: "nav", label: "Dashboard", hint: "Overview", to: "/dashboard", icon: LayoutGrid },
-  { id: "nav:invoices", kind: "nav", label: "Invoices", hint: "Browse & manage", to: "/invoices", icon: FileText },
-  { id: "nav:new", kind: "nav", label: "Create Invoice", hint: "New invoice", to: "/invoices/new", icon: Plus },
-  { id: "nav:clients", kind: "nav", label: "Clients", hint: "Manage clients", to: "/clients", icon: Users },
+  { id: "nav:dashboard", kind: "nav", label: "What needs you", hint: "Home", to: "/dashboard", icon: LayoutGrid },
+  { id: "nav:figures", kind: "nav", label: "Figures", hint: "From the books", to: "/figures", icon: Gauge },
+  { id: "nav:bills", kind: "nav", label: "Bills", hint: "What you owe", to: "/bills", icon: ReceiptText },
+  { id: "nav:invoices", kind: "nav", label: "Invoices", hint: "What customers owe you", to: "/invoices", icon: FileText },
+  { id: "nav:cash", kind: "nav", label: "Cash", hint: "Cash boxes", to: "/cash", icon: Wallet },
   { id: "nav:settings", kind: "nav", label: "Settings", hint: "Company profile, appearance", to: "/settings", icon: SettingsIcon },
 ];
 
@@ -43,8 +45,8 @@ export function CommandPalette({ open, onClose }) {
   const inputRef = useRef(null);
   const listRef = useRef(null);
 
-  const { data: invoices } = useInvoices();
-  const { data: clients } = useClients();
+  const { data: bills } = useBills();
+  const { data: invoices } = useSales();
 
   useEffect(() => {
     if (open) {
@@ -56,24 +58,30 @@ export function CommandPalette({ open, onClose }) {
   }, [open]);
 
   const items = useMemo(() => {
-    const invoiceItems = (invoices || []).map((i) => ({
-      id: `invoice:${i.id}`,
-      kind: "invoice",
-      label: `${i.invoice_number} · ${i.client_name || "No client"}`,
-      hint: `${i.effective_status} · ${formatMoney(i.total, i.currency)}`,
-      to: `/invoices/${i.id}`,
-      icon: FileText,
-    }));
-    const clientItems = (clients || []).map((c) => ({
-      id: `client:${c.id}`,
-      kind: "client",
-      label: c.name,
-      hint: c.company || c.email || "Client",
-      to: `/clients/${c.id}`,
-      icon: Users,
-    }));
+    // From the ledger. This used to search the purchased product's clients and
+    // invoices, which were never in the books.
+    const invoiceItems = (invoices || [])
+      .filter((i) => !i.voided)
+      .map((i) => ({
+        id: `invoice:${i.id}`,
+        kind: "invoice",
+        label: `${i.invoiceNo} · ${i.customer || "No customer"}`,
+        hint: `MVR ${i.gross}${i.settled ? " · settled" : ""}`,
+        to: "/invoices",
+        icon: FileText,
+      }));
+    const billItems = (bills || [])
+      .filter((b) => !b.voided_at)
+      .map((b) => ({
+        id: `bill:${b.id}`,
+        kind: "bill",
+        label: `${b.supplier_name || "Nobody named yet"}${b.bill_no ? ` · ${b.bill_no}` : ""}`,
+        hint: `MVR ${b.gross}`,
+        to: "/bills",
+        icon: ReceiptText,
+      }));
 
-    const pool = [...NAV_ITEMS, ...invoiceItems, ...clientItems];
+    const pool = [...NAV_ITEMS, ...invoiceItems, ...billItems];
     if (!query.trim()) return pool;
 
     return pool
@@ -81,7 +89,7 @@ export function CommandPalette({ open, onClose }) {
       .filter((x) => x.score > 0)
       .sort((a, b) => b.score - a.score)
       .map((x) => x.it);
-  }, [invoices, clients, query]);
+  }, [invoices, bills, query]);
 
   useEffect(() => setActiveIdx(0), [query]);
 
@@ -113,7 +121,7 @@ export function CommandPalette({ open, onClose }) {
   const groups = [
     { key: "nav", title: "Navigate", items: items.filter((i) => i.kind === "nav") },
     { key: "invoice", title: "Invoices", items: items.filter((i) => i.kind === "invoice") },
-    { key: "client", title: "Clients", items: items.filter((i) => i.kind === "client") },
+    { key: "bill", title: "Bills", items: items.filter((i) => i.kind === "bill") },
   ];
 
   let renderIdx = -1;
@@ -193,7 +201,7 @@ export function CommandPalette({ open, onClose }) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Search invoices, clients, or jump to a page..."
+                placeholder="Search bills, invoices, or jump to a page"
                 className="flex-1 bg-transparent outline-none text-sm text-[var(--ink)] placeholder:text-[var(--ink-muted)]"
               />
               <kbd className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2 h-6 rounded-md bg-[var(--surface-2)] text-[var(--ink-muted)] border border-[var(--border)] font-medium">
