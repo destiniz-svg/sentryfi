@@ -16,7 +16,6 @@
 const { Pool } = require("pg");
 const { SCHEMA_SQL } = require("../src/config/schema");
 const { LEDGER_SQL } = require("../src/config/ledger-schema");
-const { VOID_SQL } = require("../src/config/void-schema");
 const { BILLS_SQL } = require("../src/config/bills-schema");
 const { ATTACHMENTS_SQL } = require("../src/config/attachments-schema");
 const { COUNTERPARTY_SQL } = require("../src/config/counterparty-schema");
@@ -68,7 +67,6 @@ async function applySchema() {
 async function applySchemaOn(p) {
   await p.query(SCHEMA_SQL);
   await p.query(LEDGER_SQL);
-  await p.query(VOID_SQL);
   await p.query(BILLS_SQL);
   await p.query(ATTACHMENTS_SQL);
   await p.query(COUNTERPARTY_SQL);

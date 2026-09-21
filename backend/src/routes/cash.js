@@ -45,7 +45,7 @@ const newCount = z.object({
 });
 
 const newTopup = z.object({ amount, note: z.string().trim().max(300).nullish() });
-const settleTopup = z.object({ given: amount.nullish() });
+const settleTopup = z.object({ given: amount.nullish(), bankAccountId: z.string().uuid().nullish() });
 
 /** Every open box, with what the books say is in it. */
 router.get(
@@ -296,6 +296,7 @@ router.post(
           userId: req.user.id,
           topupId: req.params.id,
           given: parsed.data.given ?? null,
+          fromAccountId: parsed.data.bankAccountId ?? null,
         })
       );
       res.json({

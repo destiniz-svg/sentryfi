@@ -1,7 +1,6 @@
 const { pool } = require("../src/config/db");
 const { SCHEMA_SQL } = require("../src/config/schema");
 const { LEDGER_SQL } = require("../src/config/ledger-schema");
-const { VOID_SQL } = require("../src/config/void-schema");
 const { BILLS_SQL } = require("../src/config/bills-schema");
 const { ATTACHMENTS_SQL } = require("../src/config/attachments-schema");
 const { COUNTERPARTY_SQL } = require("../src/config/counterparty-schema");
@@ -14,8 +13,6 @@ const { SALES_SQL } = require("../src/config/sales-schema");
     console.log("Documents schema applied.");
     await pool.query(LEDGER_SQL);
     console.log("Ledger schema applied.");
-    await pool.query(VOID_SQL);
-    console.log("Void columns applied.");
     await pool.query(BILLS_SQL);
     console.log("Bills schema applied.");
     await pool.query(ATTACHMENTS_SQL);
@@ -54,18 +51,32 @@ const { SALES_SQL } = require("../src/config/sales-schema");
       }
     }
 
+    // The purchased product's expenses. Money spent is a bill or a cash spend
+    // now, on the ledger. Same rule: gone only if empty.
+    const { rows: ex } = await pool.query("SELECT to_regclass('public.expenses') IS NOT NULL AS present");
+    if (ex[0].present) {
+      const { rows: n } = await pool.query("SELECT count(*)::int AS n FROM expenses");
+      if (n[0].n === 0) {
+        await pool.query("DROP TABLE expenses");
+        console.log("Purchased expenses table was empty, and is gone.");
+      } else {
+        console.log(
+          `Purchased expenses kept: ${n[0].n} rows. Nothing reads them; move or discard those rows, then redeploy.`
+        );
+      }
+    }
+
     // What is actually in here, so decisions about existing data are made on a
     // count rather than an assumption.
     const { rows } = await pool.query(`
       SELECT (SELECT count(*) FROM users)            AS users,
-             (SELECT count(*) FROM expenses)         AS expenses,
              (SELECT count(*) FROM companies)        AS companies,
              (SELECT count(*) FROM journal_entries)  AS entries,
              (SELECT count(*) FROM sales_invoices)   AS invoices
     `);
     const c = rows[0];
     console.log(
-      `Contents: ${c.users} users, ${c.expenses} old expenses | ledger: ` +
+      `Contents: ${c.users} users | ledger: ` +
         `${c.companies} companies, ${c.entries} entries, ${c.invoices} invoices`
     );
   } catch (err) {

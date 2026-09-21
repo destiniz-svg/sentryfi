@@ -14,13 +14,13 @@ const healthRouter = require("./routes/health");
 const authRouter = require("./routes/auth");
 const settingsRouter = require("./routes/settings");
 const itemsRouter = require("./routes/items");
-const expensesRouter = require("./routes/expenses");
 const companiesRouter = require("./routes/companies");
 const billsRouter = require("./routes/bills");
 const attentionRouter = require("./routes/attention");
 const attachmentsRouter = require("./routes/attachments");
 const figuresRouter = require("./routes/figures");
 const cashRouter = require("./routes/cash");
+const bankRouter = require("./routes/bank");
 const salesRouter = require("./routes/sales");
 
 
@@ -56,7 +56,6 @@ app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/settings", settingsRouter);
 app.use("/api/items", itemsRouter);
-app.use("/api/expenses", expensesRouter);
 // The ledger side. Everything below here is scoped to a company by
 // requireCompany, and every write goes through asCompany so the database
 // knows whose books it is touching.
@@ -66,6 +65,7 @@ app.use("/api/attention", attentionRouter);
 app.use("/api/attachments", attachmentsRouter);
 app.use("/api/figures", figuresRouter);
 app.use("/api/cash", cashRouter);
+app.use("/api/bank", bankRouter);
 app.use("/api/sales", salesRouter);
 
 

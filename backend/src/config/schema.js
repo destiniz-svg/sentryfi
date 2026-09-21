@@ -51,21 +51,6 @@ CREATE TABLE IF NOT EXISTS catalog_items (
 );
 CREATE INDEX IF NOT EXISTS idx_catalog_user ON catalog_items(user_id);
 
--- Business expenses (optionally created from an AI-parsed receipt)
-CREATE TABLE IF NOT EXISTS expenses (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  vendor       TEXT NOT NULL DEFAULT '',
-  category     TEXT NOT NULL DEFAULT 'General',
-  expense_date DATE NOT NULL DEFAULT CURRENT_DATE,
-  amount       NUMERIC(12,2) NOT NULL DEFAULT 0,
-  currency     TEXT NOT NULL DEFAULT 'MVR',
-  notes        TEXT NOT NULL DEFAULT '',
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id);
-
 `;
 
 module.exports = { SCHEMA_SQL };

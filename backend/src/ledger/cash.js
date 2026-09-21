@@ -71,6 +71,35 @@ async function differencesAccount(client, { companyId }) {
 }
 
 /**
+ * A new asset account under a two-digit family (11 bank, 12 cash boxes), with
+ * the next free code: 1111, 1112, ... The family's own 1100/1200 is the
+ * starting chart's account and stays where it is.
+ */
+async function openAssetAccount(client, { companyId, prefix, name }) {
+  const { rows: used } = await client.query(
+    `SELECT code FROM accounts WHERE company_id = $1 AND code LIKE $2`,
+    [companyId, `${prefix}%`]
+  );
+  const taken = new Set(used.map((r) => r.code));
+  let code = null;
+  for (let n = 1; n <= 89; n += 1) {
+    const candidate = `${prefix}${String(n + 10).padStart(2, "0")}`;
+    if (!taken.has(candidate)) {
+      code = candidate;
+      break;
+    }
+  }
+  if (!code) throw new Error("There is no room for another account in the chart of accounts.");
+
+  const { rows } = await client.query(
+    `INSERT INTO accounts (company_id, code, name, type)
+     VALUES ($1, $2, $3, 'asset') RETURNING id, code, name`,
+    [companyId, code, name]
+  );
+  return rows[0];
+}
+
+/**
  * Opens a box.
  *
  * Every box gets its own account beneath cash, so "what is in the Malé site
@@ -90,31 +119,12 @@ async function openBox(client, { companyId, userId, name, holderId, projectId })
 
   // 1200 is "Cash boxes" in the starting chart; each box hangs beneath it with
   // its own code so its balance stands alone.
-  const { rows: used } = await client.query(
-    `SELECT code FROM accounts WHERE company_id = $1 AND code LIKE '12%'`,
-    [companyId]
-  );
-  const taken = new Set(used.map((r) => r.code));
-  let code = null;
-  for (let n = 1; n <= 89; n += 1) {
-    const candidate = `12${String(n + 10).padStart(2, "0")}`;
-    if (!taken.has(candidate)) {
-      code = candidate;
-      break;
-    }
-  }
-  if (!code) throw new Error("There is no room for another cash box in the chart of accounts.");
-
-  const { rows: accountRows } = await client.query(
-    `INSERT INTO accounts (company_id, code, name, type)
-     VALUES ($1, $2, $3, 'asset') RETURNING id`,
-    [companyId, code, `Cash: ${clean}`]
-  );
+  const account = await openAssetAccount(client, { companyId, prefix: "12", name: `Cash: ${clean}` });
 
   const { rows } = await client.query(
     `INSERT INTO cash_boxes (company_id, name, account_id, holder_id, project_id)
      VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [companyId, clean, accountRows[0].id, holderId || userId, projectId || null]
+    [companyId, clean, account.id, holderId || userId, projectId || null]
   );
   return rows[0];
 }
@@ -284,7 +294,7 @@ async function askTopup(client, { companyId, userId, boxId, amount, note }) {
  * What was given is recorded separately from what was asked for, because they
  * are different numbers often enough to matter and the gap is worth seeing.
  */
-async function giveTopup(client, { companyId, userId, topupId, given }) {
+async function giveTopup(client, { companyId, userId, topupId, given, fromAccountId }) {
   const { rows: found } = await client.query(
     `SELECT t.*, b.name AS box_name, b.account_id AS box_account
        FROM cash_topups t JOIN cash_boxes b ON b.id = t.box_id
@@ -299,8 +309,15 @@ async function giveTopup(client, { companyId, userId, topupId, given }) {
     given === undefined || given === null ? BigInt(topup.asked_laari) : toLaari(given);
   if (laari <= 0n) throw new Error("How much was given?");
 
-  const bank = await accountByCode(client, { companyId, code: "1100" });
-  if (!bank) throw new Error("This company has no bank account in its chart of accounts.");
+  // Which bank account it comes out of. Without one named, the starting chart's
+  // 1100, which is the only one a company has until it opens a second.
+  const bank = fromAccountId
+    ? (await client.query(
+        `SELECT id FROM accounts WHERE id = $1 AND company_id = $2 AND code LIKE '11%'`,
+        [fromAccountId, companyId]
+      )).rows[0]
+    : await accountByCode(client, { companyId, code: "1100" });
+  if (!bank) throw new Error("That is not a bank account of this company.");
 
   const entry = await postEntry(client, {
     companyId,
@@ -328,6 +345,7 @@ module.exports = {
   boxBalance,
   accountByCode,
   differencesAccount,
+  openAssetAccount,
   openBox,
   spend,
   count,

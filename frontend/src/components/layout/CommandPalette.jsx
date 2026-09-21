@@ -7,6 +7,7 @@ import {
   FileText,
   ReceiptText,
   Wallet,
+  Landmark,
   Gauge,
   Settings as SettingsIcon,
   CornerDownLeft,
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { id: "nav:figures", kind: "nav", label: "Figures", hint: "From the books", to: "/figures", icon: Gauge },
   { id: "nav:bills", kind: "nav", label: "Bills", hint: "What you owe", to: "/bills", icon: ReceiptText },
   { id: "nav:invoices", kind: "nav", label: "Invoices", hint: "What customers owe you", to: "/invoices", icon: FileText },
+  { id: "nav:bank", kind: "nav", label: "Bank and cash", hint: "Where the money is", to: "/bank", icon: Landmark },
   { id: "nav:cash", kind: "nav", label: "Cash", hint: "Cash boxes", to: "/cash", icon: Wallet },
   { id: "nav:settings", kind: "nav", label: "Settings", hint: "Company profile, appearance", to: "/settings", icon: SettingsIcon },
 ];
