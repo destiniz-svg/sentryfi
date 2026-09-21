@@ -7,6 +7,7 @@ import {
   ReceiptText,
   FileText,
   Landmark,
+  Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -20,6 +21,7 @@ const NAV = [
   { to: "/bills", icon: ReceiptText, label: "Bills" },
   { to: "/invoices", icon: FileText, label: "Invoices" },
   { to: "/bank", icon: Landmark, label: "Bank and cash" },
+  { to: "/closing", icon: Lock, label: "Closing" },
 ];
 
 const ROW_BASE =

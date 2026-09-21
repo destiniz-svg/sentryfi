@@ -35,6 +35,7 @@ const Bills = lazy(() => import("@/pages/Bills"));
 const NotReady = lazy(() => import("@/pages/NotReady"));
 const Invoices = lazy(() => import("@/pages/Invoices"));
 const Bank = lazy(() => import("@/pages/Bank"));
+const Closing = lazy(() => import("@/pages/Closing"));
 const BankStatement = lazy(() => import("@/pages/BankStatement"));
 // Clients, Expenses, Payments, Items and Reports are deliberately
 // not imported. Their files stay as the reference for what replaces them, but
@@ -108,6 +109,7 @@ export const router = createBrowserRouter([
       // Still on the purchased product's tables. See config/readiness.js.
       { path: "invoices", element: <Invoices /> },
       { path: "bank", element: <Bank /> },
+      { path: "closing", element: <Closing /> },
       { path: "bank/:accountId", element: <BankStatement /> },
       { path: "clients", element: <NotReady /> },
       { path: "bills", element: <OnPhone board={<PhoneBills />} desk={<Bills />} /> },

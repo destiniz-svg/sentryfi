@@ -7,6 +7,7 @@ const { COUNTERPARTY_SQL } = require("../src/config/counterparty-schema");
 const { CASH_SQL } = require("../src/config/cash-schema");
 const { SALES_SQL } = require("../src/config/sales-schema");
 const { STATEMENT_SQL } = require("../src/config/statement-schema");
+const { PERIOD_SQL } = require("../src/config/period-schema");
 
 (async () => {
   try {
@@ -26,6 +27,8 @@ const { STATEMENT_SQL } = require("../src/config/statement-schema");
     console.log("Sales ledger applied.");
     await pool.query(STATEMENT_SQL);
     console.log("Bank statement lines applied.");
+    await pool.query(PERIOD_SQL);
+    console.log("Period closing applied.");
 
     // The purchased product's invoice and payment tables. Invoices live on the
     // ledger now, and two places holding the same figure is how they come to

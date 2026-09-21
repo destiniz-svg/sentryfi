@@ -22,6 +22,7 @@ const { COUNTERPARTY_SQL } = require("../src/config/counterparty-schema");
 const { CASH_SQL } = require("../src/config/cash-schema");
 const { SALES_SQL } = require("../src/config/sales-schema");
 const { STATEMENT_SQL } = require("../src/config/statement-schema");
+const { PERIOD_SQL } = require("../src/config/period-schema");
 
 const url = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
 
@@ -74,6 +75,7 @@ async function applySchemaOn(p) {
   await p.query(CASH_SQL);
   await p.query(SALES_SQL);
   await p.query(STATEMENT_SQL);
+  await p.query(PERIOD_SQL);
 }
 
 /**

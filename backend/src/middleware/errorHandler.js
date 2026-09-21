@@ -10,7 +10,11 @@ function errorHandler(err, req, res, _next) {
   let message = err.message || "Internal server error";
   let details = err.details;
 
-  if (err.code === "23505") {
+  // The database refused an entry dated inside a closed month. Its message is
+  // already written for a person, so it is passed on as it is.
+  if (err.hint === "closed_period") {
+    status = 409;
+  } else if (err.code === "23505") {
     status = 409;
     message = "That value is already in use";
     details = err.detail;
