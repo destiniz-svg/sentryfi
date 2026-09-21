@@ -6,13 +6,13 @@
  * mocking anything.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { applySchema, inRollback, aCompanyWith, closePool } from "./setup";
+import { describe, it, expect, afterAll } from "vitest";
+import { inRollback, aCompanyWith, closePool } from "./setup";
 import { postEntry, reverseEntry, assumeIdentity } from "../src/ledger/post";
 import { verifyChain, verifyTrialBalance } from "../src/ledger/verify";
 import { toLaari, formatLaari } from "../src/ledger/money";
 
-beforeAll(applySchema, 60_000);
+// The schema is applied once for every file, in test/global-setup.js.
 afterAll(closePool);
 
 describe("an entry", () => {

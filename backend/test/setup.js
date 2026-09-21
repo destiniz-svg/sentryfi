@@ -49,6 +49,23 @@ function requireDatabase() {
 
 async function applySchema() {
   const p = requireDatabase();
+
+  // Test files run in parallel workers, and each one applies the schema to the
+  // same database. "CREATE ... IF NOT EXISTS" is not safe against a twin doing
+  // the same thing at the same moment: both see nothing, both create, and one
+  // fails on a duplicate type. It never showed while only one file needed the
+  // database. One lock, held on one connection for the whole setup.
+  const client = await p.connect();
+  try {
+    await client.query("SELECT pg_advisory_lock(7462001)");
+    await applySchemaOn(client);
+  } finally {
+    await client.query("SELECT pg_advisory_unlock(7462001)").catch(() => {});
+    client.release();
+  }
+}
+
+async function applySchemaOn(p) {
   await p.query(SCHEMA_SQL);
   await p.query(LEDGER_SQL);
   await p.query(VOID_SQL);

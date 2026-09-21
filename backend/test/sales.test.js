@@ -12,8 +12,8 @@
  * MVR 3,000 a day for thirty days, with 8% added on top.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { applySchema, inRollback, aCompanyWith, closePool } from "./setup";
+import { describe, it, expect, afterAll } from "vitest";
+import { inRollback, aCompanyWith, closePool } from "./setup";
 import {
   raise,
   post,
@@ -26,12 +26,24 @@ import {
 import { assumeIdentity } from "../src/ledger/post";
 import { formatLaari } from "../src/ledger/money";
 
-beforeAll(applySchema, 60_000);
+// The schema is applied once for every file, in test/global-setup.js.
 afterAll(closePool);
 
 /** A company with a customer in it, ready to be invoiced. */
 async function aSellerWith(client) {
   const { companyId, userId, accounts } = await aCompanyWith(client);
+
+  // The shared helper opens a minimal chart for buying. Selling needs the three
+  // accounts every real company gets from its starting chart: what is owed to
+  // us, the GST we owe, and the income itself.
+  await client.query(
+    `INSERT INTO accounts (company_id, code, name, type) VALUES
+       ($1,'1300','Money owed to us','asset'),
+       ($1,'2200','GST we owe',      'liability'),
+       ($1,'4100','Work invoiced',   'income')`,
+    [companyId]
+  );
+
   await assumeIdentity(client, { companyId, userId });
   const { rows } = await client.query(
     `INSERT INTO counterparties (company_id, name, kind)
