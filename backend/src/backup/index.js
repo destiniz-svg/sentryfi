@@ -144,19 +144,25 @@ async function restoreInto(connectionString, data, { ssl } = {}) {
   const db = new Client({ connectionString, ssl });
   await db.connect();
   const problems = [];
+  // Tables from before the current schema (the purchased product's leftovers)
+  // are in the file, row for row, but have nowhere to go in a fresh database.
+  // Noted, not failed: nothing reads them, and failing every night over them
+  // would teach everyone to ignore the backup report.
+  const notes = [];
+  let here = new Set();
   try {
     for (const sql of ALL_SQL) await db.query(sql);
     const { rows: tables } = await db.query(
       `SELECT c.relname AS name FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname = 'public' AND c.relkind = 'r'`
     );
-    const here = new Set(tables.map((t) => t.name));
+    here = new Set(tables.map((t) => t.name));
     await db.query("BEGIN");
     await db.query("SET LOCAL session_replication_role = replica");
     await db.query(`TRUNCATE ${[...here].filter((t) => !SKIP.has(t)).map(ident).join(", ")} CASCADE`);
     for (const [name, lines] of byTable) {
       if (!here.has(name)) {
-        problems.push(`The backup has a table this version does not: ${name}.`);
+        notes.push(`${name} (${lines.length} rows) kept in the file, not restored: this version has no such table.`);
         continue;
       }
       for (let i = 0; i < lines.length; i += 500) {
@@ -182,6 +188,7 @@ async function restoreInto(connectionString, data, { ssl } = {}) {
     await db.query("COMMIT");
 
     for (const [name, count] of Object.entries(manifest.rows)) {
+      if (!here.has(name)) continue;
       const { rows } = await db.query(`SELECT count(*)::int AS n FROM ${ident(name)}`);
       if (rows[0].n !== count) problems.push(`${name}: ${count} rows backed up, ${rows[0].n} restored.`);
     }
@@ -206,7 +213,7 @@ async function restoreInto(connectionString, data, { ssl } = {}) {
   } finally {
     await db.end();
   }
-  return { ok: problems.length === 0, problems, manifest };
+  return { ok: problems.length === 0, problems, notes, manifest };
 }
 
 function scratchUrl(url, name) {
@@ -257,7 +264,7 @@ async function run() {
     const entries = manifest.books.reduce((s, b) => s + Number(b.entries), 0);
     await record({
       key: objectKey, bytes: file.length, companies: manifest.books.length, entries,
-      restored: true, ok: result.ok, problem: result.problems.join(" ") || null,
+      restored: true, ok: result.ok, problem: [...result.problems, ...result.notes].join(" ") || null,
     });
     return { ok: result.ok, problems: result.problems, key: objectKey };
   } catch (err) {
