@@ -572,6 +572,31 @@ Not a module: four properties every screen must have, asked for on 22 September 
 
 ---
 
+### 26b. The adviser: nothing is posted unguided
+
+Asked for on 22 September 2026: "everything we post should be guided, fully guided and advising. The product should be intelligent enough to do it." The owner's businesses import goods, and the question that decides whether the books are right is asked at the moment of posting: **is this thing stock, a cost, or an asset?**
+
+Six questions the adviser answers on every document, in this order, showing its reasoning and asking only what it cannot settle:
+
+1. **Is this stock to keep?** A bill for goods that are counted, resold or consumed on a job is inventory, not an expense. The adviser decides from what it has: the supplier (a hardware merchant sells stock, an accountant sells a service), the words on the line (quantities and units are stock's fingerprint), whether this company keeps inventory at all, and what the same supplier's last bills were treated as. When it is unsure it asks once, in plain words — "Is this something you will hold and sell, or use up now?" — and remembers the answer for that supplier and that wording.
+2. **Does it belong to a shipment?** If goods are on the water, a freight, duty, clearing or bank charge arriving now probably belongs to that shipment rather than to overheads. The adviser proposes the open shipment, shows what else is already on it, and says what the cost per unit becomes if this is added.
+3. **Is it an asset rather than a cost?** A thing that will still be working next year, over the company's own threshold, is capitalised and depreciated. The adviser names the threshold it is applying and lets it be changed once, for everyone.
+4. **Is it this month's?** A year of insurance paid today is not this month's cost. The adviser offers to spread it, and says what each month will carry.
+5. **What is the tax treatment?** Claimable, not claimable, or not charged at all — decided by the tax pack and what is on the paper, never guessed. This is already how bills work; it extends to every document.
+6. **Has this been posted before?** The duplicate check that exists for bills, applied to every document that carries an amount and a party.
+
+**The rules of the adviser**
+
+- It shows its reasoning in one sentence: "Treated as stock because the line has quantities and Island Zone's last four bills were stock."
+- It asks at most one question per document. A second question means the app should have learnt something it did not.
+- It learns per company, per supplier, per wording, and the learning is visible and editable: a person can see why the app now believes something and change it.
+- **It never posts on its own.** It proposes; a person accepts. The trail ends at a name.
+- It teaches while it decides: the sentence that explains the treatment is the same sentence that teaches the rule.
+
+**Done when:** a founder who has never kept books can record a container of goods, a freight bill, an insurance premium and a laptop, and each one lands in the right place with a sentence saying why — and the app asked no more than four questions in total.
+
+---
+
 ### 26a. Where the last few modules live
 
 Three of the modules in PRODUCT.md have no step of their own because they belong inside one that exists, and splitting them would invent work rather than describe it:
