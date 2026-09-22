@@ -11,6 +11,7 @@ import {
   Lock,
   Scale,
   Percent,
+  History,
   Gauge,
   Settings as SettingsIcon,
   CornerDownLeft,
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { id: "nav:closing", kind: "nav", label: "Closing", hint: "Close a month, reopen it, adjust", to: "/closing", icon: Lock },
   { id: "nav:statements", kind: "nav", label: "Statements", hint: "Trial balance, profit and loss, balance sheet", to: "/statements", icon: Scale },
   { id: "nav:tax", kind: "nav", label: "GST return", hint: "What you owe, and the statements MIRA asks for", to: "/tax", icon: Percent },
+  { id: "nav:import", kind: "nav", label: "Bring history in", hint: "From Zoho Books, QuickBooks or Xero, as a CSV", to: "/import", icon: History },
   { id: "nav:cash", kind: "nav", label: "Cash", hint: "Cash boxes", to: "/cash", icon: Wallet },
   { id: "nav:settings", kind: "nav", label: "Settings", hint: "Company profile, appearance", to: "/settings", icon: SettingsIcon },
 ];

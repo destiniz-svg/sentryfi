@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Download } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -60,7 +61,15 @@ export default function Statements() {
 
   return (
     <div>
-      <PageHeader title="Statements" description="From the journal, for the date you ask." />
+      <PageHeader
+        title="Statements"
+        description="From the journal, for the date you ask."
+        actions={
+          <Link to="/import" className="text-[14px] underline underline-offset-2">
+            Bring history in
+          </Link>
+        }
+      />
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <div className="flex flex-wrap gap-2" role="tablist">

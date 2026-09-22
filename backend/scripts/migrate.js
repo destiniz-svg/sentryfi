@@ -9,6 +9,7 @@ const { SALES_SQL } = require("../src/config/sales-schema");
 const { STATEMENT_SQL } = require("../src/config/statement-schema");
 const { PERIOD_SQL } = require("../src/config/period-schema");
 const { TAX_SQL } = require("../src/config/tax-schema");
+const { IMPORT_SQL } = require("../src/config/import-schema");
 
 (async () => {
   try {
@@ -32,6 +33,8 @@ const { TAX_SQL } = require("../src/config/tax-schema");
     console.log("Period closing applied.");
     await pool.query(TAX_SQL);
     console.log("Tax engine applied.");
+    await pool.query(IMPORT_SQL);
+    console.log("History import applied.");
 
     // The purchased product's invoice and payment tables. Invoices live on the
     // ledger now, and two places holding the same figure is how they come to

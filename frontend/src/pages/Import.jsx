@@ -1,0 +1,214 @@
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { Loader2, Upload } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { apiClient } from "@/api/client";
+import { useToast } from "@/context/UIContext";
+
+/**
+ * Bringing history in from another system.
+ *
+ * Look first, then say yes. The file is read and nothing is written until the
+ * person has said what each of the other system's accounts is here. Every
+ * transaction then goes in as an ordinary balanced entry; one that does not
+ * balance is listed and left out; the same file again adds nothing.
+ */
+
+const SYSTEMS = [
+  { value: "zoho", label: "Zoho Books" },
+  { value: "quickbooks", label: "QuickBooks" },
+  { value: "xero", label: "Xero" },
+  { value: "other", label: "Something else" },
+];
+
+const TYPES = [
+  { value: "asset", label: "Something we hold" },
+  { value: "liability", label: "Something we owe" },
+  { value: "equity", label: "The owners' stake" },
+  { value: "income", label: "Income" },
+  { value: "expense", label: "Spending" },
+];
+
+const FIELD = "h-11 px-3 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[14px] max-w-full";
+
+const niceDate = (iso) =>
+  iso ? new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : "";
+
+export default function Import() {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [system, setSystem] = useState("zoho");
+  const [text, setText] = useState("");
+  const [name, setName] = useState("");
+  const [answer, setAnswer] = useState({}); // theirName -> accountId | "new:<type>"
+  const [ours, setOurs] = useState([]);
+
+  const look = useMutation({
+    mutationFn: async (csv) => {
+      const [p, accounts] = await Promise.all([
+        apiClient.post(`/imports/preview?system=${system}`, csv, { headers: { "Content-Type": "text/csv" } }).then((r) => r.data),
+        apiClient.get("/periods/accounts").then((r) => r.data.accounts),
+      ]);
+      setOurs(accounts);
+      setAnswer(Object.fromEntries(p.accounts.map((a) => [a.theirs, a.accountId || `new:${a.suggestType}`])));
+      return p;
+    },
+  });
+  const bring = useMutation({
+    mutationFn: (mapping) => apiClient.post(`/imports/commit?system=${system}`, { text, mapping }).then((r) => r.data),
+  });
+
+  async function onPick(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const csv = await file.text();
+    setText(csv);
+    setName(file.name);
+    bring.reset();
+    look.mutate(csv);
+  }
+
+  async function onBring() {
+    const mapping = Object.fromEntries(
+      Object.entries(answer).map(([theirs, v]) => [theirs, v.startsWith("new:") ? { create: v.slice(4) } : v])
+    );
+    try {
+      const r = await bring.mutateAsync(mapping);
+      queryClient.invalidateQueries();
+      toast.success(`${r.posted} ${r.posted === 1 ? "transaction" : "transactions"} brought in`, r.unbalanced ? `${r.unbalanced} did not balance and were left out.` : "Every one balanced.");
+      look.mutate(text);
+    } catch (ex) {
+      toast.error("Nothing was brought in", ex.message);
+    }
+  }
+
+  const p = look.data;
+  const newOnes = p ? p.accounts.filter((a) => a.how === "new").length : 0;
+
+  return (
+    <div>
+      <PageHeader title="Bring history in" description="From another accounting system, as a CSV export." />
+
+      <Card padding="lg" className="mb-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="block">
+            <span className="text-sm font-medium block mb-1.5">From</span>
+            <select id="import-system" value={system} onChange={(e) => setSystem(e.target.value)} className={FIELD}>
+              {SYSTEMS.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block flex-1 min-w-[240px]">
+            <span className="text-sm font-medium block mb-1.5">The export</span>
+            <input id="import-file" type="file" accept=".csv,text/csv" onChange={onPick} className={FIELD + " w-full py-2 h-auto"} />
+          </label>
+        </div>
+        <p className="text-[13px] text-[var(--ink-muted)] mt-3">
+          From Zoho Books: Accountant, Manual Journals, Export; or Reports, General Ledger, Export as CSV. Any file with a date, an
+          account, a debit and a credit column works. Nothing is written until you say so.
+        </p>
+      </Card>
+
+      {look.isPending && (
+        <p className="flex items-center gap-2 text-[14px] text-[var(--ink-muted)]">
+          <Loader2 size={15} className="animate-spin" /> Reading {name}.
+        </p>
+      )}
+      {look.isError && (
+        <p role="alert" className="text-[14px] text-[var(--danger)]">
+          {look.error.message}
+        </p>
+      )}
+
+      {p && (
+        <div className="space-y-4" data-testid="import-preview">
+          <Card padding="lg">
+            <p className="text-[15px]">
+              <strong className="tabular">{p.count}</strong> transactions from {niceDate(p.from)} to {niceDate(p.to)}.{" "}
+              {p.alreadyHad > 0 && `${p.alreadyHad} were brought in before. `}
+              <strong className="tabular">{p.toPost}</strong> would go in now.
+            </p>
+            {p.unbalancedCount > 0 && (
+              <div className="mt-3 text-[14px]">
+                <p className="text-[var(--danger)] font-medium">
+                  {p.unbalancedCount} {p.unbalancedCount === 1 ? "does" : "do"} not balance and will be left out.
+                </p>
+                <ul className="mt-1 text-[13px] text-[var(--ink-muted)] tabular">
+                  {p.unbalanced.slice(0, 8).map((u, i) => (
+                    <li key={i}>
+                      {niceDate(u.date)} {u.id || "(no number)"}: debits {u.debit}, credits {u.credit}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {p.skipped.length > 0 && (
+              <p className="mt-2 text-[13px] text-[var(--ink-muted)]">
+                {p.skipped.length} rows could not be read. The first: row {p.skipped[0].rowNo}, {p.skipped[0].why}.
+              </p>
+            )}
+          </Card>
+
+          {p.accounts.length > 0 && (
+            <Card padding="none" className="overflow-hidden">
+              <div className="px-5 pt-4 pb-2 text-[15px] font-semibold">What their accounts are here</div>
+              <p className="px-5 pb-3 text-[13px] text-[var(--ink-muted)]">
+                {newOnes ? `${newOnes} are not in these books yet. Check each guess; it is remembered for the next file.` : "Every one is known."}
+              </p>
+              <ul className="divide-y divide-[var(--border)]">
+                {p.accounts.map((a) => (
+                  <li key={a.theirs} className="flex flex-wrap items-center gap-3 px-5 py-3 border-t border-[var(--border)]">
+                    <div className="flex-1 min-w-[180px] text-[14px]">
+                      <span className="font-medium">{a.theirs}</span>
+                      {a.code && <span className="text-[var(--ink-muted)] tabular"> · {a.code}</span>}
+                      {a.how !== "new" && <span className="text-[12px] text-[var(--ink-muted)]"> · {a.how}</span>}
+                    </div>
+                    <select
+                      aria-label={`What ${a.theirs} is here`}
+                      value={answer[a.theirs] || ""}
+                      onChange={(e) => setAnswer((m) => ({ ...m, [a.theirs]: e.target.value }))}
+                      className={FIELD}
+                    >
+                      <optgroup label="Make it a new account">
+                        {TYPES.map((t) => (
+                          <option key={t.value} value={`new:${t.value}`}>
+                            New: {t.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Already here">
+                        {ours.map((o) => (
+                          <option key={o.id} value={o.id}>
+                            {o.code} {o.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            {bring.data && (
+              <Link to="/statements" className="text-[14px] underline underline-offset-2">
+                See the trial balance
+              </Link>
+            )}
+            <Button variant={p.toPost ? "accent" : "outline"} disabled={!p.toPost || bring.isPending} onClick={onBring}>
+              {bring.isPending ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+              {p.toPost ? `Bring in ${p.toPost} ${p.toPost === 1 ? "transaction" : "transactions"}` : "Nothing new to bring in"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

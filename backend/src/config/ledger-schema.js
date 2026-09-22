@@ -88,6 +88,7 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 -- Added after the type first shipped, so existing databases need it too.
 ALTER TYPE source_t ADD VALUE IF NOT EXISTS 'transfer';
+ALTER TYPE source_t ADD VALUE IF NOT EXISTS 'import';
 
 -- Gapless numbering needs a row to lock, one per company.
 CREATE TABLE IF NOT EXISTS journal_counters (
