@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Modal } from "@/components/ui/Modal";
 import { periodsApi } from "@/api/periods";
+import { apiClient } from "@/api/client";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 
@@ -103,12 +104,83 @@ export default function Closing() {
       </Card>
 
       {can("close") && <CloseNext candidates={data.candidates} />}
+      {can("close") && <CloseYear />}
 
       <History history={data.history} adjustments={data.adjustments} />
 
       {reopening && <Reopen locked={locked} onClose={() => setReopening(false)} />}
       {adjusting > 0 && <Adjust key={adjusting} locked={locked} onClose={() => setAdjusting(0)} />}
     </div>
+  );
+}
+
+/**
+ * Closing a year: its depreciation charged, then the books closed through 31
+ * December. Offered for last year until it is done. Profit is not swept into an
+ * account; the balance sheet shows it as earlier years' earnings from 1 January.
+ */
+function CloseYear() {
+  const { companyId } = useCompany();
+  const toast = useToast();
+  const refresh = useRefresh();
+  const qc = useQueryClient();
+  const [err, setErr] = useState("");
+  const year = new Date().getFullYear() - 1;
+  const { data: s } = useQuery({
+    queryKey: ["periods", companyId, "year", year],
+    queryFn: () => apiClient.get("/periods/year-end", { params: { year } }).then((r) => r.data),
+    enabled: Boolean(companyId),
+  });
+  const close = useMutation({ mutationFn: () => apiClient.post("/periods/year-end", { year }).then((r) => r.data) });
+  if (!s || s.closed) return null;
+
+  const unfinished = s.doubts.bills + s.doubts.invoices + s.doubts.bankLines;
+  async function onClose() {
+    setErr("");
+    try {
+      const r = await close.mutateAsync();
+      refresh();
+      qc.invalidateQueries({ queryKey: ["assets", companyId] });
+      toast.success(`${year} is closed`, r.depreciation !== "0.00" ? `MVR ${r.depreciation} of depreciation charged first.` : "Its figures can no longer change by accident.");
+    } catch (ex) {
+      setErr(ex.message || "That could not be closed.");
+    }
+  }
+
+  return (
+    <Card padding="lg" className="mb-4" data-testid="close-year">
+      <div className="text-[13px] font-medium text-[var(--ink-muted)] mb-2">Close the year</div>
+      <div className="text-[20px] font-semibold tracking-[-.01em]">
+        {year}: {s.loss ? "a loss" : "a profit"} of MVR {s.profit.replace(/^-/, "")}
+      </div>
+      <ul className="mt-2 text-[14px] space-y-1">
+        <li>
+          {s.depreciationMonths > 0
+            ? `MVR ${s.depreciationToCharge} of depreciation is still to be charged, over ${s.depreciationMonths} ${s.depreciationMonths === 1 ? "month" : "months"}. Closing charges it first.`
+            : "Depreciation is charged for the whole year."}
+        </li>
+        {unfinished > 0 && (
+          <li>
+            <Link to="/bills" className="underline underline-offset-2">
+              {unfinished} {unfinished === 1 ? "thing is" : "things are"} unfinished in {year}
+            </Link>
+            . You can still close; look first.
+          </li>
+        )}
+        <li className="text-[var(--ink-muted)]">
+          Nothing is swept between accounts: from 1 January the balance sheet shows {year}'s result under earlier years' earnings.
+        </li>
+      </ul>
+      <Button variant="outline" className="mt-4" disabled={close.isPending} onClick={onClose}>
+        {close.isPending && <Loader2 size={14} className="animate-spin" />}
+        Close {year}
+      </Button>
+      {err && (
+        <p role="alert" className="text-[13px] text-[var(--danger)] mt-3">
+          {err}
+        </p>
+      )}
+    </Card>
   );
 }
 

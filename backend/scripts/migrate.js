@@ -1,49 +1,11 @@
 const { pool } = require("../src/config/db");
-const { SCHEMA_SQL } = require("../src/config/schema");
-const { LEDGER_SQL } = require("../src/config/ledger-schema");
-const { BILLS_SQL } = require("../src/config/bills-schema");
-const { ATTACHMENTS_SQL } = require("../src/config/attachments-schema");
-const { COUNTERPARTY_SQL } = require("../src/config/counterparty-schema");
-const { CASH_SQL } = require("../src/config/cash-schema");
-const { SALES_SQL } = require("../src/config/sales-schema");
-const { STATEMENT_SQL } = require("../src/config/statement-schema");
-const { PERIOD_SQL } = require("../src/config/period-schema");
-const { TAX_SQL } = require("../src/config/tax-schema");
-const { IMPORT_SQL } = require("../src/config/import-schema");
-const { FX_SQL } = require("../src/config/fx-schema");
-const { PEOPLE_SQL } = require("../src/config/people-schema");
-const { BACKUP_SQL } = require("../src/config/backup-schema");
+const { ALL_SQL } = require("../src/config/all-schema");
 
 (async () => {
   try {
-    await pool.query(SCHEMA_SQL);
-    console.log("Documents schema applied.");
-    await pool.query(LEDGER_SQL);
-    console.log("Ledger schema applied.");
-    await pool.query(BILLS_SQL);
-    console.log("Bills schema applied.");
-    await pool.query(ATTACHMENTS_SQL);
-    console.log("Attachment storage applied.");
-    await pool.query(COUNTERPARTY_SQL);
-    console.log("Counterparty learning applied.");
-    await pool.query(CASH_SQL);
-    console.log("Cash boxes applied.");
-    await pool.query(SALES_SQL);
-    console.log("Sales ledger applied.");
-    await pool.query(STATEMENT_SQL);
-    console.log("Bank statement lines applied.");
-    await pool.query(PERIOD_SQL);
-    console.log("Period closing applied.");
-    await pool.query(TAX_SQL);
-    console.log("Tax engine applied.");
-    await pool.query(IMPORT_SQL);
-    console.log("History import applied.");
-    await pool.query(FX_SQL);
-    console.log("Currencies applied.");
-    await pool.query(PEOPLE_SQL);
-    console.log("People and invitations applied.");
-    await pool.query(BACKUP_SQL);
-    console.log("Backup log applied.");
+    // Every schema file, in order (config/all-schema.js).
+    for (const sql of ALL_SQL) await pool.query(sql);
+    console.log(`Schema applied (${ALL_SQL.length} parts).`);
 
     // The purchased product's invoice and payment tables. Invoices live on the
     // ledger now, and two places holding the same figure is how they come to

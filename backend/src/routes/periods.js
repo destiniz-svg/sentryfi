@@ -7,6 +7,7 @@ const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
 const { formatLaari } = require("../ledger/money");
 const periods = require("../ledger/periods");
+const yearEnd = require("../ledger/yearEnd");
 
 /** Closing the books, reopening them, and adjusting into a month that is closed. */
 
@@ -81,6 +82,35 @@ router.post(
   act(adjustBody, async (client, args) => {
     const r = await periods.adjust(client, args);
     return { entryId: r.entry.id, entryNo: String(r.entry.entryNo), intoClosedPeriod: r.intoClosedPeriod, total: formatLaari(r.entry.totalLaari) };
+  })
+);
+
+/** Closing a year: its depreciation charged, then the books closed through 31 December. */
+const yearQuery = (req) => {
+  const y = Number(req.query.year || req.body?.year);
+  if (!(y >= 2000 && y <= 2100)) throw ApiError.badRequest("Which year?");
+  return y;
+};
+router.get(
+  "/year-end",
+  requireCan("read"),
+  asyncHandler(async (req, res) => {
+    const year = yearQuery(req);
+    const s = await asCompany(req, (client) => yearEnd.status(client, { companyId: req.companyId, year }));
+    res.json({ ...s, depreciationToCharge: formatLaari(s.depreciationToCharge), profit: formatLaari(s.profit), loss: s.profit < 0n });
+  })
+);
+router.post(
+  "/year-end",
+  requireCan("close"),
+  asyncHandler(async (req, res) => {
+    const year = yearQuery(req);
+    try {
+      const r = await asCompany(req, (client) => yearEnd.close(client, { companyId: req.companyId, userId: req.user.id, year }));
+      res.json({ ...r, depreciation: formatLaari(r.depreciation) });
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
   })
 );
 

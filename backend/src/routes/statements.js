@@ -21,6 +21,14 @@ const day = (v, what) => {
 };
 const today = () => new Date().toISOString().slice(0, 10);
 
+/** The same day a year earlier; 29 February becomes the 28th. */
+const yearBefore = (d) => {
+  const y = Number(d.slice(0, 4)) - 1;
+  const md = d.slice(5) === "02-29" ? "02-28" : d.slice(5);
+  return `${y}-${md}`;
+};
+const comparing = (req) => req.query.compare === "1" || req.query.compare === "true";
+
 router.get(
   "/trial-balance",
   requireCan("read"),
@@ -38,8 +46,11 @@ router.get(
     const to = req.query.to ? day(req.query.to, "To") : today();
     const from = req.query.from ? day(req.query.from, "From") : `${to.slice(0, 4)}-01-01`;
     if (from > to) throw ApiError.badRequest("From is after To.");
-    const p = await asCompany(req, (client) => statements.profitAndLoss(client, { companyId: req.companyId, from, to }));
-    res.json(statements.wire.profitAndLoss(p));
+    const [p, prior] = await asCompany(req, async (client) => [
+      await statements.profitAndLoss(client, { companyId: req.companyId, from, to }),
+      comparing(req) ? await statements.profitAndLoss(client, { companyId: req.companyId, from: yearBefore(from), to: yearBefore(to) }) : null,
+    ]);
+    res.json({ ...statements.wire.profitAndLoss(p), prior: prior && statements.wire.profitAndLoss(prior) });
   })
 );
 
@@ -48,8 +59,11 @@ router.get(
   requireCan("read"),
   asyncHandler(async (req, res) => {
     const asAt = req.query.asAt ? day(req.query.asAt, "As at") : today();
-    const b = await asCompany(req, (client) => statements.balanceSheet(client, { companyId: req.companyId, asAt }));
-    res.json(statements.wire.balanceSheet(b));
+    const [b, prior] = await asCompany(req, async (client) => [
+      await statements.balanceSheet(client, { companyId: req.companyId, asAt }),
+      comparing(req) ? await statements.balanceSheet(client, { companyId: req.companyId, asAt: yearBefore(asAt) }) : null,
+    ]);
+    res.json({ ...statements.wire.balanceSheet(b), prior: prior && statements.wire.balanceSheet(prior) });
   })
 );
 

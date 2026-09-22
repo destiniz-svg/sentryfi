@@ -14,20 +14,7 @@
  */
 
 const { Pool } = require("pg");
-const { SCHEMA_SQL } = require("../src/config/schema");
-const { LEDGER_SQL } = require("../src/config/ledger-schema");
-const { BILLS_SQL } = require("../src/config/bills-schema");
-const { ATTACHMENTS_SQL } = require("../src/config/attachments-schema");
-const { COUNTERPARTY_SQL } = require("../src/config/counterparty-schema");
-const { CASH_SQL } = require("../src/config/cash-schema");
-const { SALES_SQL } = require("../src/config/sales-schema");
-const { STATEMENT_SQL } = require("../src/config/statement-schema");
-const { PERIOD_SQL } = require("../src/config/period-schema");
-const { TAX_SQL } = require("../src/config/tax-schema");
-const { IMPORT_SQL } = require("../src/config/import-schema");
-const { FX_SQL } = require("../src/config/fx-schema");
-const { PEOPLE_SQL } = require("../src/config/people-schema");
-const { BACKUP_SQL } = require("../src/config/backup-schema");
+const { ALL_SQL } = require("../src/config/all-schema");
 
 const url = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
 
@@ -72,20 +59,7 @@ async function applySchema() {
 }
 
 async function applySchemaOn(p) {
-  await p.query(SCHEMA_SQL);
-  await p.query(LEDGER_SQL);
-  await p.query(BILLS_SQL);
-  await p.query(ATTACHMENTS_SQL);
-  await p.query(COUNTERPARTY_SQL);
-  await p.query(CASH_SQL);
-  await p.query(SALES_SQL);
-  await p.query(STATEMENT_SQL);
-  await p.query(PERIOD_SQL);
-  await p.query(TAX_SQL);
-  await p.query(IMPORT_SQL);
-  await p.query(FX_SQL);
-  await p.query(PEOPLE_SQL);
-  await p.query(BACKUP_SQL);
+  for (const sql of ALL_SQL) await p.query(sql);
 }
 
 /**

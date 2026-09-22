@@ -17,10 +17,11 @@ const { IMPORT_SQL } = require("./import-schema");
 const { FX_SQL } = require("./fx-schema");
 const { PEOPLE_SQL } = require("./people-schema");
 const { BACKUP_SQL } = require("./backup-schema");
+const { ASSETS_SQL } = require("./assets-schema");
 
 const ALL_SQL = [
   SCHEMA_SQL, LEDGER_SQL, BILLS_SQL, ATTACHMENTS_SQL, COUNTERPARTY_SQL, CASH_SQL, SALES_SQL,
-  STATEMENT_SQL, PERIOD_SQL, TAX_SQL, IMPORT_SQL, FX_SQL, PEOPLE_SQL, BACKUP_SQL,
+  STATEMENT_SQL, PERIOD_SQL, TAX_SQL, IMPORT_SQL, FX_SQL, PEOPLE_SQL, BACKUP_SQL, ASSETS_SQL,
 ];
 
 module.exports = { ALL_SQL };

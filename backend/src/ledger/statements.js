@@ -83,9 +83,9 @@ async function profitAndLoss(client, { companyId, from, to }) {
  * What the business holds, owes and is worth, on a date.
  *
  * Profit is not stored anywhere, so the earnings to date are worked out from
- * the income and expense accounts and shown as their own line in equity. There
- * are no year-end entries that sweep it into an account yet; when there are,
- * this line simply reads zero and the figure moves to where it was swept.
+ * the income and expense accounts and shown in equity as two lines: what was
+ * earned before this year began (retained earnings) and this year's profit.
+ * No year-end entry sweeps one into the other (see ledger/yearEnd.js).
  */
 async function balanceSheet(client, { companyId, asAt }) {
   const all = await totals(client, { companyId, asAt });
@@ -100,6 +100,10 @@ async function balanceSheet(client, { companyId, asAt }) {
   const earned = all
     .filter((r) => r.type === "income" || r.type === "expense")
     .reduce((s, r) => s - net(r), 0n);
+  const yearStart = `${String(asAt).slice(0, 4)}-01-01`;
+  const thisYear = (await totals(client, { companyId, asAt, from: yearStart }))
+    .filter((r) => r.type === "income" || r.type === "expense")
+    .reduce((s, r) => s - net(r), 0n);
 
   const sum = (list) => list.reduce((s, r) => s + r.amount, 0n);
   const totalAssets = sum(assets);
@@ -111,6 +115,8 @@ async function balanceSheet(client, { companyId, asAt }) {
     liabilities,
     equity,
     earned,
+    earnedBefore: earned - thisYear,
+    earnedThisYear: thisYear,
     totalAssets,
     totalLiabilities,
     totalEquity,
@@ -148,6 +154,8 @@ const wire = {
     liabilities: amounts(b.liabilities),
     equity: amounts(b.equity),
     earned: money(b.earned),
+    earnedBefore: money(b.earnedBefore),
+    earnedThisYear: money(b.earnedThisYear),
     totalAssets: money(b.totalAssets),
     totalLiabilities: money(b.totalLiabilities),
     totalEquity: money(b.totalEquity),

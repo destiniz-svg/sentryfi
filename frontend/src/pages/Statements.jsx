@@ -182,29 +182,58 @@ function Trial({ t }) {
   );
 }
 
-function Section({ title, rows, total, totalLabel, cols }) {
+const rowKey = (r) => r.code || r.name;
+
+function PriorCell({ v }) {
+  return (
+    <span className="hidden sm:block text-right text-[var(--ink-muted)]">
+      <Money amount={v ?? "0.00"} />
+    </span>
+  );
+}
+
+/** Rows, and beside them the same rows a year before when there is a prior. */
+function Section({ title, rows, total, totalLabel, cols, prior, priorTotal }) {
+  const before = new Map((prior || []).map((r) => [rowKey(r), r.amount]));
+  // A line that only existed last year still shows, with nothing this year.
+  const all = prior ? [...rows, ...prior.filter((p) => !rows.some((r) => rowKey(r) === rowKey(p))).map((p) => ({ ...p, amount: "0.00" }))] : rows;
   return (
     <>
       <div className={`px-5 pt-5 pb-2 ${TH.replace("px-5 py-3 ", "")}`}>{title}</div>
-      {rows.length === 0 && <div className="px-5 py-2.5 text-[14px] text-[var(--ink-muted)] border-t border-[var(--border)]">None</div>}
-      {rows.map((r) => (
-        <div key={r.code} className={`${ROW} ${cols}`}>
+      {all.length === 0 && <div className="px-5 py-2.5 text-[14px] text-[var(--ink-muted)] border-t border-[var(--border)]">None</div>}
+      {all.map((r) => (
+        <div key={rowKey(r)} className={`${ROW} ${cols}`}>
           <span className="hidden sm:block tabular text-[var(--ink-muted)]">{r.code}</span>
           <span className="break-words">{r.name}</span>
           <span className="text-right"><Money amount={r.amount} /></span>
+          {prior && <PriorCell v={before.get(rowKey(r))} />}
         </div>
       ))}
       <div className={`${ROW} ${cols} font-semibold`}>
         <span className="hidden sm:block" />
         <span>{totalLabel}</span>
         <span className="text-right"><Money amount={total} /></span>
+        {prior && <PriorCell v={priorTotal} />}
       </div>
     </>
   );
 }
 
+/** Column heads when two periods sit side by side. */
+function Heads({ cols, now, then }) {
+  return (
+    <div className={`hidden sm:grid ${cols} gap-x-4 px-5 pt-3 ${TH.replace("px-5 py-3 ", "")}`}>
+      <span />
+      <span />
+      <span className="text-right">{now}</span>
+      <span className="text-right">{then}</span>
+    </div>
+  );
+}
+
 function ProfitAndLoss({ p }) {
-  const cols = "grid-cols-[minmax(0,1fr)_110px] sm:grid-cols-[70px_minmax(0,1fr)_150px]";
+  const q = p.prior;
+  const cols = q ? "grid-cols-[minmax(0,1fr)_110px] sm:grid-cols-[70px_minmax(0,1fr)_150px_150px]" : "grid-cols-[minmax(0,1fr)_110px] sm:grid-cols-[70px_minmax(0,1fr)_150px]";
   return (
     <Card padding="none" className="overflow-hidden">
       <div className="flex items-center justify-between px-5 pt-4">
@@ -229,14 +258,16 @@ function ProfitAndLoss({ p }) {
           <Download size={15} /> CSV
         </Button>
       </div>
-      <Section title="Income" rows={p.income} total={p.totalIncome} totalLabel="Total income" cols={cols} />
-      <Section title="Expenses" rows={p.expenses} total={p.totalExpenses} totalLabel="Total expenses" cols={cols} />
+      {q && <Heads cols={cols} now={p.to.slice(0, 4)} then={q.to.slice(0, 4)} />}
+      <Section title="Income" rows={p.income} total={p.totalIncome} totalLabel="Total income" cols={cols} prior={q?.income} priorTotal={q?.totalIncome} />
+      <Section title="Expenses" rows={p.expenses} total={p.totalExpenses} totalLabel="Total expenses" cols={cols} prior={q?.expenses} priorTotal={q?.totalExpenses} />
       <div className={`${ROW} ${cols} text-[16px] font-semibold`}>
         <span className="hidden sm:block" />
         <span>{p.loss ? "Loss" : "Profit"}</span>
         <span className={`tabular text-right ${p.loss ? "text-[var(--danger)]" : ""}`} data-testid="profit">
           {p.profit}
         </span>
+        {q && <span className="hidden sm:block tabular text-right text-[var(--ink-muted)]">{q.profit}</span>}
       </div>
       <p className="px-5 py-4 text-[13px] text-[var(--ink-muted)] border-t border-[var(--border)]">
         From entries dated in these days. GST is not income or expense: what you charge is owed to the tax authority, and what you pay is claimable, so neither appears here.
@@ -245,9 +276,16 @@ function ProfitAndLoss({ p }) {
   );
 }
 
+const equityOf = (b) => [
+  ...b.equity,
+  { code: "", name: "Retained earnings, earlier years", amount: b.earnedBefore },
+  { code: "", name: "Result for this year", amount: b.earnedThisYear },
+];
+
 function BalanceSheet({ b }) {
-  const cols = "grid-cols-[minmax(0,1fr)_110px] sm:grid-cols-[70px_minmax(0,1fr)_150px]";
-  const equity = [...b.equity, { code: "", name: "Profit to date", amount: b.earned }];
+  const q = b.prior;
+  const cols = q ? "grid-cols-[minmax(0,1fr)_110px] sm:grid-cols-[70px_minmax(0,1fr)_150px_150px]" : "grid-cols-[minmax(0,1fr)_110px] sm:grid-cols-[70px_minmax(0,1fr)_150px]";
+  const equity = equityOf(b);
   return (
     <Card padding="none" className="overflow-hidden">
       <div className="flex items-center justify-between px-5 pt-4">
@@ -272,9 +310,10 @@ function BalanceSheet({ b }) {
           <Download size={15} /> CSV
         </Button>
       </div>
-      <Section title="What the business holds" rows={b.assets} total={b.totalAssets} totalLabel="Total assets" cols={cols} />
-      <Section title="What it owes" rows={b.liabilities} total={b.totalLiabilities} totalLabel="Total liabilities" cols={cols} />
-      <Section title="What the owners have" rows={equity} total={b.totalEquity} totalLabel="Total equity" cols={cols} />
+      {q && <Heads cols={cols} now={niceDate(b.asAt)} then={niceDate(q.asAt)} />}
+      <Section title="What the business holds" rows={b.assets} total={b.totalAssets} totalLabel="Total assets" cols={cols} prior={q?.assets} priorTotal={q?.totalAssets} />
+      <Section title="What it owes" rows={b.liabilities} total={b.totalLiabilities} totalLabel="Total liabilities" cols={cols} prior={q?.liabilities} priorTotal={q?.totalLiabilities} />
+      <Section title="What the owners have" rows={equity} total={b.totalEquity} totalLabel="Total equity" cols={cols} prior={q && equityOf(q)} priorTotal={q?.totalEquity} />
       <Verdict
         ok={b.balances}
         yes="Assets equal what it owes plus what the owners have, to the laari."
