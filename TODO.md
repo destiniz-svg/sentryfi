@@ -454,6 +454,19 @@ A backup nobody has restored is a hope, not a backup.
 
 **Done when:** the whole thing restores onto an empty database, the seal verifies from the first record to the last, and the statements match what they said before.
 
+**Done (22 September 2026):**
+- Every night the whole database is read from one consistent snapshot, compressed, encrypted with `BACKUP_KEY` (AES-256-GCM) and stored in the Railway bucket `sentryfi-backups`, apart from the database's disk (`backend/src/backup/`).
+- Every backup is then fetched back from the bucket, restored into an empty scratch database and checked: every table's row count, and for every company the entry count, debit and credit totals, last seal, and the seal chain from the first entry to the last. The first real run passed: 3 companies with entries, 4,811 entries, 1.3 MB encrypted.
+- Settings, Backups shows the runs and backs up on demand. What needs you warns an administrator when there has been no proven backup for 36 hours.
+- Tests: `backend/test/backup.test.js` (a restore matches; a doctored backup is caught). Browser check: `tools/backup.js`.
+
+**Still owed:**
+- The owner keeps a copy of `BACKUP_KEY` outside Railway (a password manager). Without it no backup can be read.
+- A second copy outside Railway altogether (Cloudflare R2 or Google Drive), so losing the Railway account does not lose the books.
+- Pruning old backups (keep 35 daily and one a month); today every night is kept.
+- The monthly filing pack (statements and GST figures as PDF/Excel) filed with the backup.
+- The old purchased `expenses` table still holds one row; it is kept in each backup file but not restored. Decide and discard it.
+
 ---
 
 ### 18. Real money
