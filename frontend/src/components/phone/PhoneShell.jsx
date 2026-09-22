@@ -98,26 +98,28 @@ function StripSlot() {
   return <div className="phone-strip-empty" aria-hidden="true" />;
 }
 
+// The expense manager: Home · Tin · Send (the shutter) · Owed back · Me.
 const NAV = [
   { to: "/dashboard", label: "Home", d: "M3 11l9-8 9 8v10h-6v-6H9v6H3z" },
-  { to: "/bills", label: "Bills", d: "M6 3h12v18l-3-2-3 2-3-2-3 2z M9 8h6 M9 12h6" },
+  { to: "/cash", label: "Tin", d: "M3 7h18v12H3z M12 13h.01" },
 ];
 const NAV_RIGHT = [
-  { to: "/cash", label: "Cash", d: "M3 7h18v12H3z M12 13h.01" },
-  { to: "/settings", label: "More", d: "M4 7h16M4 12h16M4 17h16" },
+  { to: "/owed", label: "Owed back", d: "M9 14L4 9l5-5 M4 9h11a5 5 0 010 10h-3" },
+  { to: "/me", label: "Me", d: "M12 12a4 4 0 100-8 4 4 0 000 8z M4 21a8 8 0 0116 0" },
 ];
 
 function PhoneNav({ onSnap }) {
   const { pathname } = useLocation();
   const { count } = useOutbox();
   const { can } = useCompany();
-  // Only the places this person can open. Site staff get the camera and More.
-  const shows = (to) =>
-    to === "/bills" ? can("read") : to === "/cash" ? can("read") || can("spend_cash") || can("count_cash") : true;
+  // Only the places this person can open: someone who only photographs bills
+  // has no tin, so no Tin and nothing owed back. Someone who reads the books
+  // and holds a tin is here from the main app, so Me is their More.
+  const tin = can("read") || can("spend_cash") || can("count_cash");
+  const shows = (to) => (to === "/cash" ? tin : to === "/owed" ? can("spend_cash") : true);
   const left = NAV.filter((item) => shows(item.to));
-  // More is the company's settings for the office, and "me" for the field.
   const right = NAV_RIGHT.filter((item) => shows(item.to)).map((item) =>
-    item.to === "/settings" && !can("read") ? { ...item, to: "/me" } : item
+    item.to === "/me" && can("read") ? { ...item, to: "/more", label: "More" } : item
   );
   // The shutter stays in the middle whatever is either side of it.
   const side = Math.max(left.length, right.length);

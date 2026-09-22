@@ -74,10 +74,10 @@ const bad = (m) => {
       if (new URL(them.url()).pathname === "/dashboard") ok(`${path} sends site staff home`);
       else bad(`site staff reached ${path}`);
     }
-    await them.locator('nav[aria-label="Main"] a', { hasText: /more/i }).click();
+    await them.locator('nav[aria-label="Main"] a[href="/me"]').click();
     await them.waitForURL("**/me", { timeout: 10000 });
     await them.getByRole("button", { name: /sign out/i }).waitFor({ timeout: 10000 });
-    ok("More opens their own page, not Settings");
+    ok("Me opens their own page, not Settings");
     await them.screenshot({ path: "shots/people-me-phone.png" });
 
     // The office hands them a tin with a float.
@@ -151,6 +151,14 @@ const bad = (m) => {
     const others = await them.getByText("Other tins").count();
     if (!others) ok("they see only their own tin");
     else bad("they can see other people's tins");
+
+    // What they paid themselves is what the office owes them back.
+    await them.locator('nav[aria-label="Main"] a[href="/owed"]').click();
+    await them.getByRole("heading", { name: /owed back to you/i }).waitFor({ timeout: 15000 });
+    const owedBack = await them.locator(".phone-band-figure").innerText();
+    if (/200\.00/.test(owedBack)) ok("Owed back says the office owes them 200.00");
+    else bad(`Owed back reads "${owedBack}"`);
+    await them.screenshot({ path: "shots/owed-phone.png", fullPage: true });
     await stranger.close();
 
     await page.goto(BASE + "/settings", { waitUntil: "networkidle" });

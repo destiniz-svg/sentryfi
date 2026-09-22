@@ -25,7 +25,7 @@ const MAIN_APP = new Set(["/dashboard"]);
 // /me is the field worker's own page and is the board at any width: whoever
 // opens it is someone who only ever sees the board.
 const ALWAYS_BOARD = new Set(["/me"]);
-const PAGES = ["/dashboard", "/cash", "/me"];
+const PAGES = ["/dashboard", "/cash", "/owed", "/me"];
 
 const ok = (m) => console.log("  ok   " + m);
 const bad = (m) => {

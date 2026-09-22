@@ -55,6 +55,7 @@ const MobileMoney = lazy(() => import("@/pages/mobile/Money"));
 const PhoneBills = lazy(() => import("@/pages/phone/BillsBoard"));
 const PhoneCash = lazy(() => import("@/pages/phone/Cash"));
 const PhoneMe = lazy(() => import("@/pages/phone/Me"));
+const PhoneOwed = lazy(() => import("@/pages/phone/Owed"));
 const More = lazy(() => import("@/pages/More"));
 
 /**
@@ -134,6 +135,7 @@ export const router = createBrowserRouter([
       { path: "dashboard", element: <OnPhone board={<PhoneHome />} phone={<MobileHome />} desk={<Attention />} /> },
       { path: "money", element: <OnPhone board={<PhoneHome />} phone={<MobileMoney />} desk={<Navigate to="/bills" replace />} /> },
       { path: "me", element: <PhoneMe /> },
+      { path: "owed", element: <FieldTool board={<PhoneOwed />} desk={<Navigate to="/bank" replace />} /> },
       { path: "more", element: <More /> },
       { path: "figures", element: <Figures /> },
       // Still on the purchased product's tables. See config/readiness.js.

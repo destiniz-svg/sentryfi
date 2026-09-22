@@ -17,11 +17,11 @@ import { useCompany } from "@/context/CompanyContext";
  * must stand out of the way entirely rather than wrapping them — two navs on
  * one screen is not a style problem, it is two answers to "where am I".
  */
-const BOARD = new Set(["/dashboard", "/bills", "/cash", "/me"]);
+const BOARD = new Set(["/dashboard", "/bills", "/cash", "/owed", "/me"]);
 
 // Where someone who feeds the books but does not read them may go: the
 // camera, their tin, and their own account. Everything else is the office's.
-const FIELD = new Set(["/dashboard", "/cash", "/me"]);
+const FIELD = new Set(["/dashboard", "/cash", "/owed", "/me"]);
 
 export function AppShell() {
   const location = useLocation();
@@ -61,7 +61,7 @@ export function AppShell() {
 
   // The board's own chrome: always for field staff, and on a phone for the
   // one field tool anybody may hold (a cash tin). Everyone else keeps the app.
-  const boardHere = field ? BOARD.has(location.pathname) : phone && location.pathname === "/cash";
+  const boardHere = field ? BOARD.has(location.pathname) : phone && (location.pathname === "/cash" || location.pathname === "/owed");
   if (boardHere) {
     return (
       <Suspense fallback={<RouteFallback />}>
