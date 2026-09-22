@@ -23,7 +23,8 @@ function args(req) {
   const body = req.body || {};
   const text = typeof body === "string" ? body : body.text;
   if (typeof text !== "string" || !text.trim()) throw ApiError.badRequest("That file has nothing in it.");
-  return { system, text, mapping: typeof body === "object" ? body.mapping || {} : {} };
+  const limit = typeof body === "object" && Number.isInteger(body.limit) && body.limit > 0 ? Math.min(body.limit, 2000) : null;
+  return { system, text, limit, mapping: typeof body === "object" ? body.mapping || {} : {} };
 }
 
 router.post(

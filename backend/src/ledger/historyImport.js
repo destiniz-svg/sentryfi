@@ -256,7 +256,7 @@ async function nextCode(client, { companyId, type }) {
  * Posts every balanced transaction not brought in before, with the mapping a
  * person agreed: { [theirName]: accountId } or { [theirName]: { create: type } }.
  */
-async function commit(client, { companyId, userId, system, text, transactions: given, mapping = {} }) {
+async function commit(client, { companyId, userId, system, text, transactions: given, mapping = {}, limit = null }) {
   const transactions = given || read(text).transactions;
   const had = await alreadyHad(client, { companyId, system, transactions });
   const fresh = transactions.filter((t) => !had.has(t.key) && t.balanced);
@@ -291,8 +291,12 @@ async function commit(client, { companyId, userId, system, text, transactions: g
 
   // Oldest first, so entry numbers run in date order within an import.
   fresh.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  // A large history goes in a chunk at a time, oldest first, so no one request
+  // runs long enough to time out. Each chunk is its own transaction; running it
+  // again after a failure only adds what is not in yet.
+  const batch = limit ? fresh.slice(0, limit) : fresh;
   let posted = 0;
-  for (const t of fresh) {
+  for (const t of batch) {
     const entry = await postEntry(client, {
       companyId,
       userId,
@@ -312,7 +316,7 @@ async function commit(client, { companyId, userId, system, text, transactions: g
     );
     posted += 1;
   }
-  return { posted, alreadyHad: had.size, unbalanced: transactions.filter((t) => !had.has(t.key) && !t.balanced).length };
+  return { posted, remaining: fresh.length - batch.length, alreadyHad: had.size, unbalanced: transactions.filter((t) => !had.has(t.key) && !t.balanced).length };
 }
 
 module.exports = { read, money, guessType, preview, commit, finish };

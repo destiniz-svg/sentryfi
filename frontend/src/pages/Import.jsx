@@ -62,12 +62,27 @@ export default function Import() {
       return p;
     },
   });
+  // A file goes in 400 at a time, so no single request runs long enough to
+  // time out; each chunk only adds what is not in yet, so a failed one can
+  // simply be run again. Progress is what has gone in so far.
+  const [progress, setProgress] = useState(null); // { done, of }
   const bring = useMutation({
-    mutationFn: (mapping) =>
-      (source?.kind === "zoho"
-        ? apiClient.post("/zoho/commit", { from: source.from, to: source.to, mapping })
-        : apiClient.post(`/imports/commit?system=${system}`, { text, mapping })
-      ).then((r) => r.data),
+    mutationFn: async (mapping) => {
+      if (source?.kind === "zoho") {
+        return apiClient.post("/zoho/commit", { from: source.from, to: source.to, mapping }).then((r) => r.data);
+      }
+      const of = look.data?.toPost || 0;
+      let total = { posted: 0, unbalanced: 0 };
+      for (let first = true; ; first = false) {
+        const r = await apiClient
+          .post(`/imports/commit?system=${system}`, { text, mapping: first ? mapping : {}, limit: 400 })
+          .then((res) => res.data);
+        total = { posted: total.posted + r.posted, unbalanced: r.unbalanced };
+        setProgress({ done: total.posted, of });
+        if (!r.remaining || !r.posted) return total;
+      }
+    },
+    onSettled: () => setProgress(null),
   });
 
   async function onPick(e) {
@@ -230,7 +245,11 @@ export default function Import() {
             )}
             <Button variant={p.toPost ? "accent" : "outline"} disabled={!p.toPost || bring.isPending} onClick={onBring}>
               {bring.isPending ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
-              {p.toPost ? `Bring in ${p.toPost} ${p.toPost === 1 ? "transaction" : "transactions"}` : "Nothing new to bring in"}
+              {progress
+                ? `${progress.done.toLocaleString("en-US")} of ${progress.of.toLocaleString("en-US")} in`
+                : p.toPost
+                  ? `Bring in ${p.toPost.toLocaleString("en-US")} ${p.toPost === 1 ? "transaction" : "transactions"}`
+                  : "Nothing new to bring in"}
             </Button>
           </div>
         </div>

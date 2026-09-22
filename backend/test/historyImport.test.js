@@ -88,7 +88,7 @@ describe("bringing it in", () => {
 
       const mapping = Object.fromEntries(p.accounts.filter((a) => !a.accountId).map((a) => [a.theirs, { create: a.suggestType }]));
       const done = await commit(client, { ...b.base, text: ZOHO, mapping });
-      expect(done).toEqual({ posted: 2, alreadyHad: 0, unbalanced: 1 });
+      expect(done).toEqual({ posted: 2, remaining: 0, alreadyHad: 0, unbalanced: 1 });
 
       // The trial balance is what the file said for the journals that balanced.
       const t = await trialBalance(client, { companyId: b.companyId, asAt: "2025-12-31" });
@@ -98,9 +98,24 @@ describe("bringing it in", () => {
       // The same file again: nothing new, and nothing asked twice.
       const again = await preview(client, { ...b.base, text: ZOHO });
       expect(again).toMatchObject({ alreadyHad: 2, toPost: 0 });
-      expect(await commit(client, { ...b.base, text: ZOHO })).toEqual({ posted: 0, alreadyHad: 2, unbalanced: 1 });
+      expect(await commit(client, { ...b.base, text: ZOHO })).toEqual({ posted: 0, remaining: 0, alreadyHad: 2, unbalanced: 1 });
       const { rows } = await client.query("SELECT count(*)::int AS n FROM journal_entries WHERE company_id = $1 AND source = 'import'", [b.companyId]);
       expect(rows[0].n).toBe(2);
+    }));
+
+  it("goes in a chunk at a time, oldest first, and each chunk only adds what is not in yet", () =>
+    inRollback(async (client) => {
+      const b = await aBusiness(client);
+      const p = await preview(client, { ...b.base, text: ZOHO });
+      const mapping = Object.fromEntries(p.accounts.filter((a) => !a.accountId).map((a) => [a.theirs, { create: a.suggestType }]));
+      expect(await commit(client, { ...b.base, text: ZOHO, mapping, limit: 1 })).toMatchObject({ posted: 1, remaining: 1 });
+      // The accounts were answered on the first chunk and are remembered.
+      expect(await commit(client, { ...b.base, text: ZOHO, limit: 1 })).toMatchObject({ posted: 1, remaining: 0 });
+      const { rows } = await client.query(
+        "SELECT narrative FROM journal_entries WHERE company_id = $1 AND source = 'import' ORDER BY entry_no",
+        [b.companyId]
+      );
+      expect(rows.map((r) => r.narrative)).toEqual([expect.stringMatching(/OB-1/), expect.stringMatching(/JV-7/)]);
     }));
 
   it("will not bring anything in while an account is unanswered", () =>
