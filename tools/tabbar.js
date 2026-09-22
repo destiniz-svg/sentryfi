@@ -38,6 +38,7 @@ const bad = (m) => {
     const rows = await sheet.locator("button").allInnerTexts();
     if (rows.some((r) => /Photograph a bill/.test(r)) && rows.some((r) => /Raise an invoice/.test(r))) ok("Record opens the sheet with its ways in");
     else bad("the Record sheet is missing rows: " + rows.join(" | "));
+    await page.waitForTimeout(600);
     await page.screenshot({ path: "shots/tabbar-record.png" });
 
     await sheet.getByRole("button", { name: /Raise an invoice/ }).click();
