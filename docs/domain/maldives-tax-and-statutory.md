@@ -415,3 +415,28 @@ The owner supplied a customs assessment notice, an EMS customs declaration, a su
 The cost types a Maldivian import needs, offered as a checklist on every shipment: supplier goods; foreign freight; insurance; customs duty; customs processing and revenue fees; non-registration fee where it applies; clearing agent charges (documentation, customs processing, clearance and labour, their service charge); port and storage; inland transport. All of them are the cost of the goods. None of them carries recoverable GST at the border, and clearing services may carry GST or not depending on whether the agent is registered — which the supplier record should know.
 
 Two figures must be stored that systems usually discard: the **assessed CIF** from the notice, and the **declared value** on the carrier's declaration. Keeping them lets the product say "Customs valued this 16% above your invoice" and "your courier declared MVR 230 against an invoice of MVR 1,200", which are exactly the two questions an owner gets asked later and cannot answer.
+
+
+## Two things the owner corrected, 23 September 2026
+
+### The clearing agent pays on your behalf, then bills you
+
+Real Zone does not only sell clearance. It pays Customs, the port and the shipping line **out of its own pocket on the importer's behalf**, and puts those payments on its invoice alongside its own fee. That single invoice therefore carries two different kinds of line, and they are not taxed the same way:
+
+- **Disbursements.** Money the agent laid out for charges that are the importer's, against documents in the importer's name. The agent is passing on a payment, not selling something. Where the underlying charge carried GST — port handling at MPL is billed with 8% GST — the tax belongs to the importer and is claimable by the importer, provided the tax invoice names the importer. Recharging it does not create a second supply.
+- **The agent's own supply.** Clearance, labour, documentation, their service charge. This is the agent selling a service, and it is taxable in the agent's hands if the agent is registered.
+
+Getting this wrong costs money in both directions: treating a disbursement as the agent's supply invents tax that was never charged, and treating the agent's fee as a disbursement loses the claim. The invoice examined (Real Zone INV-171-2026) charges no GST at all and adds a 1.5% service charge, which makes the agent's registration status the first thing to settle for this supplier.
+
+**What this means for the ledger.** An agent's invoice is posted as lines, not as a total. Each line carries its own kind — disbursement or the agent's own supply — and its own tax treatment. The underlying document for each disbursement (the customs receipt, the port invoice, the delivery order) is attached to that line, because it is the evidence for both the cost and any claim. The supplier record holds the agent's registration status once, so the app can stop asking and start warning. Where the underlying invoice is in the **agent's** name rather than the importer's, the input tax is the agent's and not claimable here: the product should say so at the moment it happens, since the fix is administrative and only possible before the fact.
+
+### Customs converts at its own rate, and its figure is the one that counts
+
+Supplier proformas and invoices arrive in whatever currency the supplier trades in — AED, USD, CNY. **Customs does not use the figure on the bill.** It applies its own exchange rate to value the consignment, and the CIF it assesses is the number duty and fees are computed on. On the assessment examined, Customs put CIF at MVR 1,392.48 against a supplier invoice of AED 286.00; those are not the same number converted, and they are not meant to be.
+
+So two values live side by side, and neither is wrong:
+
+- **What is owed to the supplier**, in the supplier's currency, converted at the rate the books use on the invoice date, and finally settled at the rate on the day it is paid — the difference between those two being an exchange movement.
+- **What Customs assessed**, in rufiyaa, at Customs' own rate, which drives duty, the revenue fee and any other fee, and which appears nowhere in what the supplier is owed.
+
+**What this means for the ledger.** A shipment stores both, labelled for what they are, and never reconciles one to the other. The landed cost takes the supplier's goods at the company's own rate and the Customs charges as assessed. Any screen showing both says which rate each came from, because an owner asked "why do these differ?" deserves the answer "different rates for different purposes" rather than a support ticket.

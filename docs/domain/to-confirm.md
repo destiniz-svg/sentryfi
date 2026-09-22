@@ -59,3 +59,12 @@ The owner's understanding on 23 September 2026 is that income tax deducts all co
 ## 8. Construction and property judgements
 
 Whether "pay when paid" clauses bind in the Maldives, and when control passes on an off-plan property sale under Maldivian contract law. Both change when revenue is recognised. **Answered by:** a Maldivian lawyer or auditor.
+
+
+## 9. Disbursements on a clearing agent's invoice
+
+Whether MIRA treats a charge paid by an agent on the importer's behalf as a disbursement outside the agent's taxable supply, and what the invoice must show for the importer to claim the GST on the underlying charge (for example the 8% GST on MPL port handling). This decides whether the app claims that tax, and who the underlying invoice must name. **Answered by:** a Maldivian accountant, against MIRA's GST guidance on agents and disbursements.
+
+## 10. The Customs exchange rate
+
+Which rate Maldives Customs applies to value a consignment, where it is published, and how often it changes. The product should show the assessed CIF beside the supplier's own figure and explain the gap rather than appear to disagree with the notice. **Answered by:** Maldives Customs, or the rate table on an assessment notice.
