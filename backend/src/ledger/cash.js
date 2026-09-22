@@ -145,7 +145,7 @@ async function openBox(client, { companyId, userId, name, holderId, projectId, f
  * ends up unaccounted for. It is reversible, like anything else that touched
  * the books.
  */
-async function spend(client, { companyId, userId, boxId, amount, what, accountId, projectId, spentOn }) {
+async function spend(client, { companyId, userId, boxId, amount, what, accountId, projectId, spentOn, dimensionIds }) {
   const laari = toLaari(amount);
   if (laari <= 0n) throw new Error("How much was spent?");
   const said = String(what || "").trim();
@@ -166,10 +166,10 @@ async function spend(client, { companyId, userId, boxId, amount, what, accountId
 
   const { rows: spendRows } = await client.query(
     `INSERT INTO cash_spends
-       (company_id, box_id, amount_laari, what, account_id, project_id, spent_by, spent_on)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8::date, current_date))
+       (company_id, box_id, amount_laari, what, account_id, project_id, spent_by, spent_on, dimension_ids)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8::date, current_date),$9)
      RETURNING *`,
-    [companyId, boxId, laari.toString(), said, accountId, projectId || null, userId, spentOn || null]
+    [companyId, boxId, laari.toString(), said, accountId, projectId || null, userId, spentOn || null, dimensionIds?.length ? dimensionIds : null]
   );
   const record = spendRows[0];
 
@@ -181,7 +181,7 @@ async function spend(client, { companyId, userId, boxId, amount, what, accountId
     sourceId: record.id,
     narrative: `${said} - cash from ${box.name}`,
     lines: [
-      { accountId, debit: laari, projectId: projectId || null, memo: said },
+      { accountId, debit: laari, projectId: projectId || null, dimensionIds, memo: said },
       { accountId: box.account_id, credit: laari, memo: `Cash from ${box.name}` },
     ],
   });

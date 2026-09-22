@@ -37,6 +37,7 @@ const newInvoice = z.object({
     .default("exclusive"),
   gstRateBp: z.number().int().min(0).max(10000).nullish(),
   projectId: z.string().uuid().nullish(),
+  dimensionIds: z.array(z.string().uuid()).max(6).nullish(),
   clientRef: z.string().uuid().nullish(),
   lines: z
     .array(

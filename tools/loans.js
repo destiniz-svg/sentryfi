@@ -41,7 +41,7 @@ const bad = (m) => {
     };
 
     await add({ kind: "bank_term", name, principal: "12,000.00", rate: "12", basis: "reducing", term: "12" });
-    const card = page.locator("div.rounded-2xl, div[class*=card]", { hasText: name }).first();
+    const card = page.getByTestId("loan").filter({ hasText: name });
     await card.waitFor({ timeout: 15000 });
     if (/12,000\.00/.test(await card.innerText())) ok(`${name} owes 12,000.00`);
     else bad("the new loan does not show 12,000.00 owed");
@@ -50,15 +50,16 @@ const bad = (m) => {
     const bank = await page.locator("#repay-from option", { hasText: /^Bank$/ }).first().getAttribute("value");
     await page.selectOption("#repay-from", bank);
     await page.getByRole("button", { name: /^record mvr/i }).click();
-    const toast = page.getByText(/off the debt/).first();
+    const toast = page.getByText(/Still owed: MVR/).first();
     await toast.waitFor({ timeout: 15000 });
     const said = await toast.innerText();
-    if (/interest/.test(said) && /Still owed: MVR 11,/.test(said)) ok(`split: ${said.trim()}`);
+    // Paid the same day it was borrowed: no days have passed, so no interest.
+    if (/off the debt/.test(said) && /Still owed: MVR 10,/.test(said)) ok(`split: ${said.trim()}`);
     else bad(`after repaying: ${said}`);
     await page.screenshot({ path: "shots/loans.png", fullPage: true });
 
     await add({ kind: "other", name: `Check flat ${tag}`, principal: "10,000.00", rate: "6", basis: "flat", term: "36" });
-    const flat = page.locator("div", { hasText: `Check flat ${tag}` }).first();
+    const flat = page.getByTestId("loan").filter({ hasText: `Check flat ${tag}` });
     await flat.waitFor({ timeout: 15000 });
     const line = await page.getByText(/6% flat — really about/).first().innerText();
     const eff = Number((line.match(/about ([\d.]+)%/) || [])[1]);

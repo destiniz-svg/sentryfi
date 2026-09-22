@@ -8,6 +8,7 @@ import { taxApi } from "@/api/tax";
 import { useSalesMutations } from "@/hooks/useSales";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
+import { TagPicker } from "@/components/ui/TagPicker";
 
 /**
  * Raising an invoice.
@@ -95,6 +96,7 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
     issueDate: today(),
     dueDate: today(30),
     gstTreatment: "exclusive",
+    tags: { projectId: null, dimensionIds: [] },
   }));
   const [lines, setLines] = useState([blankLine()]);
   const [err, setErr] = useState("");
@@ -160,6 +162,8 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
         issueDate: form.issueDate || null,
         dueDate: form.dueDate || null,
         gstTreatment: form.gstTreatment,
+        projectId: form.tags.projectId || null,
+        dimensionIds: form.tags.dimensionIds.length ? form.tags.dimensionIds : null,
         lines: usable.map((l) => ({
           description: l.description.trim(),
           quantity: Number(String(l.quantity).replace(/,/g, "")),
@@ -243,6 +247,7 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
               className={FIELD}
             />
           </Field>
+          <TagPicker value={form.tags} onChange={(tags) => setForm((x) => ({ ...x, tags }))} fieldClass={FIELD} className="sm:col-span-2" />
         </div>
 
         <div className="grid grid-cols-2 gap-3">

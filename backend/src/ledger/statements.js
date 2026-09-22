@@ -21,7 +21,7 @@ const TYPES = ["asset", "liability", "equity", "income", "expense"];
  * Debit and credit totals per account, for entries dated in the window.
  * `from` is optional; without it the window starts at the beginning of time.
  */
-async function totals(client, { companyId, asAt, from = null }) {
+async function totals(client, { companyId, asAt, from = null, dimensionId = null, projectId = null }) {
   const { rows } = await client.query(
     `SELECT a.id, a.code, a.name, a.type::text AS type,
             COALESCE(SUM(l.debit_laari), 0)  AS debit,
@@ -33,11 +33,13 @@ async function totals(client, { companyId, asAt, from = null }) {
                 JOIN journal_entries e ON e.id = jl.entry_id
                WHERE jl.company_id = $1 AND e.entry_date <= $2::date
                  AND ($3::date IS NULL OR e.entry_date >= $3::date)
+                 AND ($4::uuid IS NULL OR $4::uuid = ANY(jl.dimension_ids))
+                 AND ($5::uuid IS NULL OR jl.project_id = $5::uuid)
             ) l ON l.account_id = a.id
       WHERE a.company_id = $1
       GROUP BY a.id
       ORDER BY a.code`,
-    [companyId, asAt, from]
+    [companyId, asAt, from, dimensionId, projectId]
   );
   return rows.map((r) => ({ ...r, debit: BigInt(r.debit), credit: BigInt(r.credit) }));
 }
@@ -66,8 +68,8 @@ async function trialBalance(client, { companyId, asAt }) {
 }
 
 /** What was earned and spent between two dates, and what was left. */
-async function profitAndLoss(client, { companyId, from, to }) {
-  const all = await totals(client, { companyId, asAt: to, from });
+async function profitAndLoss(client, { companyId, from, to, dimensionId = null, projectId = null }) {
+  const all = await totals(client, { companyId, asAt: to, from, dimensionId, projectId });
   const income = all
     .filter((r) => r.type === "income" && net(r) !== 0n)
     .map((r) => ({ code: r.code, name: r.name, amount: -net(r) }));
@@ -125,6 +127,39 @@ async function balanceSheet(client, { companyId, asAt }) {
   };
 }
 
+/**
+ * Profit split by one kind of dimension (or by project): income, costs and
+ * profit for each, and one row for what carries none, so the rows add up to
+ * the whole profit and loss.
+ */
+async function profitBy(client, { companyId, from, to, kind }) {
+  const tag =
+    kind === "project"
+      ? "LEFT JOIN projects t ON t.id = jl.project_id"
+      : "LEFT JOIN LATERAL (SELECT d.id, d.name FROM dimensions d WHERE d.id = ANY(jl.dimension_ids) AND d.kind = $4 ORDER BY d.name LIMIT 1) t ON true";
+  const { rows } = await client.query(
+    `SELECT t.id, t.name,
+            COALESCE(SUM(CASE WHEN a.type = 'income' THEN jl.credit_laari - jl.debit_laari ELSE 0 END), 0)::text AS income,
+            COALESCE(SUM(CASE WHEN a.type = 'expense' THEN jl.debit_laari - jl.credit_laari ELSE 0 END), 0)::text AS costs
+       FROM journal_lines jl
+       JOIN journal_entries e ON e.id = jl.entry_id
+       JOIN accounts a ON a.id = jl.account_id
+       ${tag}
+      WHERE jl.company_id = $1 AND e.entry_date BETWEEN $2::date AND $3::date AND a.type IN ('income', 'expense')
+        AND ($4::text IS NOT NULL)
+      GROUP BY t.id, t.name
+      ORDER BY t.name NULLS LAST`,
+    [companyId, from, to, kind]
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name || "Not tagged",
+    income: BigInt(r.income),
+    costs: BigInt(r.costs),
+    profit: BigInt(r.income) - BigInt(r.costs),
+  }));
+}
+
 /** Strings for the wire. BigInt is exact in the ledger and has no JSON form. */
 const money = (v) => formatLaari(v);
 const amounts = (rows) => rows.map((r) => ({ ...r, amount: money(r.amount) }));
@@ -164,4 +199,4 @@ const wire = {
   }),
 };
 
-module.exports = { TYPES, totals, trialBalance, profitAndLoss, balanceSheet, wire };
+module.exports = { TYPES, totals, trialBalance, profitAndLoss, profitBy, balanceSheet, wire };

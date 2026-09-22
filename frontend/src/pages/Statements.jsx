@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { statementsApi } from "@/api/statements";
 import { useCompany } from "@/context/CompanyContext";
+import { apiClient } from "@/api/client";
+import { useTags } from "@/components/ui/TagPicker";
 
 /**
  * The statements an accountant checks the work with.
@@ -114,7 +116,10 @@ export default function Statements() {
       ) : tab === "trial" ? (
         <Trial t={data} />
       ) : tab === "pl" ? (
-        <ProfitAndLoss p={data} />
+        <>
+          <ProfitAndLoss p={data} />
+          <SplitBy from={from} to={to} />
+        </>
       ) : (
         <BalanceSheet b={data} />
       )}
@@ -319,6 +324,59 @@ function BalanceSheet({ b }) {
         yes="Assets equal what it owes plus what the owners have, to the laari."
         no={`Assets and liabilities plus equity differ by ${b.difference}. An entry got in that should have been refused.`}
       />
+    </Card>
+  );
+}
+
+const SPLIT_NAMES = { project: "project", branch: "branch", department: "department", machine: "machine or boat", other: "tag" };
+
+/**
+ * The same profit and loss, one row per project, branch, department or
+ * machine, with what carries none as its own row so the rows add up to the
+ * whole. Offered only for kinds the company has switched on.
+ */
+function SplitBy({ from, to }) {
+  const { companyId } = useCompany();
+  const { data: tags } = useTags();
+  const live = (tags?.values || []).filter((v) => !v.archived);
+  const kinds = (tags?.kinds || []).filter((k) => live.some((v) => v.kind === k));
+  const [kind, setKind] = useState("");
+  const pick = kind || kinds[0] || "";
+  const { data } = useQuery({
+    queryKey: ["statements", companyId, "by", pick, from, to],
+    queryFn: () => apiClient.get("/statements/profit-by", { params: { kind: pick, from, to } }).then((r) => r.data),
+    enabled: Boolean(companyId && pick),
+  });
+  if (!kinds.length) return null;
+  const cols = "grid grid-cols-[minmax(0,1fr)_100px_100px_110px] sm:grid-cols-[minmax(0,1fr)_150px_150px_150px] gap-3";
+  return (
+    <Card padding="none" className="overflow-hidden mt-4" data-testid="split">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-4 pb-2">
+        <h2 className="text-[15px] font-semibold">Profit by {SPLIT_NAMES[pick]}</h2>
+        {kinds.length > 1 && (
+          <select id="split-by" value={pick} onChange={(e) => setKind(e.target.value)} className="h-10 px-3 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[14px]">
+            {kinds.map((k) => (
+              <option key={k} value={k}>
+                By {SPLIT_NAMES[k]}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+      <div className={`${cols} px-5 py-2 ${TH.replace("px-5 py-3 ", "")}`}>
+        <span />
+        <span className="text-right">Income</span>
+        <span className="text-right">Costs</span>
+        <span className="text-right">Profit</span>
+      </div>
+      {(data?.rows || []).map((r) => (
+        <div key={r.id || "none"} className={`${ROW} ${cols}`}>
+          <span className={r.id ? "break-words" : "text-[var(--ink-muted)]"}>{r.name}</span>
+          <span className="text-right"><Money amount={r.income} /></span>
+          <span className="text-right"><Money amount={r.costs} /></span>
+          <span className="text-right font-semibold"><Money amount={r.profit} /></span>
+        </div>
+      ))}
     </Card>
   );
 }

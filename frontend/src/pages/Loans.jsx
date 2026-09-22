@@ -80,7 +80,7 @@ export default function Loans() {
       ) : (
         <div className="space-y-3">
           {list.map((l) => (
-            <Card key={l.id} padding="none" className="overflow-hidden">
+            <Card key={l.id} padding="none" className="overflow-hidden" data-testid="loan">
               <div className="p-5">
                 <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
                   <div className="min-w-0">

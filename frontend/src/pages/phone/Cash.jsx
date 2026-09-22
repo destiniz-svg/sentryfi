@@ -7,6 +7,7 @@ import { useToast } from "@/context/UIContext";
 import { PhoneShell } from "@/components/phone/PhoneShell";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { TagPicker } from "@/components/ui/TagPicker";
 
 /**
  * The tin.
@@ -498,6 +499,7 @@ function SpendSheet({ open, box, onClose, onDone, toast }) {
   const [amount, setAmount] = useState("");
   const [what, setWhat] = useState("");
   const [kindId, setKindId] = useState("");
+  const [tags, setTags] = useState({ projectId: null, dimensionIds: [] });
   const [err, setErr] = useState("");
 
   const { data: kinds } = useQuery({
@@ -520,7 +522,7 @@ function SpendSheet({ open, box, onClose, onDone, toast }) {
     if (!what.trim()) return setErr("What was it spent on?");
 
     try {
-      const result = await send.mutateAsync({ amount: clean, what: what.trim(), accountId: chosen });
+      const result = await send.mutateAsync({ amount: clean, what: what.trim(), accountId: chosen, projectId: tags.projectId || null, dimensionIds: tags.dimensionIds.length ? tags.dimensionIds : null });
       toast.success(
         `Out of the tin · MVR ${result.amount}`,
         result.overdrawn
@@ -585,6 +587,7 @@ function SpendSheet({ open, box, onClose, onDone, toast }) {
             ))}
           </select>
         </label>
+        <TagPicker value={tags} onChange={setTags} fieldClass={FIELD} />
       </div>
 
       {err && (

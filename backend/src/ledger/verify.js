@@ -54,7 +54,7 @@ async function verifyChain(client, { companyId, userId }) {
 
     const { rows: lines } = await client.query(
       `SELECT account_id, debit_laari, credit_laari, project_id, cost_code_id,
-              counterparty_id, memo
+              counterparty_id, memo, dimension_ids
          FROM journal_lines WHERE entry_id = $1 ORDER BY position`,
       [entry.id]
     );
@@ -66,6 +66,7 @@ async function verifyChain(client, { companyId, userId }) {
       cost_code_id: line.cost_code_id,
       counterparty_id: line.counterparty_id,
       memo: line.memo,
+      dimension_ids: line.dimension_ids,
     }));
 
     const debits = normalised.reduce((s, l) => s + l.debit_laari, 0n);

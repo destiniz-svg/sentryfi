@@ -12,6 +12,7 @@ import { usePhone } from "@/lib/phone";
 import { useUndo } from "@/context/UndoContext";
 import { today } from "@/lib/utils";
 import { prepareForReading } from "@/lib/image";
+import { TagPicker } from "@/components/ui/TagPicker";
 
 /**
  * Getting a bill in.
@@ -130,6 +131,7 @@ export function RecordBill({ open, onClose }) {
       gstTreatment: "inclusive",
       currency: "", // our own
       fxRate: "",
+      tags: { projectId: null, dimensionIds: [] },
     };
   }
 
@@ -349,6 +351,8 @@ export function RecordBill({ open, onClose }) {
       // No rate sent: the server uses the one in force on the bill date, from
       // the tax engine, and keeps it on the bill.
       supplier: supplierFacts || undefined,
+      projectId: form.tags?.projectId || null,
+      dimensionIds: form.tags?.dimensionIds?.length ? form.tags.dimensionIds : null,
     };
 
     // No signal: hold it on the phone and send it when there is. The bill is
@@ -686,6 +690,8 @@ export function RecordBill({ open, onClose }) {
             className={`${inputClass} tabular`}
           />
         </Field>
+
+        <TagPicker value={form.tags} onChange={(tags) => setForm((x) => ({ ...x, tags }))} fieldClass={inputClass} />
 
         <fieldset>
           <legend className="text-sm font-medium text-[var(--ink)] mb-2 flex items-center gap-1.5">

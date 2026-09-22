@@ -98,6 +98,7 @@ app.use("/api/bank", bankRouter);
 app.use("/api/periods", periodsRouter);
 app.use("/api/assets", require("./routes/assets"));
 app.use("/api/loans", require("./routes/loans"));
+app.use("/api/dimensions", require("./routes/dimensions"));
 app.use("/api/statements", statementsRouter);
 app.use("/api/tax", taxRouter);
 app.use("/api/gst", gstRouter);

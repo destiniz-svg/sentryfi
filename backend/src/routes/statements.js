@@ -46,9 +46,15 @@ router.get(
     const to = req.query.to ? day(req.query.to, "To") : today();
     const from = req.query.from ? day(req.query.from, "From") : `${to.slice(0, 4)}-01-01`;
     if (from > to) throw ApiError.badRequest("From is after To.");
+    // Only what carries one branch, department, machine or project.
+    const uuid = /^[0-9a-f-]{36}$/i;
+    const only = {
+      dimensionId: uuid.test(String(req.query.dimension || "")) ? req.query.dimension : null,
+      projectId: uuid.test(String(req.query.project || "")) ? req.query.project : null,
+    };
     const [p, prior] = await asCompany(req, async (client) => [
-      await statements.profitAndLoss(client, { companyId: req.companyId, from, to }),
-      comparing(req) ? await statements.profitAndLoss(client, { companyId: req.companyId, from: yearBefore(from), to: yearBefore(to) }) : null,
+      await statements.profitAndLoss(client, { companyId: req.companyId, from, to, ...only }),
+      comparing(req) ? await statements.profitAndLoss(client, { companyId: req.companyId, from: yearBefore(from), to: yearBefore(to), ...only }) : null,
     ]);
     res.json({ ...statements.wire.profitAndLoss(p), prior: prior && statements.wire.profitAndLoss(prior) });
   })
@@ -64,6 +70,21 @@ router.get(
       comparing(req) ? await statements.balanceSheet(client, { companyId: req.companyId, asAt: yearBefore(asAt) }) : null,
     ]);
     res.json({ ...statements.wire.balanceSheet(b), prior: prior && statements.wire.balanceSheet(prior) });
+  })
+);
+
+/** Profit split by branch, department, machine, another kind, or project. */
+router.get(
+  "/profit-by",
+  requireCan("read"),
+  asyncHandler(async (req, res) => {
+    const kind = String(req.query.kind || "");
+    if (!["project", "branch", "department", "machine", "other"].includes(kind)) throw ApiError.badRequest("Split by what?");
+    const to = req.query.to ? day(req.query.to, "To") : today();
+    const from = req.query.from ? day(req.query.from, "From") : `${to.slice(0, 4)}-01-01`;
+    const rows = await asCompany(req, (client) => statements.profitBy(client, { companyId: req.companyId, from, to, kind }));
+    const m = (v) => require("../ledger/money").formatLaari(v);
+    res.json({ from, to, kind, rows: rows.map((x) => ({ ...x, income: m(x.income), costs: m(x.costs), profit: m(x.profit), loss: x.profit < 0n })) });
   })
 );
 

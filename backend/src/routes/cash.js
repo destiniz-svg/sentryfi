@@ -61,6 +61,7 @@ const newSpend = z.object({
   what: z.string().trim().min(2, "Say what it was spent on.").max(200),
   accountId: z.string().uuid("Which kind of spending is it?"),
   projectId: z.string().uuid().nullish(),
+  dimensionIds: z.array(z.string().uuid()).max(6).nullish(),
   spentOn: z.string().trim().nullish(),
 });
 

@@ -102,6 +102,7 @@ async function raise(client, {
   gstTreatment = "exclusive",
   gstRateBp,
   projectId,
+  dimensionIds,
   clientRef,
   lines = [],
 }) {
@@ -149,10 +150,10 @@ async function raise(client, {
     `INSERT INTO sales_invoices
        (company_id, counterparty_id, invoice_no, purchase_order, subject,
         issue_date, due_date, net_laari, tax_laari, gross_laari,
-        gst_treatment, gst_rate_bp, project_id, client_ref, raised_by, status)
+        gst_treatment, gst_rate_bp, project_id, client_ref, raised_by, status, dimension_ids)
      VALUES ($1,$2,$3,$4,$5,
              COALESCE($6::date, current_date), $7::date, $8,$9,$10,
-             $11::gst_t,$12,$13,$14,$15,'draft')
+             $11::gst_t,$12,$13,$14,$15,'draft',$16)
      RETURNING *`,
     [
       companyId,
@@ -170,6 +171,7 @@ async function raise(client, {
       projectId || null,
       clientRef || null,
       userId,
+      dimensionIds?.length ? dimensionIds : null,
     ]
   );
   const invoice = rows[0];
@@ -255,6 +257,7 @@ async function post(client, { companyId, userId, invoiceId }) {
       accountId: line.use_account,
       credit: BigInt(line.net_laari),
       projectId: line.project_id,
+      dimensionIds: invoice.dimension_ids,
       counterpartyId: invoice.counterparty_id,
       memo: line.description || invoice.subject || invoice.invoice_no,
     })),

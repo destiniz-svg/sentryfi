@@ -220,6 +220,7 @@ async function postBill(client, { companyId, userId, billId, accounts }) {
       fc: foreign ? fc(bill.fc_net) : undefined,
       counterpartyId: bill.counterparty_id,
       projectId: bill.project_id,
+      dimensionIds: bill.dimension_ids,
       memo: bill.bill_no ? `Bill ${bill.bill_no}` : null,
     },
   ];

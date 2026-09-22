@@ -42,6 +42,8 @@ const billBody = z.object({
   currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/, "A currency is three letters, like USD.").nullish(),
   fxRate: z.union([z.string().trim(), z.number()]).nullish(),
   projectId: z.string().uuid().nullish(),
+  // A branch, department or machine it belongs to; see config/dimensions-schema.js.
+  dimensionIds: z.array(z.string().uuid()).max(6).nullish(),
   billedToCompany: z.string().uuid().nullish(),
   // Generated on the phone before there is any signal, so a send that is
   // retried after a lost response makes one bill rather than two.
@@ -298,6 +300,10 @@ router.post(
         b.billedToCompany,
         "You are not in the company it was billed to."
       );
+      if (b.dimensionIds?.length) {
+        const { rows: dims } = await client.query("SELECT id FROM dimensions WHERE company_id = $1 AND id = ANY($2::uuid[])", [req.companyId, b.dimensionIds]);
+        if (dims.length !== new Set(b.dimensionIds).size) throw ApiError.badRequest("That branch, department or machine is not in these books.");
+      }
 
       let counterpartyId = b.counterpartyId || null;
       let learned = [];
@@ -341,10 +347,10 @@ router.post(
            (company_id, counterparty_id, bill_no, issue_date, due_date,
             net_laari, tax_laari, gross_laari, gst_treatment, gst_rate_bp,
             project_id, billed_to_company, received_by, client_ref, status,
-            currency, fx_rate, fc_net, fc_tax, fc_gross)
+            currency, fx_rate, fc_net, fc_tax, fc_gross, dimension_ids)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::gst_t,$10,$11,$12,$13,$14,
                  CASE WHEN $9 = 'unknown' THEN 'awaiting_review'::bill_t ELSE 'draft'::bill_t END,
-                 COALESCE($15, (SELECT base_currency FROM companies WHERE id = $1)), $16, $17, $18, $19)
+                 COALESCE($15, (SELECT base_currency FROM companies WHERE id = $1)), $16, $17, $18, $19, $20)
          RETURNING *`,
         [
           req.companyId, counterpartyId, b.billNo || null, b.issueDate || null, b.dueDate || null,
@@ -353,6 +359,7 @@ router.post(
           b.projectId || null, b.billedToCompany || null, req.user.id, b.clientRef || null,
           foreign ? foreign.currency : null, foreign ? foreign.rate : null,
           foreign ? String(foreign.net) : null, foreign ? String(foreign.tax) : null, foreign ? String(foreign.gross) : null,
+          b.dimensionIds?.length ? b.dimensionIds : null,
         ]
       );
       const bill = rows[0];
