@@ -126,6 +126,47 @@ router.post(
   })
 );
 
+/**
+ * A reset link an administrator handed over (routes/companies.js). Opening it
+ * says whose it is; using it sets the password, ends every other session and
+ * signs the person in. Single use, 24 hours, and only its hash is kept.
+ */
+const resetHash = (token) => require("crypto").createHash("sha256").update(String(token || "")).digest("hex");
+const openReset = (token) =>
+  require("../config/db").queryOne(
+    `SELECT r.id, r.user_id, u.name FROM password_resets r JOIN users u ON u.id = r.user_id
+      WHERE r.token_hash = $1 AND r.used_at IS NULL AND r.expires_at > now()`,
+    [resetHash(token)]
+  );
+
+router.get(
+  "/reset/:token",
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const found = await openReset(req.params.token);
+    if (!found) throw ApiError.notFound("That link has been used or has run out. Ask for a new one.");
+    res.json({ name: found.name });
+  })
+);
+
+router.post(
+  "/reset/:token",
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const password = String(req.body?.password || "");
+    if (password.length < 8 || password.length > 128) throw ApiError.badRequest("Use at least eight characters.");
+    const found = await openReset(req.params.token);
+    if (!found) throw ApiError.notFound("That link has been used or has run out. Ask for a new one.");
+    const { query } = require("../config/db");
+    const used = await query("UPDATE password_resets SET used_at = now() WHERE id = $1 AND used_at IS NULL", [found.id]);
+    if (!used.rowCount) throw ApiError.notFound("That link has just been used.");
+    await User.updatePassword(found.user_id, await User.hashPassword(password));
+    const v = await User.bumpTokenVersion(found.user_id);
+    issueSession(res, { id: found.user_id, token_version: v });
+    res.json({ ok: true });
+  })
+);
+
 /** Ends every session this person has, on every device, this one included. */
 router.post(
   "/logout-everywhere",

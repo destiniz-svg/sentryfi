@@ -452,3 +452,87 @@ describe("the app role, acting as B", () => {
     expect(await asB("SELECT * FROM journal_counters WHERE company_id = $1", [A.companyId])).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------- people, finished (item 10)
+
+describe("reset links, limits and passkeys", () => {
+  const E = {};
+
+  it("a reset link: only for someone in this company alone, used once, and it ends their other sessions", async () => {
+    const email = `erin.${A.tag}@a.test`;
+    const made = await call(A, "POST", "/companies/current/people", { body: { email, role: "manager" } });
+    expect(made.status).toBe(201);
+    const joined = await fetch(`${BASE}/invites/${encodeURIComponent(made.json.token)}/accept`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Erin", password: "first password 1" }),
+    });
+    expect(joined.status).toBeLessThan(300);
+    E.cookie = joined.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+    E.companyId = A.companyId;
+    const people = (await call(A, "GET", "/companies/current/people")).json.members;
+    E.id = people.find((p) => p.email === email).user_id;
+
+    // Another company's administrator cannot hold the key to A's people.
+    denied(await call(B, "POST", `/companies/current/people/${E.id}/reset`));
+
+    const link = await call(A, "POST", `/companies/current/people/${E.id}/reset`);
+    expect(link.status).toBe(201);
+    expect((await fetch(`${BASE}/auth/reset/${link.json.token}`)).status).toBe(200);
+    const used = await fetch(`${BASE}/auth/reset/${link.json.token}`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: "second password 2" }),
+    });
+    expect(used.status).toBe(200);
+    // Once only.
+    expect((await fetch(`${BASE}/auth/reset/${link.json.token}`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: "third password 3" }),
+    })).status).toBe(404);
+    // The session Erin had before is over.
+    expect((await call(E, "GET", "/auth/me")).status).toBe(401);
+  });
+
+  it("no reset link for someone who also belongs to another company", async () => {
+    const email = `frank.${A.tag}@both.test`;
+    const invA = await call(A, "POST", "/companies/current/people", { body: { email, role: "viewer" } });
+    await fetch(`${BASE}/invites/${encodeURIComponent(invA.json.token)}/accept`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "Frank", password: "franks password 1" }),
+    });
+    const invB = await call(B, "POST", "/companies/current/people", { body: { email, role: "viewer" } });
+    await fetch(`${BASE}/invites/${encodeURIComponent(invB.json.token)}/accept`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "Frank", password: "franks password 1" }),
+    });
+    const frank = (await call(A, "GET", "/companies/current/people")).json.members.find((p) => p.email === email);
+    const r = await call(A, "POST", `/companies/current/people/${frank.user_id}/reset`);
+    expect(r.status).toBe(400);
+    expect(r.text).toMatch(/other companies/);
+  });
+
+  it("a spending limit holds a bill back, and only this company can set it", async () => {
+    denied(await call(B, "PUT", `/companies/current/people/${A.user.id}/limit`, { body: { limit: "1.00" } }));
+    expect((await call(A, "PUT", `/companies/current/people/${A.user.id}/limit`, { body: { limit: "100.00" } })).status).toBe(200);
+    const bill = await call(A, "POST", "/bills", { body: { supplierName: "Over the limit", amount: "150.00", gstTreatment: "none_unregistered", issueDate: "2026-09-10" } });
+    const held = await call(A, "POST", `/bills/${bill.json.bill.id}/post`);
+    expect(held.status).toBe(403);
+    expect(held.text).toMatch(/over your limit/);
+    expect((await call(A, "PUT", `/companies/current/people/${A.user.id}/limit`, { body: { limit: null } })).status).toBe(200);
+    expect((await call(A, "POST", `/bills/${bill.json.bill.id}/post`)).status).toBe(200);
+  });
+
+  it("passkeys: only from Sentryfi's own address, and an unknown device is refused", async () => {
+    const foreign = await call(A, "POST", "/passkeys/register/options", { headers: { origin: "https://evil.example" } });
+    expect([400, 403]).toContain(foreign.status);
+    const own = await call(A, "POST", "/passkeys/register/options", { headers: { origin: "http://localhost:5173" } });
+    expect(own.status).toBe(200);
+    expect(own.json.challenge).toBeTruthy();
+    expect(own.json.authenticatorSelection.userVerification).toBe("required");
+
+    const opts = await fetch(`${BASE}/passkeys/login/options`, { method: "POST", headers: { origin: "http://localhost:5173" } });
+    const cookie = opts.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+    const unknown = await fetch(`${BASE}/passkeys/login`, {
+      method: "POST",
+      headers: { origin: "http://localhost:5173", "Content-Type": "application/json", cookie },
+      body: JSON.stringify({ response: { id: "not-a-real-credential", rawId: "x", type: "public-key", response: {} } }),
+    });
+    expect(unknown.status).toBe(401);
+  });
+});

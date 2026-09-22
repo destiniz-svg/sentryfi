@@ -31,7 +31,8 @@ function checkRole(role) {
 /** Everyone in, their roles, the invitations still open, and the last changes. */
 async function list(client, { companyId }) {
   const { rows: members } = await client.query(
-    `SELECT u.id AS user_id, u.name, u.email, array_agg(m.role::text ORDER BY m.role) AS roles
+    `SELECT u.id AS user_id, u.name, u.email, array_agg(m.role::text ORDER BY m.role) AS roles,
+            (SELECT l.limit_laari::text FROM spending_limits l WHERE l.company_id = $1 AND l.user_id = u.id) AS limit_laari
        FROM memberships m JOIN users u ON u.id = m.user_id
       WHERE m.company_id = $1
       GROUP BY u.id ORDER BY u.name`,

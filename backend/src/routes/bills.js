@@ -422,6 +422,22 @@ router.post(
       );
     }
 
+    // A spending limit: someone with one records any bill, but one over it
+    // waits for somebody who approves to put it in the books.
+    const over = await asCompany(req, async (client) => {
+      const { rows } = await client.query(
+        `SELECT l.limit_laari, b.gross_laari FROM spending_limits l, bills b
+          WHERE l.company_id = $1 AND l.user_id = $2 AND b.company_id = $1 AND b.id = $3`,
+        [req.companyId, req.user.id, req.params.id]
+      );
+      return rows[0] && BigInt(rows[0].gross_laari) > BigInt(rows[0].limit_laari) ? rows[0] : null;
+    });
+    if (over) {
+      throw ApiError.forbidden(
+        `This bill is over your limit of MVR ${formatLaari(BigInt(over.limit_laari))}. Someone who approves has to put it in the books.`
+      );
+    }
+
     try {
       const result = await asCompany(req, (client) =>
         postBill(client, {

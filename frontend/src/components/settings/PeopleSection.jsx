@@ -8,6 +8,7 @@ import { companiesApi } from "@/api/companies";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 import { ROLE_TEXT } from "@/lib/roles";
+import { apiClient } from "@/api/client";
 
 /**
  * Who is in these books, and what each of them may do.
@@ -134,6 +135,7 @@ export function PeopleSection() {
                   </span>
                 ))}
               </div>
+              {manage && m.user_id !== data.you.id && <MemberTools member={m} onDone={refresh} />}
             </li>
           ))}
           {data.invites.map((i) => (
@@ -228,6 +230,75 @@ export function PeopleSection() {
             ))}
           </ul>
         </Card>
+      )}
+    </div>
+  );
+}
+
+/**
+ * For one member: a spending limit (bills over it wait for somebody who
+ * approves), and a link to set a new password if they have forgotten theirs.
+ * The server refuses a link for anyone who also belongs to another company.
+ */
+function MemberTools({ member, onDone }) {
+  const toast = useToast();
+  const [limit, setLimit] = useState(member.limit_laari === null ? "" : (Number(member.limit_laari) / 100).toFixed(2));
+  const [link, setLink] = useState("");
+  const saveLimit = useMutation({ mutationFn: (value) => apiClient.put(`/companies/current/people/${member.user_id}/limit`, { limit: value }).then((r) => r.data) });
+  const reset = useMutation({ mutationFn: () => apiClient.post(`/companies/current/people/${member.user_id}/reset`).then((r) => r.data) });
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]">
+      <label className="inline-flex items-center gap-2">
+        <span className="text-[var(--ink-muted)]">Bill limit, MVR</span>
+        <input
+          aria-label={`Spending limit for ${member.name}`}
+          value={limit}
+          onChange={(e) => setLimit(e.target.value)}
+          placeholder="No limit"
+          inputMode="decimal"
+          className="h-8 w-28 px-2 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] tabular"
+        />
+      </label>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={saveLimit.isPending}
+        onClick={async () => {
+          try {
+            const r = await saveLimit.mutateAsync(limit.trim() || null);
+            onDone();
+            toast.success(r.limit ? `${member.name}: bills up to MVR ${r.limit}` : `${member.name}: no limit`, r.limit ? "Anything over it waits for someone who approves." : "");
+          } catch (ex) {
+            toast.error("Not saved", ex.message);
+          }
+        }}
+      >
+        Save limit
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled={reset.isPending}
+        onClick={async () => {
+          try {
+            const r = await reset.mutateAsync();
+            setLink(`${window.location.origin}/reset/${r.token}`);
+          } catch (ex) {
+            toast.error("No link", ex.message);
+          }
+        }}
+      >
+        Password reset link
+      </Button>
+      {link && (
+        <div className="basis-full mt-1 p-3 rounded-xl bg-[var(--surface-2)] break-all">
+          <div className="font-medium mb-1">Give this to {member.name} yourself. It works once, for 24 hours.</div>
+          <code className="text-[12px]">{link}</code>
+          <Button size="sm" variant="outline" className="ml-2" onClick={() => navigator.clipboard?.writeText(link).then(() => toast.success("Copied", ""))}>
+            Copy
+          </Button>
+        </div>
       )}
     </div>
   );

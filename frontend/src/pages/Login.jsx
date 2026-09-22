@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, Fingerprint } from "lucide-react";
 import {
   AuthShell,
   AuthField,
@@ -10,15 +10,36 @@ import {
 } from "@/components/auth/AuthShell";
 import AILogo from "@/components/layout/AILogo";
 import { useAuth } from "@/context/AuthContext";
+import { startAuthentication } from "@simplewebauthn/browser";
+import { apiClient } from "@/api/client";
+import { passkeysWork } from "@/components/settings/DevicesSection";
 
 
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, refresh } = useAuth();
   const nav = useNavigate();
   const [form, setForm] = useState({ email: "", password: "" });
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Face ID or a fingerprint: the phone proves it holds the key it made when
+  // it was added in Settings. Nothing to type, nothing to phish.
+  async function onPasskey() {
+    setErr("");
+    setLoading(true);
+    try {
+      const optionsJSON = (await apiClient.post("/passkeys/login/options")).data;
+      const response = await startAuthentication({ optionsJSON });
+      await apiClient.post("/passkeys/login", { response });
+      await refresh();
+      nav("/dashboard");
+    } catch (e) {
+      if (e?.name !== "NotAllowedError") setErr(e.message || "That did not work. Sign in with your password.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -94,6 +115,16 @@ export default function Login() {
                 </>
               )}
             </AuthPrimaryButton>
+            {passkeysWork() && (
+              <button
+                type="button"
+                onClick={onPasskey}
+                disabled={loading}
+                className="w-full mt-2 h-12 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[15px] font-medium inline-flex items-center justify-center gap-2"
+              >
+                <Fingerprint size={17} aria-hidden="true" /> Sign in with Face ID or fingerprint
+              </button>
+            )}
           </div>
 
           <p className="text-[13px] leading-relaxed text-[var(--ink-muted)]">

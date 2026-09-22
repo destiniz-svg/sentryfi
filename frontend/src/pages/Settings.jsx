@@ -16,6 +16,7 @@ import { CompaniesSection } from "@/components/settings/CompaniesSection";
 import { PeopleSection } from "@/components/settings/PeopleSection";
 import { BackupsSection } from "@/components/settings/BackupsSection";
 import { TrackingSection } from "@/components/settings/TrackingSection";
+import { DevicesSection } from "@/components/settings/DevicesSection";
 import { useCompany } from "@/context/CompanyContext";
 
 function FieldLabel({ children, htmlFor }) {
@@ -417,7 +418,10 @@ export default function Settings() {
             <TaxSection />
           </TabsContent>
           <TabsContent value="profile">
-            <ProfileSection />
+            <div className="space-y-4">
+              <ProfileSection />
+              <DevicesSection />
+            </div>
           </TabsContent>
           <TabsContent value="appearance">
             <AppearanceSection />

@@ -69,7 +69,8 @@ app.use(
     origin(origin, cb) {
       if (!origin) return cb(null, true); // same-origin and server-to-server
       if (env.clientOrigins.includes(origin)) return cb(null, true);
-      return cb(new Error("Origin not allowed"), false);
+      // A refusal, not a failure: 403 rather than a 500 in the logs.
+      return cb(require("./utils/ApiError").forbidden("Origin not allowed"), false);
     },
     credentials: true,
   })
@@ -81,6 +82,7 @@ if (!env.isProd) app.use(morgan("dev"));
 
 app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
+app.use("/api/passkeys", require("./routes/passkeys"));
 app.use("/api/settings", settingsRouter);
 app.use("/api/invites", invitesRouter);
 app.use("/api/backups", backupsRouter);

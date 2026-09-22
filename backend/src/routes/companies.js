@@ -5,7 +5,9 @@ const asyncHandler = require("../utils/asyncHandler");
 const ApiError = require("../utils/ApiError");
 const { requireAuth } = require("../middleware/auth");
 const { requireCompany, requireCan, CAN } = require("../middleware/company");
-const { withTransaction } = require("../config/db");
+const crypto = require("crypto");
+const { withTransaction, pool } = require("../config/db");
+const { toLaari, formatLaari } = require("../ledger/money");
 const { assumeIdentity } = require("../ledger/post");
 const { asCompany } = require("../ledger/session");
 const people = require("../ledger/people");
@@ -196,6 +198,65 @@ router.delete(
       throw ApiError.badRequest(err.message);
     }
     res.json({ ok: true });
+  })
+);
+
+/** A spending limit on one person: bills over it wait for someone who approves. Empty removes it. */
+router.put(
+  "/current/people/:userId/limit",
+  requireCompany,
+  requireCan("manage_people"),
+  asyncHandler(async (req, res) => {
+    const raw = req.body?.limit;
+    const clear = raw === null || raw === undefined || String(raw).trim() === "";
+    let laari = null;
+    if (!clear) {
+      try {
+        laari = toLaari(raw);
+      } catch {
+        throw ApiError.badRequest("That is not an amount.");
+      }
+      if (laari < 0n) throw ApiError.badRequest("A limit cannot be below nothing.");
+    }
+    await asCompany(req, async (client) => {
+      const { rows } = await client.query("SELECT 1 FROM memberships WHERE company_id = $1 AND user_id = $2", [req.companyId, req.params.userId]);
+      if (!rows.length) throw ApiError.notFound("That person is not in this company.");
+      if (clear) await client.query("DELETE FROM spending_limits WHERE company_id = $1 AND user_id = $2", [req.companyId, req.params.userId]);
+      else
+        await client.query(
+          `INSERT INTO spending_limits (company_id, user_id, limit_laari, set_by) VALUES ($1,$2,$3,$4)
+           ON CONFLICT (company_id, user_id) DO UPDATE SET limit_laari = EXCLUDED.limit_laari, set_by = EXCLUDED.set_by, set_at = now()`,
+          [req.companyId, req.params.userId, laari.toString(), req.user.id]
+        );
+    });
+    res.json({ ok: true, limit: clear ? null : formatLaari(laari) });
+  })
+);
+
+/**
+ * A link to set a new password, for someone who has forgotten theirs. Only
+ * for a person who belongs to this company and no other: a link is the key to
+ * their account, and one company's administrator must never hold the key to
+ * someone who also keeps another company's books.
+ */
+router.post(
+  "/current/people/:userId/reset",
+  requireCompany,
+  requireCan("manage_people"),
+  asyncHandler(async (req, res) => {
+    const who = req.params.userId;
+    if (who === req.user.id) throw ApiError.badRequest("Change your own password in Settings, Password.");
+    // Across companies on purpose, before stepping into this company's walls.
+    const { rows: where } = await pool.query("SELECT DISTINCT company_id FROM memberships WHERE user_id = $1", [who]);
+    if (!where.some((w) => w.company_id === req.companyId)) throw ApiError.notFound("That person is not in this company.");
+    if (where.length > 1) {
+      throw ApiError.badRequest("They belong to other companies too, so only they can reset it. Ask them to sign in with Face ID or a fingerprint if they set one up.");
+    }
+    const secret = crypto.randomBytes(24).toString("base64url");
+    const hash = crypto.createHash("sha256").update(secret).digest("hex");
+    await pool.query("UPDATE password_resets SET used_at = now() WHERE user_id = $1 AND used_at IS NULL", [who]);
+    await pool.query("INSERT INTO password_resets (user_id, company_id, token_hash, issued_by) VALUES ($1,$2,$3,$4)", [who, req.companyId, hash, req.user.id]);
+    res.status(201).json({ token: secret, expiresInHours: 24 });
   })
 );
 
