@@ -286,6 +286,24 @@ These five exist only in the desk register described above, and all of them are 
 - **Faint** (`{colors.faint}`): column headers and hints, below concrete, at 4.58:1 on white. Anything lighter fails as text; `#9AA0A8` was tried and reads 2.64:1.
 - **Ground** (`{colors.ground}`) and **Sunk** (`{colors.sunk}`): the page ground the web's white cards sit on, and the recessed fill of a search field or table header.
 
+### Deep Sea (added 22 September 2026)
+
+- **Deep Sea** (`#0F4C5C`): links, chart strokes, and quiet dark surfaces on the desk register. 9.1:1 on white.
+
+It exists because yellow cannot do those jobs. Yellow is unreadable as text on white and must never be used as one, and a palette of two values (ink and yellow) leaves a link nowhere to go but ink, which makes it invisible. Deep sea is the one supporting colour, and it is never the primary action: the filled button stays yellow.
+
+**Why the palette was kept, and what it was tested against.** On 22 September 2026 three palettes were drawn on the same screen and compared: this one, a category blue (`#1B5FD9` on `#10263F`), and a warm clay challenger (`#C8542B` on `#16130F`). They are on the canvas "Sentryfi redesign direction" (https://claude.ai/artifact/DZaR7bTQ8rqb3cNAB7DiKc). Ink and signal yellow won on three grounds:
+
+1. **It fits what the product does.** The research that colour advice rests on (Labrecque and Milne, 2012; Elliot and Maier, 2014) finds no universal meaning in a hue; what predicts a colour working is whether it fits the brand's job. High-visibility yellow is what safety wear is on a site, and ink on yellow is the most readable pair in direct sun, which is the actual scene this product is used in.
+2. **Nobody in the category owns it.** Accounting software is blue (Xero) or green (QuickBooks, Sage, Wave). Blue in finance has become category wallpaper rather than a signal; the products that grew fastest by standing out (Monzo's coral, Brex's orange, Klarna's pink) refused it deliberately.
+3. **Clay was rejected for a ledger-specific reason.** Its accent sits a hair from the red that means money at risk, and two reds in one table is a cost a ledger cannot pay.
+
+Blue remains the fallback if a buyer or a bank ever demands the conventional signal; it is a swap of tokens, not a redesign.
+
+### The Grey Print Rule (added 22 September 2026)
+
+Print a page of the trial balance in grey. If a person can still tell what is in the books, what is waiting and what is at risk, colour is doing its job. Every standing carries a word as well as a colour, every amount carries its sign, and nothing anywhere is distinguished by hue alone.
+
 ### Semantic
 - **Money In** (`{colors.money-in}`): incoming amounts on the rule (prefixed "+"), the "Balanced · hash" and "Period balanced · chain intact" lines, the chain-intact ticks in the journal, and the duplicate-check tick on Review. Text and stroke only, never a fill.
 - **Money Out** (`{colors.money-out}`): outgoing amounts on the rule (prefixed with a true minus sign), and the "TIN" flag in the journal hash column. Text only, never a fill.
@@ -333,6 +351,32 @@ Two tones exist only in this register, both derived from signal yellow so nothin
 - **Signal deep** `#806400`: text and icons on signal soft. It is 5.04:1 there and 5.61:1 on white. The obvious `#8A6D00` was tried first and reads 4.42:1 on signal soft, which fails, so it is not in the system.
 
 One further grey, **faint** `#70767E` at 4.58:1 on white, sits below concrete for column headers and hints. Anything lighter fails as text; `#9AA0A8` was tried and reads 2.64:1.
+
+### The desk register, rebuilt (22 September 2026)
+
+Drawn against fifteen references the owner supplied (dark Untitled-UI style consoles, and light ERP suites) and rebuilt on the canvas above as "Desk — Bills" and "Desk — Bank and cash". What was taken, and what was refused, in the order it matters:
+
+**Taken.**
+
+- **A grouped rail.** Sections with condensed labels above them (Needs you, Money, The books, then settings and the person at the foot), not one flat list. A flat rail stops working at about ten items and the module list is longer than that.
+- **A bar that says where you are.** Breadcrumb at the left, search with its keyboard hint in the middle, notifications and night at the right.
+- **One filled action per screen.** Yellow, 44px, at the top right of the page header; everything else outlined. The same rule as the phone board's one yellow field, in the desk register's language.
+- **Cards on a ground.** White cards with a 1px hairline and a 10 to 14px corner, on `--ground`. No shadow on a card; the lift is the border.
+- **A table anatomy that every module reuses.** Column headers in the 12px condensed label, rows at 56px (40px when a person picks the compact density), a standing pill, the amount right-aligned and tabular, a row menu at the end, and a footer carrying the total on this page and the paging.
+- **A figure worth reading.** A card with the label, the currency, the amount, and one sentence under it. Not a percentage delta nobody asked for.
+
+**Refused, with the reason.**
+
+- **Dark by default.** It photographs well and it is wrong for an accountant reading figures all day, for anything printed, and for a phone in the sun. Night stays a choice.
+- **An avatar on every row.** Suppliers are businesses, not faces. A round portrait per row is decoration that pushes the bill number off a phone.
+- **Donut charts, and a tax figure shown as a percentage.** A donut is poor at the comparison it is usually asked to make, and "44% of tax" is a number nobody can act on.
+- **Gradient washes and glowing tiles.** They fail contrast and date fastest of anything in the reference set.
+
+**Money, set to be compared down a column.** Tabular figures, right aligned, with the minor unit held one shade back (`398,140`**`.00`**) so the rufiyaa reads first and the laari is still there. A negative carries a true minus and the money-out colour, never colour alone. A total sits under a 2px ink rule.
+
+**Density is the person's choice.** 56px to read, 40px to audit, remembered per person. A product whose rows are one height suits one of those two jobs and annoys the other.
+
+**Which register a width gets.** Under 768px, or installed, the phone board. From 768px, the desk register. The board is drawn for one thumb, so it holds a column of at most 560px and centres itself: on a foldable opened to 800px it stays a phone-width board on the page ground rather than stretching a 44px figure across the glass.
 
 **Which register applies.** The phone board governs `App.dc.html` and the installed phone app. The desk register governs the web suite: `Web.dc.html` and the running web application. The earlier desktop artboards `Tax.dc.html`, `Bank.dc.html` and `Desktop.dc.html` were drawn in the phone board and now sit outside this rule; they are superseded by `Web.dc.html` as the reference for the web.
 
@@ -403,6 +447,15 @@ Blunt and heavy, sized for a gloved thumb.
 - **Selector:** yellow fill, ink condensed label at 14px with a 14px chevron ("Hotel · Materials" on the camera); 44px tall, 14px side padding.
 - **Focus:** 3px ink outline, 2px offset, on every focusable element; yellow on dark grounds via `on-ink`. Hover and active states are not built.
 
+**The desk register's buttons (22 September 2026).** Three kinds and no more, all 44px tall with a 10px corner:
+
+- **The one thing:** signal yellow fill, 1px ink border, Barlow 700 ink label. One per screen.
+- **Everything else:** white fill, 1px ink border, Barlow 600 ink label.
+- **Quiet:** white fill, hairline border, Barlow 500 in concrete, for the option somebody takes rarely.
+- **Undoing money:** white fill, 1px money-out border, money-out label. Never a filled red button; a destructive act should not be the easiest thing to hit.
+
+Rules that go with them: the label is a verb and its object, and carries the figure when money moves ("Record a bill", "Reimburse 1,200.00", "Yes, I received 1,000.00"). A disabled button says what is missing ("Add the amount"), never a dead "Save". While the work is happening the label changes and the width does not, so nothing moves under a thumb. On the phone board these are square, full width and 52px.
+
 ### Band
 The one yellow field. Full-bleed `{colors.signal-yellow}` with 18px top, 20px side, 16px bottom padding; a 13px section label at 0.14em, the display figure at 64px with the currency code at 22px on the same baseline, and a 13px Barlow 500 tabular line for bank, cash, and sync time. On desktop it becomes the journal header (44px title, 22/28/18px padding) with the action buttons right-aligned.
 
@@ -447,6 +500,10 @@ Full-bleed `{colors.camera-ground}`. Viewfinder marked by four 28px yellow corne
 ### Icons
 Inline SVG on a 24-unit grid, stroke only, `currentColor`, round caps and joins. Stroke 2 for nav and tiles, 2.2 for the camera glyph, 2.4 to 2.5 for chevrons and close, 3 for ticks. Sizes as built: 14, 16, 20, 22, 24, 28, 30, 34px. No icon fonts, no glyph characters.
 
+**One set, and which one (22 September 2026).** Lucide, which the application already uses: drawn on the same 24px grid at a 2px stroke, and the set most of this ecosystem is drawn against, so a missing icon can be borrowed from Tabler without looking wrong. Icons from two libraries in one screen read as subtly broken even when nobody can say why. Phosphor is the alternative if a weight hierarchy is ever needed (outline in a list, filled when active); it is not needed yet.
+
+Sizes in use: 20px in a row, 24px in the rail and in buttons, 30px on the shutter. Nothing under 20px on a phone, because it stops reading in sun. An icon sits beside a word rather than replacing it, except where the word is unmistakable; an icon-only button always carries a spoken name. No icon ever carries a meaning on its own — a standing is a word first, and the icon agrees with it.
+
 ### Motion
 One ease-out moment per screen change on `cubic-bezier(0.2, 0.8, 0.2, 1)`:
 - `sf-rise` (translateY 40px to 0, fade in), 420ms: the Review sheet.
@@ -466,7 +523,10 @@ The undo countdown ticks once per second for ten seconds. Hover transitions are 
 - **Do** colour incoming amounts Money In with "+" and outgoing amounts Money Out with a true minus, and use those colours only on text and strokes.
 - **Do** animate one ease-out moment per screen change on `cubic-bezier(0.2, 0.8, 0.2, 1)` between 420 and 900ms.
 - **Do** keep touch targets at 44px or taller, and primary actions at 60px on phone.
-- **Do** ship icons as inline stroke SVG in `currentColor`.
+- **Do** ship icons as inline stroke SVG in `currentColor`, from one library (Lucide) at one stroke weight.
+- **Do** hold the accessibility floor: text at 4.5:1 and 3:1 at 24px or larger, every control 44px (WCAG 2.2 asks 24; a thumb in the sun asks more), a visible focus ring on everything focusable, and every screen usable by keyboard alone.
+- **Do** set money right-aligned and tabular with the minor unit one shade back, and give a negative a true minus as well as its colour.
+- **Do** let a person choose row density on the desk, and remember it.
 
 ### Don't:
 - **Don't** build dark bento dashboards, rounded metric cards, or grids of metric tiles; amounts hang on the rule, not in cards.
@@ -477,3 +537,8 @@ The undo countdown ticks once per second for ten seconds. Hover transitions are 
 - **Don't** round corners on fields or controls; the app icon's platform mask is the only rounded rectangle.
 - **Don't** set sentence-length copy in Barlow Condensed; the chevron strip's single line is the one condensed sentence the world allows.
 - **Don't** use accounting terms (debit, credit, Dr, Cr) outside the Accountant view; the phone shows "Paid from", "What for", "Money in".
+- **Don't** put an avatar, a logo tile or a coloured icon chip on a row: a supplier is a business, and the space belongs to the bill number.
+- **Don't** draw a donut, or show a tax figure as a percentage of something unnamed. Compare with bars or a line, or write the sentence.
+- **Don't** default to dark. It is a choice a person makes, never the ground a ledger arrives on.
+- **Don't** mix icon libraries, and don't let an icon carry a meaning its label does not also carry.
+- **Don't** stretch the phone board across a wide screen: it holds 560px and centres.

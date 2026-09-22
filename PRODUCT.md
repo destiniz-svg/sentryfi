@@ -68,28 +68,73 @@ Finished to 100%. This is the list, and the build plan in `TODO.md` works throug
 - **Who may do what.** Roles per company, capabilities not job titles, enforced in the database. *Foundation done 19 September 2026.*
 - **The paper.** Every record's supporting document attached, addressed by content hash, retrievable by name for as long as the law requires.
 - **The trail.** Nothing deleted, every correction a reversing entry carrying a reason, and every change answerable as who, when and why.
+- **Fixed assets.** An asset register, a life and a method per asset, depreciation posted on a schedule, and the gain or loss when one is sold. A balance sheet carrying equipment at what it cost five years ago is wrong, and every business that owns a machine has this problem.
+- **Year end.** The year closed, the profit rolled into retained earnings as an entry with a date on it, and the comparative figures that every statement shows beside this year's.
+- **Dimensions.** A line can carry a project, a branch, a department or a machine, so the same ledger answers "which site lost money" without a second set of books. The dimensions a company uses are its own; the ledger only knows that a line may carry them.
+- **Backups, proven.** The whole database copied nightly, encrypted, kept away from the server, and restored into an empty database to prove it comes back. Software holding the only copy of a company's books and no proven restore is a liability, not a product. *Done 22 September 2026.*
 
 ## Modules
 
-Each one is switched on per company and invisible when it is off. None of them may change how the core records money; they add dimensions, documents and screens on top of it.
+Each one is switched on per company and invisible when it is off. None of them may change how the core records money; they add dimensions, documents and screens on top of it. The list was completed on 22 September 2026, when the product stopped being built only for Altura and started being built to sell.
+
+**Money, beyond the core**
+
+- **Quotes and orders.** A quote a customer accepts becomes an order and then an invoice, without anybody typing it three times.
+- **Repeat billing.** Invoices that issue themselves on a schedule, retainers, and a reminder ladder for what is late — the ordinary way a small business collects money.
+- **Expense claims.** Money a person spent out of their own pocket, with the photograph, approved and paid back. The cash tin covers a float; this covers everyone without one.
+- **Time.** Hours against a project or a job, charged out or costed in, and the same hours feeding payroll where payroll is on.
+- **Approvals and limits.** What a person may commit without asking, what needs a second name, and the record of who said yes.
+- **Budgets and the year ahead.** A budget per account or dimension, budget against actual on every report, and a cash forecast built from what is already owed and owing.
+- **Paying suppliers.** A payment run: what is due, what is selected, one file or one transfer, and the bank line matched back automatically.
+- **Getting paid.** A payment link on an invoice, and the receipt recorded when it clears. Card and bank rails differ by country and are part of the country pack.
+
+**Industry packs**
 
 - **Projects and job costing.** Budgets, cost codes, budget against actual, cost to complete, project profitability.
 - **Procurement.** Purchase requests, orders, goods received, three-way matching, spending limits and approvals.
 - **Construction.** Bills of quantity, variations, progress claims, retention, certified work, work in progress.
 - **Equipment and rental.** Machine register, utilisation, hours, fuel and maintenance cost, machine-level profitability, rate cards.
 - **Inventory and fuel.** Quantity-based stock, landed cost, margin per unit, opening plus purchases less sales equals closing.
-- **Hospitality.** Rooms, occupancy, ADR and RevPAR, food and beverage, guest deposits, agent commissions.
-- **Petty cash.** Boxes held by named people, spending with or without a bill, counts, top-ups, reimbursement.
-- **Payroll.** Deferred until the core is finished; it touches tax in every jurisdiction differently.
+- **Hospitality.** Rooms, occupancy, ADR and RevPAR, food and beverage, guest deposits, agent commissions. In the Maldives this covers guesthouses, liveaboards and resorts, which are three different businesses with one tax regime.
+- **Retail and the till.** A day's takings from a point of sale arriving as one balanced entry per day per till, not as a spreadsheet somebody retypes.
+- **Petty cash.** Boxes held by named people, spending with or without a bill, counts, top-ups, reimbursement. *Done 22 September 2026.*
+- **Payroll.** Gross to net, the deductions each country requires, payslips, and the filings that follow. Built per country, like tax.
+- **Leases and hire purchase.** What a lease puts on the balance sheet and what it puts through the profit and loss, for companies whose auditors apply IFRS 16.
 
-## Jurisdictions
+**For the group, and for the accountant**
 
-A jurisdiction pack is data, not code: rates with effective dates, what a compliant invoice must show, filing periods, form layouts and the vocabulary a local accountant expects.
+- **Group and consolidation.** Several companies, intercompany balances that eliminate, and one set of statements for the group. Altura is already a group; most of the businesses buying this are.
+- **The accountant's view.** The same books in the words an accountant uses, with the journal, the trail and the working papers behind each figure, and a practice signing off several clients from one place.
+- **Reports of their own.** The standard statements, plus a report somebody builds once, saves, and has emailed to them every month.
 
-- **Maldives.** GST 8% general and 17% tourism, quoted inclusive by some suppliers and added on top by others, and not charged at all by the many who are not registered. TIN and GST numbers. Filing by the 28th through MIRAconnect with Input and Output Tax Statements. Green Tax per guest night. Corporate income tax bands. The 24 revenue types MIRA administers. Records kept five years.
-- **Generic.** A configurable single-rate or multi-rate consumption tax, arbitrary period lengths, and no filing forms — enough for a company outside the Maldives to keep correct books without the product pretending it can file for them.
+## Where it is sold, and in what edition
+
+Two editions of one product, decided 22 September 2026. The ledger, the screens and the modules are the same in both; what differs is the pack that sits on top.
+
+**The Maldives edition.** Everything a Maldivian business is asked for by MIRA, in the words a Maldivian accountant uses: GST at 8% general and 17% tourism with the full rate history, the inclusive-or-exclusive question that an unregistered supplier makes unavoidable, TIN and GST numbers, the return keyed into MIRAconnect by the 28th with the Input and Output Tax Statements in MIRA's own layouts, Green Tax per guest night, corporate income tax bands, pension contributions, and records kept five years. This is the edition that proves the product works, because a small country's rules are specific enough that nothing can be faked.
+
+**The international edition.** The same product with a country pack instead of the Maldivian one, at the standard the rest of the market expects: a consumption tax with as many rates and periods as the country has, statements in the formats an auditor there recognises, and the local words for them. Where a country mandates electronic invoicing, that belongs in its pack, not in the ledger.
+
+### What a country pack contains
+
+A pack is data and layouts, never ledger code:
+
+- Tax rates with the dates they took effect, and the treatments a supplier can quote in.
+- What a compliant invoice must show, and how the number is made.
+- Filing periods, due dates, and the form or statement layout the authority wants.
+- Withholding taxes, reverse charge, and any tax on paying somebody abroad.
+- Electronic invoicing where it is mandated — Peppol in Europe and Singapore, ViDA as it arrives, ZATCA in Saudi Arabia, MyInvois in Malaysia, the IRP in India. A pack declares the format and the clearance step; the entry behind it is the same balanced entry as any other.
+- Payroll: the deductions, the ceilings, the payslip and the filings.
+- The statement formats and the vocabulary a local accountant expects.
 
 Adding a country is writing a pack. It must never mean touching the ledger.
+
+### What a country needs beyond tax
+
+- **Language.** English throughout, and Dhivehi in the Maldives edition, which is written in Thaana and reads right to left. Every screen is built so the direction can flip without the layout breaking.
+- **Money and dates.** The currency it is kept in, the currencies it transacts, and dates and separators written the way that country writes them.
+- **Where the data sits.** Which region a company's books are stored in, and who may be sent them, because some buyers cannot use a product that cannot answer this.
+- **Banks.** Open banking where it exists, and statement files where it does not. The Maldives has no open banking; the file reader is not a fallback there, it is the road.
 
 ## Connections
 
@@ -137,6 +182,19 @@ Set once when the books are opened, changeable afterwards by an administrator.
 - Which accounting software to bring history in from, and whether anything keeps running alongside while the move happens.
 - Whether the interface speaks plainly or in accounting terms — the same ledger underneath, described two ways, because an owner and their accountant are not reading for the same thing.
 
+## The platform a product needs to be sold
+
+None of this changes how money is recorded. All of it decides whether anyone outside Altura can buy the thing. Written down 22 September 2026, when the product's audience widened from one group of companies to a market.
+
+- **Getting in.** Somebody signs up, gets a trial, opens their books, and is not waiting on anybody to provision them.
+- **Getting their history in.** The connectors and the CSV floor that already exist, wrapped in a first-run that takes a company from "we use Zoho" to "our trial balance matches" without an implementation project.
+- **Plans, and what each one carries.** Which modules, how many companies, how many people, how much storage, and what happens when a trial ends: the books stay readable, because holding somebody's records hostage is not a pricing strategy.
+- **Billing for the product itself.** Kept well away from the ledger. A company's books never pay for Sentryfi from inside the company's books.
+- **The practice.** An accountant who keeps ten companies signs in once and moves between them, with their own sign-off and their own trail.
+- **An interface for other software.** A documented API and webhooks on the same door every person uses: nothing writes to the tables, ever.
+- **Answering for itself.** Backups proven by restore, a page that says whether it is up, a way to reach somebody, and a straight answer about where the data sits and who may see it.
+- **Its own languages.** English, Dhivehi in the Maldives edition, and a layout that does not break when the writing runs the other way.
+
 ## Current state, honestly
 
 Rewritten at the end of 19 September 2026. This section exists so nobody, including a future session, mistakes what is deployed for what is designed. It is kept blunt on purpose.
@@ -172,6 +230,8 @@ A complete accounting core with the industry modules and the tax pack a company 
 The Maldives pack is the sharp end and the reason this exists: it produces MIRA-format return figures and the exact Input and Output Tax Statements for MIRAconnect, reads mixed MVR and USD documents, records which way round a supplier quoted GST, and knows that many suppliers are not registered at all. Zoho Books, QuickBooks and Xero produce none of that, and the 2026 market research reviewed on 19 September 2026 shows no vendor addressing it either.
 
 The second difference is who the interface is for. A correct double-entry ledger, described in plain words to the person who owns the business and in accounting terms to their accountant, from the same records. Most products pick one audience and make the other learn.
+
+The fourth is that it is sold in two editions from one codebase: a Maldives edition that carries MIRA's rules to the last detail, and an international edition that is the same product with another country's pack on it. The competitors go the other way, building for a large market and adding small countries late or never, which is why a Maldivian business ends up keeping a spreadsheet beside its accounting software.
 
 The third is the order it was built in. The ledger came before any screen: balanced entries enforced by the database, a hash chain, per-company isolation. The market research names that ordering as the right one and most products did the reverse, bolting automation onto a flat record store. Retrofitting it is expensive; we do not have to.
 
@@ -241,6 +301,7 @@ Recorded 19 September 2026. The repository is the source of truth: pushing to `m
 - Voice: confident, calm, professional, plain language, no accounting jargon outside the Accountant view.
 - The owner chose a bold and expressive direction for the core mobile flow on 19 September 2026, recorded in the Design artifact "LedgerOS Core Mobile Flow" (https://claude.ai/artifact/68pfaMyCkAWkiyTN36bfH1): four phone artboards for Home, Snap, Review, and Recorded. This is a starting reference, not a binding design system; the visual world is being decided in the shape round of the same day.
 - Logo brief from the owner: simple and modern. No logo, wordmark, or brand assets exist yet.
+- **Colour, settled 22 September 2026.** Ink, signal yellow and a deep sea supporting colour, over the two alternatives that were drawn and compared (category blue, and a warm clay challenger) in the canvas "Sentryfi redesign direction" (https://claude.ai/artifact/DZaR7bTQ8rqb3cNAB7DiKc). The reasoning is in DESIGN.md: accounting software is a field of blues and greens, nobody in it owns yellow, and yellow earns its place here rather than being chosen for effect, because high-visibility yellow is what safety wear is and ink on yellow is the most readable pair in direct sun. The research that colour psychology rests on does not support picking a hue for its supposed meaning; what it supports is fit between the colour and what the product does.
 
 ## Evidence on Hand
 

@@ -484,6 +484,8 @@ Before a single real figure is entered: the accountant signs off the accounts st
 
 Each switched on per company, invisible when off, and none may change how the core records money. Ordered by what the business actually does: equipment rental earns money today, from an excavator rented to RDC.
 
+The list was completed on 22 September 2026, when the product's audience widened from Altura's group to a market: the Maldives edition and an international edition of one codebase. Steps 19 to 25 are the modules a business switches on, steps 27 to 33 are what any of it being sold depends on, and step 34 is the layer that watches over all of it. PRODUCT.md holds the same list in prose, with what each one is.
+
 ---
 
 ### 19. Projects and job costing
@@ -530,11 +532,79 @@ Last. It touches tax differently in every jurisdiction, so it waits for the engi
 
 ---
 
+### 26. Where the last few modules live
+
+Three of the modules in PRODUCT.md have no step of their own because they belong inside one that exists, and splitting them would invent work rather than describe it:
+
+- **The retail till** belongs in step 23: a day of takings arriving as one balanced entry per till, which is an inventory-and-sales question, not a new ledger.
+- **Leases and hire purchase** belong in step 20: the companies that need IFRS 16 are the ones with machines on finance, and the machine register is already there.
+- **The accountant view and saved reports** belong in step 11: the statements exist; what is owed is the same figures in an accountant's words, with the workings behind each one, and a report somebody saves and has emailed monthly.
+
+---
+
+### 27. The rest of the money, beyond the core
+
+Quotes that become orders and then invoices. Invoices that issue themselves on a schedule, with a reminder ladder for what is late. Expense claims: money a person spent from their own pocket, with the photograph, approved and paid back, for everyone who does not hold a tin. Time against a job. Approvals and spending limits, with the record of who said yes. Budgets per account and per dimension, budget against actual on every report, and a cash forecast built from what is already owed and owing. A payment run that pays several suppliers at once and matches the bank lines back.
+
+**Done when:** a small business can quote, bill, chase, claim, approve and pay from here without keeping a spreadsheet beside it.
+
+---
+
+### 28. Fixed assets, and the year end
+
+An asset register, a life and a method per asset, depreciation posted on a schedule rather than remembered, and the gain or loss when a machine is sold. Then the year closed: the profit rolled into retained earnings as an entry with a date on it, and last year's figures standing beside this year's on every statement.
+
+These are in the core list, not the module list: a balance sheet carrying a five-year-old excavator at cost is wrong, and a set of books with no year end has nowhere to put a profit.
+
+**Done when:** an excavator bought this year appears on the balance sheet at its written-down value without anybody calculating it, and a closed year produces comparatives.
+
+---
+
+### 29. Group and consolidation
+
+Several companies, intercompany balances that eliminate against each other, and one set of statements for the group. Altura is already a group and so is most of the market this is sold into; the companies exist, the consolidation does not.
+
+**Done when:** a group statement balances, intercompany balances cancel, and each company's own books are unchanged by being consolidated.
+
+---
+
+### 30. A country pack that is not ours
+
+The Maldives pack proves the shape; a second country proves it is a shape and not a special case. Rates with effective dates, invoice requirements, periods and due dates, withholding, the statement formats an auditor there knows, and the local words. Where a country mandates electronic invoicing — Peppol, ViDA, ZATCA, MyInvois, the Indian IRP — the pack declares the format and the clearance step, and the entry behind it stays an ordinary balanced entry.
+
+**Done when:** a company in a second country keeps correct books and produces its return without a line of ledger code being written, and the Maldives edition is unaffected.
+
+---
+
+### 31. The languages, and which way the writing runs
+
+English throughout, Dhivehi in the Maldives edition. Thaana reads right to left, so the layout has to flip without breaking: mirrored rails and rows, but never mirrored numbers, which stay left to right and tabular. Dates, separators and currency written the way the country writes them.
+
+**Done when:** the same screens read correctly in Dhivehi, and no figure moves.
+
+---
+
+### 32. Being bought
+
+Sign-up and a trial that provisions itself. A first run that takes a company from "we use Zoho" to "our trial balance matches" without an implementation project. Plans: which modules, how many companies and people, how much storage, and what happens when a trial ends — the books stay readable, because holding somebody's records hostage is not a pricing strategy. Billing for the product, kept well away from the ledger. A practice signing in once and moving between ten clients, with its own sign-off and its own trail. A documented API and webhooks on the same door a person uses.
+
+**Done when:** somebody who has never met us opens books, brings their history in, and pays, without anybody at this end doing anything.
+
+---
+
+### 33. Being trusted with it
+
+A straight answer about where a company's books are stored and who may see them, and the ability to put them in a region a buyer will accept. Backups proven by restore, already built in step 17. A page that says whether it is up. A way to reach a person. The security review of step 18, repeated whenever a connector or an export is added.
+
+**Done when:** a cautious buyer's questions have answers on a page rather than in a conversation.
+
+---
+
 # Part three — on top
 
 ---
 
-### 26. The layer that watches
+### 34. The layer that watches
 
 **Half of it already shipped.** Reading a photographed bill, deciding what is doubtful and asking only about that, landed in step 2. The previous plan described an assistant arriving at the end as though nothing existed. What is left is the part that needs a full set of books.
 
@@ -545,6 +615,14 @@ Continuous reconciliation. Anomalies raised as they happen rather than at month 
 **The rule that does not bend:** it may read, suggest and draft. It may not post. Accounting mathematics is not a thing an assistant gets an opinion about.
 
 ---
+
+## The design direction, settled 22 September 2026
+
+The owner asked for a redesign against fifteen references (dark Untitled-UI consoles, light ERP suites) and asked whether they were better. The answer, and what was taken from them, is in DESIGN.md under "The desk register, rebuilt" and drawn on the canvas "Sentryfi redesign direction" (https://claude.ai/artifact/DZaR7bTQ8rqb3cNAB7DiKc): six artboards covering the desk register, the phone board, the system, three colour palettes compared, and the icon and button rules.
+
+Settled: ink and signal yellow keep the identity, with deep sea `#0F4C5C` added for links and charts; the desk register takes the references' structure (grouped rail, breadcrumb bar, card grid, a table anatomy every module reuses, money with the minor unit held back, density as a choice); the phone board is unchanged because nothing in the references beats it in the sun. Refused: dark by default, avatars on rows, donuts, gradient washes.
+
+**Still owed:** the tokens and shared components rebuilt to match the canvas, then each screen moved onto them, with the browser checks green throughout. Do it before part two's modules multiply the screens, and never during a tax deadline.
 
 ## What was wrong with the previous plan
 
