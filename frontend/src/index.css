@@ -215,12 +215,21 @@ body {
 
 .phone-board {
   position: fixed;
-  inset: 0;
+  top: 0;
+  bottom: 0;
+  /* A column the width of a phone, whatever the screen is. An unfolded
+     foldable is 800px of glass: the board stretched across all of it, with a
+     44px figure and fields a foot wide. The board is drawn for one thumb and
+     stays that size; the screen around it is the page ground. */
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100%, 560px);
   display: flex;
   flex-direction: column;
   background: var(--surface);
   color: var(--ink);
   overflow: hidden;
+  box-shadow: 0 0 0 1px var(--border);
 }
 
 .phone-header {
