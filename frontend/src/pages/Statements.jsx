@@ -4,6 +4,7 @@ import { Download } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
+import { Money } from "@/components/ui/Money";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { statementsApi } from "@/api/statements";
@@ -166,15 +167,15 @@ function Trial({ t }) {
         <div key={r.code} className={`${ROW} ${cols}`}>
           <span className="hidden sm:block tabular text-[var(--ink-muted)]">{r.code}</span>
           <span className="break-words">{r.name}</span>
-          <span className="tabular text-right">{r.debit ?? ""}</span>
-          <span className="tabular text-right">{r.credit ?? ""}</span>
+          <span className="text-right">{r.debit ? <Money amount={r.debit} /> : ""}</span>
+          <span className="text-right">{r.credit ? <Money amount={r.credit} /> : ""}</span>
         </div>
       ))}
       <div className={`${ROW} ${cols} font-semibold`}>
         <span className="hidden sm:block" />
         <span>Total</span>
-        <span className="tabular text-right">{t.debit}</span>
-        <span className="tabular text-right">{t.credit}</span>
+        <span className="text-right"><Money amount={t.debit} /></span>
+        <span className="text-right"><Money amount={t.credit} /></span>
       </div>
       <Verdict ok={t.balances} yes="Debits equal credits, to the laari." no={`Debits and credits differ by ${t.difference}. An entry got in that should have been refused.`} />
     </Card>
@@ -190,13 +191,13 @@ function Section({ title, rows, total, totalLabel, cols }) {
         <div key={r.code} className={`${ROW} ${cols}`}>
           <span className="hidden sm:block tabular text-[var(--ink-muted)]">{r.code}</span>
           <span className="break-words">{r.name}</span>
-          <span className="tabular text-right">{r.amount}</span>
+          <span className="text-right"><Money amount={r.amount} /></span>
         </div>
       ))}
       <div className={`${ROW} ${cols} font-semibold`}>
         <span className="hidden sm:block" />
         <span>{totalLabel}</span>
-        <span className="tabular text-right">{total}</span>
+        <span className="text-right"><Money amount={total} /></span>
       </div>
     </>
   );

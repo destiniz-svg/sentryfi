@@ -2,16 +2,18 @@ import { cva } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-semibold tracking-tight tabular",
+  // A standing: a word first, its colour second. The fills are the settled
+  // soft tokens rather than alpha tints, so every pair is a known 4.5:1.
+  "inline-flex items-center gap-1.5 h-[26px] px-2.5 rounded-full text-[13px] font-semibold tracking-tight tabular whitespace-nowrap",
   {
     variants: {
       tone: {
         neutral:
           "bg-[var(--surface-2)] text-[var(--ink-muted)] border border-[var(--border)]",
         accent: "bg-[var(--accent-soft)] text-[var(--accent-strong)]",
-        success: "bg-[var(--success)]/12 text-[var(--success)]",
-        warning: "bg-[var(--warning)]/14 text-[var(--warning)]",
-        danger: "bg-[var(--danger)]/12 text-[var(--danger)]",
+        success: "bg-[var(--success-soft)] text-[var(--success)]",
+        warning: "bg-[var(--warning-soft)] text-[var(--warning)]",
+        danger: "bg-[var(--danger-soft)] text-[var(--danger)]",
         ink: "bg-[var(--ink)] text-[var(--bg)]",
       },
     },
