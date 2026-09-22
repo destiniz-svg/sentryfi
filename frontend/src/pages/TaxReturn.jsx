@@ -97,7 +97,7 @@ export default function TaxReturn() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <Card padding="none" className="overflow-hidden">
+        <Card padding="none" className="overflow-hidden self-start">
           <div className="px-5 pt-4 pb-2 text-[15px] font-semibold">
             {p.label}: {niceDate(p.from)} to {niceDate(p.to)}
           </div>

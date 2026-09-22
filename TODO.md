@@ -298,13 +298,28 @@ Not done: the bill reader prompt still mentions 8% as a hint to the model. It ne
 
 ---
 
-### 13. The return, ready before the deadline
+### 13. The return, ready before the deadline — built 22 September 2026
 
 **You will be able to:** open the tax centre any day and see what you owe so far, what still needs looking at, and how long is left. Before filing, see what is already correct and what would make the return wrong. Produce the figures and both spreadsheets in the format the portal expects, with every receipt behind them.
 
 **Under the bonnet:** the other charges the authority collects, not tax alone — MIRA administers 24 revenue types and three of them apply to Altura and are not modelled.
 
 **Done when:** one month produces a pack that is keyed into the portal without opening a spreadsheet, and the countdown appears in step 3.
+
+**What happened.** The GST return page is at `/tax`. For any month or quarter it shows:
+- the figures to key into MIRAconnect;
+- the days left before the 28th;
+- what would make the return wrong: no taxable activity number, suppliers with no TIN, a rate MIRA's statement has no column for, the books disagreeing with the documents, or the books changing after filing;
+- what is not in the books yet.
+
+Both statements download as `.xlsx` in MIRA's v23.1 upload layout. Those templates were read from MIRA's own files and are recorded in `docs/real-world-samples/mira-statements.md`; the Input statement has 12 columns, not the 11 this record assumed. The figures are built from the documents in the period and checked against the ledger. A bill reversed in a later month comes back out in that month. Marking a return filed keeps the figures that were filed. The countdown shows in what needs you for the last two weeks, and as money at risk once the return is late. Browser check: `node tools/gst.js`. It downloads both files and compares their headings with MIRA's.
+
+Not done:
+- **The MIRA 205 box numbers.** MIRA's site would not release the form PDF to an automated browser, so the figures are labelled in words. Mapping them to the boxes is the accountant's first check.
+- **The other revenue types:** Company Annual Fee, Withholding Tax and Remittance Tax. They are not modelled yet.
+- **Receipts behind the statement lines.** They are linked from each bill, not bundled into the pack.
+
+It is not done until one real month has been keyed in and accepted by the portal.
 
 ---
 

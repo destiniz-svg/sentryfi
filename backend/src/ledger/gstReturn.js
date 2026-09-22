@@ -165,10 +165,16 @@ async function build(client, { companyId, key }) {
       href: "/settings",
     });
   }
-  for (const b of bills.filter((r) => r.sign > 0 && !r.tin)) {
+  // One item for all of them, naming the suppliers: a list that grows by one
+  // line per bill buries everything under it.
+  const noTin = bills.filter((r) => r.sign > 0 && !r.tin);
+  if (noTin.length) {
+    const who = [...new Set(noTin.map((b) => b.supplier || "an unnamed supplier"))];
     problems.push({
-      what: `${b.supplier || "A supplier"} has no TIN`,
-      detail: `Bill ${b.bill_no || "without a number"} claims MVR ${formatLaari(BigInt(b.tax_laari))} of GST. A claim needs the supplier's TIN on the statement. Add it, or the claim can be refused.`,
+      what: noTin.length === 1 ? `${who[0]} has no TIN` : `${noTin.length} bills claim GST from suppliers with no TIN`,
+      detail:
+        `MVR ${formatLaari(sum(noTin, (b) => BigInt(b.tax_laari)))} of GST claimed from ${who.slice(0, 5).join(", ")}${who.length > 5 ? ` and ${who.length - 5} more` : ""}. ` +
+        "A claim needs the supplier's TIN on the statement. Add it, or the claim can be refused.",
       href: "/bills",
     });
   }
