@@ -12,7 +12,7 @@ const taxEngine = require("../ledger/tax");
 const fx = require("../ledger/fx");
 const { findOrCreate, observe } = require("../ledger/counterparties");
 const { toLaari, formatLaari } = require("../ledger/money");
-const { uploadReceipt } = require("../middleware/upload");
+const { uploadReceipt, uploadVoice } = require("../middleware/upload");
 const gemini = require("../services/geminiService");
 const { aiLimiter } = require("../middleware/rateLimit");
 
@@ -100,95 +100,101 @@ router.post(
         companyName: req.company?.name,
       });
     } catch (err) {
-      // Every failure used to become "that could not be read", which is
-      // useless advice when the photograph was fine, and the cause was never
-      // logged — so a production failure left no trace at all. Log the real
-      // thing, and say which kind of failure it was.
-      const raw = String(err?.message || err);
-      console.error(
-        JSON.stringify({
-          at: "bills/scan",
-          company: req.companyId,
-          mime: req.file?.mimetype,
-          bytes: req.file?.size,
-          error: raw.slice(0, 500),
-        })
-      );
-
-      if (/GEMINI_API_KEY/i.test(raw)) {
-        throw ApiError.badRequest(
-          "Reading bills from a photo is not switched on yet. Type it in for now."
-        );
-      }
-      if (/API key not valid|API_KEY_INVALID|PERMISSION_DENIED|401|403/i.test(raw)) {
-        throw ApiError.badRequest(
-          "The key for reading bills was refused. Somebody needs to check it in the settings — the photograph is fine."
-        );
-      }
-      if (/\b503\b|UNAVAILABLE|high demand|overloaded/i.test(raw)) {
-        throw ApiError.badRequest(
-          "The reader is busy just now — nothing wrong with your photograph. Try again in a moment, or type it in."
-        );
-      }
-      if (/quota|RESOURCE_EXHAUSTED|\b429\b|rate limit/i.test(raw)) {
-        throw ApiError.badRequest(
-          "Reading bills has hit its limit for now. Type this one in; it will work again shortly."
-        );
-      }
-      if (/not found|NOT_FOUND|404|is not supported/i.test(raw)) {
-        throw ApiError.badRequest(
-          "The reader is misconfigured — the model it was told to use does not exist. Type it in for now."
-        );
-      }
-      if (/SAFETY|blocked|recitation/i.test(raw)) {
-        throw ApiError.badRequest(
-          "The reader would not answer on that image. Type it in for now."
-        );
-      }
-      throw ApiError.badRequest(
-        "That could not be read. Try a clearer photograph, or type it in."
-      );
+      throw readerFailed(err, { at: "bills/scan", req });
     }
 
-    const { extracted, questions } = read;
-
-    // Who this might be, among suppliers already known.
-    let matched = null;
-    if (extracted.supplierName) {
-      matched = await asCompany(req, async (client) => {
-        const { rows } = await client.query(
-          `SELECT id, name, gst_registered,
-                  similarity(name, $2) AS score
-             FROM counterparties
-            WHERE company_id = $1
-              AND archived_at IS NULL
-              AND (name % $2 OR lower($2) = ANY (SELECT lower(x) FROM unnest(also_known_as) x))
-            ORDER BY score DESC NULLS LAST
-            LIMIT 1`,
-          [req.companyId, extracted.supplierName]
-        );
-        return rows[0] || null;
-      });
-    }
-
-    // A supplier we know is not registered cannot have charged GST, whatever
-    // the paper seems to say. Knowing something is better than reading it.
-    let treatment = extracted.gstTreatment;
-    let questionList = questions;
-    if (matched && matched.gst_registered === false && treatment === "unknown") {
-      treatment = "none_unregistered";
-      questionList = questions.filter((q) => q.field !== "gstTreatment");
-    }
-
-    res.json({
-      read: { ...extracted, gstTreatment: treatment },
-      supplier: matched
-        ? { id: matched.id, name: matched.name, gstRegistered: matched.gst_registered }
-        : null,
-      questions: questionList,
-    });
+    await answerWith(req, res, read);
   })
 );
+
+/**
+ * A bill said out loud instead of photographed.
+ *
+ * On a site the paper is often in one hand and the phone in the other, and in
+ * bright sun a photograph takes three tries. Speaking it takes one. It is the
+ * same reader, the same fields and the same review afterwards: what was heard
+ * is put in front of a person before it becomes a record, and the tax question
+ * is left unanswered unless they actually said it.
+ */
+router.post(
+  "/listen",
+  requireCan("record", "capture"),
+  aiLimiter,
+  uploadVoice("file"),
+  asyncHandler(async (req, res) => {
+    let read;
+    try {
+      read = await gemini.parseSpoken({
+        buffer: req.file.buffer,
+        mimeType: req.file.mimetype,
+        companyName: req.company?.name,
+      });
+    } catch (err) {
+      throw readerFailed(err, { at: "bills/listen", req, spoken: true });
+    }
+    await answerWith(req, res, read);
+  })
+);
+
+/** What the reader found, with who it might be among suppliers already known. */
+async function answerWith(req, res, read) {
+  const { extracted, questions } = read;
+
+  let matched = null;
+  if (extracted.supplierName) {
+    matched = await asCompany(req, async (client) => {
+      const { rows } = await client.query(
+        `SELECT id, name, gst_registered,
+                similarity(name, $2) AS score
+           FROM counterparties
+          WHERE company_id = $1
+            AND archived_at IS NULL
+            AND (name % $2 OR lower($2) = ANY (SELECT lower(x) FROM unnest(also_known_as) x))
+          ORDER BY score DESC NULLS LAST
+          LIMIT 1`,
+        [req.companyId, extracted.supplierName]
+      );
+      return rows[0] || null;
+    });
+  }
+
+  // A supplier we know is not registered cannot have charged GST, whatever
+  // the paper seems to say. Knowing something is better than reading it.
+  let treatment = extracted.gstTreatment;
+  let questionList = questions;
+  if (matched && matched.gst_registered === false && treatment === "unknown") {
+    treatment = "none_unregistered";
+    questionList = questions.filter((q) => q.field !== "gstTreatment");
+  }
+
+  res.json({
+    read: { ...extracted, gstTreatment: treatment },
+    supplier: matched ? { id: matched.id, name: matched.name, gstRegistered: matched.gst_registered } : null,
+    questions: questionList,
+  });
+}
+
+/** Why the reader could not answer, said to the person holding the phone. */
+function readerFailed(err, { at, req, spoken }) {
+  const raw = String(err?.message || err);
+  console.error(JSON.stringify({ at, company: req.companyId, mime: req.file?.mimetype, bytes: req.file?.size, error: raw.slice(0, 500) }));
+  const typeItIn = spoken ? "Say it again, or type it in." : "Try a clearer photograph, or type it in.";
+  if (/GEMINI_API_KEY/i.test(raw)) return ApiError.badRequest(`Reading is not switched on yet. ${typeItIn}`);
+  if (/API key not valid|API_KEY_INVALID|PERMISSION_DENIED|401|403/i.test(raw)) {
+    return ApiError.badRequest("The key for reading was refused. Somebody needs to check it in the settings — the recording is fine.");
+  }
+  if (/\b503\b|UNAVAILABLE|high demand|overloaded/i.test(raw)) {
+    return ApiError.badRequest(`The reader is busy just now — nothing wrong with what you sent. Try again in a moment, or type it in.`);
+  }
+  if (/quota|RESOURCE_EXHAUSTED|\b429\b|rate limit/i.test(raw)) {
+    return ApiError.badRequest(`Reading has hit its limit for now. ${typeItIn}`);
+  }
+  if (/not found|NOT_FOUND|404|is not supported/i.test(raw)) {
+    return ApiError.badRequest(`The reader is misconfigured — the model it was told to use does not exist. ${typeItIn}`);
+  }
+  if (/SAFETY|blocked|recitation/i.test(raw)) return ApiError.badRequest(`The reader would not answer on that. ${typeItIn}`);
+  return ApiError.badRequest(spoken ? "That could not be made out. Say it again, closer to the phone, or type it in." : "That could not be read. Try a clearer photograph, or type it in.");
+}
 
 /** Bills, newest first. Voided ones stay in the list, marked. */
 router.get(

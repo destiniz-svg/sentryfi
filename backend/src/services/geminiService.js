@@ -1,7 +1,7 @@
 const { GoogleGenAI } = require("@google/genai");
 
 const env = require("../config/env");
-const { billSchema, billValidator, billPrompt, questionsFrom } = require("./billExtraction");
+const { billSchema, billValidator, billPrompt, spokenPrompt, questionsFrom } = require("./billExtraction");
 const ApiError = require("../utils/ApiError");
 
 const ai = env.geminiApiKey
@@ -157,6 +157,30 @@ async function parseBill({ buffer, mimeType, companyName }) {
   return { extracted, questions: questionsFrom(extracted) };
 }
 
+/**
+ * The same, from a voice note rather than a photograph. One model, one schema,
+ * one way of handling what it is unsure about; only the prompt differs.
+ */
+async function parseSpoken({ buffer, mimeType, companyName }) {
+  requireAI();
+  const text = await generate({
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { text: spokenPrompt({ companyName }) },
+          { inlineData: { mimeType: String(mimeType).split(";")[0].trim(), data: buffer.toString("base64") } },
+        ],
+      },
+    ],
+    config: { responseMimeType: "application/json", responseSchema: billSchema, temperature: 0 },
+  });
+
+  const extracted = billValidator.parse(JSON.parse(text));
+  return { extracted, questions: questionsFrom(extracted) };
+}
+
 module.exports = {
   parseBill,
+  parseSpoken,
 };

@@ -16,6 +16,18 @@ export const billsApi = {
   },
 
   /**
+   * Reads a bill said out loud. Same reader, same fields, same review: the
+   * person sees what was heard before any of it becomes a record.
+   */
+  listen: (blob) => {
+    const form = new FormData();
+    form.append("file", blob, "note.webm");
+    return apiClient
+      .post("/bills/listen", form, { headers: { "Content-Type": "multipart/form-data" } })
+      .then((r) => r.data);
+  },
+
+  /**
    * Records a bill without posting it. Returns the bill and anything that
    * looks like a duplicate, so the person can be told before it matters.
    */

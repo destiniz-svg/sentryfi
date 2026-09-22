@@ -237,4 +237,27 @@ function questionsFrom(extracted) {
   return questions;
 }
 
-module.exports = { billSchema, billValidator, billPrompt, questionsFrom };
+/**
+ * The same bill, spoken instead of photographed.
+ *
+ * Somebody on a jetty with a bill in one hand and a phone in the other says
+ * what it is. They will speak Dhivehi, English, or both in one sentence, and
+ * they will say "two fifty" or "rufiyaa two thousand five hundred". What must
+ * not happen is the tax being guessed from a sentence that never mentioned it.
+ */
+function spokenPrompt({ companyName } = {}) {
+  return [
+    "You are listening to a short voice note from someone recording a supplier's bill or an expense for a construction company in the Maldives.",
+    "They may speak English, Dhivehi, or a mixture of the two in one sentence. Understand both.",
+    "Write down only what they actually said. If they did not say something, leave it null; a blank is far better than a guess.",
+    companyName ? `The company keeping these books is "${companyName}". If they name it, that is the customer, not the supplier.` : "",
+    "supplierName is who the money is owed to: the shop, the supplier, the person paid.",
+    "grossAmount is the total they said, in digits, with at most one decimal point and no currency symbol, commas or spaces. \"Two thousand five hundred\" is 2500. \"Two fifty\" said of a small purchase is 250, but if they are not clear, leave it null.",
+    "issueDate only if they said a date: today's date belongs to the app, not to you.",
+    "gstTreatment: 'unknown' unless they clearly said how the tax was charged — 'inclusive' if they said the price includes GST, 'exclusive' if they said GST was added on top, 'none_unregistered' if they said the supplier does not charge GST. A voice note almost never settles this, and 'unknown' is the correct answer.",
+    "Put whatever they said it was for, in their own words, in description.",
+    "For confidence, be honest: a noisy jetty is a real thing and 'low' is useful.",
+  ].filter(Boolean).join("\n");
+}
+
+module.exports = { billSchema, billValidator, billPrompt, spokenPrompt, questionsFrom };

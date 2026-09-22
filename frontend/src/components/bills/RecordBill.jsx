@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, AlertTriangle, Camera, Paperclip, FileText, X, Check } from "lucide-react";
+import { AlertTriangle, Camera, Check, FileText, Loader2, Mic, Paperclip, Square, X } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { useBillMutations } from "@/hooks/useBills";
@@ -75,6 +75,7 @@ export function RecordBill({ open, onClose }) {
   const [err, setErr] = useState("");
   const [duplicates, setDuplicates] = useState([]);
   const [reading, setReading] = useState(false);
+  const [listening, setListening] = useState(null); // the recorder, while it runs
   const [questions, setQuestions] = useState([]);
   const [readIt, setReadIt] = useState(false);
   const [blanks, setBlanks] = useState([]);
@@ -170,6 +171,108 @@ export function RecordBill({ open, onClose }) {
    * Anything the reading was unsure about is listed underneath, because the
    * rule is to ask only about what is genuinely doubtful and handle the rest.
    */
+  /**
+   * What the reader found, put in front of the person. Identical whether it
+   * was read off paper or heard: the fields fill, what it was sure of is
+   * marked, what it could not make out is said plainly, and nothing is
+   * recorded until somebody presses the button.
+   */
+  function applyReading(result) {
+    const extracted = result.read || {};
+
+    setForm((f) => ({
+      ...f,
+      supplierName: result.supplier?.name || extracted.supplierName || f.supplierName,
+      amount: extracted.grossAmount || f.amount,
+      billNo: extracted.billNo || f.billNo,
+      issueDate: extracted.issueDate || f.issueDate,
+      gstTreatment: extracted.gstTreatment || f.gstTreatment,
+    }));
+    setQuestions(result.questions || []);
+    // Everything the reader filled and was not asked about. A field arrives
+    // checked rather than blank, because making one field always unchecked
+    // turns the review into a ritual tap and teaches somebody to clear it
+    // without reading — which is worse than no review at all.
+    const asked = new Set((result.questions || []).map((q) => q.field));
+    setSure(
+      [
+        extracted.supplierName || result.supplier?.name ? "supplierName" : null,
+        extracted.grossAmount ? "amount" : null,
+        extracted.billNo ? "billNo" : null,
+        extracted.issueDate ? "issueDate" : null,
+        extracted.gstTreatment && extracted.gstTreatment !== "unknown" ? "gstTreatment" : null,
+      ].filter((field) => field && !asked.has(field))
+    );
+    // Whatever the reading said about the supplier travels with the bill, so
+    // the supplier record fills itself in over time rather than anybody typing.
+    setSupplierFacts({
+      tin: extracted.supplierTin || undefined,
+      gst_number: extracted.supplierGstNumber || undefined,
+      address: extracted.supplierAddress || undefined,
+      phone: extracted.supplierPhone || undefined,
+      email: extracted.supplierEmail || undefined,
+      bank_account: extracted.supplierBankAccount || undefined,
+      // The other way the same supplier spelt itself on this page, so it is
+      // recognised next time it arrives written that way.
+      also_seen_as: extracted.supplierAlsoSeenAs || undefined,
+    });
+    setReadIt(true);
+    setBlanks(
+      [
+        ["the supplier", extracted.supplierName],
+        ["the amount", extracted.grossAmount],
+        ["the bill number", extracted.billNo],
+        ["the date", extracted.issueDate],
+      ]
+        .filter(([, v]) => !v)
+        .map(([label]) => label)
+    );
+  }
+
+  /**
+   * A bill said out loud. In bright sun a photograph takes three tries and
+   * speaking takes one, and a supervisor with a bill in one hand has only the
+   * other. The recording is read and thrown away; nothing is kept but what
+   * the person confirms.
+   */
+  async function onSay() {
+    if (listening) {
+      listening.stop();
+      return;
+    }
+    setErr("");
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setErr("This phone will not let the app use the microphone. Allow it in the browser's settings, or type it in.");
+      return;
+    }
+    const chunks = [];
+    const recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    recorder.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      setListening(null);
+      const note = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+      if (note.size < 1000) {
+        setErr("That was too short to make out. Hold the button, say it, then stop.");
+        return;
+      }
+      setReading(true);
+      setQuestions([]);
+      try {
+        applyReading(await billsApi.listen(note));
+      } catch (ex) {
+        setErr(ex.message || "That could not be made out. Say it again, or type it in.");
+      } finally {
+        setReading(false);
+      }
+    };
+    recorder.start();
+    setListening(recorder);
+  }
+
   async function onFiles(e) {
     const picked = Array.from(e.target.files || []);
     // Clear the input so picking the same file twice still fires a change.
@@ -206,54 +309,7 @@ export function RecordBill({ open, onClose }) {
     setErr("");
     setQuestions([]);
     try {
-      const result = await billsApi.scan(toRead);
-      const extracted = result.read || {};
-
-      setForm((f) => ({
-        ...f,
-        supplierName: result.supplier?.name || extracted.supplierName || f.supplierName,
-        amount: extracted.grossAmount || f.amount,
-        billNo: extracted.billNo || f.billNo,
-        issueDate: extracted.issueDate || f.issueDate,
-        gstTreatment: extracted.gstTreatment || f.gstTreatment,
-      }));
-      setQuestions(result.questions || []);
-      // Everything the reader filled and was not asked about. A field arrives
-      // checked rather than blank, because making one field always unchecked
-      // turns the review into a ritual tap and teaches somebody to clear it
-      // without reading — which is worse than no review at all.
-      const asked = new Set((result.questions || []).map((q) => q.field));
-      setSure(
-        [
-          extracted.supplierName || result.supplier?.name ? "supplierName" : null,
-          extracted.grossAmount ? "amount" : null,
-          extracted.billNo ? "billNo" : null,
-          extracted.issueDate ? "issueDate" : null,
-          extracted.gstTreatment && extracted.gstTreatment !== "unknown" ? "gstTreatment" : null,
-        ].filter((field) => field && !asked.has(field))
-      );
-      setReadIt(true);
-      setBlanks(
-        [
-          ["the supplier", extracted.supplierName],
-          ["the amount", extracted.grossAmount],
-          ["the bill number", extracted.billNo],
-          ["the date", extracted.issueDate],
-        ]
-          .filter(([, v]) => !v)
-          .map(([label]) => label)
-      );
-      setSupplierFacts({
-        tin: extracted.supplierTin || undefined,
-        gst_number: extracted.supplierGstNumber || undefined,
-        address: extracted.supplierAddress || undefined,
-        phone: extracted.supplierPhone || undefined,
-        email: extracted.supplierEmail || undefined,
-        bank_account: extracted.supplierBankAccount || undefined,
-        // The other way the same supplier spelt itself on this page, so it is
-        // recognised next time it arrives written that way.
-        also_seen_as: extracted.supplierAlsoSeenAs || undefined,
-      });
+      applyReading(await billsApi.scan(toRead));
     } catch (ex) {
       setErr(ex.message || "That could not be read. Type it in instead.");
     } finally {
@@ -452,7 +508,7 @@ export function RecordBill({ open, onClose }) {
           onChange={onFiles}
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <Button
             type="button"
             ref={cameraButton}
@@ -473,6 +529,20 @@ export function RecordBill({ open, onClose }) {
           >
             <Paperclip size={16} />
             Choose a file
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onSay}
+            disabled={reading}
+            className={
+              (board ? "h-[52px] rounded-none border-2 border-[var(--ink)]" : "h-12") +
+              (listening ? " on-yellow bg-[var(--accent)] text-[var(--on-accent)]" : "")
+            }
+          >
+            {listening ? <Square size={15} /> : <Mic size={16} />}
+            {listening ? "Stop and read it" : "Say it"}
           </Button>
         </div>
 
