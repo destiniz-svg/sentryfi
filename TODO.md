@@ -68,6 +68,7 @@ Accountant questions still open — GST at import, input tax timing, duty drawba
 **Done when:** a loan repayment posts principal and interest correctly without anyone doing the split by hand.
 
 **Design system rebuilt.** Tokens and shared components rebuilt to match the settled design direction (ink, signal yellow, deep sea), then every screen moved onto them, browser checks green throughout. Do it before the modules multiply the screens. **← next**
+  - *Done 23 Sep 2026:* settled tokens live (warmer ground, deep sea, status pairs at 4.5:1); slice 1, standing pills and statement money; slice 2, money on bank, bills, invoices and tins, and text links in deep sea. *Next slice:* the page shell — grouped rail, breadcrumb bar, one filled action per page header.
 **Done when:** no screen still uses a hand-rolled colour, spacing or component the tokens should supply.
 
 **Opening balances from a trial balance.** The importer takes Zoho's `.xlsx`/`.csv` trial balance directly, instead of opening balances being converted by hand. *(was step 14)*
