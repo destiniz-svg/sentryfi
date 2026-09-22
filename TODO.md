@@ -86,7 +86,7 @@ The phases below say *what*; this says *when*. Set 23 September 2026. Each sprin
 20. Sellable: a second country pack, Dhivehi and right to left, sign-up and plans, the practice portal.
 21. The expense companion app.
 
-**Now:** Sprint 1, item 4 (the expense manager's navigation). Item 3 done 23 September 2026: bank lines on a phone ask one question at a time with a bar, the remembered answer in yellow, Leave for later quiet. Items 1 and 2 done 23 September 2026: tab bar, Record sheet, More, offline line; Home (cash card, thirty-day line, runway, cash per place, Needs you) and Money (Bills | Invoices, sticky total, day headers, money rows, swipe to put in the books). Parts in `components/mobile/parts.jsx`; the pill is `Badge`, the undo strip `UndoContext`. Checked by `tools/tabbar.js`.
+**Now:** Sprint 1, item 5 (the desk shell, design slice 3). Item 4 done 23 September 2026: the expense manager reads Home · Tin · Send · Owed back · Me; Owed back shows what the holder paid from their own pocket. A "paid from the tin" choice on Send is not built: spending from the tin is on Tin. Item 3 done 23 September 2026: bank lines on a phone ask one question at a time with a bar, the remembered answer in yellow, Leave for later quiet. Items 1 and 2 done 23 September 2026: tab bar, Record sheet, More, offline line; Home (cash card, thirty-day line, runway, cash per place, Needs you) and Money (Bills | Invoices, sticky total, day headers, money rows, swipe to put in the books). Parts in `components/mobile/parts.jsx`; the pill is `Badge`, the undo strip `UndoContext`. Checked by `tools/tabbar.js`.
 
 ## The plan
 

@@ -64,7 +64,7 @@ export default function PhoneOwed() {
                     {t.paidByHolder ? `${t.inBox} in the tin` : `${t.inBox} in the tin · nothing owed`}
                   </div>
                 </div>
-                <div className={`phone-row-amount${t.paidByHolder ? " is-out" : ""}`}>{t.paidByHolder || "0.00"}</div>
+                <div className="phone-row-amount">{t.paidByHolder || "0.00"}</div>
               </Link>
             ))}
           </div>

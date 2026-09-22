@@ -97,10 +97,22 @@ async function stop(why) {
         body: JSON.stringify({}),
       }).then((r) => r.json());
 
+      // Handed over is not yet in the tin: the holder (here, whoever opened
+      // it) signs for it first.
+      const onItsWay = (await fetch("/api/cash", { credentials: "include", headers }).then((r) => r.json())).boxes.find(
+        (b) => b.id === boxId
+      ).inBox;
+      await fetch(`/api/cash/topups/${asked.id}/receive`, {
+        method: "POST",
+        credentials: "include",
+        headers,
+        body: JSON.stringify({}),
+      });
+
       const after = (await fetch("/api/cash", { credentials: "include", headers }).then((r) => r.json())).boxes.find(
         (b) => b.id === boxId
       );
-      return { asked, beforeGiving: before.inBox, given, after: after.inBox };
+      return { asked, beforeGiving: before.inBox, given, onItsWay, after: after.inBox };
     },
     [state.box.id, PUT_IN]
   );
@@ -108,7 +120,10 @@ async function stop(why) {
   if (filled.beforeGiving === "0.00") ok("asking for it moved no money");
   else bad(`asking changed the tin to ${filled.beforeGiving}`);
 
-  if (filled.after === "2,000.00") ok(`giving it did: the tin reads ${filled.after}`);
+  if (filled.onItsWay === "0.00") ok("handed over, it is not in the tin until the holder confirms");
+  else bad(`handed over but unconfirmed, the tin reads ${filled.onItsWay}`);
+
+  if (filled.after === "2,000.00") ok(`confirmed, it is: the tin reads ${filled.after}`);
   else bad(`after giving, the tin reads ${filled.after}`);
 
   // Spend some, from the screen.
