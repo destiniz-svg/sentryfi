@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
  * reads the page underneath as if nothing had opened, and the only way out for
  * a keyboard user is to find and click Cancel with a mouse.
  *
- * The behaviour here is lifted from components/layout/MobileNav.jsx, which had
+ * The behaviour here was first written for the old phone menu (MobileNav), which had
  * been written correctly and was the only one in the codebase that had. It
  * lives here so the next dialog inherits it rather than reinventing three
  * quarters of it.

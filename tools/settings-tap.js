@@ -38,7 +38,8 @@ const seen = (page) =>
       for (const path of paths) {
         // On a phone the main app keeps Settings behind More.
         if (phone && !(await page.locator(`a[href="${path}"]:visible`).count())) {
-          await page.locator("nav[aria-label=Main] button").last().click();
+          await page.locator(`nav[aria-label=Main] a[href="/more"]`).click();
+          await page.locator("main h1").first().waitFor({ timeout: 15000 });
         }
         await page.locator(`a[href="${path}"]:visible`).first().click();
         await page.waitForURL(`**${path}`, { timeout: 10000 });

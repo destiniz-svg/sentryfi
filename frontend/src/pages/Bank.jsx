@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { ArrowLeftRight, Landmark, Loader2, Plus, Upload } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -42,6 +42,12 @@ export default function Bank() {
   const { companyId, can } = useCompany();
   const [moving, setMoving] = useState(0); // a new key each time the dialog opens, so it mounts fresh
   const [opening, setOpening] = useState(false);
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    if (params.get("move") !== "1") return;
+    setMoving((k) => k + 1);
+    setParams({}, { replace: true });
+  }, [params, setParams]);
   const [bringing, setBringing] = useState(null); // the bank account a statement is being brought into
 
   const { data: places, isLoading } = useQuery({

@@ -53,6 +53,7 @@ const PhoneHome = lazy(() => import("@/pages/phone/Home"));
 const PhoneBills = lazy(() => import("@/pages/phone/BillsBoard"));
 const PhoneCash = lazy(() => import("@/pages/phone/Cash"));
 const PhoneMe = lazy(() => import("@/pages/phone/Me"));
+const More = lazy(() => import("@/pages/More"));
 
 /**
  * Which register this screen is in.
@@ -128,6 +129,7 @@ export const router = createBrowserRouter([
     children: [
       { path: "dashboard", element: <OnPhone board={<PhoneHome />} desk={<Attention />} /> },
       { path: "me", element: <PhoneMe /> },
+      { path: "more", element: <More /> },
       { path: "figures", element: <Figures /> },
       // Still on the purchased product's tables. See config/readiness.js.
       { path: "invoices", element: <Invoices /> },

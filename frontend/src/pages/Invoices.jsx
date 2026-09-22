@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Plus, FileText, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -76,6 +77,13 @@ export default function Invoices() {
   const [raising, setRaising] = useState(false);
   // A new key each time the editor opens, so it mounts fresh.
   const [raiseKey, setRaiseKey] = useState(0);
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    if (params.get("new") !== "1") return;
+    setRaiseKey((k) => k + 1);
+    setRaising(true);
+    setParams({}, { replace: true });
+  }, [params, setParams]);
   const [receiving, setReceiving] = useState(null);
   const [crediting, setCrediting] = useState(null);
   const [posting, setPosting] = useState(null);

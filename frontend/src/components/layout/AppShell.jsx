@@ -3,7 +3,9 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { CommandPalette } from "./CommandPalette";
-import { MobileNav } from "./MobileNav";
+import { TabBar } from "@/components/mobile/TabBar";
+import { RecordSheet } from "@/components/mobile/RecordSheet";
+import { RecordBill } from "@/components/bills/RecordBill";
 import { RouteFallback } from "@/components/ui/RouteFallback";
 import { usePhone } from "@/lib/phone";
 import { useCompany } from "@/context/CompanyContext";
@@ -27,7 +29,8 @@ export function AppShell() {
   const { can } = useCompany();
   const field = !can("read");
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [navOpen, setNavOpen] = useState(false);
+  const [recordOpen, setRecordOpen] = useState(false);
+  const [billOpen, setBillOpen] = useState(false);
 
   const openPalette = useCallback(() => setPaletteOpen(true), []);
   const closePalette = useCallback(() => setPaletteOpen(false), []);
@@ -51,7 +54,7 @@ export function AppShell() {
   // close on route change
   useEffect(() => {
     setPaletteOpen(false);
-    setNavOpen(false);
+    setRecordOpen(false);
   }, [location.pathname]);
 
   if (field && !FIELD.has(location.pathname)) return <Navigate to="/dashboard" replace />;
@@ -88,11 +91,9 @@ export function AppShell() {
         </div>
       </main>
       <CommandPalette open={paletteOpen} onClose={closePalette} />
-      <MobileNav
-        open={navOpen}
-        onOpen={() => setNavOpen(true)}
-        onClose={() => setNavOpen(false)}
-      />
+      <TabBar onRecord={() => setRecordOpen(true)} />
+      <RecordSheet open={recordOpen} onClose={() => setRecordOpen(false)} onBill={() => setBillOpen(true)} />
+      <RecordBill open={billOpen} onClose={() => setBillOpen(false)} />
     </div>
   );
 }

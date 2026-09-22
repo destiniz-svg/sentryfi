@@ -375,7 +375,7 @@ function PasswordSection() {
 }
 
 export default function Settings() {
-  const [tab, setTab] = useState("company");
+  const [tab, setTab] = useState(() => new URLSearchParams(window.location.search).get("tab") || "company");
   const { can } = useCompany();
 
   return (
