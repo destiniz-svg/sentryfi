@@ -33,7 +33,7 @@ const bad = (m) => {
     else bad(`the bar ends at ${box && box.y + box.height}`);
 
     await bar.getByRole("button", { name: "Record" }).click();
-    const sheet = page.getByRole("dialog", { name: "Record" });
+    const sheet = page.getByRole("dialog", { name: "Record", exact: true });
     await sheet.waitFor({ timeout: 5000 });
     const rows = await sheet.locator("button").allInnerTexts();
     if (rows.some((r) => /Photograph a bill/.test(r)) && rows.some((r) => /Raise an invoice/.test(r))) ok("Record opens the sheet with its ways in");
@@ -55,7 +55,8 @@ const bad = (m) => {
 
     await bar.getByRole("button", { name: "Record" }).click();
     await sheet.getByRole("button", { name: /Photograph a bill/ }).click();
-    await page.getByRole("button", { name: /say it/i }).waitFor({ timeout: 15000 });
+    await sheet.waitFor({ state: "detached", timeout: 5000 });
+    await page.getByRole("button", { name: "Say it", exact: true }).waitFor({ timeout: 15000 });
     ok("Photograph a bill opens the bill sheet where the person is");
     await page.keyboard.press("Escape");
 
