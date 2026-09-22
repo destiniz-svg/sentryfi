@@ -256,7 +256,7 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
 
         <fieldset>
           <legend className="text-sm font-medium text-[var(--ink)] mb-2">Lines</legend>
-          <div className="hidden sm:grid grid-cols-[1fr_72px_72px_110px_110px_44px] gap-2 px-1 pb-1.5 text-[11px] uppercase tracking-wider font-semibold text-[var(--ink-muted)]">
+          <div className="hidden sm:grid grid-cols-[1fr_72px_72px_110px_110px_44px] gap-2 px-1 pb-1.5 text-[12px] uppercase tracking-wider font-semibold text-[var(--ink-muted)]">
             <span>What</span>
             <span className="text-right">Qty</span>
             <span>Unit</span>

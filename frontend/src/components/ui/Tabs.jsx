@@ -12,16 +12,23 @@ export function Tabs({ value, onValueChange, children, className }) {
   );
 }
 
+/**
+ * A row of tabs. It scrolls sideways rather than wrapping: eight tabs wrapped
+ * into three rows inside one pill, which read as a blob rather than a row.
+ * The scroll is inside the strip, so the page itself never moves sideways.
+ */
 export function TabsList({ children, className }) {
   return (
-    <div
-      role="tablist"
-      className={cn(
-        "inline-flex flex-wrap items-center gap-1 bg-[var(--surface-2)] border border-[var(--border)] p-1 rounded-full",
-        className
-      )}
-    >
-      {children}
+    <div className="-mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto no-bar">
+      <div
+        role="tablist"
+        className={cn(
+          "inline-flex w-max items-center gap-1 bg-[var(--surface-2)] border border-[var(--border)] p-1 rounded-full",
+          className
+        )}
+      >
+        {children}
+      </div>
     </div>
   );
 }

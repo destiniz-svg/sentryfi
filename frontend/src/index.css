@@ -601,3 +601,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .page-enter { animation: none; }
 }
+
+/* A strip that scrolls sideways without a scrollbar sitting across it. */
+.no-bar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-bar::-webkit-scrollbar { display: none; }

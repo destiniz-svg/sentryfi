@@ -65,7 +65,7 @@ export default function Statements() {
         title="Statements"
         description="From the journal, for the date you ask."
         actions={
-          <Link to="/import" className="text-[14px] underline underline-offset-2">
+          <Link to="/import" className="inline-flex items-center min-h-[44px] text-[14px] underline underline-offset-2">
             Bring history in
           </Link>
         }
@@ -121,8 +121,8 @@ export default function Statements() {
   );
 }
 
-const TH = "px-5 py-3 text-[11px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold";
-const ROW = "grid gap-4 px-5 py-2.5 border-t border-[var(--border)] text-[14px]";
+const TH = "px-5 py-3 text-[12px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold";
+const ROW = "grid gap-2 sm:gap-4 px-5 py-2.5 border-t border-[var(--border)] text-[14px]";
 
 function Verdict({ ok, yes, no }) {
   return (
@@ -137,7 +137,7 @@ function Verdict({ ok, yes, no }) {
 }
 
 function Trial({ t }) {
-  const cols = "grid-cols-[minmax(0,1fr)_92px_92px] sm:grid-cols-[70px_minmax(0,1fr)_130px_130px]";
+  const cols = "grid-cols-[minmax(0,1fr)_84px_84px] sm:grid-cols-[70px_minmax(0,1fr)_130px_130px]";
   return (
     <Card padding="none" className="overflow-hidden">
       <div className="flex items-center justify-between px-5 pt-4">
@@ -155,7 +155,7 @@ function Trial({ t }) {
           <Download size={15} /> CSV
         </Button>
       </div>
-      <div className={`grid ${cols} gap-4 ${TH} mt-2`}>
+      <div className={`grid ${cols} gap-2 sm:gap-4 ${TH} mt-2`}>
         <span className="hidden sm:block">Code</span>
         <span>Account</span>
         <span className="text-right">Debit</span>
@@ -165,7 +165,7 @@ function Trial({ t }) {
       {t.rows.map((r) => (
         <div key={r.code} className={`${ROW} ${cols}`}>
           <span className="hidden sm:block tabular text-[var(--ink-muted)]">{r.code}</span>
-          <span className="truncate">{r.name}</span>
+          <span className="break-words">{r.name}</span>
           <span className="tabular text-right">{r.debit ?? ""}</span>
           <span className="tabular text-right">{r.credit ?? ""}</span>
         </div>
@@ -189,7 +189,7 @@ function Section({ title, rows, total, totalLabel, cols }) {
       {rows.map((r) => (
         <div key={r.code} className={`${ROW} ${cols}`}>
           <span className="hidden sm:block tabular text-[var(--ink-muted)]">{r.code}</span>
-          <span className="truncate">{r.name}</span>
+          <span className="break-words">{r.name}</span>
           <span className="tabular text-right">{r.amount}</span>
         </div>
       ))}

@@ -91,7 +91,7 @@ export default function Bank() {
             if (!rows.length) return null;
             return (
               <Card key={g.kind} padding="none" className="overflow-hidden">
-                <div className="px-5 py-3 border-b border-[var(--border)] text-[11px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+                <div className="px-5 py-3 border-b border-[var(--border)] text-[12px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
                   {g.title}
                 </div>
                 <ul className="divide-y divide-[var(--border)]">
@@ -106,7 +106,7 @@ export default function Bank() {
                         {p.statement?.lines > 0 && (
                           <Link
                             to={`/bank/${p.id}`}
-                            className="inline-block text-[13px] font-medium underline underline-offset-2 mt-0.5"
+                            className="inline-flex items-center min-h-[44px] sm:min-h-0 text-[13px] font-medium underline underline-offset-2"
                           >
                             {p.statement.waiting > 0
                               ? `${p.statement.waiting.toLocaleString("en-US")} waiting to be answered`

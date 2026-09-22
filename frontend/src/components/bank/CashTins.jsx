@@ -40,7 +40,7 @@ export function CashTins({ banks }) {
   return (
     <Card padding="none" className="overflow-hidden" data-testid="cash-tins">
       <div className="px-5 py-3 border-b border-[var(--border)] flex items-center justify-between gap-3">
-        <span className="text-[11px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">Cash tins</span>
+        <span className="text-[12px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">Cash tins</span>
         {manage && (
           <Button variant="outline" onClick={() => setEditing("new")}>
             <Plus size={15} /> Cash tin

@@ -205,7 +205,7 @@ function History({ history, adjustments }) {
     <div className="space-y-4">
       {history.length > 0 && (
         <Card padding="none" className="overflow-hidden">
-          <div className="px-5 py-3 border-b border-[var(--border)] text-[11px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+          <div className="px-5 py-3 border-b border-[var(--border)] text-[12px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
             Closes and reopens
           </div>
           <ul className="divide-y divide-[var(--border)]">
@@ -226,7 +226,7 @@ function History({ history, adjustments }) {
       )}
       {adjustments.length > 0 && (
         <Card padding="none" className="overflow-hidden">
-          <div className="px-5 py-3 border-b border-[var(--border)] text-[11px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+          <div className="px-5 py-3 border-b border-[var(--border)] text-[12px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
             Put into a closed month
           </div>
           <ul className="divide-y divide-[var(--border)]">

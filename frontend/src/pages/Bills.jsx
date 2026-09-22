@@ -141,7 +141,7 @@ export default function Bills() {
         />
       ) : (
         <Card padding="none" className="overflow-hidden">
-          <div className="hidden md:grid grid-cols-[1.4fr_1fr_1fr_auto_auto] gap-4 px-5 py-3 border-b border-[var(--border)] text-[11px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+          <div className="hidden md:grid grid-cols-[1.4fr_1fr_1fr_auto_auto] gap-4 px-5 py-3 border-b border-[var(--border)] text-[12px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
             <span>Supplier</span>
             <span>Dated</span>
             <span className="text-right">Amount</span>
@@ -181,7 +181,7 @@ export default function Bills() {
                       {bill.gross}
                     </span>
                     {bill.tax_laari !== "0" && !isVoid && (
-                      <span className="block text-[11px] font-normal text-[var(--ink-muted)]">
+                      <span className="block text-[13px] font-normal text-[var(--ink-muted)]">
                         incl. {bill.tax} GST
                       </span>
                     )}

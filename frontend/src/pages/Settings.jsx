@@ -119,7 +119,7 @@ function CompanySection() {
               <button
                 type="button"
                 onClick={() => setForm((f) => ({ ...f, logo_url: "" }))}
-                className="ml-2 text-xs text-[var(--danger)] font-semibold"
+                className="ml-2 inline-flex items-center min-h-[44px] px-2 text-[13px] text-[var(--danger)] font-semibold"
               >
                 Remove
               </button>

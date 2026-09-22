@@ -206,7 +206,7 @@ export default function Invoices() {
         </Card>
       ) : (
         <Card padding="none" className="overflow-hidden">
-          <div className="hidden md:grid grid-cols-[minmax(0,1.4fr)_150px_110px_130px_130px_auto] gap-4 px-5 py-3 border-b border-[var(--border)] text-[11px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+          <div className="hidden md:grid grid-cols-[minmax(0,1.4fr)_150px_110px_130px_130px_auto] gap-4 px-5 py-3 border-b border-[var(--border)] text-[12px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
             <span>Who</span>
             <span>Reference</span>
             <span>Due</span>

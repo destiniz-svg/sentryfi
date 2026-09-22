@@ -162,7 +162,7 @@ export function Sidebar() {
               {displayName}
             </div>
             {displayEmail && (
-              <div className="text-[11px] text-[var(--ink-muted)] truncate">
+              <div className="text-[12px] text-[var(--ink-muted)] truncate">
                 {displayEmail}
               </div>
             )}

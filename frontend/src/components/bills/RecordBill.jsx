@@ -489,7 +489,7 @@ export function RecordBill({ open, onClose }) {
                   {Math.round(f.size / 1024)} KB
                 </span>
                 {i === 0 && files.length > 1 && (
-                  <span className="text-[11px] uppercase tracking-wider text-[var(--ink-muted)] shrink-0">
+                  <span className="text-[12px] uppercase tracking-wider text-[var(--ink-muted)] shrink-0">
                     read from this one
                   </span>
                 )}

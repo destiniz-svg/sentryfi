@@ -104,7 +104,7 @@ export default function Attention() {
                       <span className="flex-1 min-w-0 p-5">
                         <span className="flex items-center gap-2 flex-wrap">
                           <span
-                            className={`inline-block text-[11px] font-semibold uppercase tracking-[0.1em] px-2 py-0.5 rounded-full ${tone.band} ${tone.labelClass}`}
+                            className={`inline-block text-[12px] font-semibold uppercase tracking-[0.1em] px-2 py-0.5 rounded-full ${tone.band} ${tone.labelClass}`}
                           >
                             {tone.label}
                           </span>
