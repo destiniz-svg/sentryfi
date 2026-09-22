@@ -26,7 +26,7 @@ export function PhoneShell({ heading, unit = "MVR", figure, position, sync, chil
           {heading}
         </h1>
         <div className="phone-band-figure">
-          <span className="phone-band-unit">{unit}</span>
+          {unit && <span className="phone-band-unit">{unit}</span>}
           <span>{figure}</span>
         </div>
         <div className="phone-band-lines">
@@ -114,10 +114,19 @@ function PhoneNav({ onSnap }) {
   // Only the places this person can open. Site staff get the camera and More.
   const shows = (to) =>
     to === "/bills" ? can("read") : to === "/cash" ? can("read") || can("spend_cash") || can("count_cash") : true;
+  const left = NAV.filter((item) => shows(item.to));
+  const right = NAV_RIGHT.filter((item) => shows(item.to));
+  // The shutter stays in the middle whatever is either side of it.
+  const side = Math.max(left.length, right.length);
 
   return (
-    <nav aria-label="Main" className="on-ink phone-nav">
-      {NAV.filter((item) => shows(item.to)).map((item) => (
+    <nav
+      aria-label="Main"
+      className="on-ink phone-nav"
+      style={{ gridTemplateColumns: `repeat(${side * 2 + 1}, minmax(0, 1fr))` }}
+    >
+      {Array.from({ length: side - left.length }, (_, n) => <span key={`l${n}`} aria-hidden="true" />)}
+      {left.map((item) => (
         <NavItem key={item.to} item={item} active={pathname === item.to} />
       ))}
 
@@ -140,9 +149,10 @@ function PhoneNav({ onSnap }) {
         )}
       </button>
 
-      {NAV_RIGHT.filter((item) => shows(item.to)).map((item) => (
+      {right.map((item) => (
         <NavItem key={item.to} item={item} active={pathname === item.to} />
       ))}
+      {Array.from({ length: side - right.length }, (_, n) => <span key={`r${n}`} aria-hidden="true" />)}
     </nav>
   );
 }
