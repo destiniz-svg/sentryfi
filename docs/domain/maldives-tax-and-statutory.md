@@ -385,3 +385,33 @@ Everything below was either not found in an authoritative source, or found only 
 13. **Record-keeping language** — whether records may be kept in English only.
 14. **Capital gains withholding tax** mechanics — rate confirmed at 10%, rules not researched.
 15. **MPL tariff edition currency** — the figures here are from the January 2025 tariff book; confirm the edition in force before using them in a quote.
+
+
+---
+
+## The import cost stack, read off real documents (23 September 2026)
+
+The owner supplied a customs assessment notice, an EMS customs declaration, a supplier's commercial invoice and a clearing agent's invoice. These are what an importing business here actually pays, in the order the papers arrive. Nothing in this section is inferred from a blog: each line was read off a document.
+
+**From the supplier (Axis Link LLC-FZ, Dubai, INV-2512033, 31 August 2026)**
+- Goods: AED 286.00, which the invoice itself also states as USD 78.14.
+- VAT at 5% shown as nil — an export from the UAE is zero-rated, so there is no foreign tax to recover and nothing to add to cost.
+- Terms: 60 days credit. The rate that matters for the books is the rate on the invoice date; the rate on the day it is actually paid produces an exchange difference, and with 60-day terms that gap is normal rather than exceptional.
+
+**From the carrier (EMS / Emirates Post CN22, AWB EE617320583AE)**
+- Service charge AED 216.00, and a declared value of AED 50.00 against a commercial invoice of AED 286.00. A declaration that disagrees with the invoice is a risk the product should raise, not smooth over: Customs values the goods itself, and the gap is the kind of thing that turns into a query.
+
+**From Customs (Assessment Notice A 3494, 6 September 2026)**
+- Customs valued the consignment at CIF MVR 1,392.48 — its own figure, not the invoice converted. The product must record the assessed CIF as well as the invoice, because duty and fees are computed on the assessed figure and the two rarely agree.
+- Duty: nil for this commodity. **Duty-free does not mean charge-free.**
+- Processing charge MVR 13.00 and non-registration processing fee MVR 130.15; total MVR 143.15.
+
+**From the clearing agent (Real Zone LLP, INV-171-2026, cleared at MPL)**
+- Form set MVR 125.00, customs process MVR 200.00, clearance and labour MVR 4,500.00, service charge 1.5% MVR 72.38; total MVR 4,897.38, no GST charged.
+- This is the line item that dominates a small shipment, and it is the one nobody budgets for.
+
+### What this means for the ledger
+
+The cost types a Maldivian import needs, offered as a checklist on every shipment: supplier goods; foreign freight; insurance; customs duty; customs processing and revenue fees; non-registration fee where it applies; clearing agent charges (documentation, customs processing, clearance and labour, their service charge); port and storage; inland transport. All of them are the cost of the goods. None of them carries recoverable GST at the border, and clearing services may carry GST or not depending on whether the agent is registered — which the supplier record should know.
+
+Two figures must be stored that systems usually discard: the **assessed CIF** from the notice, and the **declared value** on the carrier's declaration. Keeping them lets the product say "Customs valued this 16% above your invoice" and "your courier declared MVR 230 against an invoice of MVR 1,200", which are exactly the two questions an owner gets asked later and cannot answer.

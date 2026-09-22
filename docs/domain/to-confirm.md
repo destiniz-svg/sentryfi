@@ -2,15 +2,35 @@
 
 Started 23 September 2026. Everything here changes what the product posts, so none of it may be settled by inference. Each item says who can answer it and what single document or answer settles it. An item leaves this list when it is answered, with the source recorded in the reference file it belongs to.
 
-## 1. Is GST charged on goods at the point of import? — answered 23 September 2026, one document from settled
+## 1. Is GST charged on goods at the point of import? — SETTLED 23 September 2026, by document
 
-**The answer, on the evidence: no.** GST is charged on goods and services supplied in the Maldives. Goods crossing the border meet import duty under the Export Import Act; MIRA's own input tax rules bar a claim where the good or service is not supplied in the Maldives, which is what a border charge would be. Importing does trigger mandatory GST registration whatever the turnover — which is probably where the confusion starts, since an importer is registered from the first container and charges GST on everything it then sells. The owner said the same thing before the research did. Sources are in `maldives-tax-and-statutory.md`.
+**No.** The owner produced a Maldives Customs Assessment Notice (A 3494, 6 September 2026, registry R3531-00PO/2026, CPC 4000-030) for a consignment from Axis Link LLC-FZ Dubai. It shows:
 
-**So, for the cost of a container:** duty, Customs fees, freight, insurance, port and clearing charges and the bank's fee are all part of what the goods cost. There is no import GST to reclaim, and therefore no trapped cash waiting on a refund. GST appears when the goods are sold.
+| Line | Amount (MVR) |
+|---|---|
+| Total invoice value | AED 286.00 |
+| Total CIF value | 1,392.48 |
+| Processing charge | 13.00 |
+| Duty amount | 0.00 |
+| Non-registration processing fee | 130.15 |
+| **Total to be paid** | **143.15** |
 
-**What would still settle it beyond argument:** one customs declaration or clearing agent invoice showing whether an 8% GST line sits beside the duty line. Until somebody looks at one, the tax pack keeps its flag — does this country tax at the border, is it reclaimable — set to *no border charge* for the Maldives, and the landed cost engine reads the flag rather than assuming.
+There is no GST line on the notice, and no field for one. Customs assesses duty and fees; GST is not collected at the border. This matches MIRA's scope (tax on goods and services supplied in the Maldives), matches the input tax rules barring a claim on what is not supplied here, and matches what the owner said from the start. The passage in `international-tax-and-einvoicing.md` claiming a border charge was wrong and has been corrected.
 
-**One researcher disagreed** and claimed a border charge on CIF plus duty. That claim has been corrected in `international-tax-and-einvoicing.md` and is recorded here because a product should remember when it was nearly wrong about money.
+**Consequence for the books:** duty, Customs fees, freight, insurance, port and clearing charges and the bank's fee are all part of what the goods cost. There is nothing to reclaim at the border, so no trapped cash and no import-tax receivable. GST appears when the goods are sold.
+
+## 1a. What drives the processing charge and the non-registration processing fee?
+
+On the notice above, with duty at zero, the fees were still MVR 143.15. Two observations, both to be confirmed:
+
+- Maldives Export/Import Law (31/79) is reported to charge a **revenue fee of MVR 1 per MVR 100 of value**, that is 1%. The MVR 13.00 processing charge is consistent with 1% of a base around MVR 1,300.
+- The **non-registration processing fee of MVR 130.15 is exactly ten times the processing charge**, which suggests 10% of the same base, charged because the importer is not registered with Customs as an importer.
+
+If that reading is right, registering as an importer removes a 10% charge from every consignment, which on this small shipment was larger than everything else Customs took. **Answered by:** Maldives Customs, or the clearing agent, against the fee schedule. It is worth an hour of somebody's time: the product should tell an owner what registering would have saved them this year.
+
+## 1b. Is the clearing agent GST-registered?
+
+The clearing agent's invoice (Real Zone LLP, INV-171-2026, MVR 4,897.38) charges "S/C 1.5%" and **no GST**. If the agent is not registered, there is no input tax to claim on clearing charges and the whole invoice is cost — which is the unregistered-supplier case the bill flow already handles. If the agent is registered and simply did not charge GST, that is the agent's problem and the invoice is not a valid tax invoice. **Answered by:** the agent's TIN and GST registration status, which the product should hold against the supplier record and check once.
 
 ## 2. When may input tax on an import be claimed, and is there a time limit?
 
