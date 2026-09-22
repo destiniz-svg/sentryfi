@@ -524,7 +524,7 @@ function SpendSheet({ open, box, onClose, onDone, toast }) {
       toast.success(
         `Out of the tin · MVR ${result.amount}`,
         result.overdrawn
-          ? `That is more than the tin had. It now reads ${result.leftInBox} — count it.`
+          ? `More than the tin had: you paid ${result.leftInBox.replace(/^-/, "")} out of your own pocket. The office owes it back to you.`
           : `MVR ${result.leftInBox} left. It is in the books as entry ${result.entryNo}.`
       );
       setAmount("");

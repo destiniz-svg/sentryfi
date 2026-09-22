@@ -439,6 +439,7 @@ Held in the currency it happened in, reported in the company's own, with the rat
 - Site staff can photograph and send a bill, which waits as a draft for the office to post. Their phone shows the camera and nothing they cannot open.
 - Roles follow common small-business practice (Xero, QuickBooks, Zoho Books): owner; accountant (keeps and closes the books, approves, runs petty cash); manager; approver; viewer; auditor; and field roles. Site staff photograph bills and run the tin handed to them; a cash holder runs a tin only. Field roles reach only home, their own tin and a Me page (password, sign out), on any device; Settings and every office page send them home.
 - Cash tins have a float. What was spent shows as "to reimburse", on the holder's phone and on the Bank page, where the owner or accountant hands a tin to someone, changes the holder or float, and reimburses from a bank account in one tap. A holder sees and uses only their own tin.
+- Handing over petty cash is signed for, as a petty cash voucher is: the office hands it over (bank to 1290 "Cash handed over, not yet confirmed"), the holder sees it on their phone and confirms, and only then is it in the tin. A different amount needs a reason and the difference goes to cash differences. Spending past an empty tin is recorded, never refused: the tin shows a minus figure, "paid out of pocket", owed back with the float.
 - Tests: `backend/test/people.test.js`, `backend/test/cash.test.js`. Browser check: `tools/people.js`.
 
 **Still owed:** see the "Still to build" list at the top.
