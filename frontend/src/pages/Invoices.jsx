@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { Money } from "@/components/ui/Money";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { VoidDialog } from "@/components/ui/VoidDialog";
@@ -246,9 +247,9 @@ export default function Invoices() {
                 </div>
 
                 <div className="text-sm tabular text-right">
-                  <div className="font-semibold text-[var(--ink)]">{inv.gross}</div>
+                  <div className="font-semibold text-[var(--ink)]"><Money amount={inv.gross} /></div>
                   {!inv.settled && inv.status === "posted" && inv.outstanding !== inv.gross && (
-                    <div className="text-[13px] text-[var(--ink-muted)]">{inv.outstanding} left</div>
+                    <div className="text-[13px] text-[var(--ink-muted)]"><Money amount={inv.outstanding} /> left</div>
                   )}
                 </div>
 

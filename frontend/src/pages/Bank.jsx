@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { Money } from "@/components/ui/Money";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Modal } from "@/components/ui/Modal";
@@ -124,11 +125,11 @@ export default function Bank() {
                         <div
                           className={`tabular text-[17px] font-semibold ${p.overdrawn ? "text-[var(--danger)]" : ""}`}
                         >
-                          {own(p)}
+                          {p.foreign ? <>{p.currency} <Money amount={p.balanceFc} /></> : <Money amount={p.balance} />}
                         </div>
                         {p.foreign && (
                           <div className="tabular text-[12px] text-[var(--ink-muted)]" title="What it cost in our currency, at the rates it came in at">
-                            {p.balance} in the books
+                            <Money amount={p.balance} /> in the books
                           </div>
                         )}
                       </div>

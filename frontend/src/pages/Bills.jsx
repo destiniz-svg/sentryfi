@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { Money } from "@/components/ui/Money";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { VoidDialog } from "@/components/ui/VoidDialog";
@@ -178,7 +179,7 @@ export default function Bills() {
 
                   <div className="text-sm font-semibold tabular text-right">
                     <span className={isVoid ? "line-through text-[var(--ink-muted)]" : "text-[var(--ink)]"}>
-                      {bill.gross}
+                      <Money amount={bill.gross} />
                     </span>
                     {bill.tax_laari !== "0" && !isVoid && (
                       <span className="block text-[13px] font-normal text-[var(--ink-muted)]">

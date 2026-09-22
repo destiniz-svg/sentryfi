@@ -633,3 +633,8 @@ body {
 /* A strip that scrolls sideways without a scrollbar sitting across it. */
 .no-bar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-bar::-webkit-scrollbar { display: none; }
+
+/* A text link reads in deep sea, the colour settled for links on 22 September
+   2026. Navigation is not a text link and keeps ink. */
+a.underline { color: var(--deep); }
+a.underline:hover { color: var(--deep-strong); }

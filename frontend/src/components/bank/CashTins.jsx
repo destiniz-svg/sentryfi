@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { Money } from "@/components/ui/Money";
 import { Modal } from "@/components/ui/Modal";
 import { cashApi } from "@/api/cash";
 import { companiesApi } from "@/api/companies";
@@ -76,7 +77,7 @@ export function CashTins({ banks }) {
               {t.overdrawn && <Badge tone="danger">Below zero</Badge>}
               <div className="text-right ml-auto">
                 <div className={`tabular text-[17px] font-semibold ${t.overdrawn ? "text-[var(--danger)]" : ""}`}>
-                  {t.inBox}
+                  <Money amount={t.inBox} />
                 </div>
                 <div className="tabular text-[12px] text-[var(--ink-muted)]">
                   {t.toReimburse ? `${t.toReimburse} to reimburse` : "in the tin"}
