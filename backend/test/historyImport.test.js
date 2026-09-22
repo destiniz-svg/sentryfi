@@ -41,6 +41,10 @@ describe("reading the file", () => {
     expect([money("1,234.50"), money("(1,234.50)"), money("-12"), money(""), money("abc")]).toEqual([123_450n, -123_450n, -1_200n, 0n, null]);
   });
 
+  it("says plainly when the file is a summary, not transactions", () => {
+    expect(() => read("name,account_id,credit_total,debit_total,balance,is_debit\nSales,1,203750.00,0.00,-203750.00,false")).toThrow(/This is a summary/);
+  });
+
   it("says which columns are missing, by name", () => {
     expect(() => read("Foo,Bar\n1,2")).toThrow(/needs columns for date, account, debit, credit/);
   });

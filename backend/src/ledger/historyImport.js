@@ -46,6 +46,14 @@ function findColumns(header) {
     if (i >= 0) at[key] = i;
   }
   const missing = ["date", "account", "debit", "credit"].filter((k) => at[k] === undefined);
+  // A summary has one line per account and no dates: totals, not transactions.
+  if (missing.includes("date") && names.some((n) => /^(debit|credit) total$|^balance$|^net (debit|credit)$|^closing balance$/.test(n))) {
+    throw new Error(
+      "This is a summary: one line per account, with totals and no transactions. " +
+        "Export the transactions instead: in Zoho Books, Reports, Journal Report (or Account Transactions), " +
+        "with the date range set to the whole period, then Export as CSV."
+    );
+  }
   if (missing.length) {
     throw new Error(
       `The file needs columns for ${missing.join(", ")}. Its headings are: ${header.filter(Boolean).join(", ")}.`
