@@ -22,6 +22,7 @@ const figuresRouter = require("./routes/figures");
 const cashRouter = require("./routes/cash");
 const bankRouter = require("./routes/bank");
 const periodsRouter = require("./routes/periods");
+const statementsRouter = require("./routes/statements");
 const salesRouter = require("./routes/sales");
 
 
@@ -68,6 +69,7 @@ app.use("/api/figures", figuresRouter);
 app.use("/api/cash", cashRouter);
 app.use("/api/bank", bankRouter);
 app.use("/api/periods", periodsRouter);
+app.use("/api/statements", statementsRouter);
 app.use("/api/sales", salesRouter);
 
 

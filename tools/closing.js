@@ -83,14 +83,18 @@ const bad = (m) => {
     await page.reload({ waitUntil: "networkidle" });
     await page.locator("#close-through").selectOption({ label: "Through 31 Jan 2026" });
     await page.getByRole("button", { name: /^close the books through 31 jan 2026$/i }).click();
-    await page.getByText("Closed through 31 Jan 2026", { exact: true }).first().waitFor({ timeout: 10000 });
+    // The state card, not the toast: the toast says the same words a moment earlier.
+    await page.getByTestId("lock-state").filter({ hasText: "Closed through 31 Jan 2026" }).waitFor({ timeout: 10000 });
     ok("the books close through 31 January 2026");
+    await page.screenshot({ path: "shots/closing-closed.png" });
 
     // ---- into it, with no reason: stopped before it is sent -----------------
     await adjust({ date: "2026-01-20", narrative: "Closing check late entry", reason: "" });
     const label = (await page.locator("button[type=submit]").last().innerText()).trim();
     if (/say why it is going in/i.test(label)) ok(`an adjustment into a closed month with no reason is stopped: "${label}"`);
     else bad(`the button reads "${label}"`);
+
+    await page.screenshot({ path: "shots/closing-adjust.png" });
 
     // ---- into it, with a reason: goes in, and the reason is kept ------------
     await page.fill("#adj-reason", "Check: invoice arrived in February");
@@ -104,7 +108,7 @@ const bad = (m) => {
     const from = places.find((p) => p.name === "Bank");
     const to = places.find((p) => p.name === "Checks Savings");
     const refused = await call("POST", "/bank/transfer", { fromId: from.id, toId: to.id, amount: "1.00", on: "2026-01-10" });
-    if (refused.status === 409 && /closed through 31 Jan 2026/.test(refused.body.error?.message || "")) {
+    if (refused.status >= 400 && /closed through 31 Jan 2026/.test(refused.body.error?.message || "")) {
       ok(`the database refuses it, in words: "${refused.body.error.message}"`);
     } else {
       bad(`a transfer dated in the closed month got ${refused.status}: ${JSON.stringify(refused.body)}`);

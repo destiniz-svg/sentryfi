@@ -152,7 +152,7 @@ async function adjust(client, { companyId, userId, date, narrative, reason, line
     userId,
     date,
     source: "adjustment",
-    narrative: `Adjustment: ${said}${why ? ` (${why})` : ""}`,
+    narrative: `Adjustment: ${said}`,
     closedPeriodReason: inClosed ? why : null,
     lines,
   });

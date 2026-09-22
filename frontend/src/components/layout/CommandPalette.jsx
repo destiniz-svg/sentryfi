@@ -9,6 +9,7 @@ import {
   Wallet,
   Landmark,
   Lock,
+  Scale,
   Gauge,
   Settings as SettingsIcon,
   CornerDownLeft,
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { id: "nav:invoices", kind: "nav", label: "Invoices", hint: "What customers owe you", to: "/invoices", icon: FileText },
   { id: "nav:bank", kind: "nav", label: "Bank and cash", hint: "Where the money is", to: "/bank", icon: Landmark },
   { id: "nav:closing", kind: "nav", label: "Closing", hint: "Close a month, reopen it, adjust", to: "/closing", icon: Lock },
+  { id: "nav:statements", kind: "nav", label: "Statements", hint: "Trial balance, profit and loss, balance sheet", to: "/statements", icon: Scale },
   { id: "nav:cash", kind: "nav", label: "Cash", hint: "Cash boxes", to: "/cash", icon: Wallet },
   { id: "nav:settings", kind: "nav", label: "Settings", hint: "Company profile, appearance", to: "/settings", icon: SettingsIcon },
 ];

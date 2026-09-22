@@ -17,7 +17,7 @@
  */
 
 /** Sections that read and write the ledger. These are real. */
-export const READY = new Set(["/dashboard", "/figures", "/bills", "/invoices", "/bank", "/closing", "/cash", "/settings"]);
+export const READY = new Set(["/dashboard", "/figures", "/bills", "/invoices", "/bank", "/closing", "/statements", "/cash", "/settings"]);
 
 /**
  * Sections still on the purchased product's own tables, with the step that
