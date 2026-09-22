@@ -80,7 +80,7 @@ function tone() {
     await page.waitForTimeout(3000);
     await page.getByRole("button", { name: /stop and read it/i }).click();
 
-    for (let i = 0; i < 40 && answered === null; i++) await page.waitForTimeout(1000);
+    for (let i = 0; i < 120 && answered === null; i++) await page.waitForTimeout(1000);
     if (answered === 200) ok("the recording was read by the server");
     else return bad(`the reader answered ${answered}`);
 

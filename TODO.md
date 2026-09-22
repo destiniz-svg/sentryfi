@@ -21,6 +21,7 @@ One list of everything left open, gathered from the steps below, so none of it h
 - Rotate the demo password before real money. The leaked screenshot still sits in the public repository's git history; purging it needs a history rewrite and the owner's say-so.
 
 **Still to build:**
+- **Voice for cash spends and counts too** (today only a bill can be said out loud), and keeping the recording against the bill as evidence the way a photograph is kept.
 - **People, the rest of step 16:** spending limits per person; passkeys; ending every other session when a password changes; a password reset an administrator can hand out; a clear queue on the desk for the drafts site staff send in; spending limits on a tin (a single spend over N needs approval); reimbursing a holder who paid out of their own pocket with no tin at all (an expense claim).
 - **Revaluing foreign balances at month end** (unrealised exchange gains and losses), and the realised gain or loss when a dollar bill is paid at a different rate. Today a dollar balance stays at the rufiyaa it came in at (step 15).
 - **Sales invoices in dollars**, and dollar lines in history import and bank statements (step 15).
@@ -148,6 +149,8 @@ The owner's hardest job, and the reason this exists.
 - **An unregistered supplier's bill claims nothing**, and the database refuses to record tax against one.
 - **A supplier billed twice is stopped.** Same supplier and bill number refuses to post and the database refuses the pair. Same amount within a fortnight is raised as worth a look but still posts, because a monthly charge looks exactly like that.
 - **A supplier's name is not a key.** Each carries the other spellings it is known by, because one real invoice spells its own issuer two ways on one page.
+
+**Done (22 September 2026):** a bill can also be said out loud. The recording goes to the same reader with a prompt for spoken notes in English or Dhivehi, and comes back into the same review; the tax question stays unanswered unless the person actually said it (`backend/src/services/billExtraction.js`, route `/api/bills/listen`, browser check `tools/voice.js`).
 
 **Still owed here:** the photograph kept against the bill as supporting paper, the ten-second undo, and the phone version — this is the desk only, so "three taps on site" is not yet true. Reading needs `GEMINI_API_KEY` on the deployment, which is not set.
 

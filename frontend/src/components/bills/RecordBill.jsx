@@ -581,7 +581,7 @@ export function RecordBill({ open, onClose }) {
             ? blanks.length
               ? `Read what it could. It could not make out ${blanks.join(", ")} — fill those in below.`
               : "Read off the first page. Check it against the paper — anything wrong, just change it."
-            : "A photo, a picture already on the phone, or a PDF. Several pages are fine. Nothing is recorded until you say so."}
+            : "A photo, a picture already on the phone, a PDF, or say it out loud in Dhivehi or English. Several pages are fine. Nothing is recorded until you say so."}
         </p>
       </div>
 
