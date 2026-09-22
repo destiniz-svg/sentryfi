@@ -2,15 +2,15 @@
 
 Started 23 September 2026. Everything here changes what the product posts, so none of it may be settled by inference. Each item says who can answer it and what single document or answer settles it. An item leaves this list when it is answered, with the source recorded in the reference file it belongs to.
 
-## 1. Is GST charged on goods at the point of import?
+## 1. Is GST charged on goods at the point of import? — answered 23 September 2026, one document from settled
 
-**Why it matters.** It decides what a container costs. If GST is charged at customs and can be reclaimed, it is *not* part of the cost of the goods: it is a receivable, and the business carries a cash gap between paying it at the border and reclaiming it on the return. If GST is not charged at the border, duty and fees are simply part of the cost and GST appears only when the goods are sold.
+**The answer, on the evidence: no.** GST is charged on goods and services supplied in the Maldives. Goods crossing the border meet import duty under the Export Import Act; MIRA's own input tax rules bar a claim where the good or service is not supplied in the Maldives, which is what a border charge would be. Importing does trigger mandatory GST registration whatever the turnover — which is probably where the confusion starts, since an importer is registered from the first container and charges GST on everything it then sells. The owner said the same thing before the research did. Sources are in `maldives-tax-and-statutory.md`.
 
-**What has been said.** The owner said on 22 September 2026 that GST is paid on items sold, and on 23 September 2026 that "GST is charged on the imported goods; when we sell we have to add GST" — which reads either as GST being charged at the border, or as imported goods being taxable when sold. The two readings give different books. Research found MIRA's own material saying goods imported are subject to import duty under the Export Import Act, and separately a claim that MIRA charges GST at the border; MIRA's site blocks automated reading, so neither was confirmed from the Act.
+**So, for the cost of a container:** duty, Customs fees, freight, insurance, port and clearing charges and the bank's fee are all part of what the goods cost. There is no import GST to reclaim, and therefore no trapped cash waiting on a refund. GST appears when the goods are sold.
 
-**What settles it.** One customs declaration, or one clearing agent's invoice: is there an 8% GST line beside the duty line? If yes, GST is charged at import and the amount appears on the GST return as input tax. If no, it is not.
+**What would still settle it beyond argument:** one customs declaration or clearing agent invoice showing whether an 8% GST line sits beside the duty line. Until somebody looks at one, the tax pack keeps its flag — does this country tax at the border, is it reclaimable — set to *no border charge* for the Maldives, and the landed cost engine reads the flag rather than assuming.
 
-**Until it is settled.** The tax pack carries a flag — does this country charge tax at the border, and is it reclaimable — and the landed cost engine reads the flag rather than assuming. Getting the flag wrong changes a figure; it does not require rebuilding anything.
+**One researcher disagreed** and claimed a border charge on CIF plus duty. That claim has been corrected in `international-tax-and-einvoicing.md` and is recorded here because a product should remember when it was nearly wrong about money.
 
 ## 2. When may input tax on an import be claimed, and is there a time limit?
 
