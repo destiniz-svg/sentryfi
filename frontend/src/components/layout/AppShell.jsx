@@ -1,6 +1,5 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { CommandPalette } from "./CommandPalette";
@@ -61,14 +60,12 @@ export function AppShell() {
       <Sidebar />
       <main className="flex-1 px-4 sm:px-6 md:px-8 py-6 pb-28 md:pb-6 max-w-[1600px] mx-auto w-full">
         <Topbar onOpenPalette={openPalette} />
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          >
+        {/* A CSS fade, not a framer-motion one. The framer version waited for
+            the old page to leave, and when the new page was a screen not yet
+            fetched it suspended mid-entrance and stayed at opacity 0: Settings
+            opened blank until a refresh. A CSS animation runs whatever React
+            is doing. */}
+        <div key={location.pathname} className="page-enter">
             {/* The boundary sits here rather than around the whole shell, so a
                 screen being fetched swaps only the page body. The sidebar and
                 the topbar stay put, which is what makes a slow connection feel
@@ -76,8 +73,7 @@ export function AppShell() {
             <Suspense fallback={<RouteFallback />}>
               <Outlet />
             </Suspense>
-          </motion.div>
-        </AnimatePresence>
+        </div>
       </main>
       <CommandPalette open={paletteOpen} onClose={closePalette} />
       <MobileNav
