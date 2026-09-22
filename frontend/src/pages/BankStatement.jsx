@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { bankApi } from "@/api/bank";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
+import { usePhone } from "@/lib/phone";
 
 /**
  * What the bank shows that the books do not.
@@ -56,6 +57,10 @@ export default function BankStatement() {
   const { accountId } = useParams();
   const { companyId } = useCompany();
   const [tab, setTab] = useState("waiting");
+  const phone = usePhone();
+  // How many lines were open when the page opened, so the bar can say how far
+  // through them this sitting has got.
+  const [startedWith, setStartedWith] = useState(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["bankWaiting", companyId, accountId],
@@ -64,6 +69,7 @@ export default function BankStatement() {
   });
 
   const waiting = data?.counts.open || 0;
+  if (data && startedWith === null) setStartedWith(waiting);
   const asideCount = data?.counts.set_aside || 0;
 
   return (
@@ -111,6 +117,8 @@ export default function BankStatement() {
             <p className="text-[13px] text-[var(--ink-muted)] mt-1.5">{n(asideCount)} set aside for later are in Answered.</p>
           )}
         </Card>
+      ) : phone ? (
+        <OneAtATime groups={data.groups} accounts={data.accounts} accountId={accountId} left={waiting} startedWith={startedWith || waiting} />
       ) : (
         <div className="space-y-3">
           {data.groups.map((g) => (
@@ -146,8 +154,30 @@ function Picker({ accounts, value, onChange, id }) {
   );
 }
 
+/**
+ * On a phone: one question on the screen, biggest money first, with a bar
+ * that fills as the lines are answered. Answering one brings the next.
+ */
+function OneAtATime({ groups, accounts, accountId, left, startedWith }) {
+  const done = Math.max(0, startedWith - left);
+  const share = startedWith ? done / startedWith : 0;
+  const g = groups[0];
+  return (
+    <div>
+      <div className="h-1.5 rounded-full bg-[var(--border)] overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={startedWith} aria-valuenow={done} aria-label="Lines answered">
+        <div className="h-full bg-[var(--ink)] transition-[width] duration-300" style={{ width: `${Math.round(share * 100)}%` }} />
+      </div>
+      <div className="flex justify-between text-[13px] text-[var(--ink-muted)] mt-2 mb-3 px-0.5">
+        <span>{done ? `${n(done)} answered` : "Biggest money first"}</span>
+        <span>{n(left)} {left === 1 ? "line" : "lines"} left</span>
+      </div>
+      <Question key={`${g.key}|${g.moneyIn}`} group={g} accounts={accounts} accountId={accountId} phone />
+    </div>
+  );
+}
+
 /** One payee, one direction: the unit a person actually thinks in. */
-function Question({ group, accounts, accountId }) {
+function Question({ group, accounts, accountId, phone = false }) {
   const { companyId } = useCompany();
   const toast = useToast();
   const refresh = useRefresh(accountId);
@@ -215,24 +245,40 @@ function Question({ group, accounts, accountId }) {
           <div className="tabular text-[20px] font-semibold tracking-[-.01em]">MVR {group.total}</div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 mt-4">
-          <Picker accounts={accounts} value={pick} onChange={setPick} id={`pick-${group.key}-${group.moneyIn}`} />
-          <Button variant={pick ? "accent" : "outline"} disabled={!pick || busy} onClick={onPost}>
-            {post.isPending && <Loader2 size={14} className="animate-spin" />}
-            {pick ? `Post ${n(group.count)} to ${chosen.name} · MVR ${group.total}` : "Pick what it was"}
-          </Button>
-          <Button variant="outline" disabled={busy} onClick={onAside}>
-            Leave for later
-          </Button>
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            aria-expanded={open}
-            className="ml-auto inline-flex items-center gap-1 text-[13px] text-[var(--ink-muted)] hover:text-[var(--ink)] h-11 px-2"
-          >
-            Look at them <ChevronDown size={14} className={open ? "rotate-180" : ""} />
-          </button>
-        </div>
+        {phone ? (
+          <div className="flex flex-col gap-2.5 mt-4">
+            <Picker accounts={accounts} value={pick} onChange={setPick} id={`pick-${group.key}-${group.moneyIn}`} />
+            <Button variant={pick ? "accent" : "outline"} size="lg" className="w-full whitespace-normal h-auto min-h-[52px] py-2" disabled={!pick || busy} onClick={onPost}>
+              {post.isPending && <Loader2 size={14} className="animate-spin" />}
+              {pick ? `${chosen.id === group.rule?.accountId ? "Same as last time: " : ""}${chosen.name} · MVR ${group.total}` : "Pick what it was"}
+            </Button>
+            <Button variant="outline" size="lg" className="w-full" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+              {open ? "Hide the lines" : `Look at the ${n(group.count)} ${group.count === 1 ? "line" : "lines"}`}
+            </Button>
+            <button type="button" disabled={busy} onClick={onAside} className="h-11 text-[15px] font-medium text-[var(--ink-muted)]">
+              Leave for later
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2 mt-4">
+            <Picker accounts={accounts} value={pick} onChange={setPick} id={`pick-${group.key}-${group.moneyIn}`} />
+            <Button variant={pick ? "accent" : "outline"} disabled={!pick || busy} onClick={onPost}>
+              {post.isPending && <Loader2 size={14} className="animate-spin" />}
+              {pick ? `Post ${n(group.count)} to ${chosen.name} · MVR ${group.total}` : "Pick what it was"}
+            </Button>
+            <Button variant="outline" disabled={busy} onClick={onAside}>
+              Leave for later
+            </Button>
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              aria-expanded={open}
+              className="ml-auto inline-flex items-center gap-1 text-[13px] text-[var(--ink-muted)] hover:text-[var(--ink)] h-11 px-2"
+            >
+              Look at them <ChevronDown size={14} className={open ? "rotate-180" : ""} />
+            </button>
+          </div>
+        )}
         {err && (
           <p role="alert" className="text-[13px] text-[var(--danger)] mt-3">
             {err}

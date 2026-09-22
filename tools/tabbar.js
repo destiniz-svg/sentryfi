@@ -83,6 +83,18 @@ const bad = (m) => {
     ok("Invoices shows what customers owe");
     await page.screenshot({ path: "shots/mobile-money-invoices.png", fullPage: true });
 
+    // Bank lines: one question at a time, a bar across the top. Looked at,
+    // not answered, so the test books stay as they are.
+    await bar.locator('a[href="/bank"]').click();
+    await page.locator('main a[href^="/bank/"]').first().click();
+    const q = page.locator('[data-testid="question"]');
+    await q.first().waitFor({ timeout: 15000 }).catch(() => {});
+    if ((await q.count()) === 1 && (await page.getByRole("progressbar").count()) === 1) ok("bank lines ask one question at a time, with a bar");
+    else if ((await q.count()) === 0) console.log("  note no bank lines waiting in this company");
+    else bad(`bank lines show ${await q.count()} questions at once`);
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: "shots/mobile-bank-lines.png", fullPage: true });
+
     await bar.locator('a[href="/more"]').click();
     await page.locator("main h1", { hasText: "More" }).waitFor({ timeout: 15000 });
     const current = await bar.locator('a[aria-current="page"]').innerText();
