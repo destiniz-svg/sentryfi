@@ -69,8 +69,9 @@ function tone() {
       if (r.url().includes("/api/bills/listen")) answered = r.status();
     });
 
-    await page.goto(BASE + "/dashboard", { waitUntil: "networkidle", timeout: 45000 });
-    await page.locator("nav[aria-label=Main] button").click(); // the shutter opens the bill sheet
+    // The owner has the main app on a phone; the bill sheet opens from Bills.
+    await page.goto(BASE + "/bills", { waitUntil: "networkidle", timeout: 45000 });
+    await page.getByRole("button", { name: /record a bill/i }).first().click();
     await page.getByRole("button", { name: /say it/i }).waitFor({ timeout: 15000 });
     ok("the bill sheet offers Say it, beside photographing it");
 

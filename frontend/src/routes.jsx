@@ -61,10 +61,23 @@ const PhoneMe = lazy(() => import("@/pages/phone/Me"));
  * the desk register made narrow. Chosen here, at the route, because the two
  * are different screens with different chrome — not the same screen restyled.
  */
+/**
+ * Who gets the expense manager and who gets the main app.
+ *
+ * Decided 23 September 2026: the phone board is the expense manager, and only
+ * assigned field staff — people who cannot read the books — see it. The owner,
+ * the accountant and every other level get the main app on any screen, their
+ * phone included, because a phone is where most of them do most of their work.
+ */
 function OnPhone({ board, desk }) {
+  const { can } = useCompany();
+  return !can("read") ? board : desk;
+}
+
+/** A field tool anyone may open on a phone: the tin a person holds. */
+function FieldTool({ board, desk }) {
   const phone = usePhone();
   const { can } = useCompany();
-  // Field staff get the board on any screen: the desk is the office's.
   return phone || !can("read") ? board : desk;
 }
 
@@ -132,7 +145,7 @@ export const router = createBrowserRouter([
       { path: "reports", element: <NotReady /> },
       // Cash is a phone job. At a desk it is a report, and that comes with
       // the rest of the bank work in milestone two.
-      { path: "cash", element: <OnPhone board={<PhoneCash />} desk={<NotReady />} /> },
+      { path: "cash", element: <FieldTool board={<PhoneCash />} desk={<NotReady />} /> },
       { path: "settings", element: <Settings /> },
     ],
   },

@@ -36,7 +36,11 @@ const seen = (page) =>
       await page.goto(BASE + "/dashboard", { waitUntil: "networkidle", timeout: 45000 });
       const paths = phone ? ["/settings"] : DESK;
       for (const path of paths) {
-        await page.locator(`a[href="${path}"]`).first().click();
+        // On a phone the main app keeps Settings behind More.
+        if (phone && !(await page.locator(`a[href="${path}"]:visible`).count())) {
+          await page.locator("nav[aria-label=Main] button").last().click();
+        }
+        await page.locator(`a[href="${path}"]:visible`).first().click();
         await page.waitForURL(`**${path}`, { timeout: 10000 });
         // Wait for the screen itself, not just the address: a page still
         // fetching its figures has no heading to measure yet.

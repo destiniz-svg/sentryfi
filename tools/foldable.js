@@ -13,11 +13,15 @@
 const { chromium } = require("playwright");
 const { signIn, BASE } = require("./session");
 
+// The owner of the checks company is not field staff, so since 23 September
+// 2026 only the field tool (a cash tin) and /me are the board for them; Home is
+// the main app at every width.
 const SIZES = [
   { name: "folded", width: 390, height: 844, board: true },
   { name: "unfolded", width: 760, height: 1000, board: true },
   { name: "tablet", width: 1024, height: 1000, board: false },
 ];
+const MAIN_APP = new Set(["/dashboard"]);
 // /me is the field worker's own page and is the board at any width: whoever
 // opens it is someone who only ever sees the board.
 const ALWAYS_BOARD = new Set(["/me"]);
@@ -40,7 +44,7 @@ const bad = (m) => {
         await page.goto(BASE + path, { waitUntil: "networkidle", timeout: 45000 });
         await page.waitForTimeout(800);
         const board = await page.locator(".phone-board").count();
-        const wantBoard = size.board || ALWAYS_BOARD.has(path);
+        const wantBoard = !MAIN_APP.has(path) && (size.board || ALWAYS_BOARD.has(path));
         if (wantBoard && !board) {
           bad(`${size.name} ${path}: the board is not there`);
           continue;

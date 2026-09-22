@@ -56,7 +56,10 @@ export function AppShell() {
 
   if (field && !FIELD.has(location.pathname)) return <Navigate to="/dashboard" replace />;
 
-  if ((phone || field) && BOARD.has(location.pathname)) {
+  // The board's own chrome: always for field staff, and on a phone for the
+  // one field tool anybody may hold (a cash tin). Everyone else keeps the app.
+  const boardHere = field ? BOARD.has(location.pathname) : phone && location.pathname === "/cash";
+  if (boardHere) {
     return (
       <Suspense fallback={<RouteFallback />}>
         <Outlet />
