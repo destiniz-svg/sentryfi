@@ -34,13 +34,14 @@
 [data-theme="light"] {
   /* Site Board, from DESIGN.md. Signal yellow is the one field that matters
      now, so it is the accent and nothing else competes with it. */
-  /* A light ground with white cards floating on it, as in both references. */
-  --bg: #f4f5f6;
+  /* A light ground with white cards floating on it, as in both references.
+     Warmed on 22 September 2026 when the palette was settled: paper, not screen. */
+  --bg: #f5f4f0;
   --surface: #ffffff;
-  --surface-2: #f9fafb;
-  --border: #e6e7ea;
-  --ink: #141414;
-  --ink-muted: #6b7078;
+  --surface-2: #faf9f6;
+  --border: #e4e2da;
+  --ink: #141413;
+  --ink-muted: #6b6a64;
   --accent: #f2c300;
   --accent-strong: #806400;
   --accent-soft: #fff3c2;
@@ -58,9 +59,18 @@
   --on-ink-panel: #ffffff;
   --accent-hero: #141414;
   --accent-hero-2: #f2c300;
-  --success: #167a41;
-  --warning: #8a5a00;
-  --danger: #c62b20;
+  /* Deep sea: links, chart strokes and quiet dark surfaces. It exists because
+     yellow cannot be text on white, and a palette of ink and yellow alone
+     leaves a link nowhere to go. It is never the primary action. 9.1:1 here. */
+  --deep: #0f4c5c;
+  --deep-strong: #0a3540;
+  /* Standing: a word first, these colours second. Each pair passes 4.5:1. */
+  --success: #145f3a;
+  --success-soft: #e8f3ec;
+  --warning: #7a4e00;
+  --warning-soft: #fbf0d9;
+  --danger: #8f2517;
+  --danger-soft: #fbeae7;
   --shadow-card: 0 1px 2px rgba(20,20,20,0.04), 0 8px 24px rgba(20,20,20,0.06);
   --shadow-hover: 0 2px 4px rgba(20,20,20,0.06), 0 16px 40px rgba(20,20,20,0.10);
 }
@@ -85,9 +95,14 @@
   --on-ink-panel: #ffffff;
   --accent-hero: #f2c300;
   --accent-hero-2: #141414;
+  --deep: #7ec8d8;
+  --deep-strong: #a5dbe6;
   --success: #3fbf71;
+  --success-soft: #10291c;
   --warning: #f2c300;
+  --warning-soft: #2a2408;
   --danger: #ff6b5e;
+  --danger-soft: #2e1512;
 }
 
 html,
