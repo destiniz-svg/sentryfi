@@ -48,11 +48,12 @@ router.get(
     const out = await asCompany(req, async (client) => {
       const list = await assets.list(client, { companyId: req.companyId });
       // Where the money for an asset can have come from: a bank, a tin,
-      // a supplier still owed, a director, or a cost it was first put under.
+      // a supplier still owed, a director, a loan (hire purchase, a lease,
+      // murabaha), or a cost it was first put under.
       const { rows: payFrom } = await client.query(
         `SELECT id, code, name, type::text AS type FROM accounts
           WHERE company_id = $1 AND archived_at IS NULL
-            AND (code LIKE '11%' OR code LIKE '12%' OR code IN ('2100','2300') OR type = 'expense')
+            AND (code LIKE '11%' OR code LIKE '12%' OR code LIKE '24%' OR code IN ('2100','2300') OR type = 'expense')
           ORDER BY code`,
         [req.companyId]
       );

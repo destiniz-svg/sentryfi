@@ -147,5 +147,5 @@ describe("on any date asked for", () => {
         expect(p.totalExpenses).toBe(net(to, "5100", from));
         expect(p.profit).toBe(p.totalIncome - p.totalExpenses);
       }
-    }));
+    }), 30_000); // 120 entries and eighteen statements: more than the default five seconds under a full parallel run
 });

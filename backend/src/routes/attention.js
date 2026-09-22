@@ -1,5 +1,6 @@
 const express = require("express");
 const { isPlatformAdmin } = require("../middleware/platform");
+const loans = require("../ledger/loans");
 
 const asyncHandler = require("../utils/asyncHandler");
 const { requireAuth } = require("../middleware/auth");
@@ -188,6 +189,20 @@ router.get(
           detail: `MVR ${formatLaari(BigInt(u.total))} moved at the bank with nothing in the books behind it. The oldest is from ${u.oldest}.`,
           does: "Say what they were, or leave them for later",
           href: `/bank`,
+        });
+      }
+
+      // A loan instalment that fell due with no repayment recorded. Either it
+      //    was paid and the books do not know, or it was missed and the lender
+      //    may be charging penalty interest; both need a person.
+      for (const l of await loans.list(client, { companyId: req.companyId })) {
+        if (!l.next?.late || l.lent) continue;
+        found.push({
+          kind: "ageing",
+          title: `${l.name}: MVR ${l.next.payment} was due on ${l.next.due}`,
+          detail: "If it was paid, record it so what it cost and what is still owed are right. If it was missed, the lender may be adding penalty interest.",
+          does: "Record the repayment",
+          href: "/loans",
         });
       }
 

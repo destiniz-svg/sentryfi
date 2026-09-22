@@ -1,4 +1,4 @@
-import { FileText, Gauge, Landmark, LayoutGrid, Lock, Package, Percent, ReceiptText, Scale, Upload } from "lucide-react";
+import { FileText, Gauge, HandCoins, Landmark, LayoutGrid, Lock, Package, Percent, ReceiptText, Scale, Upload } from "lucide-react";
 
 /**
  * The desk's places, grouped the way an owner thinks about them (DESIGN.md,
@@ -19,6 +19,7 @@ export const SECTIONS = [
       { to: "/bills", icon: ReceiptText, label: "Bills" },
       { to: "/invoices", icon: FileText, label: "Invoices" },
       { to: "/bank", icon: Landmark, label: "Bank and cash" },
+      { to: "/loans", icon: HandCoins, label: "Loans" },
     ],
   },
   {
