@@ -57,10 +57,12 @@ function Total({ label, amount, sub }) {
     <div className="sticky top-0 z-10 -mx-4 px-4 py-2 bg-[var(--bg)]">
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
         <div className="text-[13px] text-[var(--ink-muted)]">{label}</div>
-        <div className="font-display text-[28px] font-bold leading-tight">
-          <span className="text-[15px] text-[var(--ink-muted)] mr-1">MVR</span>
-          <Amount amount={amount} />
-        </div>
+        {amount != null && (
+          <div className="font-display text-[28px] font-bold leading-tight">
+            <span className="text-[15px] text-[var(--ink-muted)] mr-1">MVR</span>
+            <Amount amount={amount} />
+          </div>
+        )}
         {sub && <div className="text-[13px] text-[var(--ink-muted)]">{sub}</div>}
       </div>
     </div>
@@ -109,7 +111,7 @@ function BillList() {
     <>
       <Total
         label={waiting.length ? `${waiting.length} waiting to go in the books` : "Every bill is in the books"}
-        amount={laariText(waitingTotal)}
+        amount={waiting.length ? laariText(waitingTotal) : null}
         sub={waiting.length > 0 && can("record") ? "Swipe a waiting bill left to put it in" : null}
       />
       <Days

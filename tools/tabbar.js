@@ -65,7 +65,7 @@ const bad = (m) => {
     await bar.locator('a[href="/dashboard"]').click();
     await page.getByRole("heading", { name: "Needs you" }).waitFor({ timeout: 15000 });
     const card = await page.locator("main").innerText();
-    if (/Cash and bank/.test(card)) ok("Home leads with cash and bank");
+    if (/cash and bank/i.test(card)) ok("Home leads with cash and bank");
     else bad("Home has no cash card");
     if (await page.locator("main svg polyline").count()) ok("the thirty-day line is drawn");
     else console.log("  note no line: this company has no bank figures yet");

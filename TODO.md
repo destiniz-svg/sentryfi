@@ -86,7 +86,7 @@ The phases below say *what*; this says *when*. Set 23 September 2026. Each sprin
 20. Sellable: a second country pack, Dhivehi and right to left, sign-up and plans, the practice portal.
 21. The expense companion app.
 
-**Now:** Sprint 1, item 1, part done (23 September 2026): the tab bar, the Record sheet (the bottom sheet, rounded), More, and the offline line are live, with `tools/tabbar.js`. Still to do in item 1: the money row, the day header and the empty state. They are built with Money in item 2, where they are first used. The standing pill is `Badge` and the undo strip is `UndoContext`, both already there.
+**Now:** Sprint 1, item 3 (bank lines on the phone). Items 1 and 2 done 23 September 2026: tab bar, Record sheet, More, offline line; Home (cash card, thirty-day line, runway, cash per place, Needs you) and Money (Bills | Invoices, sticky total, day headers, money rows, swipe to put in the books). Parts in `components/mobile/parts.jsx`; the pill is `Badge`, the undo strip `UndoContext`. Checked by `tools/tabbar.js`.
 
 ## The plan
 
