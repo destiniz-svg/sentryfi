@@ -176,7 +176,7 @@ function guessType(name, code) {
   const n = name.toLowerCase();
   // A current account with another company ("KENGO PVT LTD C/A") is money between the two,
   // held as an asset until it is known which way it runs.
-  if (/receivable|bank|cash|petty|deposit|prepaid|inventory|stock|equipment|vehicle|furniture|building|land|machinery|input (tax|gst)|gst (paid|receivable|claim)|c/a|current a/?c|current account/.test(n)) return "asset";
+  if (/receivable|bank|cash|petty|deposit|prepaid|inventory|stock|equipment|vehicle|furniture|building|land|machinery|input (tax|gst)|gst (paid|receivable|claim)|\bc\/a\b|current a\/?c\b|current account/.test(n)) return "asset";
   if (/payable|loan|accrued|output (tax|gst)|gst (payable|owed)|tax payable|advance from|director.*(loan|current)/.test(n)) return "liability";
   if (/capital|equity|retained|drawings|share|reserve/.test(n)) return "equity";
   if (/income|revenue|sales|rental income|interest received|discount received/.test(n)) return "income";
