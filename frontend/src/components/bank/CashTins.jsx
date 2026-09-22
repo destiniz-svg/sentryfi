@@ -85,7 +85,7 @@ export function CashTins({ banks }) {
               </div>
               <div className="flex gap-2 basis-full sm:basis-auto">
                 {pay && (
-                  <Button variant={t.toReimburse ? "accent" : "outline"} onClick={() => setPaying(t)}>
+                  <Button variant="outline" onClick={() => setPaying(t)}>
                     {t.toReimburse ? `Reimburse ${t.toReimburse}` : "Give cash"}
                   </Button>
                 )}
