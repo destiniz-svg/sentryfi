@@ -380,6 +380,29 @@ Drawn against fifteen references the owner supplied (dark Untitled-UI style cons
 
 **Which register applies.** The phone board governs `App.dc.html` and the installed phone app. The desk register governs the web suite: `Web.dc.html` and the running web application. The earlier desktop artboards `Tax.dc.html`, `Bank.dc.html` and `Desktop.dc.html` were drawn in the phone board and now sit outside this rule; they are superseded by `Web.dc.html` as the reference for the web.
 
+### The phone, as two apps (23 September 2026)
+
+Most people use Sentryfi on a phone, and the first redesign only covered the desk. The phone is now designed as two apps from one codebase, drawn on the canvas "Sentryfi redesign direction", page **Mobile**, and grounded in `docs/domain/mobile-app-design.md`.
+
+**Which one a person sees.** The role decides, never the width. Field roles (site staff, cash holders) get the **expense manager**; everyone who reads the books gets the **main app**, on a phone and on a desk.
+
+**The main app on a phone** — softer register, same identity:
+
+- **Bottom tab bar, labels always on:** Home · Money · **Record** · Bank · More. Record is a 56px signal-yellow disc in the centre, raised a little above the bar; it is the one yellow thing that is always there, like the shutter on the board.
+- **Home, top to bottom:** company switcher and notifications; a large greeting; one ink card with cash and bank now, its breakdown, and a thirty-day trend line in signal yellow with the direction and runway in words; "Needs you" as a short card list, each row opening where it is resolved.
+- **Record** opens a bottom sheet with a grabber and five rows: photograph a bill, say it, raise an invoice, move money, give cash to a tin. The first row carries the yellow tile.
+- **Money:** a segmented control (Bills | Invoices), a sticky total card, day headers in the condensed label, rows in white cards with party, a line under it, the amount right-aligned with the laari held back, and a standing pill. A swipe reveals the common action in yellow ("Put in the books").
+- **Checking a bill:** the fields read off the paper carry a green "read off the bill" tick; the one uncertain answer is the yellow field; the adviser explains itself in one line with a way to change it; the button at the foot names the figure or the blocker.
+- **Bank lines:** one card per line with a progress bar across the top; the suggested answer is the yellow button, the other answers outlined, and "leave for later" quiet.
+- **The CFO's brief:** a date line, a large title, one sentence of summary, an ink card for "since yesterday", then one card per item, each with a standing pill (Do today, Market, Learned), a bold headline, two lines of reasoning and one action link. A speaker button reads it aloud.
+- Radii: 16px cards, 14px buttons, 22px sheet corners, 12px segmented control. Nothing else changes: ink type, the one yellow field, deep sea links, tabular money.
+
+**The expense manager** — the phone board, as before, with its navigation settled: Home · Tin · **Send** (the shutter) · Owed back · Me. Home carries the tin in the yellow band (what is in it, the float, what is owed back), cash handed over waiting for a confirmation, and what was sent this week with each one's standing — including a question back from the office. Send is the camera with Photo and Say it, and a "paid from the tin" choice. Checking a capture gives the uncertain field the yellow and names the amount on the button.
+
+**Patterns both apps share, built once:** the tab bar, the bottom sheet, the money row, the day header, the standing pill, the empty state that teaches, the offline line ("2 waiting to send"), the undo strip.
+
+**The phone's limits, designed around.** Sentryfi is installed from the browser. On an iPhone that means no background sync (queued work sends when the app is opened), about 50 MB of storage (photographs are shrunk before they are held), and notifications only once the app is on the home screen — so the product asks for them at the moment they help, never on first launch. Every screen respects the notch and the home indicator.
+
 ## Typography
 
 **Display Font:** Barlow Condensed 700 (with sans-serif fallback)

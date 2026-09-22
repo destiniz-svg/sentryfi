@@ -51,6 +51,43 @@ Accountant questions still open — GST at import, input tax timing, duty drawba
 
 ---
 
+## Build order
+
+The phases below say *what*; this says *when*. Set 23 September 2026. Each sprint ends deployed, checked in a real browser, and recorded here. Reorder when the owner says so, never silently.
+
+**Sprint 1 — The phone, because that is where people are**
+1. Shared mobile parts, built once: tab bar, bottom sheet, money row, day header, standing pill, empty state, offline line, undo strip.
+2. The main app on a phone: Home (cash card, thirty-day trend, Needs you), the Record sheet, Money (bills and invoices, swipe for the common action), More.
+3. Bank lines on the phone, one card per line.
+4. The expense manager's navigation settled (Home, Tin, Send, Owed back, Me), with Owed back for money paid out of pocket.
+5. The desk shell: grouped rail, breadcrumb bar, one filled action per page (design slice 3).
+
+**Sprint 2 — A complete core**
+6. Fixed assets and year end.
+7. Money borrowed: every kind of loan, repayments split for you.
+8. Dimensions: project, branch, department, machine on any line.
+9. Multi-currency finished: month-end revaluation, dollar invoices.
+10. People finished: Face ID and fingerprint sign-in through passkeys, spending limits, password reset.
+11. The security review that gates real money for companies other than Altura.
+
+**Sprint 3 — Stock, the adviser, and imports (the owner's live problem)**
+12. Stock: items, quantities, what they cost, what a sale earned.
+13. The adviser: stock or cost or asset, the charges on a document read, asked and learned.
+14. Shipments and landed cost: freight by container, CBM or chargeable weight; the agent's disbursements; Customs as charged.
+
+**Sprint 4 — The business modules**
+15. Projects, construction first: budget, committed, claims and certification, retention, cost to complete, watched.
+16. Purchase orders and sales orders, deliveries received against them.
+17. Quotes, repeat billing, expense claims, approvals, payment runs, the customer portal.
+
+**Sprint 5 and after**
+18. The CFO and the morning brief.
+19. Offline everywhere in the field; guided first-run; the documented interface for AI and other software.
+20. Sellable: a second country pack, Dhivehi and right to left, sign-up and plans, the practice portal.
+21. The expense companion app.
+
+**Now:** Sprint 1, item 1.
+
 ## The plan
 
 ### Phase A — Make the core complete and real
@@ -67,7 +104,7 @@ Accountant questions still open — GST at import, input tax timing, duty drawba
 **Money borrowed.** Loans of every kind — director loans, bank loans, hire purchase, overdrafts — with the split between principal and interest handled on each repayment.
 **Done when:** a loan repayment posts principal and interest correctly without anyone doing the split by hand.
 
-**Design system rebuilt.** Tokens and shared components rebuilt to match the settled design direction (ink, signal yellow, deep sea), then every screen moved onto them, browser checks green throughout. Do it before the modules multiply the screens. **← next**
+**Design system rebuilt.** Tokens and shared components rebuilt to match the settled design direction (ink, signal yellow, deep sea), then every screen moved onto them, browser checks green throughout. Do it before the modules multiply the screens.
 - **Two mobile apps, at app quality.** Asked for on 23 September 2026: most people use Sentryfi on a phone, and the redesign had only covered the desk. The **main app** on a phone — for the owner, the accountant and every level that reads the books — designed as a first-class mobile app, not the desk shrunk. The **expense manager** — the phone board — for assigned field staff only: send a bill, run the tin, confirm cash received, see what is owed back. Research in `docs/domain/mobile-app-design.md`; designs on the canvas. *Designed 23 Sep 2026:* bank lines one card per line, and a thirty-day cash trend on Home, both on the canvas. *Gaps found against Xero, QuickBooks and Zoho Books (23 Sep 2026):* explain bank lines on the phone, one card per line (Xero's strongest mobile feature); a cash trend on the Home card, not only today's figure; a pay-now link on an invoice; Face ID or fingerprint sign-in through passkeys; notifications asked for at a useful moment. Deliberately not copied: automatic GPS mileage (boats and fuel matter more here), and a separate app for staff expenses (one install, the role decides). *Done 23 Sep 2026:* the role rule — only field staff get the expense manager; everyone else gets the main app on any screen, verified live. **Done when:** both are designed from the research, built, and pass the phone, foldable and people checks, and an owner can run the business from a phone without reaching for a laptop.
   - *Done 23 Sep 2026:* settled tokens live (warmer ground, deep sea, status pairs at 4.5:1); slice 1, standing pills and statement money; slice 2, money on bank, bills, invoices and tins, and text links in deep sea. *Next slice:* the page shell — grouped rail, breadcrumb bar, one filled action per page header.
 **Done when:** no screen still uses a hand-rolled colour, spacing or component the tokens should supply.

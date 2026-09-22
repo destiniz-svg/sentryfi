@@ -18,6 +18,15 @@ Recorded 19 September 2026 by reading what is deployed. The previous entry here 
 
 Roles are held per company, not per person, so the same individual can be an administrator in one entity and a viewer in another. A person may hold more than one.
 
+### Which app a person gets
+
+Decided 23 September 2026. **Most people use Sentryfi on a phone, so both apps are phone apps first.**
+
+- **The main app** — for the administrator, accountant, manager, approver, viewer and auditor: everybody who reads the books. On a phone it is a first-class app with its own navigation (Home, Money, Record, Bank, More), not the desk squeezed small; on a wider screen it is the desk. The owner runs the business from it.
+- **The expense manager** — for site staff and cash holders only: the people who feed the books and never read them. Send a bill by photograph or voice, run the cash tin handed to them, confirm cash received, see what they are owed back. Nothing else is reachable; a page from the main app sends them home.
+
+The role decides, never the screen width, and one sign-in opens the right one. A person who holds a cash tin as well as reading the books opens the tin from the main app.
+
 ### On the desk
 
 - **Administrator.** Everything, plus adding people and changing settings. Abdulla Thinan, owner and director of Altura Pvt Ltd, part of the Steva Enterprises group. A non-accountant who builds the app himself with Claude Code and uses it on his phone on site, one-handed, in bright sun. His three hardest jobs: clearing a backlog of bills, tracking cash against bank against who funded what, and GST.
@@ -27,7 +36,7 @@ Roles are held per company, not per person, so the same individual can be an adm
 - **Viewer.** Reads, never posts. The other directors of Altura and the Steva companies sit here, watching what they have put in and what the project has spent. They never record their own contributions; an administrator or manager does.
 - **Auditor.** Reads everything, including the full trail, from outside, and changes nothing. Reviews a closed period against the archive.
 
-### On the phone
+### In the expense manager
 
 - **Site staff.** Photograph a bill, tag the project. They see no money at all: no balances, no other people's bills, no books. Untrained in bookkeeping, often on poor connectivity, sometimes with gloves or wet hands. Their queue survives a day offline.
 - **Cash holder.** Site staff who also hold a cash box. They spend from it with a bill or without one, count it when asked, and ask for a top-up. They see exactly one number, what is left in their own box, and never a company balance. They can never move money themselves. Shaped in `docs/shape-petty-cash.md`.
@@ -35,7 +44,7 @@ Roles are held per company, not per person, so the same individual can be an adm
 
 ### Not yet
 
-- **Future customers**, not at launch: owners of other Maldivian small businesses in the industries the plan names. Multi-tenant from day one so they can be added without a rewrite. Public sign-up, billing and self-serve onboarding are out of scope for the first release.
+- **Future customers**: founders and owners of small businesses in the Maldives first and in other countries after, in the industries the plan names. Multi-tenant from day one so they can be added without a rewrite. Public sign-up, billing and self-serve onboarding come in the plan's "Sellable" phase, not the first release.
 
 ## Product Purpose
 
