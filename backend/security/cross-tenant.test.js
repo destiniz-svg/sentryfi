@@ -536,3 +536,20 @@ describe("reset links, limits and passkeys", () => {
     expect(unknown.status).toBe(401);
   });
 });
+
+describe("every company table is walled", () => {
+  it("has row-level security switched on and forced, and a policy", async () => {
+    const { rows } = await db.query(
+      `SELECT c.relname AS t, c.relrowsecurity AS on, c.relforcerowsecurity AS forced,
+              (SELECT count(*) FROM pg_policies p WHERE p.tablename = c.relname)::int AS policies
+         FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public' AND c.relkind = 'r'
+          AND EXISTS (SELECT 1 FROM information_schema.columns k
+                       WHERE k.table_schema = 'public' AND k.table_name = c.relname AND k.column_name = 'company_id')`
+    );
+    // Tables the app role cannot reach at all need no policy: the platform's own.
+    const platform = new Set(["password_resets", "backup_runs"]);
+    const open = rows.filter((r) => !platform.has(r.t) && !(r.on && r.forced && r.policies > 0)).map((r) => r.t);
+    expect(open).toEqual([]);
+  });
+});
