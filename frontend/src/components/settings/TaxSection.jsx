@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/Ca
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { taxApi } from "@/api/tax";
+import { gstApi } from "@/api/gst";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 
@@ -88,6 +89,8 @@ export function TaxSection() {
         </ul>
       </Card>
 
+      {can("manage_settings") && data.pack.filing.authority && <FilingSettings />}
+
       {can("manage_settings") && (
         <Card padding="lg">
           <CardHeader>
@@ -158,5 +161,67 @@ export function TaxSection() {
         </Card>
       )}
     </div>
+  );
+}
+
+/** The two facts every return needs: the taxable activity number, and how often. */
+function FilingSettings() {
+  const { companyId } = useCompany();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const { data } = useQuery({ queryKey: ["gst", companyId, "current"], queryFn: () => gstApi.get("current") });
+  const [activityNo, setActivityNo] = useState(null);
+  const [frequency, setFrequency] = useState(null);
+  const save = useMutation({ mutationFn: gstApi.settings });
+  if (!data) return null;
+
+  const no = activityNo ?? data.activityNo ?? "";
+  const every = frequency ?? data.frequency;
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    try {
+      await save.mutateAsync({ activityNo: no.trim() || null, frequency: every });
+      queryClient.invalidateQueries({ queryKey: ["gst", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["attention", companyId] });
+      toast.success("Filing details saved");
+    } catch (ex) {
+      toast.error("Not saved", ex.message);
+    }
+  }
+
+  return (
+    <Card padding="lg">
+      <CardHeader>
+        <div>
+          <CardTitle className="text-base">Filing</CardTitle>
+          <CardDescription className="mt-1">On every line of both statements, and which periods you file for.</CardDescription>
+        </div>
+      </CardHeader>
+      <form onSubmit={onSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <label className="block">
+          <span className="text-sm font-medium block mb-1.5">Taxable activity number</span>
+          <Input id="gst-activity" value={no} onChange={(e) => setActivityNo(e.target.value)} placeholder="1145053GST501" className="tabular" />
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium block mb-1.5">You file</span>
+          <select
+            id="gst-frequency"
+            value={every}
+            onChange={(e) => setFrequency(e.target.value)}
+            className="w-full h-11 px-3 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[15px]"
+          >
+            <option value="month">Every month</option>
+            <option value="quarter">Every quarter</option>
+          </select>
+        </label>
+        <div className="sm:col-span-2 flex justify-end">
+          <Button type="submit" variant="accent" disabled={save.isPending}>
+            {save.isPending && <Loader2 size={14} className="animate-spin" />}
+            Save filing details
+          </Button>
+        </div>
+      </form>
+    </Card>
   );
 }

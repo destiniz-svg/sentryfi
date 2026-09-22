@@ -24,6 +24,7 @@ const bankRouter = require("./routes/bank");
 const periodsRouter = require("./routes/periods");
 const statementsRouter = require("./routes/statements");
 const taxRouter = require("./routes/tax");
+const gstRouter = require("./routes/gst");
 const salesRouter = require("./routes/sales");
 
 
@@ -72,6 +73,7 @@ app.use("/api/bank", bankRouter);
 app.use("/api/periods", periodsRouter);
 app.use("/api/statements", statementsRouter);
 app.use("/api/tax", taxRouter);
+app.use("/api/gst", gstRouter);
 app.use("/api/sales", salesRouter);
 
 

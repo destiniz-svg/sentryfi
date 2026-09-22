@@ -30,6 +30,39 @@ CREATE POLICY company_isolation ON tax_rates
   USING (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid)
   WITH CHECK (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid);
 GRANT SELECT, INSERT ON tax_rates TO sentryfi_app;
+
+-- How often this company files: a month or a quarter, set by turnover.
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS gst_period TEXT NOT NULL DEFAULT 'month';
+DO $$ BEGIN
+  ALTER TABLE companies ADD CONSTRAINT gst_period_known CHECK (gst_period IN ('month','quarter'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+-- The two filing facts an administrator sets. Only these columns: the rest of
+-- a company's record is not the application's to rewrite.
+GRANT UPDATE (gst_period, gst_number) ON companies TO sentryfi_app;
+
+-- A return somebody says they filed. The countdown stops for that period, and
+-- the figures that went in are kept, so a later change to the books shows up
+-- as a difference rather than silently rewriting what was filed.
+CREATE TABLE IF NOT EXISTS gst_filings (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id     UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  period_key     TEXT NOT NULL,
+  period_from    DATE NOT NULL,
+  period_to      DATE NOT NULL,
+  output_laari   BIGINT NOT NULL,
+  input_laari    BIGINT NOT NULL,
+  reference      TEXT,
+  filed_by       UUID NOT NULL REFERENCES users(id),
+  filed_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (company_id, period_key)
+);
+ALTER TABLE gst_filings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE gst_filings FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS company_isolation ON gst_filings;
+CREATE POLICY company_isolation ON gst_filings
+  USING (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid)
+  WITH CHECK (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid);
+GRANT SELECT, INSERT ON gst_filings TO sentryfi_app;
 `;
 
 module.exports = { TAX_SQL };

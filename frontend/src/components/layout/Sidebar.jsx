@@ -9,6 +9,7 @@ import {
   Landmark,
   Lock,
   Scale,
+  Percent,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -24,6 +25,7 @@ const NAV = [
   { to: "/bank", icon: Landmark, label: "Bank and cash" },
   { to: "/closing", icon: Lock, label: "Closing" },
   { to: "/statements", icon: Scale, label: "Statements" },
+  { to: "/tax", icon: Percent, label: "GST return" },
 ];
 
 const ROW_BASE =

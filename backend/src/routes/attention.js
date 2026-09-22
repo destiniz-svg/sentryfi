@@ -5,6 +5,7 @@ const { requireAuth } = require("../middleware/auth");
 const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
 const { formatLaari } = require("../ledger/money");
+const gstReturn = require("../ledger/gstReturn");
 
 const router = express.Router();
 router.use(requireAuth, requireCompany);
@@ -186,6 +187,27 @@ router.get(
           detail: `MVR ${formatLaari(BigInt(u.total))} moved at the bank with nothing in the books behind it. The oldest is from ${u.oldest}.`,
           does: "Say what they were, or leave them for later",
           href: `/bank`,
+        });
+      }
+
+      // 7. The GST return. Only in the last two weeks, and until somebody says
+      //    it was filed: a countdown that is always there is one nobody reads.
+      //    Late is money at risk, because MIRA fines late returns.
+      const r = await gstReturn.build(client, { companyId: req.companyId });
+      const left = r.period.daysLeft;
+      if (!r.filed && r.pack.filing.dueDay && left !== null && left <= 14) {
+        const owe = r.out.tax - r.inp.tax;
+        found.push({
+          kind: left < 0 ? "money_at_risk" : "waiting",
+          title:
+            left < 0
+              ? `The ${r.period.label} GST return is ${-left} ${left === -1 ? "day" : "days"} late`
+              : `The ${r.period.label} GST return is due in ${left} ${left === 1 ? "day" : "days"}`,
+          detail:
+            `${owe < 0n ? "Refundable" : "Payable"} so far: MVR ${formatLaari(owe < 0n ? -owe : owe)}.` +
+            (r.problems.length ? ` ${r.problems.length} ${r.problems.length === 1 ? "thing" : "things"} would make it wrong.` : ""),
+          does: "Open the tax return",
+          href: `/tax`,
         });
       }
 

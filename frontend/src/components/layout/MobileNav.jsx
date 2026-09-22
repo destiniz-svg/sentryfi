@@ -13,6 +13,7 @@ import {
   Landmark,
   Lock,
   Scale,
+  Percent,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import AILogo from "./AILogo";
@@ -42,6 +43,7 @@ const REST = [
   { to: "/bank", icon: Landmark, label: "Bank and cash" },
   { to: "/closing", icon: Lock, label: "Closing" },
   { to: "/statements", icon: Scale, label: "Statements" },
+  { to: "/tax", icon: Percent, label: "GST return" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
