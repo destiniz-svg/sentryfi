@@ -323,7 +323,7 @@ It is not done until one real month has been keyed in and accepted by the portal
 
 ---
 
-### 14. Bringing history in
+### 14. Bringing history in — CSV built 22 September 2026, Zoho year not yet imported
 
 **Moved into the core in this revision.** Real money needs agreed opening balances, and an accountant cannot agree an opening balance without the prior records. It cannot sit after the modules.
 
@@ -334,6 +334,19 @@ Zoho Books, QuickBooks Online and Xero over OAuth; anything else with an API thr
 Every imported record carries which system it came from and that system's own id, so importing a month twice recognises itself. An import that cannot balance waits for a person. A connector proposes; a person accepts.
 
 **Done when:** a year of Zoho history imports, the trial balance afterwards matches what Zoho said it was, and importing the same year again changes nothing.
+
+**What happened.** The CSV floor is built, at `/import`.
+- **Reading the file.** Columns are found by their headings, so Zoho's Manual Journals export and its General Ledger report both read. Dates are read day-first unless the file proves otherwise. Amounts are read as `1,234.50`, `(1,234.50)` or `-12`.
+- **Posting.** Each balanced transaction posts through `postEntry` as an ordinary entry, source `import`. A transaction that does not balance is listed and left out.
+- **Accounts.** Nothing is written until a person has said what each unknown account is. Each one comes with a guess from its name, and the answer is remembered in `import_account_map`.
+- **No duplicates.** The source system's transaction number is kept in `imported_records`, so the same file again adds nothing.
+
+Browser check: `node tools/import.js`.
+
+Not done:
+- **The OAuth connectors** for Zoho, QuickBooks and Xero.
+- **A side-by-side comparison with Zoho's trial balance.** For now the trial balance at `/statements` is read against Zoho's by eye.
+- **The real test.** Altura's own year from Zoho has not been imported yet. That is what decides whether this step is done.
 
 ---
 
