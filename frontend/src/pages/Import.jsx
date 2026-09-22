@@ -46,6 +46,8 @@ export default function Import() {
   const [name, setName] = useState("");
   const [answer, setAnswer] = useState({}); // theirName -> accountId | "new:<type>"
   const [ours, setOurs] = useState([]);
+  // Their own account types, from their chart of accounts, when given.
+  const [chart, setChart] = useState({});
   // Where the transactions come from: a file, or Zoho directly over dates.
   const [source, setSource] = useState(null); // { kind: "csv" } | { kind: "zoho", from, to }
 
@@ -58,7 +60,7 @@ export default function Import() {
         apiClient.get("/periods/accounts").then((r) => r.data.accounts),
       ]);
       setOurs(accounts);
-      setAnswer(Object.fromEntries(p.accounts.map((a) => [a.theirs, a.accountId || `new:${a.suggestType}`])));
+      setAnswer(Object.fromEntries(p.accounts.map((a) => [a.theirs, a.accountId || `new:${chart[a.theirs] || a.suggestType}`])));
       return p;
     },
   });
@@ -94,6 +96,21 @@ export default function Import() {
     setSource({ kind: "csv", csv });
     bring.reset();
     look.mutate({ kind: "csv", csv });
+  }
+
+  async function onChart(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const { types } = await apiClient
+        .post("/imports/chart", await file.text(), { headers: { "Content-Type": "text/csv" } })
+        .then((r) => r.data);
+      setChart(types);
+      // Accounts already listed take their own type; ones pointed at an account here stay.
+      setAnswer((m) => Object.fromEntries(Object.entries(m).map(([k, v]) => [k, v.startsWith("new:") && types[k] ? `new:${types[k]}` : v])));
+    } catch (ex) {
+      toast.error("That chart could not be read", ex.message);
+    }
   }
 
   async function onBring() {
@@ -144,11 +161,23 @@ export default function Import() {
             <span className="text-sm font-medium block mb-1.5">The export</span>
             <input id="import-file" type="file" accept=".csv,text/csv" onChange={onPick} className={FIELD + " w-full py-2 h-auto"} />
           </label>
+          <label className="block flex-1 min-w-[240px]">
+            <span className="text-sm font-medium block mb-1.5">
+              Their chart of accounts <span className="font-normal text-[var(--ink-muted)]">(optional)</span>
+            </span>
+            <input id="import-chart" type="file" accept=".csv,text/csv" onChange={onChart} className={FIELD + " w-full py-2 h-auto"} />
+          </label>
         </div>
         <p className="text-[13px] text-[var(--ink-muted)] mt-3">
-          From Zoho Books: Accountant, Manual Journals, Export; or Reports, General Ledger, Export as CSV. Any file with a date, an
-          account, a debit and a credit column works. Nothing is written until you say so.
+          From Zoho Books: Reports, Journal Report, whole period, Export as CSV. Any file with a date, an account, a debit and a
+          credit column works. The chart of accounts (Accountant, Chart of Accounts, Export) says what every account is, so none
+          has to be guessed. Nothing is written until you say so.
         </p>
+        {Object.keys(chart).length > 0 && (
+          <p className="text-[13px] mt-2" data-testid="chart-note">
+            {Object.keys(chart).length} accounts typed from their chart.
+          </p>
+        )}
       </Card>
 
       {look.isPending && (

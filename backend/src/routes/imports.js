@@ -56,4 +56,18 @@ router.post(
   })
 );
 
+/** Their chart of accounts: each account's own type, so nothing is guessed. Reads only. */
+router.post(
+  "/chart",
+  requireCan("adjust"),
+  express.text({ type: () => true, limit: "5mb" }),
+  asyncHandler(async (req, res) => {
+    try {
+      res.json({ types: history.readChart(typeof req.body === "string" ? req.body : "") });
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
 module.exports = router;

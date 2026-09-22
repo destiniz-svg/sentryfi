@@ -174,13 +174,46 @@ const TYPE_BY_CODE = { 1: "asset", 2: "liability", 3: "equity", 4: "income", 5: 
 function guessType(name, code) {
   if (/^\d/.test(code || "") && TYPE_BY_CODE[code[0]]) return TYPE_BY_CODE[code[0]];
   const n = name.toLowerCase();
-  // A current account with another company ("KENGO PVT LTD C/A") is money between the two,
-  // held as an asset until it is known which way it runs.
-  if (/receivable|bank|cash|petty|deposit|prepaid|inventory|stock|equipment|vehicle|furniture|building|land|machinery|input (tax|gst)|gst (paid|receivable|claim)|\bc\/a\b|current a\/?c\b|current account/.test(n)) return "asset";
-  if (/payable|loan|accrued|output (tax|gst)|gst (payable|owed)|tax payable|advance from|director.*(loan|current)/.test(n)) return "liability";
-  if (/capital|equity|retained|drawings|share|reserve/.test(n)) return "equity";
-  if (/income|revenue|sales|rental income|interest received|discount received/.test(n)) return "income";
+  // Order matters: "Bank Fees and Charges" is spending, not a bank; "Rent
+  // Payable" is owed, not rent; "Unearned Revenue" is owed, not income.
+  if (/payable|\bloan\b|accrued|unearned|deferred|advance from|output (tax|gst)|gst (payable|owed)|credit card/.test(n)) return "liability";
+  if (/\b(fees?|charges|chargers|commission paid|expenses?|expences)\b/.test(n) && !/prepaid/.test(n)) return "expense";
+  // A current account with another company or a director ("KENGO PVT LTD C/A",
+  // "Abdulla Thinan- CA") is money between the two, held as an asset until it
+  // is known which way it runs.
+  if (/receivable|\bbank\b|\bbml\b|\bmib\b|cash|petty|deposit|prepaid|advance payment|inventory|stock|equipment|vehicle|furniture|building|land|machinery|\bwip\b|depreciation|input (tax|gst)|gst (paid|receivable|claim)|\bc\/a\b|\bca$|current a\/?c\b|current account|control a\/?c|control ac\b/.test(n)) return "asset";
+  if (/capital|equity|retained|drawings|\bshares?\b|reserve/.test(n)) return "equity";
+  if (/income|revenue|sales|commission|interest received|discount received|rebate/.test(n)) return "income";
   return "expense";
+}
+
+// Zoho's account types, and the other systems' plain ones, as the five kinds here.
+const KIND_OF = [
+  [/receivable|asset|bank|cash|stock|inventory|prepaid/, "asset"],
+  [/payable|liability|credit card|tax/, "liability"],
+  [/equity|capital/, "equity"],
+  [/income|revenue|sales/, "income"],
+  [/expense|cost of goods|cogs/, "expense"],
+];
+
+/**
+ * Their chart of accounts, if they export it: each account's own type, so no
+ * account has to be guessed. Zoho: Accountant, Chart of Accounts, Export.
+ */
+function readChart(text) {
+  const rows = tokenise(String(text || "").replace(/^﻿/, "")).filter((r) => r.some((c) => String(c).trim()));
+  const head = (rows[0] || []).map(norm);
+  const nameAt = head.findIndex((h) => ["account name", "account", "name"].includes(h));
+  const typeAt = head.findIndex((h) => ["account type", "type"].includes(h));
+  if (nameAt < 0 || typeAt < 0) throw new Error("A chart of accounts needs an account name column and an account type column.");
+  const out = {};
+  for (const r of rows.slice(1)) {
+    const name = String(r[nameAt] || "").trim();
+    const type = norm(r[typeAt]);
+    const kind = KIND_OF.find(([re]) => re.test(type));
+    if (name && kind) out[name] = kind[1];
+  }
+  return out;
 }
 
 /** Their account names, each with what it is here or a suggestion. */
@@ -319,4 +352,4 @@ async function commit(client, { companyId, userId, system, text, transactions: g
   return { posted, remaining: fresh.length - batch.length, alreadyHad: had.size, unbalanced: transactions.filter((t) => !had.has(t.key) && !t.balanced).length };
 }
 
-module.exports = { read, money, guessType, preview, commit, finish };
+module.exports = { read, money, guessType, readChart, preview, commit, finish };

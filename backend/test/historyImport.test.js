@@ -11,7 +11,7 @@
 import { describe, it, expect, afterAll } from "vitest";
 import { inRollback, aCompanyWith, closePool } from "./setup";
 import { assumeIdentity } from "../src/ledger/post";
-import { read, money, guessType, preview, commit } from "../src/ledger/historyImport";
+import { read, money, guessType, readChart, preview, commit } from "../src/ledger/historyImport";
 import { trialBalance } from "../src/ledger/statements";
 
 afterAll(closePool);
@@ -67,6 +67,26 @@ describe("reading the file", () => {
     expect([guessType("Accounts Receivable"), guessType("GST Payable"), guessType("Owner's Capital"), guessType("Rental Income"), guessType("Fuel and Oil")])
       .toEqual(["asset", "liability", "equity", "income", "expense"]);
     expect([guessType("KENGO PVT LTD C/A"), guessType("Bever Builders Current Account"), guessType("VILUDHOLHI BUILDING")]).toEqual(["asset", "asset", "asset"]);
+    // The ones a real Zoho chart got wrong first time round.
+    expect(
+      ["BML- MVR", "BML -USD", "Bank Fees and Charges", "Unearned Revenue", "Abdulla Thinan- CA", "Rent Payable", "Depreciation Expense", "Acc. Depreciation -Oil Boat", "Sales Commision", "Keyodhoo Fuel Station -WIP"].map((n) => guessType(n))
+    ).toEqual(["asset", "asset", "expense", "liability", "asset", "liability", "expense", "asset", "income", "asset"]);
+  });
+
+  it("reads each account's own type from their chart of accounts", () => {
+    expect(
+      readChart(
+        [
+          '"Account Name","Account Code","Account Type"',
+          '"BML- MVR","","Bank"',
+          '"Unearned Revenue","","Other Current Liability"',
+          '"Retained Earnings","","Equity"',
+          '"Sales","","Income"',
+          '"Freight chargers","","Cost Of Goods Sold"',
+          '"Building","","Fixed Asset"',
+        ].join("\n")
+      )
+    ).toEqual({ "BML- MVR": "asset", "Unearned Revenue": "liability", "Retained Earnings": "equity", Sales: "income", "Freight chargers": "expense", Building: "asset" });
   });
 });
 
