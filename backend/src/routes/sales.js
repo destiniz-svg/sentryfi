@@ -38,6 +38,9 @@ const newInvoice = z.object({
   gstRateBp: z.number().int().min(0).max(10000).nullish(),
   projectId: z.string().uuid().nullish(),
   dimensionIds: z.array(z.string().uuid()).max(6).nullish(),
+  // Another currency: its code, and how many of ours one of it bought on the invoice date.
+  currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/, "A currency is three letters, like USD.").nullish(),
+  fxRate: z.union([z.string().trim(), z.number()]).transform(String).nullish(),
   clientRef: z.string().uuid().nullish(),
   lines: z
     .array(
@@ -56,12 +59,16 @@ const newInvoice = z.object({
 
 const newReceipt = z.object({
   counterpartyId: z.string().uuid().nullish(),
-  amount,
+  amount: amount.nullish(),
+  // Money in another currency: how much of it, and the day's rate.
+  currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/).nullish(),
+  amountFc: amount.nullish(),
+  rate: z.union([z.string().trim(), z.number()]).transform(String).nullish(),
   accountId: z.string().uuid("Which account did it land in?"),
   receivedOn: z.string().trim().nullish(),
   reference: z.string().trim().max(200).nullish(),
   allocations: z
-    .array(z.object({ invoiceId: z.string().uuid(), amount }))
+    .array(z.object({ invoiceId: z.string().uuid(), amount: amount.nullish(), amountFc: amount.nullish() }))
     .default([]),
 });
 
@@ -84,7 +91,10 @@ router.get(
                            JOIN receipts r ON r.id = a.receipt_id AND r.voided_at IS NULL
                           WHERE a.invoice_id = s.id), 0) AS paid,
                 COALESCE((SELECT SUM(n.gross_laari) FROM credit_notes n
-                          WHERE n.invoice_id = s.id), 0) AS credited
+                          WHERE n.invoice_id = s.id), 0) AS credited,
+                COALESCE((SELECT SUM(a.amount_fc) FROM receipt_allocations a
+                           JOIN receipts r ON r.id = a.receipt_id AND r.voided_at IS NULL
+                          WHERE a.invoice_id = s.id), 0) AS paid_fc
            FROM sales_invoices s
            LEFT JOIN counterparties c ON c.id = s.counterparty_id
           WHERE s.company_id = $1
@@ -117,6 +127,15 @@ router.get(
           // will not match an invoice without it, and it will simply not be
           // paid until somebody chases it.
           missingPurchaseOrder: !s.purchase_order,
+          // In another currency: the invoice's own figures, and what is left in them.
+          foreign: s.fc_gross
+            ? {
+                currency: s.currency.trim(),
+                rate: String(s.fx_rate).replace(/0+$/, "").replace(/\.$/, ""),
+                gross: money(s.fc_gross),
+                outstanding: money((BigInt(s.fc_gross) - BigInt(s.paid_fc)).toString()),
+              }
+            : null,
         };
       }),
     });
@@ -298,6 +317,9 @@ router.post(
         // that arrived. Saying so is the difference between a receipt and a
         // refusal.
         onAccount: formatLaari(result.onAccount),
+        // Money in another currency: what the rate moved between the invoice and the payment.
+        exchange: result.exchange === undefined ? null : formatLaari(result.exchange < 0n ? -result.exchange : result.exchange),
+        exchangeLoss: result.exchange !== undefined && result.exchange < 0n,
       });
     } catch (err) {
       throw ApiError.badRequest(err.message);

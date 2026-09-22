@@ -4,9 +4,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { salesApi } from "@/api/sales";
+import { bankApi } from "@/api/bank";
 import { useSalesMutations } from "@/hooks/useSales";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
+import { today } from "@/lib/utils";
 
 /**
  * What happens to an invoice after it is in the books: money arrives against
@@ -22,7 +24,6 @@ const FIELD =
   "w-full h-11 px-4 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[15px] text-[var(--ink)] placeholder:text-[var(--ink-muted)] outline-none focus:border-[var(--ink)] focus:ring-[3px] focus:ring-[var(--ink)]/15";
 
 const clean = (s) => String(s || "").replace(/,/g, "").trim();
-const today = () => new Date().toISOString().slice(0, 10);
 
 function laari(text) {
   const t = clean(text);
@@ -44,7 +45,11 @@ export function ReceiveMoney({ invoice, onClose }) {
 
   // Seeded from the invoice when it mounts. The page keys this sheet by the
   // invoice, so opening it for another one starts clean rather than resetting.
-  const [amount, setAmount] = useState(() => clean(invoice?.outstanding));
+  // An invoice in another currency is paid in it: its own figures, at the day's rate.
+  const fx = invoice?.foreign || null;
+  const unit = fx ? fx.currency : "MVR";
+  const [amount, setAmount] = useState(() => clean(fx ? fx.outstanding : invoice?.outstanding));
+  const [rate, setRate] = useState("");
   const [accountId, setAccountId] = useState("");
   const [receivedOn, setReceivedOn] = useState(today());
   const [reference, setReference] = useState("");
@@ -56,9 +61,16 @@ export function ReceiveMoney({ invoice, onClose }) {
     enabled: Boolean(companyId) && open,
   });
 
+  const { data: suggested } = useQuery({
+    queryKey: ["rate", companyId, unit, receivedOn],
+    queryFn: () => bankApi.rate(unit, receivedOn),
+    enabled: Boolean(companyId) && open && Boolean(fx),
+  });
+
   if (!invoice) return null;
 
-  const left = laari(invoice.outstanding) ?? 0;
+  const dayRate = rate || suggested?.latest?.rate || "";
+  const left = laari(fx ? fx.outstanding : invoice.outstanding) ?? 0;
   const asked = laari(amount);
   const into = accountId || accounts?.[0]?.id || "";
   const intoName = accounts?.find((a) => a.id === into)?.name;
@@ -70,24 +82,26 @@ export function ReceiveMoney({ invoice, onClose }) {
         ? `Only ${show(left)} is left on it`
         : !into
           ? "Which account did it land in?"
-          : null;
-  const label = blocker || `Received MVR ${show(asked)}${intoName ? ` into ${intoName}` : ""}`;
+          : fx && !/^\d+(\.\d{1,8})?$/.test(String(dayRate).trim())
+            ? `At what rate? How many MVR one ${unit} bought that day`
+            : null;
+  const label = blocker || `Received ${unit} ${show(asked)}${intoName ? ` into ${intoName}` : ""}`;
 
   async function onSubmit(e) {
     e.preventDefault();
     if (blocker) return setErr(blocker);
     setErr("");
     try {
-      const result = await receive.mutateAsync({
-        amount: show(asked).replace(/,/g, ""),
-        accountId: into,
-        receivedOn,
-        reference: reference.trim() || null,
-        allocations: [{ invoiceId: invoice.id, amount: show(asked).replace(/,/g, "") }],
-      });
+      const figure = show(asked).replace(/,/g, "");
+      const result = await receive.mutateAsync(
+        fx
+          ? { currency: unit, amountFc: figure, rate: String(dayRate).trim(), accountId: into, receivedOn, reference: reference.trim() || null, allocations: [{ invoiceId: invoice.id, amountFc: figure }] }
+          : { amount: figure, accountId: into, receivedOn, reference: reference.trim() || null, allocations: [{ invoiceId: invoice.id, amount: figure }] }
+      );
+      const moved = fx && result.exchange && result.exchange !== "0.00" ? ` The rate moved since the invoice: an exchange ${result.exchangeLoss ? "loss" : "gain"} of MVR ${result.exchange}.` : "";
       toast.success(
-        `MVR ${result.applied} against ${invoice.invoiceNo}`,
-        asked === left ? "It is settled." : `MVR ${show(left - asked)} is still owed on it.`
+        `${unit} ${show(asked)} against ${invoice.invoiceNo}`,
+        (asked === left ? "It is settled." : `${unit} ${show(left - asked)} is still owed on it.`) + moved
       );
       onClose();
     } catch (ex) {
@@ -102,12 +116,12 @@ export function ReceiveMoney({ invoice, onClose }) {
       as="form"
       onSubmit={onSubmit}
       title={`Money in · ${invoice.invoiceNo}`}
-      description={`${invoice.customer || "The customer"} owes MVR ${invoice.outstanding} on this invoice.`}
+      description={`${invoice.customer || "The customer"} owes ${unit} ${fx ? fx.outstanding : invoice.outstanding} on this invoice.`}
     >
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
-            <span className="text-sm font-medium block mb-1.5">How much</span>
+            <span className="text-sm font-medium block mb-1.5">How much{fx ? `, in ${unit}` : ""}</span>
             <input
               id="receive-amount"
               value={amount}
@@ -121,6 +135,16 @@ export function ReceiveMoney({ invoice, onClose }) {
             <input type="date" value={receivedOn} onChange={(e) => setReceivedOn(e.target.value)} className={`${FIELD} tabular`} />
           </label>
         </div>
+
+        {fx && (
+          <label className="block">
+            <span className="text-sm font-medium block mb-1.5">Rate that day: MVR for one {unit}</span>
+            <input id="receive-rate" value={rate} onChange={(e) => setRate(e.target.value)} placeholder={suggested?.latest?.rate || "15.42"} inputMode="decimal" className={`${FIELD} tabular`} />
+            <span className="block text-[13px] text-[var(--ink-muted)] mt-1.5 leading-snug">
+              The invoice was raised at {fx.rate}. Any difference is an exchange gain or loss, said on its own line.
+            </span>
+          </label>
+        )}
 
         <label className="block">
           <span className="text-sm font-medium block mb-1.5">Into</span>

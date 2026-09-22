@@ -48,7 +48,7 @@ const bad = (m) => {
     await page.goto(BASE + "/statements", { waitUntil: "networkidle" });
     await page.getByRole("tab", { name: /profit and loss/i }).click();
     const split = page.getByTestId("split");
-    await split.waitFor({ timeout: 15000 });
+    await split.getByText(branch).waitFor({ timeout: 15000 }).catch(() => {});
     const text = await split.innerText();
     if (text.includes(branch) && /Not tagged/.test(text)) ok("profit splits by branch, with what is untagged as its own row");
     else bad(`the split reads: ${text.replace(/\s+/g, " ").slice(0, 200)}`);
@@ -56,7 +56,8 @@ const bad = (m) => {
 
     await page.goto(BASE + "/bills", { waitUntil: "networkidle" });
     await page.getByRole("button", { name: /record a bill/i }).first().click();
-    if (await page.locator("#tag-branch").count()) ok("the bill sheet asks which branch");
+    const asked = await page.locator("#tag-branch").waitFor({ timeout: 15000 }).then(() => true, () => false);
+    if (asked) ok("the bill sheet asks which branch");
     else bad("the bill sheet does not offer a branch");
   } catch (err) {
     bad(err.message);

@@ -12,6 +12,7 @@ import { periodsApi } from "@/api/periods";
 import { apiClient } from "@/api/client";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
+import { today } from "@/lib/utils";
 
 /**
  * Closing the books.
@@ -32,7 +33,6 @@ const FIELD =
 const niceDate = (iso) =>
   new Date(String(iso).slice(0, 10) + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 const niceTime = (iso) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-const today = () => new Date().toISOString().slice(0, 10);
 
 /** Whole laari from "1,250.5", or null when it is not an amount. */
 function laari(text) {
@@ -103,6 +103,7 @@ export default function Closing() {
         </div>
       </Card>
 
+      {can("adjust") && <Revalue through={data.candidates[0] || lastMonthEnd()} />}
       {can("close") && <CloseNext candidates={data.candidates} />}
       {can("close") && <CloseYear />}
 
@@ -175,6 +176,85 @@ function CloseYear() {
         {close.isPending && <Loader2 size={14} className="animate-spin" />}
         Close {year}
       </Button>
+      {err && (
+        <p role="alert" className="text-[13px] text-[var(--danger)] mt-3">
+          {err}
+        </p>
+      )}
+    </Card>
+  );
+}
+
+const lastMonthEnd = () => {
+  const d = new Date();
+  const end = new Date(d.getFullYear(), d.getMonth(), 0);
+  return `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`;
+};
+
+/**
+ * Money held or owed in another currency, restated at the month-end rate
+ * before the month is closed. Shown only when there is some.
+ */
+function Revalue({ through }) {
+  const { companyId } = useCompany();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [rates, setRates] = useState({});
+  const [err, setErr] = useState("");
+  const { data } = useQuery({
+    queryKey: ["periods", companyId, "revalue", through],
+    queryFn: () => apiClient.get("/bank/revalue", { params: { through } }).then((r) => r.data),
+    enabled: Boolean(companyId && through),
+  });
+  const go = useMutation({ mutationFn: (body) => apiClient.post("/bank/revalue", body).then((r) => r.data) });
+  if (!data || !data.items.length) return null;
+
+  const currencies = [...new Set(data.items.map((i) => i.currency))];
+  const rateFor = (c) => rates[c] ?? data.items.find((i) => i.currency === c)?.rate ?? "";
+
+  async function onGo() {
+    setErr("");
+    try {
+      const r = await go.mutateAsync({ through, rates: Object.fromEntries(currencies.map((c) => [c, String(rateFor(c)).trim()]).filter(([, v]) => v)) });
+      qc.invalidateQueries({ queryKey: ["periods", companyId] });
+      qc.invalidateQueries({ queryKey: ["figures", companyId] });
+      if (!r.entryNo) toast.success("Nothing to restate", "Everything foreign is already at these rates.");
+      else toast.success(`Restated at ${niceDate(r.on)}`, `Entry ${r.entryNo}: an exchange ${r.gain ? "gain" : "loss"} of MVR ${r.net.replace(/^-/, "")}.`);
+    } catch (ex) {
+      setErr(ex.message);
+    }
+  }
+
+  return (
+    <Card padding="lg" className="mb-4" data-testid="revalue">
+      <div className="text-[13px] font-medium text-[var(--ink-muted)] mb-1">Foreign money at {niceDate(data.on)}</div>
+      <p className="text-[14px] max-w-prose">
+        What is held or owed in another currency is restated at the month-end rate, so the balance sheet says what it is worth
+        today. The difference is an exchange gain or loss. Do this before closing the month.
+      </p>
+      <div className="mt-3 divide-y divide-[var(--border)] text-[14px]">
+        {data.items.map((i) => (
+          <div key={`${i.code}${i.currency}`} className="flex flex-wrap justify-between gap-x-4 py-2">
+            <span>{i.account}</span>
+            <span className="tabular text-[var(--ink-muted)]">
+              {i.currency} {i.held} · carried at MVR {i.carried}
+              {i.move && i.move !== "0.00" ? ` · moves ${i.move}` : ""}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-end gap-3 mt-3">
+        {currencies.map((c) => (
+          <label key={c} className="block">
+            <span className="text-sm font-medium block mb-1.5">MVR for 1 {c} on {niceDate(data.on)}</span>
+            <input id={`reval-${c}`} value={rateFor(c)} onChange={(e) => setRates((x) => ({ ...x, [c]: e.target.value }))} inputMode="decimal" placeholder="15.42" className={FIELD + " max-w-[180px] tabular"} />
+          </label>
+        ))}
+        <Button variant="outline" disabled={go.isPending} onClick={onGo}>
+          {go.isPending && <Loader2 size={14} className="animate-spin" />}
+          Restate at these rates
+        </Button>
+      </div>
       {err && (
         <p role="alert" className="text-[13px] text-[var(--danger)] mt-3">
           {err}

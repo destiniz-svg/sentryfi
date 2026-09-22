@@ -11,6 +11,7 @@ import { statementsApi } from "@/api/statements";
 import { useCompany } from "@/context/CompanyContext";
 import { apiClient } from "@/api/client";
 import { useTags } from "@/components/ui/TagPicker";
+import { today } from "@/lib/utils";
 
 /**
  * The statements an accountant checks the work with.
@@ -31,7 +32,6 @@ const TABS = [
   { key: "bs", label: "Balance sheet" },
 ];
 
-const today = () => new Date().toISOString().slice(0, 10);
 const yearStart = () => `${today().slice(0, 4)}-01-01`;
 const niceDate = (iso) =>
   new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });

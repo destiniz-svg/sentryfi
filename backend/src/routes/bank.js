@@ -9,6 +9,7 @@ const { formatLaari } = require("../ledger/money");
 const bank = require("../ledger/bank");
 const reconcile = require("../ledger/reconcile");
 const fx = require("../ledger/fx");
+const revalue = require("../ledger/revalue");
 
 /** Bank accounts and tins, and money moving between them. Every balance is read from the journal. */
 
@@ -160,6 +161,47 @@ router.post(
           closing: r.balance.closing === null ? null : formatLaari(r.balance.closing),
         },
       });
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
+/* ------------------------------------------------- foreign money at a month end */
+
+const wireItem = (i) => ({
+  account: i.name,
+  code: i.code,
+  currency: i.currency,
+  held: formatLaari(i.fc),
+  carried: formatLaari(i.carried),
+  rate: i.rate,
+  worth: i.worth === null ? null : formatLaari(i.worth),
+  move: i.move === null ? null : formatLaari(i.move),
+});
+
+/** What restating foreign money at a month end would move, at recorded rates or those given. */
+router.get(
+  "/revalue",
+  requireCan("read"),
+  asyncHandler(async (req, res) => {
+    const through = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.through || "")) ? req.query.through : new Date().toISOString().slice(0, 10);
+    const p = await asCompany(req, (client) => revalue.preview(client, { companyId: req.companyId, through }));
+    res.json({ on: p.on, missing: p.missing, items: p.items.map(wireItem) });
+  })
+);
+
+router.post(
+  "/revalue",
+  requireCan("adjust"),
+  asyncHandler(async (req, res) => {
+    const parsed = z
+      .object({ through: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Which month end?"), rates: z.record(z.string().regex(/^[A-Z]{3}$/), z.string().trim()).default({}) })
+      .safeParse(req.body ?? {});
+    if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
+    try {
+      const r = await asCompany(req, (client) => revalue.revalue(client, { ...parsed.data, companyId: req.companyId, userId: req.user.id }));
+      res.json({ on: r.on, entryNo: r.entryNo && String(r.entryNo), net: formatLaari(r.net), gain: r.net > 0n, items: r.items.map(wireItem) });
     } catch (err) {
       throw ApiError.badRequest(err.message);
     }

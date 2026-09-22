@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { apiClient } from "@/api/client";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
-import { formatDate } from "@/lib/utils";
+import { formatDate, today } from "@/lib/utils";
 
 /**
  * Fixed assets: the things the business owns and uses for more than a year —
@@ -148,7 +148,7 @@ export default function Assets() {
 
 function AddAsset({ data, onClose, onDone }) {
   const toast = useToast();
-  const [f, setF] = useState({ name: "", category: "equipment", cost: "", residual: "", acquiredOn: new Date().toISOString().slice(0, 10), lifeYears: "", method: "straight_line", ratePct: "", fromAccountId: "" });
+  const [f, setF] = useState({ name: "", category: "equipment", cost: "", residual: "", acquiredOn: today(), lifeYears: "", method: "straight_line", ratePct: "", fromAccountId: "" });
   const [err, setErr] = useState("");
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
   const cat = data.categories.find((c) => c.key === f.category);
@@ -269,7 +269,7 @@ function AddAsset({ data, onClose, onDone }) {
 
 function Dispose({ asset, payFrom, onClose, onDone }) {
   const toast = useToast();
-  const [on, setOn] = useState(new Date().toISOString().slice(0, 10));
+  const [on, setOn] = useState(today());
   const [proceeds, setProceeds] = useState("");
   const [to, setTo] = useState("");
   const [err, setErr] = useState("");

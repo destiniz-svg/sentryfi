@@ -9,6 +9,7 @@ import { useSalesMutations } from "@/hooks/useSales";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 import { TagPicker } from "@/components/ui/TagPicker";
+import { toDateInput } from "@/lib/utils";
 
 /**
  * Raising an invoice.
@@ -41,7 +42,7 @@ const TAX = [
 function today(offsetDays = 0) {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
-  return d.toISOString().slice(0, 10);
+  return toDateInput(d);
 }
 
 const blankLine = () => ({ description: "", quantity: "1", uom: "", rate: "" });
@@ -97,6 +98,8 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
     dueDate: today(30),
     gstTreatment: "exclusive",
     tags: { projectId: null, dimensionIds: [] },
+    currency: "", // our own
+    fxRate: "",
   }));
   const [lines, setLines] = useState([blankLine()]);
   const [err, setErr] = useState("");
@@ -140,12 +143,16 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
   );
   const gross = totals.net + totals.tax;
 
+  const unit = form.currency || "MVR";
+  const rateOk = !form.currency || Number(String(form.fxRate).replace(/,/g, "")) > 0;
   const commitment = !form.customerName.trim()
     ? "Who is it to?"
     : usable.length === 0
       ? "Add a line with a rate"
-      : `Save ${invoiceNo || "invoice"} · MVR ${show(gross)}`;
-  const ready = form.customerName.trim() && usable.length > 0;
+      : !rateOk
+        ? `At what rate? MVR for one ${form.currency}`
+        : `Save ${invoiceNo || "invoice"} · ${unit} ${show(gross)}`;
+  const ready = form.customerName.trim() && usable.length > 0 && rateOk;
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -162,6 +169,8 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
         issueDate: form.issueDate || null,
         dueDate: form.dueDate || null,
         gstTreatment: form.gstTreatment,
+        currency: form.currency || null,
+        fxRate: form.currency ? String(form.fxRate).trim() : null,
         projectId: form.tags.projectId || null,
         dimensionIds: form.tags.dimensionIds.length ? form.tags.dimensionIds : null,
         lines: usable.map((l) => ({
@@ -257,6 +266,24 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
           <Field label="Due" htmlFor="inv-due">
             <input id="inv-due" type="date" value={form.dueDate} onChange={set("dueDate")} className={`${FIELD} tabular`} />
           </Field>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="In" htmlFor="inv-currency">
+            <select id="inv-currency" value={form.currency} onChange={(e) => setForm((x) => ({ ...x, currency: e.target.value, fxRate: "" }))} className={FIELD}>
+              <option value="">MVR</option>
+              {["USD", "EUR", "GBP", "AED", "INR", "CNY", "SGD", "JPY"].map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {form.currency && (
+            <Field label={`MVR for 1 ${form.currency}`} htmlFor="inv-rate" hint={gross > 0 && Number(form.fxRate) > 0 ? `MVR ${show(Math.round(gross * Number(form.fxRate)))} in the books.` : "The rate on the invoice date."}>
+              <input id="inv-rate" value={form.fxRate} onChange={set("fxRate")} inputMode="decimal" placeholder="15.42" className={`${FIELD} tabular`} />
+            </Field>
+          )}
         </div>
 
         <fieldset>
@@ -373,7 +400,7 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
           </div>
           <div className="flex justify-between py-2 border-t border-[var(--ink)] font-semibold">
             <dt>Total</dt>
-            <dd>MVR {show(gross)}</dd>
+            <dd>{unit} {show(gross)}</dd>
           </div>
         </dl>
       </div>

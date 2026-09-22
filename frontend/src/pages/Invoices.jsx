@@ -255,7 +255,17 @@ export default function Invoices() {
                 </div>
 
                 <div className="text-sm tabular text-right">
-                  <div className="font-semibold text-[var(--ink)]"><Money amount={inv.gross} /></div>
+                  <div className="font-semibold text-[var(--ink)]">
+                    {inv.foreign ? (
+                      <>
+                        <span className="text-[12px] text-[var(--ink-muted)] mr-1">{inv.foreign.currency}</span>
+                        <Money amount={inv.foreign.gross} />
+                        <span className="block text-[12px] font-normal text-[var(--ink-muted)]">MVR {inv.gross} at {inv.foreign.rate}</span>
+                      </>
+                    ) : (
+                      <Money amount={inv.gross} />
+                    )}
+                  </div>
                   {!inv.settled && inv.status === "posted" && inv.outstanding !== inv.gross && (
                     <div className="text-[13px] text-[var(--ink-muted)]"><Money amount={inv.outstanding} /> left</div>
                   )}

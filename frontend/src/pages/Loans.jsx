@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { apiClient } from "@/api/client";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
-import { formatDate } from "@/lib/utils";
+import { formatDate, today } from "@/lib/utils";
 
 /**
  * Loans: money borrowed, and money a director owes the business. What is still
@@ -23,7 +23,6 @@ import { formatDate } from "@/lib/utils";
 const FIELD =
   "w-full h-11 px-4 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[15px] text-[var(--ink)] placeholder:text-[var(--ink-muted)] outline-none focus:border-[var(--ink)] focus:ring-[3px] focus:ring-[var(--ink)]/15";
 
-const today = () => new Date().toISOString().slice(0, 10);
 
 function useRefresh() {
   const qc = useQueryClient();

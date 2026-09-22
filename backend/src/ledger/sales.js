@@ -1,6 +1,7 @@
 const { postEntry } = require("./post");
 const { toLaari, formatLaari } = require("./money");
 const taxEngine = require("./tax");
+const fx = require("./fx");
 
 /**
  * Money owed to us.
@@ -104,9 +105,20 @@ async function raise(client, {
   projectId,
   dimensionIds,
   clientRef,
+  currency,
+  fxRate,
   lines = [],
 }) {
   if (!lines.length) throw new Error("An invoice needs at least one line.");
+
+  // An invoice in another currency: its lines are in that currency, and its
+  // own-currency figures are those at the rate it was raised at.
+  const base = await fx.baseCurrency(client, { companyId });
+  const cur = currency && String(currency).toUpperCase() !== base ? String(currency).toUpperCase() : null;
+  if (cur) {
+    if (!fxRate) throw new Error(`At what rate? How many ${base} one ${cur} buys on the invoice date.`);
+    fx.scaledRate(fxRate);
+  }
 
   // The rate in force on the invoice date, unless one was given. Kept on the
   // invoice, so a later rate change never reaches it.
@@ -144,16 +156,41 @@ async function raise(client, {
     };
   });
 
+  // Foreign: keep each line's own figure, and turn the whole into ours at the
+  // rate once, giving any laari of rounding to the last line so the lines
+  // always add up to the invoice.
+  let fcNet = null;
+  let fcTax = null;
+  if (cur) {
+    fcNet = net;
+    fcTax = tax;
+    net = fx.toBase(fcNet, fxRate);
+    tax = fx.toBase(fcTax, fxRate);
+    let netLeft = net;
+    let taxLeft = tax;
+    prepared.forEach((line, i) => {
+      line.fcNet = line.netLaari;
+      const last = i === prepared.length - 1;
+      line.netLaari = last ? netLeft : fx.toBase(line.fcNet, fxRate);
+      const lineTax = last ? taxLeft : fx.toBase(line.taxLaari, fxRate);
+      line.taxLaari = lineTax;
+      netLeft -= line.netLaari;
+      taxLeft -= lineTax;
+    });
+  }
+
   const number = String(invoiceNo || "").trim() || (await nextInvoiceNo(client, { companyId }));
 
   const { rows } = await client.query(
     `INSERT INTO sales_invoices
        (company_id, counterparty_id, invoice_no, purchase_order, subject,
         issue_date, due_date, net_laari, tax_laari, gross_laari,
-        gst_treatment, gst_rate_bp, project_id, client_ref, raised_by, status, dimension_ids)
+        gst_treatment, gst_rate_bp, project_id, client_ref, raised_by, status, dimension_ids,
+        currency, fx_rate, fc_net, fc_tax, fc_gross)
      VALUES ($1,$2,$3,$4,$5,
              COALESCE($6::date, current_date), $7::date, $8,$9,$10,
-             $11::gst_t,$12,$13,$14,$15,'draft',$16)
+             $11::gst_t,$12,$13,$14,$15,'draft',$16,
+             COALESCE($17, $18), $19, $20, $21, $22)
      RETURNING *`,
     [
       companyId,
@@ -172,6 +209,12 @@ async function raise(client, {
       clientRef || null,
       userId,
       dimensionIds?.length ? dimensionIds : null,
+      cur,
+      base,
+      cur ? String(fxRate) : null,
+      cur ? fcNet.toString() : null,
+      cur ? fcTax.toString() : null,
+      cur ? (fcNet + fcTax).toString() : null,
     ]
   );
   const invoice = rows[0];
@@ -180,8 +223,8 @@ async function raise(client, {
     await client.query(
       `INSERT INTO sales_invoice_lines
          (invoice_id, company_id, description, quantity, uom, unit_price_laari,
-          net_laari, tax_laari, account_id, project_id, position)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          net_laari, tax_laari, account_id, project_id, position, fc_net)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
       [
         invoice.id,
         companyId,
@@ -194,6 +237,7 @@ async function raise(client, {
         line.accountId,
         line.projectId,
         line.position,
+        line.fcNet === undefined ? null : line.fcNet.toString(),
       ]
     );
   }
@@ -246,16 +290,25 @@ async function post(client, { companyId, userId, invoiceId }) {
     throw new Error("This company has no account for the GST it owes.");
   }
 
+  // A foreign invoice keeps its own figures on what is owed and what was
+  // earned. The GST line does not: GST is owed in our own currency, at the
+  // invoice rate, and must never be revalued.
+  const foreign = invoice.fc_gross !== null && invoice.fc_gross !== undefined;
+  const fcOf = (amount) =>
+    foreign ? { currency: invoice.currency.trim(), amount: BigInt(amount), rate: String(invoice.fx_rate) } : undefined;
+
   const entryLines = [
     {
       accountId: receivable.id,
       debit: gross,
+      fc: fcOf(invoice.fc_gross),
       counterpartyId: invoice.counterparty_id,
       memo: `${invoice.invoice_no} to ${invoice.customer_name || "customer"}`,
     },
     ...lines.map((line) => ({
       accountId: line.use_account,
       credit: BigInt(line.net_laari),
+      fc: foreign && line.fc_net !== null ? fcOf(line.fc_net) : undefined,
       projectId: line.project_id,
       dimensionIds: invoice.dimension_ids,
       counterpartyId: invoice.counterparty_id,
@@ -316,7 +369,112 @@ async function outstanding(client, { companyId, invoiceId }) {
  * the customer as money on account rather than being refused, because the
  * money genuinely arrived and a books that cannot say so is wrong.
  */
-async function receive(client, {
+async function receive(client, args) {
+  const base = await fx.baseCurrency(client, { companyId: args.companyId });
+  if (args.currency && String(args.currency).toUpperCase() !== base) return receiveForeign(client, args);
+  return receiveOwn(client, args);
+}
+
+const GAIN = ["4920", "Exchange gains", "income"];
+const LOSS = ["5850", "Exchange losses", "expense"];
+
+async function exchangeAccount(client, companyId, [code, name, type]) {
+  await client.query(
+    `INSERT INTO accounts (company_id, code, name, type) VALUES ($1,$2,$3,$4::account_t) ON CONFLICT (company_id, code) DO NOTHING`,
+    [companyId, code, name, type]
+  );
+  return accountByCode(client, { companyId, code });
+}
+
+/**
+ * Money in another currency, against invoices in that currency.
+ *
+ * The bank gets the money at the day's rate. Each invoice is settled at the
+ * rate it was raised at, so what it said is owed goes down by exactly its own
+ * figure. The difference between the two rates is a realised exchange gain or
+ * loss, on its own line, never hidden in the income. All of it has to be said
+ * against invoices: money on account in another currency comes later.
+ */
+async function receiveForeign(client, { companyId, userId, counterpartyId, accountId, receivedOn, reference, currency, amountFc, rate, allocations = [] }) {
+  const cur = String(currency).toUpperCase();
+  const totalFc = toLaari(amountFc);
+  if (totalFc <= 0n) throw new Error(`How many ${cur} came in?`);
+  if (!accountId) throw new Error("Which account did it land in?");
+  if (!rate) throw new Error(`At what rate? How many of ours one ${cur} bought that day.`);
+  const inBase = fx.toBase(totalFc, rate);
+
+  const receivable = await accountByCode(client, { companyId, code: AR });
+  let fcAllocated = 0n;
+  let carried = 0n;
+  const checked = [];
+  for (const one of allocations) {
+    const part = toLaari(one.amountFc ?? one.amount);
+    if (part <= 0n) continue;
+    const { rows } = await client.query(
+      `SELECT s.id, s.invoice_no, s.currency, s.fx_rate::text AS rate, s.gross_laari, s.fc_gross,
+              COALESCE((SELECT SUM(a.amount_laari) FROM receipt_allocations a JOIN receipts r ON r.id = a.receipt_id AND r.voided_at IS NULL WHERE a.invoice_id = s.id), 0) AS paid,
+              COALESCE((SELECT SUM(a.amount_fc) FROM receipt_allocations a JOIN receipts r ON r.id = a.receipt_id AND r.voided_at IS NULL WHERE a.invoice_id = s.id), 0) AS paid_fc
+         FROM sales_invoices s WHERE s.id = $1 AND s.company_id = $2`,
+      [one.invoiceId, companyId]
+    );
+    const inv = rows[0];
+    if (!inv) throw new Error("No such invoice.");
+    if (!inv.fc_gross || inv.currency.trim() !== cur) throw new Error(`${inv.invoice_no} is not in ${cur}.`);
+    const leftFc = BigInt(inv.fc_gross) - BigInt(inv.paid_fc);
+    if (part > leftFc) throw new Error(`That is more than ${inv.invoice_no} has left: ${cur} ${formatLaari(leftFc)}.`);
+    // Settled at the invoice's own rate; the last of it takes exactly what is left.
+    const leftBase = BigInt(inv.gross_laari) - BigInt(inv.paid);
+    const atInvoiceRate = part === leftFc ? leftBase : fx.toBase(part, inv.rate);
+    fcAllocated += part;
+    carried += atInvoiceRate;
+    checked.push({ invoiceId: inv.id, amount: atInvoiceRate, amountFc: part, rate: inv.rate });
+  }
+  if (fcAllocated !== totalFc) {
+    throw new Error(`Say which invoices the ${cur} ${formatLaari(totalFc)} pays: ${cur} ${formatLaari(totalFc - fcAllocated)} is not against any.`);
+  }
+
+  const { rows } = await client.query(
+    `INSERT INTO receipts (company_id, counterparty_id, amount_laari, received_on, account_id, reference, received_by, currency, amount_fc, fx_rate)
+     VALUES ($1,$2,$3,COALESCE($4::date, current_date),$5,$6,$7,$8,$9,$10) RETURNING *`,
+    [companyId, counterpartyId || null, inBase.toString(), receivedOn || null, accountId, reference ? String(reference).trim() : null, userId, cur, totalFc.toString(), String(rate)]
+  );
+  const receipt = rows[0];
+  for (const one of checked) {
+    await client.query(
+      `INSERT INTO receipt_allocations (company_id, receipt_id, invoice_id, amount_laari, amount_fc) VALUES ($1,$2,$3,$4,$5)`,
+      [companyId, receipt.id, one.invoiceId, one.amount.toString(), one.amountFc.toString()]
+    );
+  }
+
+  const lines = [
+    { accountId, debit: inBase, fc: { currency: cur, amount: totalFc, rate: String(rate) }, counterpartyId: counterpartyId || null, memo: "Money in" },
+    ...checked.map((one) => ({
+      accountId: receivable.id,
+      credit: one.amount,
+      fc: { currency: cur, amount: one.amountFc, rate: one.rate },
+      counterpartyId: counterpartyId || null,
+      memo: "Against what was owed to us",
+    })),
+  ];
+  const diff = inBase - carried;
+  if (diff !== 0n) {
+    const acct = await exchangeAccount(client, companyId, diff > 0n ? GAIN : LOSS);
+    lines.push(diff > 0n ? { accountId: acct.id, credit: diff, memo: `${cur} rate moved` } : { accountId: acct.id, debit: -diff, memo: `${cur} rate moved` });
+  }
+  const entry = await postEntry(client, {
+    companyId,
+    userId,
+    date: receipt.received_on,
+    source: "payment",
+    sourceId: receipt.id,
+    narrative: reference ? `Received: ${String(reference).trim()}` : `Money in, ${cur}`,
+    lines,
+  });
+  await client.query(`UPDATE receipts SET entry_id = $1 WHERE id = $2`, [entry.id, receipt.id]);
+  return { receipt: { ...receipt, entry_id: entry.id }, entry, allocated: carried, onAccount: 0n, exchange: diff };
+}
+
+async function receiveOwn(client, {
   companyId,
   userId,
   counterpartyId,
@@ -338,6 +496,10 @@ async function receive(client, {
   for (const one of allocations) {
     const part = toLaari(one.amount);
     if (part <= 0n) continue;
+    const { rows: cur } = await client.query("SELECT invoice_no, currency, fc_gross FROM sales_invoices WHERE id = $1 AND company_id = $2", [one.invoiceId, companyId]);
+    if (cur[0]?.fc_gross) {
+      throw new Error(`${cur[0].invoice_no} is in ${cur[0].currency.trim()}. Record what came in as ${cur[0].currency.trim()} at the rate the bank used, so the invoice is settled in its own currency.`);
+    }
     const left = await outstanding(client, { companyId, invoiceId: one.invoiceId });
     if (part > left) {
       throw new Error(
@@ -435,6 +597,9 @@ async function creditNote(client, {
   const invoice = rows[0];
   if (!invoice) throw new Error("No such invoice.");
   if (!invoice.entry_id) throw new Error("That invoice is not in the books, so nothing is credited.");
+  // ponytail: a credit note in another currency needs its own rate and its own
+  // exchange line; refused until it has them rather than posted half right.
+  if (invoice.fc_gross) throw new Error(`${invoice.invoice_no} is in ${invoice.currency.trim()}. Crediting an invoice in another currency is not in Sentryfi yet; raise an adjustment with your accountant.`);
 
   const left = await outstanding(client, { companyId, invoiceId });
   const asked = amount === undefined || amount === null ? left : toLaari(amount);

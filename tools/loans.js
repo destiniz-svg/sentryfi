@@ -50,12 +50,13 @@ const bad = (m) => {
     const bank = await page.locator("#repay-from option", { hasText: /^Bank$/ }).first().getAttribute("value");
     await page.selectOption("#repay-from", bank);
     await page.getByRole("button", { name: /^record mvr/i }).click();
-    const toast = page.getByText(/Still owed: MVR/).first();
-    await toast.waitFor({ timeout: 15000 });
-    const said = await toast.innerText();
-    // Paid the same day it was borrowed: no days have passed, so no interest.
-    if (/off the debt/.test(said) && /Still owed: MVR 10,/.test(said)) ok(`split: ${said.trim()}`);
-    else bad(`after repaying: ${said}`);
+    await page.locator("#repay-amount").waitFor({ state: "detached", timeout: 15000 });
+    await page.waitForTimeout(1000);
+    // Paid the same day it was borrowed: no days have passed, so no interest,
+    // and the whole instalment came off the debt.
+    const after = await card.innerText();
+    if (/1 payment/.test(after) && /10,933.81/.test(after)) ok("repaid the same day: all of it off the debt, 10,933.81 still owed");
+    else bad(`after repaying, the card reads: ${after.replace(/s+/g, " ").slice(0, 240)}`);
     await page.screenshot({ path: "shots/loans.png", fullPage: true });
 
     await add({ kind: "other", name: `Check flat ${tag}`, principal: "10,000.00", rate: "6", basis: "flat", term: "36" });

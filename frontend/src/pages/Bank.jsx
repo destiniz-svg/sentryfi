@@ -14,6 +14,7 @@ import { bankApi } from "@/api/bank";
 import { CashTins } from "@/components/bank/CashTins";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
+import { today } from "@/lib/utils";
 
 /**
  * Where the money is.
@@ -27,7 +28,6 @@ import { useToast } from "@/context/UIContext";
 const FIELD =
   "w-full h-11 px-4 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[15px] text-[var(--ink)] placeholder:text-[var(--ink-muted)] outline-none focus:border-[var(--ink)] focus:ring-[3px] focus:ring-[var(--ink)]/15";
 
-const today = () => new Date().toISOString().slice(0, 10);
 
 // What a bank account can be kept in besides our own. The books stay in ours.
 const CURRENCIES = ["USD", "EUR", "GBP", "AED", "INR", "CNY", "SGD", "JPY"];
