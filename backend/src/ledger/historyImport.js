@@ -155,7 +155,8 @@ function read(text) {
 
     // Grouped by the system's own id; shown by the number a person knows it by.
     const theirKey = cell("id") || cell("reference");
-    const theirId = cell("reference") || cell("id");
+    // A long all-digit id is the system's internal one; the reference is what people use.
+    const theirId = /^\d{12,}$/.test(cell("id")) ? cell("reference") || cell("id") : cell("id") || cell("reference");
     const key = theirKey ? `${cell("type")}|${theirKey}|${date}` : `row|${rowNo}`;
     if (!byKey.has(key)) byKey.set(key, { key, date, type: cell("type"), theirId, memo: "", lines: [] });
     const t = byKey.get(key);
