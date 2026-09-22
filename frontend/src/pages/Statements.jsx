@@ -128,7 +128,7 @@ function Verdict({ ok, yes, no }) {
 }
 
 function Trial({ t }) {
-  const cols = "grid-cols-[70px_minmax(0,1fr)_130px_130px]";
+  const cols = "grid-cols-[minmax(0,1fr)_92px_92px] sm:grid-cols-[70px_minmax(0,1fr)_130px_130px]";
   return (
     <Card padding="none" className="overflow-hidden">
       <div className="flex items-center justify-between px-5 pt-4">
@@ -147,7 +147,7 @@ function Trial({ t }) {
         </Button>
       </div>
       <div className={`grid ${cols} gap-4 ${TH} mt-2`}>
-        <span>Code</span>
+        <span className="hidden sm:block">Code</span>
         <span>Account</span>
         <span className="text-right">Debit</span>
         <span className="text-right">Credit</span>
@@ -155,14 +155,14 @@ function Trial({ t }) {
       {t.rows.length === 0 && <p className="px-5 py-6 text-[14px] text-[var(--ink-muted)] border-t border-[var(--border)]">Nothing has been posted by this date.</p>}
       {t.rows.map((r) => (
         <div key={r.code} className={`${ROW} ${cols}`}>
-          <span className="tabular text-[var(--ink-muted)]">{r.code}</span>
+          <span className="hidden sm:block tabular text-[var(--ink-muted)]">{r.code}</span>
           <span className="truncate">{r.name}</span>
           <span className="tabular text-right">{r.debit ?? ""}</span>
           <span className="tabular text-right">{r.credit ?? ""}</span>
         </div>
       ))}
       <div className={`${ROW} ${cols} font-semibold`}>
-        <span />
+        <span className="hidden sm:block" />
         <span>Total</span>
         <span className="tabular text-right">{t.debit}</span>
         <span className="tabular text-right">{t.credit}</span>
@@ -179,13 +179,13 @@ function Section({ title, rows, total, totalLabel, cols }) {
       {rows.length === 0 && <div className="px-5 py-2.5 text-[14px] text-[var(--ink-muted)] border-t border-[var(--border)]">None</div>}
       {rows.map((r) => (
         <div key={r.code} className={`${ROW} ${cols}`}>
-          <span className="tabular text-[var(--ink-muted)]">{r.code}</span>
+          <span className="hidden sm:block tabular text-[var(--ink-muted)]">{r.code}</span>
           <span className="truncate">{r.name}</span>
           <span className="tabular text-right">{r.amount}</span>
         </div>
       ))}
       <div className={`${ROW} ${cols} font-semibold`}>
-        <span />
+        <span className="hidden sm:block" />
         <span>{totalLabel}</span>
         <span className="tabular text-right">{total}</span>
       </div>
@@ -194,7 +194,7 @@ function Section({ title, rows, total, totalLabel, cols }) {
 }
 
 function ProfitAndLoss({ p }) {
-  const cols = "grid-cols-[70px_minmax(0,1fr)_150px]";
+  const cols = "grid-cols-[minmax(0,1fr)_110px] sm:grid-cols-[70px_minmax(0,1fr)_150px]";
   return (
     <Card padding="none" className="overflow-hidden">
       <div className="flex items-center justify-between px-5 pt-4">
@@ -222,7 +222,7 @@ function ProfitAndLoss({ p }) {
       <Section title="Income" rows={p.income} total={p.totalIncome} totalLabel="Total income" cols={cols} />
       <Section title="Expenses" rows={p.expenses} total={p.totalExpenses} totalLabel="Total expenses" cols={cols} />
       <div className={`${ROW} ${cols} text-[16px] font-semibold`}>
-        <span />
+        <span className="hidden sm:block" />
         <span>{p.loss ? "Loss" : "Profit"}</span>
         <span className={`tabular text-right ${p.loss ? "text-[var(--danger)]" : ""}`} data-testid="profit">
           {p.profit}
@@ -236,7 +236,7 @@ function ProfitAndLoss({ p }) {
 }
 
 function BalanceSheet({ b }) {
-  const cols = "grid-cols-[70px_minmax(0,1fr)_150px]";
+  const cols = "grid-cols-[minmax(0,1fr)_110px] sm:grid-cols-[70px_minmax(0,1fr)_150px]";
   const equity = [...b.equity, { code: "", name: "Profit to date", amount: b.earned }];
   return (
     <Card padding="none" className="overflow-hidden">
