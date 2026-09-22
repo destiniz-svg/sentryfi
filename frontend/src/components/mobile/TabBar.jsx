@@ -13,7 +13,7 @@ import { useOutbox } from "@/context/OutboxContext";
 
 const TABS = [
   { to: "/dashboard", icon: LayoutGrid, label: "Home" },
-  { to: "/bills", icon: ReceiptText, label: "Money", also: ["/invoices"] },
+  { to: "/money", icon: ReceiptText, label: "Money", also: ["/bills", "/invoices"] },
   null, // Record
   { to: "/bank", icon: Landmark, label: "Bank", also: ["/bank/"] },
   { to: "/more", icon: Menu, label: "More", also: ["/settings", "/statements", "/closing", "/tax", "/import"] },

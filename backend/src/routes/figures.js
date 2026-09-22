@@ -5,6 +5,7 @@ const { requireAuth } = require("../middleware/auth");
 const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
 const { formatLaari } = require("../ledger/money");
+const { cashTrend } = require("../ledger/trend");
 
 const router = express.Router();
 router.use(requireAuth, requireCompany);
@@ -93,6 +94,32 @@ router.get(
         [req.companyId]
       );
 
+      // Cash and bank per place, and how the total moved over thirty days:
+      // the balance before the window, then each day's movement within it.
+      const CASH = `l.company_id = $1 AND a.type = 'asset' AND (a.code LIKE '11%' OR a.code LIKE '12%')`;
+      const { rows: places } = await client.query(
+        `SELECT a.name, COALESCE(SUM(l.debit_laari - l.credit_laari), 0)::text AS amount
+           FROM journal_lines l JOIN accounts a ON a.id = l.account_id
+          WHERE ${CASH}
+          GROUP BY a.name
+         HAVING COALESCE(SUM(l.debit_laari - l.credit_laari), 0) <> 0
+          ORDER BY 2 DESC`,
+        [req.companyId]
+      );
+      const { rows: before } = await client.query(
+        `SELECT COALESCE(SUM(l.debit_laari - l.credit_laari), 0)::text AS amount
+           FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id JOIN accounts a ON a.id = l.account_id
+          WHERE ${CASH} AND e.entry_date < CURRENT_DATE - 30`,
+        [req.companyId]
+      );
+      const { rows: moves } = await client.query(
+        `SELECT to_char(e.entry_date, 'YYYY-MM-DD') AS day, SUM(l.debit_laari - l.credit_laari)::text AS amount
+           FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id JOIN accounts a ON a.id = l.account_id
+          WHERE ${CASH} AND e.entry_date >= CURRENT_DATE - 30
+          GROUP BY 1`,
+        [req.companyId]
+      );
+
       // The two headline balances that are one account each, read from that
       // account rather than from a whole type. "Owed to suppliers" used to be
       // every liability — which, once invoices post, would have counted the
@@ -130,7 +157,7 @@ router.get(
         [req.companyId]
       );
 
-      return { spend, byAccount, byType, byCode, cash: cash[0]?.amount, recent, entries: counted[0].n };
+      return { spend, byAccount, byType, byCode, cash: cash[0]?.amount, recent, entries: counted[0].n, places, before: before[0].amount, moves };
     });
 
     const ym = new Date().toISOString().slice(0, 7);
@@ -144,7 +171,18 @@ router.get(
       .filter((r) => r.ym !== ym && BigInt(r.amount) !== 0n)
       .sort((a, b) => (a.ym < b.ym ? 1 : -1))[0];
 
+    const trend = cashTrend(data.before, data.moves, new Date());
+    // Runway: what cash covers at the pace of the last three months' spending.
+    // Said only when there is spending to measure it by.
+    const recentSpend = data.spend.slice(-3).map((r) => BigInt(r.amount));
+    const monthly = recentSpend.length ? recentSpend.reduce((a, b) => a + b, 0n) / BigInt(recentSpend.length) : 0n;
+    const runwayMonths = monthly > 0n && BigInt(data.cash || 0) > 0n ? Number((BigInt(data.cash) * 10n) / monthly) / 10 : null;
+
     res.json({
+      cashTrend: trend.map((v) => Number(v)),
+      cashChange30: money(trend.length ? (trend[trend.length - 1] - trend[0]).toString() : "0"),
+      cashPlaces: data.places.map((p) => ({ name: p.name, amount: money(p.amount) })),
+      runwayMonths,
       currency: req.company?.baseCurrency || "MVR",
       entries: data.entries,
       spentThisMonth: money(thisMonth?.amount),

@@ -61,6 +61,28 @@ const bad = (m) => {
     ok("Photograph a bill opens the bill sheet where the person is");
     await page.keyboard.press("Escape");
 
+    // Home: cash card, its line, and what needs the owner.
+    await bar.locator('a[href="/dashboard"]').click();
+    await page.getByRole("heading", { name: "Needs you" }).waitFor({ timeout: 15000 });
+    const card = await page.locator("main").innerText();
+    if (/Cash and bank/.test(card)) ok("Home leads with cash and bank");
+    else bad("Home has no cash card");
+    if (await page.locator("main svg polyline").count()) ok("the thirty-day line is drawn");
+    else console.log("  note no line: this company has no bank figures yet");
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: "shots/mobile-home.png", fullPage: true });
+
+    // Money: bills and invoices, by day, with a total.
+    await bar.locator('a[href="/money"]').click();
+    await page.getByRole("tab", { name: "Bills" }).waitFor({ timeout: 15000 });
+    await page.locator("main h3").first().waitFor({ timeout: 15000 });
+    ok("Money lists bills by day");
+    await page.screenshot({ path: "shots/mobile-money-bills.png", fullPage: true });
+    await page.getByRole("tab", { name: "Invoices" }).click();
+    await page.getByText("Customers owe you").waitFor({ timeout: 15000 });
+    ok("Invoices shows what customers owe");
+    await page.screenshot({ path: "shots/mobile-money-invoices.png", fullPage: true });
+
     await bar.locator('a[href="/more"]').click();
     await page.locator("main h1", { hasText: "More" }).waitFor({ timeout: 15000 });
     const current = await bar.locator('a[aria-current="page"]').innerText();

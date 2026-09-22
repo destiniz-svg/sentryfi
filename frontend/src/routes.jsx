@@ -50,6 +50,8 @@ const Settings = lazy(() => import("@/pages/Settings"));
 // The phone board. A separate register, not a breakpoint on the desk one —
 // see lib/phone.js and the register table in DESIGN.md.
 const PhoneHome = lazy(() => import("@/pages/phone/Home"));
+const MobileHome = lazy(() => import("@/pages/mobile/Home"));
+const MobileMoney = lazy(() => import("@/pages/mobile/Money"));
 const PhoneBills = lazy(() => import("@/pages/phone/BillsBoard"));
 const PhoneCash = lazy(() => import("@/pages/phone/Cash"));
 const PhoneMe = lazy(() => import("@/pages/phone/Me"));
@@ -70,9 +72,11 @@ const More = lazy(() => import("@/pages/More"));
  * the accountant and every other level get the main app on any screen, their
  * phone included, because a phone is where most of them do most of their work.
  */
-function OnPhone({ board, desk }) {
+function OnPhone({ board, phone: onPhone, desk }) {
   const { can } = useCompany();
-  return !can("read") ? board : desk;
+  const phone = usePhone();
+  if (!can("read")) return board;
+  return phone && onPhone ? onPhone : desk;
 }
 
 /** A field tool anyone may open on a phone: the tin a person holds. */
@@ -127,7 +131,8 @@ export const router = createBrowserRouter([
     element: <ProtectedShell />,
     errorElement: <ErrorPage />,
     children: [
-      { path: "dashboard", element: <OnPhone board={<PhoneHome />} desk={<Attention />} /> },
+      { path: "dashboard", element: <OnPhone board={<PhoneHome />} phone={<MobileHome />} desk={<Attention />} /> },
+      { path: "money", element: <OnPhone board={<PhoneHome />} phone={<MobileMoney />} desk={<Navigate to="/bills" replace />} /> },
       { path: "me", element: <PhoneMe /> },
       { path: "more", element: <More /> },
       { path: "figures", element: <Figures /> },
