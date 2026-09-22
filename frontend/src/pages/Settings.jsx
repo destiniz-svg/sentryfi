@@ -124,7 +124,7 @@ function CompanySection() {
                 Remove
               </button>
             )}
-            <p className="text-[11px] text-[var(--ink-muted)] mt-1.5">PNG or SVG, under 400KB.</p>
+            <p className="text-[13px] text-[var(--ink-muted)] mt-1.5">PNG or SVG, under 400KB.</p>
           </div>
         </div>
 

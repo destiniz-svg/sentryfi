@@ -248,7 +248,7 @@ export default function Invoices() {
                 <div className="text-sm tabular text-right">
                   <div className="font-semibold text-[var(--ink)]">{inv.gross}</div>
                   {!inv.settled && inv.status === "posted" && inv.outstanding !== inv.gross && (
-                    <div className="text-[11px] text-[var(--ink-muted)]">{inv.outstanding} left</div>
+                    <div className="text-[13px] text-[var(--ink-muted)]">{inv.outstanding} left</div>
                   )}
                 </div>
 
