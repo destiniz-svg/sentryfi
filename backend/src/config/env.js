@@ -26,5 +26,10 @@ module.exports = {
   // API answers 404 with "no longer available to new users". Keep this
   // current, and keep it overridable, because it will happen again.
   geminiModel: process.env.GEMINI_MODEL || "gemini-3.6-flash",
+  // Zoho Books, for bringing history in. A server-based client made at
+  // api-console.zoho.com, with the redirect below registered on it.
+  zohoClientId: process.env.ZOHO_CLIENT_ID || "",
+  zohoClientSecret: process.env.ZOHO_CLIENT_SECRET || "",
+  publicUrl: (process.env.PUBLIC_URL || "https://sentryfi.app").replace(/\/$/, ""),
   isProd: process.env.NODE_ENV === "production",
 };

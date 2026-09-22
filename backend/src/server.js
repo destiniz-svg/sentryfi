@@ -26,6 +26,7 @@ const statementsRouter = require("./routes/statements");
 const taxRouter = require("./routes/tax");
 const gstRouter = require("./routes/gst");
 const importsRouter = require("./routes/imports");
+const zohoRouter = require("./routes/zoho");
 const salesRouter = require("./routes/sales");
 
 
@@ -76,6 +77,7 @@ app.use("/api/statements", statementsRouter);
 app.use("/api/tax", taxRouter);
 app.use("/api/gst", gstRouter);
 app.use("/api/imports", importsRouter);
+app.use("/api/zoho", zohoRouter);
 app.use("/api/sales", salesRouter);
 
 

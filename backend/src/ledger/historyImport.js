@@ -97,6 +97,13 @@ function makeDateReader(samples) {
   };
 }
 
+/** Totals and the balanced flag, once a transaction has all its lines. */
+function finish(t) {
+  const debit = t.lines.reduce((s, l) => s + l.debit, 0n);
+  const credit = t.lines.reduce((s, l) => s + l.credit, 0n);
+  return { ...t, debit, credit, balanced: debit === credit && t.lines.length >= 2 };
+}
+
 /** Rows into transactions. Nothing here touches the database. */
 function read(text) {
   const rows = tokenise(String(text || "").replace(/^﻿/, "")).filter((r) => r.some((c) => String(c).trim()));
@@ -142,11 +149,7 @@ function read(text) {
     t.lines.push({ account, code: cell("code"), debit: dr, credit: cr, memo: cell("memo") || null });
   });
 
-  const transactions = [...byKey.values()].map((t) => {
-    const debit = t.lines.reduce((s, l) => s + l.debit, 0n);
-    const credit = t.lines.reduce((s, l) => s + l.credit, 0n);
-    return { ...t, debit, credit, balanced: debit === credit && t.lines.length >= 2 };
-  });
+  const transactions = [...byKey.values()].map(finish);
   return { columns: Object.keys(at), transactions, skipped };
 }
 
@@ -197,8 +200,8 @@ async function alreadyHad(client, { companyId, system, transactions }) {
   return new Set(rows.map((r) => r.external_id));
 }
 
-async function preview(client, { companyId, system, text }) {
-  const { columns, transactions, skipped } = read(text);
+async function preview(client, { companyId, system, text, transactions: given }) {
+  const { columns, transactions, skipped } = given ? { columns: [], transactions: given, skipped: [] } : read(text);
   const had = await alreadyHad(client, { companyId, system, transactions });
   const fresh = transactions.filter((t) => !had.has(t.key));
   const dates = transactions.map((t) => t.date).sort();
@@ -236,8 +239,8 @@ async function nextCode(client, { companyId, type }) {
  * Posts every balanced transaction not brought in before, with the mapping a
  * person agreed: { [theirName]: accountId } or { [theirName]: { create: type } }.
  */
-async function commit(client, { companyId, userId, system, text, mapping = {} }) {
-  const { transactions } = read(text);
+async function commit(client, { companyId, userId, system, text, transactions: given, mapping = {} }) {
+  const transactions = given || read(text).transactions;
   const had = await alreadyHad(client, { companyId, system, transactions });
   const fresh = transactions.filter((t) => !had.has(t.key) && t.balanced);
   const proposed = await mapAccounts(client, { companyId, system, transactions: fresh });
@@ -295,4 +298,4 @@ async function commit(client, { companyId, userId, system, text, mapping = {} })
   return { posted, alreadyHad: had.size, unbalanced: transactions.filter((t) => !had.has(t.key) && !t.balanced).length };
 }
 
-module.exports = { read, money, guessType, preview, commit };
+module.exports = { read, money, guessType, preview, commit, finish };

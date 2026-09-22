@@ -31,10 +31,24 @@ CREATE TABLE IF NOT EXISTS import_account_map (
   UNIQUE (company_id, system, their_name)
 );
 
+-- One live Zoho Books connection per company. The refresh token is a key to
+-- somebody else's books, so it is stored encrypted, never returned by the API,
+-- and deleted, not flagged, on disconnect.
+CREATE TABLE IF NOT EXISTS zoho_connections (
+  company_id        UUID PRIMARY KEY REFERENCES companies(id) ON DELETE CASCADE,
+  accounts_server   TEXT NOT NULL,
+  api_domain        TEXT NOT NULL,
+  refresh_token_enc TEXT NOT NULL,
+  organization_id   TEXT,
+  organization_name TEXT,
+  connected_by      UUID REFERENCES users(id),
+  connected_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 DO $rls$
 DECLARE t TEXT;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['imported_records','import_account_map']
+  FOREACH t IN ARRAY ARRAY['imported_records','import_account_map','zoho_connections']
   LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
@@ -48,6 +62,8 @@ BEGIN
   END LOOP;
 END
 $rls$;
+GRANT UPDATE (organization_id, organization_name) ON zoho_connections TO sentryfi_app;
+GRANT DELETE ON zoho_connections TO sentryfi_app;
 `;
 
 module.exports = { IMPORT_SQL };

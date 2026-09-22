@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { apiClient } from "@/api/client";
 import { useToast } from "@/context/UIContext";
+import { ZohoCard } from "@/components/import/ZohoCard";
 
 /**
  * Bringing history in from another system.
@@ -45,11 +46,15 @@ export default function Import() {
   const [name, setName] = useState("");
   const [answer, setAnswer] = useState({}); // theirName -> accountId | "new:<type>"
   const [ours, setOurs] = useState([]);
+  // Where the transactions come from: a file, or Zoho directly over dates.
+  const [source, setSource] = useState(null); // { kind: "csv" } | { kind: "zoho", from, to }
 
   const look = useMutation({
-    mutationFn: async (csv) => {
+    mutationFn: async (src) => {
       const [p, accounts] = await Promise.all([
-        apiClient.post(`/imports/preview?system=${system}`, csv, { headers: { "Content-Type": "text/csv" } }).then((r) => r.data),
+        src.kind === "zoho"
+          ? apiClient.post("/zoho/preview", { from: src.from, to: src.to }).then((r) => r.data)
+          : apiClient.post(`/imports/preview?system=${system}`, src.csv, { headers: { "Content-Type": "text/csv" } }).then((r) => r.data),
         apiClient.get("/periods/accounts").then((r) => r.data.accounts),
       ]);
       setOurs(accounts);
@@ -58,7 +63,11 @@ export default function Import() {
     },
   });
   const bring = useMutation({
-    mutationFn: (mapping) => apiClient.post(`/imports/commit?system=${system}`, { text, mapping }).then((r) => r.data),
+    mutationFn: (mapping) =>
+      (source?.kind === "zoho"
+        ? apiClient.post("/zoho/commit", { from: source.from, to: source.to, mapping })
+        : apiClient.post(`/imports/commit?system=${system}`, { text, mapping })
+      ).then((r) => r.data),
   });
 
   async function onPick(e) {
@@ -67,8 +76,9 @@ export default function Import() {
     const csv = await file.text();
     setText(csv);
     setName(file.name);
+    setSource({ kind: "csv", csv });
     bring.reset();
-    look.mutate(csv);
+    look.mutate({ kind: "csv", csv });
   }
 
   async function onBring() {
@@ -79,7 +89,7 @@ export default function Import() {
       const r = await bring.mutateAsync(mapping);
       queryClient.invalidateQueries();
       toast.success(`${r.posted} ${r.posted === 1 ? "transaction" : "transactions"} brought in`, r.unbalanced ? `${r.unbalanced} did not balance and were left out.` : "Every one balanced.");
-      look.mutate(text);
+      look.mutate(source);
     } catch (ex) {
       toast.error("Nothing was brought in", ex.message);
     }
@@ -90,7 +100,18 @@ export default function Import() {
 
   return (
     <div>
-      <PageHeader title="Bring history in" description="From another accounting system, as a CSV export." />
+      <PageHeader title="Bring history in" description="From another accounting system: connected directly, or as a CSV export." />
+
+      <ZohoCard
+        busy={look.isPending}
+        onLook={(from, to) => {
+          const src = { kind: "zoho", from, to };
+          setSource(src);
+          setName("Zoho Books");
+          bring.reset();
+          look.mutate(src);
+        }}
+      />
 
       <Card padding="lg" className="mb-4">
         <div className="flex flex-wrap items-end gap-3">
@@ -132,6 +153,11 @@ export default function Import() {
             <p className="text-[15px]">
               <strong className="tabular">{p.count}</strong> transactions from {niceDate(p.from)} to {niceDate(p.to)}.{" "}
               {p.alreadyHad > 0 && `${p.alreadyHad} were brought in before. `}
+              {p.fromOtherImports > 0 && (
+                <span className="block mt-2 text-[var(--danger)] font-medium">
+                  {p.fromOtherImports} transactions in these dates came in from a CSV already. Bringing these in as well would count them twice.
+                </span>
+              )}
               <strong className="tabular">{p.toPost}</strong> would go in now.
             </p>
             {p.unbalancedCount > 0 && (
