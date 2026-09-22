@@ -116,6 +116,13 @@ async function transfer(client, { companyId, userId, fromId, toId, amount, amoun
       { accountId: from.id, credit: laari, memo: `To ${to.name}`, fc: fcOf(from) },
     ],
   });
+  // The bank's own rate is the best guess for the next foreign document.
+  if (fc) {
+    await fx.recordRate(client, {
+      companyId, userId, currency: fc.currency, rate: fc.rate, source: "Transfer",
+      on: on || new Date().toISOString().slice(0, 10),
+    });
+  }
   return { entry, from, to, amount: laari, fc, alreadyHad: false };
 }
 

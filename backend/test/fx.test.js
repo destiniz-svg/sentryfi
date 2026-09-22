@@ -87,9 +87,10 @@ describe("a dollar bank account", () => {
       const usd = await openBank(client, { companyId, name: "BML USD", currency: "usd" });
       expect(usd.currency.trim()).toBe("USD");
 
-      await transfer(client, { companyId, userId, fromId: accounts.bank, toId: usd.id, amount: "15,420.00", amountFc: "1,000.00" });
-      await transfer(client, { companyId, userId, fromId: usd.id, toId: accounts.bank, amount: "3,100.00", amountFc: "200.00" });
+      await transfer(client, { companyId, userId, fromId: accounts.bank, toId: usd.id, amount: "15,420.00", amountFc: "1,000.00", on: "2026-09-10" });
+      await transfer(client, { companyId, userId, fromId: usd.id, toId: accounts.bank, amount: "3,100.00", amountFc: "200.00", on: "2026-09-11" });
 
+      expect((await rateOn(client, { companyId, currency: "USD" })).rate).toBe("15.5");
       const usdNow = (await places(client, { companyId })).find((p) => p.id === usd.id);
       expect(usdNow.foreign).toBe(true);
       expect(usdNow.balanceFc).toBe(80_000n);
