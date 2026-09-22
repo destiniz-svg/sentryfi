@@ -75,11 +75,11 @@ function testMoney() {
   check("a thousand amounts of 0.07 add to exactly 70.00", total === 7000n, `got ${formatLaari(total)}`);
 
   console.log("\nGST, quoted both ways round");
-  check("8% on top of MVR 1,000 is MVR 80.00", gstOnTop("1000.00", 8) === 8000n);
-  check("8% within MVR 1,080 is MVR 80.00", gstWithin("1080.00", 8) === 8000n);
+  check("8% on top of MVR 1,000 is MVR 80.00", gstOnTop("1000.00", 800) === 8000n);
+  check("8% within MVR 1,080 is MVR 80.00", gstWithin("1080.00", 800) === 8000n);
   check(
     "within and on-top give different answers for the same figure",
-    gstWithin("1000.00", 8) !== gstOnTop("1000.00", 8)
+    gstWithin("1000.00", 800) !== gstOnTop("1000.00", 800)
   );
 
   const shares = allocate("100.00", [1, 1, 1]);
@@ -136,7 +136,7 @@ async function testLedger(client) {
   // A real shape: MVR 4,250.50 of cement from a GST-registered supplier who
   // quotes tax-inclusive, which is how most Maldivian suppliers invoice.
   const gross = toLaari("4250.50");
-  const tax = gstWithin(gross, 8);
+  const tax = gstWithin(gross, 800);
   const net = gross - tax;
 
   const bill = await postEntry(client, {

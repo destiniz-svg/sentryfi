@@ -31,14 +31,12 @@ function splitTax(amount, treatment, rateBasisPoints) {
   switch (treatment) {
     case "inclusive": {
       // The printed figure is the gross; the tax is already inside it.
-      const rate = ratePercentFrom(rateBasisPoints, treatment);
-      const tax = gstWithin(figure, rate);
+      const tax = gstWithin(figure, rateFrom(rateBasisPoints, treatment));
       return { net: figure - tax, tax, gross: figure };
     }
     case "exclusive": {
       // The printed figure is the net; the tax is added on top.
-      const rate = ratePercentFrom(rateBasisPoints, treatment);
-      const tax = gstOnTop(figure, rate);
+      const tax = gstOnTop(figure, rateFrom(rateBasisPoints, treatment));
       return { net: figure, tax, gross: figure + tax };
     }
     case "none_unregistered":
@@ -50,7 +48,7 @@ function splitTax(amount, treatment, rateBasisPoints) {
       return { net: figure, tax: 0n, gross: figure };
     case "unknown":
       throw new Error(
-        "This bill cannot be posted until someone says how its tax was quoted: " +
+        "This cannot go in the books until someone says how its GST is quoted: " +
           "added on top, included in the price, or not charged at all."
       );
     default:
@@ -58,18 +56,15 @@ function splitTax(amount, treatment, rateBasisPoints) {
   }
 }
 
-function ratePercentFrom(rateBasisPoints, treatment) {
+function rateFrom(rateBasisPoints, treatment) {
   if (rateBasisPoints === null || rateBasisPoints === undefined) {
-    throw new Error(
-      `A bill quoted ${treatment} needs its rate recorded. ` +
-        "The general rate is 8%, but it is not assumed."
-    );
+    throw new Error(`A figure quoted ${treatment} needs its rate recorded. It is not assumed.`);
   }
   const bp = BigInt(rateBasisPoints);
   if (bp < 0n || bp > BASIS_POINTS) {
     throw new Error(`A tax rate of ${Number(bp) / 100}% is not credible.`);
   }
-  return Number(bp) / 100;
+  return bp;
 }
 
 /**
@@ -261,4 +256,4 @@ async function postBill(client, { companyId, userId, billId, accounts }) {
   return { entry, duplicatesWarned: duplicates };
 }
 
-module.exports = { splitTax, findPossibleDuplicates, postBill, ratePercentFrom };
+module.exports = { splitTax, findPossibleDuplicates, postBill };

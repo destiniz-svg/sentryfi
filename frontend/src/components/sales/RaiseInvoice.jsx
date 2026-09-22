@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { salesApi } from "@/api/sales";
+import { taxApi } from "@/api/tax";
 import { useSalesMutations } from "@/hooks/useSales";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
@@ -30,13 +31,11 @@ const FIELD =
   "w-full h-11 px-4 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[15px] text-[var(--ink)] placeholder:text-[var(--ink-muted)] outline-none focus:border-[var(--ink)] focus:ring-[3px] focus:ring-[var(--ink)]/15";
 
 const TAX = [
-  { value: "exclusive", label: "Added on top", hint: "8% on top of the line totals. How Altura's invoices are written." },
+  { value: "exclusive", label: "Added on top", hint: "GST on top of the line totals. How Altura's invoices are written." },
   { value: "inclusive", label: "Included in the price", hint: "The figures already have GST in them." },
   { value: "zero_rated", label: "Zero-rated", hint: "Taxable at 0%. Reported on the return, but nothing is owed." },
   { value: "exempt", label: "Exempt", hint: "Outside GST altogether." },
 ];
-
-const RATE = 8;
 
 function today(offsetDays = 0) {
   const d = new Date();
@@ -61,14 +60,18 @@ function show(l) {
   return `${sign}${whole}.${String(abs % 100).padStart(2, "0")}`;
 }
 
-/** The same split the server makes, line by line, so the preview agrees. */
-function split(lineLaari, treatment) {
+/**
+ * The same split the server makes, line by line, so the preview agrees. The
+ * rate is the one in force on the invoice date, from the tax engine; the
+ * server looks it up again and keeps it on the invoice.
+ */
+function split(lineLaari, treatment, bp) {
   if (treatment === "exclusive") {
-    const tax = Math.round((lineLaari * RATE) / 100);
+    const tax = Math.round((lineLaari * bp) / 10000);
     return { net: lineLaari, tax };
   }
   if (treatment === "inclusive") {
-    const tax = Math.round((lineLaari * RATE) / (100 + RATE));
+    const tax = Math.round((lineLaari * bp) / (10000 + bp));
     return { net: lineLaari - tax, tax };
   }
   return { net: lineLaari, tax: 0 };
@@ -108,6 +111,13 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
 
   const invoiceNo = form.invoiceNo ?? suggested ?? "";
 
+  const { data: taxNow } = useQuery({
+    queryKey: ["tax", companyId, form.issueDate],
+    queryFn: () => taxApi.overview(form.issueDate),
+    enabled: Boolean(companyId) && open && Boolean(form.issueDate),
+  });
+  const rateBp = taxNow?.rates.find((r) => r.code === taxNow.defaultRate)?.bp ?? null;
+
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const setLine = (i, key) => (e) =>
     setLines((all) => all.map((l, j) => (j === i ? { ...l, [key]: e.target.value } : l)));
@@ -121,7 +131,7 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
   const usable = priced.filter((l) => l.amount && l.amount > 0);
   const totals = usable.reduce(
     (t, l) => {
-      const s = split(l.amount, form.gstTreatment);
+      const s = split(l.amount, form.gstTreatment, rateBp ?? 0);
       return { net: t.net + s.net, tax: t.tax + s.tax };
     },
     { net: 0, tax: 0 }
@@ -150,7 +160,6 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
         issueDate: form.issueDate || null,
         dueDate: form.dueDate || null,
         gstTreatment: form.gstTreatment,
-        gstRateBp: RATE * 100,
         lines: usable.map((l) => ({
           description: l.description.trim(),
           quantity: Number(String(l.quantity).replace(/,/g, "")),
@@ -354,7 +363,7 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
             <dd>{show(totals.net)}</dd>
           </div>
           <div className="flex justify-between py-1.5">
-            <dt className="text-[var(--ink-muted)]">GST {RATE}%</dt>
+            <dt className="text-[var(--ink-muted)]">GST {rateBp === null ? "…" : `${rateBp / 100}%`}</dt>
             <dd>{show(totals.tax)}</dd>
           </div>
           <div className="flex justify-between py-2 border-t border-[var(--ink)] font-semibold">

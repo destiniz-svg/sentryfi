@@ -264,8 +264,8 @@ export function RecordBill({ open, onClose }) {
       billNo: form.billNo.trim() || null,
       issueDate: form.issueDate || null,
       gstTreatment: form.gstTreatment,
-      gstRateBp:
-        form.gstTreatment === "inclusive" || form.gstTreatment === "exclusive" ? 800 : null,
+      // No rate sent: the server uses the one in force on the bill date, from
+      // the tax engine, and keeps it on the bill.
       supplier: supplierFacts || undefined,
     };
 

@@ -8,6 +8,7 @@ const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
 const { reverseEntry } = require("../ledger/post");
 const { splitTax, findPossibleDuplicates, postBill } = require("../ledger/bills");
+const taxEngine = require("../ledger/tax");
 const { findOrCreate, observe } = require("../ledger/counterparties");
 const { toLaari, formatLaari } = require("../ledger/money");
 const { uploadReceipt } = require("../middleware/upload");
@@ -223,13 +224,24 @@ router.post(
     const b = parsed.data;
 
     let split;
+    let rateBp = null;
     try {
+      // The rate printed on the paper, or else the one in force on its date.
+      // Kept on the bill, so a later rate change never reaches it.
+      rateBp = await asCompany(req, (client) =>
+        taxEngine.rateForDocument(client, {
+          companyId: req.companyId,
+          on: b.issueDate,
+          treatment: b.gstTreatment,
+          printedBp: b.gstRateBp,
+        })
+      );
       // An unknown treatment cannot be split yet, so the figure is held as the
       // gross until someone says what it means.
       split =
         b.gstTreatment === "unknown"
           ? { net: toLaari(b.amount), tax: 0n, gross: toLaari(b.amount) }
-          : splitTax(b.amount, b.gstTreatment, b.gstRateBp ?? 800);
+          : splitTax(b.amount, b.gstTreatment, rateBp);
     } catch (err) {
       throw ApiError.badRequest(err.message);
     }
@@ -297,7 +309,7 @@ router.post(
         [
           req.companyId, counterpartyId, b.billNo || null, b.issueDate || null, b.dueDate || null,
           String(split.net), String(split.tax), String(split.gross),
-          b.gstTreatment, b.gstRateBp ?? (b.gstTreatment === "inclusive" || b.gstTreatment === "exclusive" ? 800 : null),
+          b.gstTreatment, rateBp,
           b.projectId || null, b.billedToCompany || null, req.user.id, b.clientRef || null,
         ]
       );

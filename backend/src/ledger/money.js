@@ -75,13 +75,14 @@ function formatLaari(laari, { withGrouping = true } = {}) {
  * shown, and many are not registered and charge none at all. Getting this
  * backwards on an inclusive invoice overstates the claim by 8%.
  */
-function gstOnTop(netLaari, ratePercent) {
-  return divideRounded(toLaari(netLaari) * BigInt(ratePercent), 100n);
+// Rates in basis points (800 is 8%), so 8.5% is exact.
+function gstOnTop(netLaari, rateBp) {
+  return divideRounded(toLaari(netLaari) * BigInt(rateBp), 10000n);
 }
 
-function gstWithin(grossLaari, ratePercent) {
-  const rate = BigInt(ratePercent);
-  return divideRounded(toLaari(grossLaari) * rate, 100n + rate);
+function gstWithin(grossLaari, rateBp) {
+  const rate = BigInt(rateBp);
+  return divideRounded(toLaari(grossLaari) * rate, 10000n + rate);
 }
 
 /** Splits a total across n shares without losing or inventing a laari. */

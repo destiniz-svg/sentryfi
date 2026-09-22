@@ -11,6 +11,7 @@ import { useToast } from "@/context/UIContext";
 import { authApi } from "@/api/auth";
 import { useSettings, useUpdateSettings } from "@/hooks/useSettings";
 import { CURRENCIES, cn } from "@/lib/utils";
+import { TaxSection } from "@/components/settings/TaxSection";
 
 function FieldLabel({ children, htmlFor }) {
   return (
@@ -154,7 +155,7 @@ function CompanySection() {
             </CardDescription>
           </div>
         </CardHeader>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <FieldLabel htmlFor="set-default-currency">Default currency</FieldLabel>
             <select id="set-default-currency" className={selectClass} value={form.currency} onChange={set("currency")}>
@@ -164,10 +165,6 @@ function CompanySection() {
                 </option>
               ))}
             </select>
-          </div>
-          <div>
-            <FieldLabel htmlFor="set-default-tax">Default tax %</FieldLabel>
-            <Input id="set-default-tax" type="number" min="0" step="0.1" value={form.tax_rate} onChange={set("tax_rate")} className="tabular" />
           </div>
           <div>
             <FieldLabel htmlFor="set-invoice-prefix">Invoice # prefix</FieldLabel>
@@ -383,6 +380,7 @@ export default function Settings() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="company">Company</TabsTrigger>
+          <TabsTrigger value="tax">Tax</TabsTrigger>
           <TabsTrigger value="profile">Account</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
           <TabsTrigger value="password">Password</TabsTrigger>
@@ -391,6 +389,9 @@ export default function Settings() {
         <div className="mt-6">
           <TabsContent value="company">
             <CompanySection />
+          </TabsContent>
+          <TabsContent value="tax">
+            <TaxSection />
           </TabsContent>
           <TabsContent value="profile">
             <ProfileSection />

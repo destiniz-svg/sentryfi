@@ -1,5 +1,6 @@
 const { postEntry } = require("./post");
-const { toLaari, formatLaari, gstOnTop, gstWithin } = require("./money");
+const { toLaari, formatLaari } = require("./money");
+const taxEngine = require("./tax");
 
 /**
  * Money owed to us.
@@ -29,39 +30,9 @@ async function accountByCode(client, { companyId, code }) {
   return rows[0] || null;
 }
 
-/**
- * Splits a figure the way it was quoted.
- *
- * The same three answers bills have, because a customer quotes the same three
- * ways a supplier does, and "unknown" is a permitted state that blocks posting
- * rather than a guess that silently does not.
- */
-function splitTax(amount, treatment, rateBasisPoints) {
-  const figure = toLaari(amount);
-  const rate = Math.round((rateBasisPoints ?? 800) / 100);
-
-  switch (treatment) {
-    case "inclusive": {
-      const tax = gstWithin(figure, rate);
-      return { net: figure - tax, tax, gross: figure };
-    }
-    case "exclusive": {
-      const tax = gstOnTop(figure, rate);
-      return { net: figure, tax, gross: figure + tax };
-    }
-    case "none_unregistered":
-    case "exempt":
-    case "zero_rated":
-      return { net: figure, tax: 0n, gross: figure };
-    case "unknown":
-      throw new Error(
-        "This invoice cannot be raised until someone says how its GST is quoted: " +
-          "added on top, included in the price, or not charged at all."
-      );
-    default:
-      throw new Error(`Unknown GST treatment: ${treatment}`);
-  }
-}
+// Splitting a figure the way it was quoted is the same arithmetic for an
+// invoice as for a bill: one function, so the two cannot drift.
+const { splitTax } = require("./bills");
 
 /** A laari amount times a quantity held to four decimal places, half up. */
 function timesQuantity(unitLaari, quantity) {
@@ -129,12 +100,16 @@ async function raise(client, {
   issueDate,
   dueDate,
   gstTreatment = "exclusive",
-  gstRateBp = 800,
+  gstRateBp,
   projectId,
   clientRef,
   lines = [],
 }) {
   if (!lines.length) throw new Error("An invoice needs at least one line.");
+
+  // The rate in force on the invoice date, unless one was given. Kept on the
+  // invoice, so a later rate change never reaches it.
+  const rateBp = await taxEngine.rateForDocument(client, { companyId, on: issueDate, treatment: gstTreatment, printedBp: gstRateBp });
 
   const income = await accountByCode(client, { companyId, code: DEFAULT_INCOME });
 
@@ -152,7 +127,7 @@ async function raise(client, {
       line.amount !== undefined
         ? toLaari(line.amount)
         : timesQuantity(unit, quantity);
-    const split = splitTax(amount, gstTreatment, gstRateBp);
+    const split = splitTax(amount, gstTreatment, rateBp);
     net += split.net;
     tax += split.tax;
     return {
@@ -191,7 +166,7 @@ async function raise(client, {
       tax.toString(),
       (net + tax).toString(),
       gstTreatment,
-      gstRateBp ?? null,
+      rateBp,
       projectId || null,
       clientRef || null,
       userId,

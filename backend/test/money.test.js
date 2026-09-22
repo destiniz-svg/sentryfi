@@ -58,8 +58,8 @@ describe("splitting a total across shares", () => {
 
 describe("GST, which is quoted both ways round here", () => {
   it("computes each way", () => {
-    expect(gstOnTop("1000.00", 8)).toBe(8000n);
-    expect(gstWithin("1080.00", 8)).toBe(8000n);
+    expect(gstOnTop("1000.00", 800)).toBe(8000n);
+    expect(gstWithin("1080.00", 800)).toBe(8000n);
   });
 
   it("gives different answers for the same printed figure", () => {
@@ -87,7 +87,7 @@ describe("GST, which is quoted both ways round here", () => {
   });
 
   it("refuses to split a bill nobody has told it about", () => {
-    expect(() => splitTax("100.00", "unknown", 800)).toThrow(/how its tax was quoted|cannot be posted/i);
+    expect(() => splitTax("100.00", "unknown", 800)).toThrow(/how its GST is quoted/i);
   });
 
   it("does not assume 8% when no rate was recorded", () => {
