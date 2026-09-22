@@ -15,8 +15,9 @@ export function Tabs({ value, onValueChange, children, className }) {
 export function TabsList({ children, className }) {
   return (
     <div
+      role="tablist"
       className={cn(
-        "inline-flex items-center gap-1 bg-[var(--surface-2)] border border-[var(--border)] p-1 rounded-full",
+        "inline-flex flex-wrap items-center gap-1 bg-[var(--surface-2)] border border-[var(--border)] p-1 rounded-full",
         className
       )}
     >
@@ -30,6 +31,9 @@ export function TabsTrigger({ value, children, className }) {
   const active = ctx.value === value;
   return (
     <button
+      type="button"
+      role="tab"
+      aria-selected={active}
       onClick={() => ctx.onValueChange(value)}
       className={cn(
         "relative px-4 h-11 text-sm font-medium rounded-full transition-colors",
@@ -52,5 +56,5 @@ export function TabsTrigger({ value, children, className }) {
 export function TabsContent({ value, children, className }) {
   const ctx = useContext(TabsCtx);
   if (ctx.value !== value) return null;
-  return <div className={cn("", className)}>{children}</div>;
+  return <div role="tabpanel" className={cn("", className)}>{children}</div>;
 }
