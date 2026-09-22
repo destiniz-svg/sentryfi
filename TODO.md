@@ -246,19 +246,25 @@ Not done, on purpose: the real file is **not imported into Altura's books**. A l
 
 ---
 
-### 10. Periods, and closing one
+### 10. Periods, and closing one — done 22 September 2026
 
 A period that can be closed, and a closed period that refuses new entries without a deliberate adjustment. Without this there is no such thing as a final figure and every report is provisional forever.
 
 **Done when:** a closed month refuses an entry, an adjustment into it is possible, deliberate and recorded, and reopening is an act with a name on it.
 
+**What happened.** All three hold. The refusal is a database trigger on the journal, so it holds for every route, including ones that know nothing about periods. The browser check proves it with a bank transfer. Closing and reopening are rows in an append-only log, and the app role cannot edit or delete them. An adjustment into a closed month must give a reason, and the reason is stored against the entry. The permission lasts for that one entry and does not carry over to the next. Closing lists what is unfinished (bills, invoice drafts, unexplained bank lines) but does not block. Browser check: `node tools/closing.js`.
+
 ---
 
-### 11. The statements
+### 11. The statements — done 22 September 2026
 
 Trial balance, profit and loss, balance sheet, from journal lines and nothing else. This is how an accountant checks the work; until they exist nobody outside can verify anything.
 
 **Done when:** the trial balance is zero, the balance sheet balances, and both agree with the ledger at any date asked for.
+
+**What happened.** All three hold. Each statement is a sum over journal lines for the dates asked, and nothing is stored. A seeded property test posts 120 random balanced entries across a year. It then compares all three statements against a plain-JavaScript model on six dates and three windows. Profit to date appears as its own line in equity until year-end closing entries exist. Each statement says in words whether it balances, and each exports to CSV for the accountant. Browser check: `node tools/statements.js`.
+
+Milestone two is built. It is not done. By its own definition it is done when one real sitting on Altura's books ends with the accountant agreeing. That needs the owner: import the real statement, answer its 326 questions, close a month, and hand the three statements to the accountant.
 
 ---
 

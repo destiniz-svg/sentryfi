@@ -10,6 +10,9 @@ import {
   Menu,
   ReceiptText,
   FileText,
+  Landmark,
+  Lock,
+  Scale,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import AILogo from "./AILogo";
@@ -36,6 +39,9 @@ const PRIMARY = [
 
 const REST = [
   { to: "/invoices", icon: FileText, label: "Invoices" },
+  { to: "/bank", icon: Landmark, label: "Bank and cash" },
+  { to: "/closing", icon: Lock, label: "Closing" },
+  { to: "/statements", icon: Scale, label: "Statements" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
