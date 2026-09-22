@@ -41,6 +41,8 @@ Roles are held per company, not per person, so the same individual can be an adm
 
 **A complete accounting core that any business can keep its books in, with the modules and the tax rules it actually needs switched on. Altura's books are kept in it first, and prove it.**
 
+**Who it is for, said plainly (22 September 2026): founders and entrepreneurs, and the point is to make accounting simple for them.** Not accountants first, though an accountant must be able to sign off everything in it. The person this is built for started a business to do the work, not to keep books, and every decision — the plain words, the camera, the three taps, the app asking only when it is genuinely unsure — serves that. Simplicity is the product; correctness underneath is what makes the simplicity honest.
+
 Three parts, in this order, decided 19 September 2026 after reviewing the 2026 market research on automated accounting against what is built:
 
 1. **The core is finished to 100% before anything is built on it.** Not most of it. A double-entry system that is 80% complete is not 80% useful — it is a system whose figures cannot be trusted, because the missing fifth is where the money went. The core is listed below and nothing in it is optional.
@@ -79,7 +81,8 @@ Each one is switched on per company and invisible when it is off. None of them m
 
 **Money, beyond the core**
 
-- **Quotes and orders.** A quote a customer accepts becomes an order and then an invoice, without anybody typing it three times.
+- **Quotes and orders, both ways.** A quote a customer accepts becomes a sales order and then an invoice; a purchase order goes out, the delivery is received against it, and the supplier's bill is matched to both before it is paid. Nobody types the same figures three times, and a short delivery is caught before the money leaves.
+- **Stock.** What is on hand, what it cost to land here, what it is worth, and what a sale of it earned. Counted, adjusted with a reason, and valued the same way every month.
 - **Repeat billing.** Invoices that issue themselves on a schedule, retainers, and a reminder ladder for what is late — the ordinary way a small business collects money.
 - **Expense claims.** Money a person spent out of their own pocket, with the photograph, approved and paid back. The cash tin covers a float; this covers everyone without one.
 - **Time.** Hours against a project or a job, charged out or costed in, and the same hours feeding payroll where payroll is on.
@@ -87,6 +90,7 @@ Each one is switched on per company and invisible when it is off. None of them m
 - **Budgets and the year ahead.** A budget per account or dimension, budget against actual on every report, and a cash forecast built from what is already owed and owing.
 - **Paying suppliers.** A payment run: what is due, what is selected, one file or one transfer, and the bank line matched back automatically.
 - **Getting paid.** A payment link on an invoice, and the receipt recorded when it clears. Card and bank rails differ by country and are part of the country pack.
+- **A door for the customer.** A page a customer opens to see what they have been invoiced, what they have paid, and what is still owed, to download an invoice, to pay it, and to raise a query against a line. The same for a supplier: what we have of theirs, and what we have paid. It is the company's own records shown outward, not a second set.
 
 **Industry packs**
 
@@ -112,6 +116,8 @@ Each one is switched on per company and invisible when it is off. None of them m
 Two editions of one product, decided 22 September 2026. The ledger, the screens and the modules are the same in both; what differs is the pack that sits on top.
 
 **The Maldives edition.** Everything a Maldivian business is asked for by MIRA, in the words a Maldivian accountant uses: GST at 8% general and 17% tourism with the full rate history, the inclusive-or-exclusive question that an unregistered supplier makes unavoidable, TIN and GST numbers, the return keyed into MIRAconnect by the 28th with the Input and Output Tax Statements in MIRA's own layouts, Green Tax per guest night, corporate income tax bands, pension contributions, and records kept five years. This is the edition that proves the product works, because a small country's rules are specific enough that nothing can be faked.
+
+**Both editions carry every module.** Decided 22 September 2026. The Maldives edition is not a cut-down one: purchase orders, sales orders, inventory and stock, and everything else a modern accounting product covers are in it, in Maldivian words and Maldivian rules. A Maldivian business should never have to choose between software that knows MIRA and software that knows stock. The international edition is the same set, carrying another country's pack, with the same plain language and the same three-tap flow rather than the dense grey screens the category ships.
 
 **The international edition.** The same product with a country pack instead of the Maldivian one, at the standard the rest of the market expects: a consumption tax with as many rates and periods as the country has, statements in the formats an auditor there recognises, and the local words for them. Where a country mandates electronic invoicing, that belongs in its pack, not in the ledger.
 
@@ -181,6 +187,18 @@ Set once when the books are opened, changeable afterwards by an administrator.
 - Period length, and when a period closes.
 - Which accounting software to bring history in from, and whether anything keeps running alongside while the move happens.
 - Whether the interface speaks plainly or in accounting terms — the same ledger underneath, described two ways, because an owner and their accountant are not reading for the same thing.
+
+## What cuts across everything
+
+Not modules. Four properties every screen and every module must have, written down 22 September 2026.
+
+**It works with no signal.** A bill photographed where there is no coverage is recorded on the phone and sends itself when there is — already true for bills, and the rule for everything a person does in the field: cash spent, a count, a delivery received, a confirmation of money handed over. The books are never blocked by a boat being out of range. Reading what is on a photograph needs a connection; recording what a person typed does not.
+
+**It is guided.** Somebody who has never kept books is walked through opening them, bringing history in, recording the first bill, closing the first month and filing the first return, in the app rather than in a manual. The app tells them what needs them next, which it already does, and never leaves them staring at a chart of accounts wondering which line is theirs.
+
+**It is made for AI to work with, and it draws the line.** The reader already takes a photograph or a spoken note and fills a bill in. Beyond that: a company's own assistant, and other software, reach the books through the documented interface — the same door a person uses, never the tables. Anything automatic may read, draft and propose. It may not post. Accounting mathematics is not something an assistant gets an opinion about, and the trail must always end at a person's name.
+
+**It answers questions.** Analytics that a founder actually asks: which site made money, which customer pays late, what the month costs before it ends, what is committed but not yet spent. Read from the ledger with the entries behind each figure shown, never a dashboard figure nobody can trace.
 
 ## The platform a product needs to be sold
 

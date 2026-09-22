@@ -532,7 +532,20 @@ Last. It touches tax differently in every jurisdiction, so it waits for the engi
 
 ---
 
-### 26. Where the last few modules live
+### 26. What cuts across every module
+
+Not a module: four properties every screen must have, asked for on 22 September 2026.
+
+- **Offline, everywhere a person works in the field.** Bills already queue and send themselves. The same must hold for cash spent, counts, deliveries received and confirming money handed over: recorded on the phone with no signal, sent when there is one, and never recorded twice.
+- **Guided.** Opening books, bringing history in, the first bill, the first close, the first return — walked through in the app, not in a manual.
+- **Made for AI to work with.** The reader exists for photographs and voice. Beyond it: the documented interface, the same door a person uses, for a company's own assistant and for other software. It may read, draft and propose; it may never post.
+- **Analytics a founder asks for.** Which site made money, who pays late, what the month costs before it ends, what is committed but unspent — each figure traceable to the entries behind it.
+
+**Done when:** a supervisor with no signal can do their whole job, a founder who has never kept books opens theirs without help, every figure on an analytics screen opens onto its entries, and an assistant can read everything and post nothing.
+
+---
+
+### 26a. Where the last few modules live
 
 Three of the modules in PRODUCT.md have no step of their own because they belong inside one that exists, and splitting them would invent work rather than describe it:
 
@@ -543,6 +556,8 @@ Three of the modules in PRODUCT.md have no step of their own because they belong
 ---
 
 ### 27. The rest of the money, beyond the core
+
+Now including, per the owner on 22 September 2026: purchase orders out and deliveries received against them, sales orders, stock and inventory valuation, and a customer portal — a page a customer opens to see what they owe, download an invoice, pay it and query a line, with the supplier's equivalent beside it. Both editions carry all of it; the Maldives edition is not a cut-down one.
 
 Quotes that become orders and then invoices. Invoices that issue themselves on a schedule, with a reminder ladder for what is late. Expense claims: money a person spent from their own pocket, with the photograph, approved and paid back, for everyone who does not hold a tin. Time against a job. Approvals and spending limits, with the record of who said yes. Budgets per account and per dimension, budget against actual on every report, and a cash forecast built from what is already owed and owing. A payment run that pays several suppliers at once and matches the bank lines back.
 
