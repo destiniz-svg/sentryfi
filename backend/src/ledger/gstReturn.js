@@ -62,6 +62,12 @@ function currentKey(kind, today = new Date().toISOString().slice(0, 10)) {
   return mo === 1 ? `${y - 1}-12` : `${y}-${pad(mo - 1)}`;
 }
 
+/** The period still running, whose return is not due yet. */
+function runningKey(kind, today = new Date().toISOString().slice(0, 10)) {
+  const [y, mo] = today.split("-").map(Number);
+  return kind === "quarter" ? `${y}-Q${Math.floor((mo - 1) / 3) + 1}` : `${y}-${pad(mo)}`;
+}
+
 /** The recent periods, newest first, for a picker. */
 function recentKeys(kind, count = 12, today = new Date().toISOString().slice(0, 10)) {
   const keys = [];
@@ -307,4 +313,4 @@ async function markFiled(client, { companyId, userId, key, reference }) {
   return { filed: true };
 }
 
-module.exports = { period, currentKey, recentKeys, build, inputRows, outputSheets, figures, markFiled, niceDate, INPUT_RATE_COLUMNS };
+module.exports = { period, currentKey, runningKey, recentKeys, build, inputRows, outputSheets, figures, markFiled, niceDate, INPUT_RATE_COLUMNS };

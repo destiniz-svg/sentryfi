@@ -28,7 +28,7 @@ router.get(
     const r = await load(req);
     res.json({
       period: r.period,
-      periods: gst.recentKeys(r.company.gst_period).map((k) => ({ key: k, label: gst.period(k).label })),
+      periods: [gst.runningKey(r.company.gst_period), ...gst.recentKeys(r.company.gst_period)].map((k) => ({ key: k, label: gst.period(k).label })),
       frequency: r.company.gst_period,
       activityNo: r.company.gst_number,
       figures: gst.figures(r),
