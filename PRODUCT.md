@@ -212,6 +212,8 @@ The product does not arrive knowing every charge a Maldivian importer meets, and
 
 So the product's knowledge of charges grows from the owner's own paperwork rather than from a list somebody wrote in advance. Nothing needs a field before it has happened once, and nothing is asked twice.
 
+**It has a CFO.** Added 23 September 2026. An advisor inside the product that learns the business from its own books and its owner's answers, watches it every day, reads the market in the Maldives and abroad, and turns what changed out there into this company's own figures. Every morning it writes a three-minute brief — what changed since yesterday, what to do today, one market note in the company's numbers, one thing learned — readable aloud in Dhivehi or English. It shows its working for every figure and its source for every market claim, says when it is unsure, and never posts. For a founder who cannot afford a finance director, this is the finance director.
+
 **It answers questions.** Analytics that a founder actually asks: which site made money, which customer pays late, what the month costs before it ends, what is committed but not yet spent. Read from the ledger with the entries behind each figure shown, never a dashboard figure nobody can trace.
 
 ## The platform a product needs to be sold
