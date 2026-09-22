@@ -8,6 +8,33 @@ Revised 19 September 2026, after comparing what is built against the 2026 market
 
 Altura is the proving ground, not the specification: every bill recorded within minutes of arriving, every return filed from the app on time. If it cannot do that for one construction company in the Maldives, the rest is a claim rather than a fact.
 
+## Still to do
+
+One list of everything left open, gathered from the steps below, so none of it hides in a step marked done. Kept current: an item leaves this list when it is done and says so where it was done.
+
+**Needs the owner or the accountant (nothing to build):**
+- Import Altura's real bank statement and answer its 326 questions (step 9).
+- Close one real month on Altura and hand the three statements to the accountant. That is milestone two's own "done when".
+- Key one real GST return from `/tax` into MIRAconnect and see it accepted. The accountant maps the figures to the MIRA 205 box numbers and confirms the GST rate history (steps 12 and 13).
+- Register Sentryfi at api-console.zoho.com and set `ZOHO_CLIENT_ID` and `ZOHO_CLIENT_SECRET` on Railway. Then connect Zoho once and confirm the transaction field names (step 14).
+- Bring in Altura's own Zoho history (step 14).
+- Rotate the demo password before real money. The leaked screenshot still sits in the public repository's git history; purging it needs a history rewrite and the owner's say-so.
+
+**Still to build:**
+- **Opening balances straight from a trial balance** (Zoho's `.xlsx` or `.csv`). For Enricher they were converted by hand (step 14).
+- **Bank lines that pay a bill** should settle that bill. Today they settle the supplier's balance as a whole, until bills know what has been paid against them (step 9).
+- **Company Annual Fee, Withholding Tax and Remittance Tax** in the tax calendar (step 13).
+- **Receipts behind each statement line** bundled into the return pack (step 13).
+- **QuickBooks and Xero connections**, and chunked reading for a large direct Zoho pull (step 14).
+- **The bill reader's prompt** reads the GST rate from the tax pack instead of saying 8% (step 12).
+- **A proper migrations framework.** The schema is still applied as idempotent SQL at every boot.
+- **Clean-ups the code reviews found**, about 1,600 lines:
+  - delete the purchased catalogue route and tables;
+  - delete the stale design-render tools;
+  - delete two unused dependencies (`@react-pdf/renderer`, `recharts`) and three unused UI components;
+  - share one field style, one money parser, one date formatter and one tab row, instead of copies in each page;
+  - use the existing `validate` middleware instead of per-route copies.
+
 ## Three rules about what gets built when
 
 **The core is finished to 100% before anything sits on it.** A double-entry system that is four-fifths done is not four-fifths useful — it is a system whose figures cannot be trusted, because the missing fifth is where the money went. Everything in the core list below is required. Nothing in it is optional.
