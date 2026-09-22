@@ -343,8 +343,10 @@ Every imported record carries which system it came from and that system's own id
 
 Browser check: `node tools/import.js`.
 
+**Zoho, directly (22 September 2026).** Read-only OAuth: the sign-in state is signed and expires, and the refresh token is stored encrypted. The connection reads Zoho's chart of accounts and every account's transactions for the chosen dates, and hands them to the same preview and commit as a CSV. It warns when a CSV import already covers those dates. It needs `ZOHO_CLIENT_ID` and `ZOHO_CLIENT_SECRET` on the server. The field names on Zoho's account-transactions response are read leniently, because the documentation does not show them. The first real connection is what checks them.
+
 Not done:
-- **The OAuth connectors** for Zoho, QuickBooks and Xero.
+- **The QuickBooks and Xero connections.** Zoho is connected directly now; see below.
 - **A side-by-side comparison with Zoho's trial balance.** For now the trial balance at `/statements` is read against Zoho's by eye.
 - **The real test.** Altura's own year from Zoho has not been imported yet. That is what decides whether this step is done.
 
