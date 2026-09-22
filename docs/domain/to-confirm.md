@@ -65,32 +65,12 @@ Whether "pay when paid" clauses bind in the Maldives, and when control passes on
 
 Whether MIRA treats a charge paid by an agent on the importer's behalf as a disbursement outside the agent's taxable supply, and what the invoice must show for the importer to claim the GST on the underlying charge (for example the 8% GST on MPL port handling). This decides whether the app claims that tax, and who the underlying invoice must name. **Answered by:** a Maldivian accountant, against MIRA's GST guidance on agents and disbursements.
 
-## 10. The Customs exchange rate, and how an assessment is actually built up
+## 10. The Customs figure is Customs' figure — SETTLED 23 September 2026, by the owner
 
-Maldives Customs publishes the rates it accepts at <https://customs.gov.mv/eServices/exchangeRate> ("Customs accepted exchange rate for various currency", with a converter beside it). The page loads its table dynamically, so the figures could not be read automatically; the questions below are what the product needs from it, and each one changes a number on screen.
+Customs values a consignment by its own rules: its own exchange rate (published at <https://customs.gov.mv/eServices/exchangeRate>), and uplifts it applies as it sees fit. The assessed CIF is therefore not a figure the product can or should reproduce. An attempt to reverse-engineer one notice (the fees fitting a base of MVR 1,301.50, 8.4% above the pegged cross) found three readings that fit the same numbers, which is the point: it is not ours to compute.
 
-**a. Which rate applies to a given consignment?** The rate in force on the date of the declaration, the date of assessment, the date of arrival, or the date on the bill of lading. Two of those can straddle a rate change, and the one that applies decides the duty.
+**The rule.** The assessed figures are authoritative and are recorded as charged. The product does not recalculate them, does not flag them as wrong for disagreeing with the invoice, and does not ask the owner to explain Customs' arithmetic. It stores the assessed CIF, each fee as it appears, and the notice's number and date, and it keeps the supplier's invoice beside it at the company's own rate, labelled, never reconciled.
 
-**b. How often does the table change, and when does a change take effect?** Daily, weekly or monthly, and from what hour. A product that stores "the Customs rate" without storing which day's table it came from cannot reproduce an old assessment.
+**What the product does instead** is described in PRODUCT.md under "It reads, asks, and learns": it recognises each charge on the document, asks when a line is unclear, and remembers the answer.
 
-**c. Which currencies are listed, and what happens to one that is not?** Whether an unlisted currency is crossed through the dollar, and at whose rate.
-
-**d. Is it the same as the MMA rate?** The rufiyaa is pegged to the dollar, so a dollar invoice is predictable; every other currency is not, and the gap between the Customs table and the bank's rate is a real cost the importer never sees quoted.
-
-**e. Is the rate shown on the assessment notice?** The notice examined shows the assessed CIF but not the rate or the build-up. If the rate is not printed, the product can only record the assessed figure and the date, not verify it.
-
-**f. How is CIF built from an invoice value?** Whether Customs adds the actual freight and insurance from the documents, or a notional percentage where a courier shipment shows no separate freight.
-
-### Why these matter: the arithmetic on a real notice does not close without them
-
-From Assessment Notice A 3494 (6 September 2026), invoice AED 286.00, assessed CIF MVR 1,392.48, processing charge MVR 13.00, non-registration processing fee MVR 130.15:
-
-- The non-registration fee is **exactly ten times** the processing charge. Taken as 10% and 1% of one base, that base is **MVR 1,301.50**, and 1% of it is 13.015 — the 13.00 on the notice, rounded.
-- **CIF ÷ that base = 1.0699**, near enough 7%. So the fees appear to be charged on a figure roughly 7% below the assessed CIF, which would be the CIF before some element of freight or insurance.
-- **The base against the invoice is MVR 4.5507 per AED**, which is **8.4% above the pegged cross rate** of MVR 4.1988 (MVR 15.42 per USD ÷ AED 3.6725 per USD). Either Customs values in a currency or at a rate that is not the peg cross, or the base already carries freight, or both.
-- Taking the peg cross instead, the goods come to MVR 1,200.85 and the assessed CIF is **16.0% above** that — which would be a freight and insurance uplift, and is in the range a courier consignment attracts.
-
-Three readings fit the same four numbers, and they differ by real money on a container. **Settled by:** the clearing agent's own worksheet for this assessment, or Customs' fee schedule and rate table, showing (i) the rate applied, (ii) what was added to reach CIF, and (iii) what base the 1% and 10% are charged on.
-
-**Until it is settled,** a shipment stores the assessed CIF, the fees as charged, and the date of the notice, and shows the owner what was paid rather than a figure the product computed itself. The moment the rule is known, the product can do something better: estimate duty and fees **before** the goods are ordered, which is when the owner can still change the decision.
-
+The Customs rate table remains useful for one thing only, later: a rough estimate of duty and fees *before* goods are ordered, shown as an estimate and replaced by the notice when it arrives.

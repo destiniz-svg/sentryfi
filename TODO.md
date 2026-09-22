@@ -604,6 +604,8 @@ Six questions the adviser answers on every document, in this order, showing its 
 5. **What is the tax treatment?** Claimable, not claimable, or not charged at all — decided by the tax pack and what is on the paper, never guessed. This is already how bills work; it extends to every document.
 6. **Has this been posted before?** The duplicate check that exists for bills, applied to every document that carries an amount and a party.
 
+7. **What is each charge on this document?** A Customs notice, an agent's invoice or a bank advice is read line by line. A line the adviser recognises is posted with its reasoning; a line it does not recognise, or one that could be either a disbursement or the supplier's own fee, is asked about once and remembered against that supplier and that wording. Figures another authority set by its own rules — Customs' assessed value and uplifts, its exchange rate — are recorded as charged and never recalculated or questioned.
+
 **The rules of the adviser**
 
 - It shows its reasoning in one sentence: "Treated as stock because the line has quantities and Island Zone's last four bills were stock."

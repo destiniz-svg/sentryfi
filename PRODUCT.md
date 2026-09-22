@@ -201,6 +201,17 @@ Beyond that, it explains the thing it just did, where it did it, in one line: wh
 
 **It is made for AI to work with, and it draws the line.** The reader already takes a photograph or a spoken note and fills a bill in. Beyond that: a company's own assistant, and other software, reach the books through the documented interface — the same door a person uses, never the tables. Anything automatic may read, draft and propose. It may not post. Accounting mathematics is not something an assistant gets an opinion about, and the trail must always end at a person's name.
 
+**It reads, asks, and learns.** Stated by the owner on 23 September 2026: "you should understand what charges. When those are provided, ask if it confuses or not on record. Clarify. Not everything is recorded; the system learns."
+
+The product does not arrive knowing every charge a Maldivian importer meets, and it does not pretend to. It reads the documents it is given — a Customs assessment notice, a clearing agent's invoice, a port bill, a bank's charge advice — and for each line it either recognises the charge or asks about it:
+
+- **A charge it knows** is posted to the right place with its reasoning shown: "Non-registration processing fee — a Customs charge, part of what these goods cost."
+- **A charge it does not know, or one that could be two things,** is put to the person once, in their words: "Real Zone's invoice has 'Form Set, 5 × 25.00'. Is this something they paid on your behalf, or their own fee?" The answer decides the tax treatment and the cost, so it is asked, never guessed.
+- **The answer is remembered** against that supplier and that wording, visibly, so the same line on the next invoice is not asked about again, and a person can see why the product now believes what it believes and change it.
+- **A figure set by somebody else's rules is recorded as charged.** Customs' assessed value, its uplifts and its exchange rate are Customs' business; the product keeps them and does not second-guess them.
+
+So the product's knowledge of charges grows from the owner's own paperwork rather than from a list somebody wrote in advance. Nothing needs a field before it has happened once, and nothing is asked twice.
+
 **It answers questions.** Analytics that a founder actually asks: which site made money, which customer pays late, what the month costs before it ends, what is committed but not yet spent. Read from the ledger with the entries behind each figure shown, never a dashboard figure nobody can trace.
 
 ## The platform a product needs to be sold
