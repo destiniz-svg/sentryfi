@@ -323,7 +323,7 @@ It is not done until one real month has been keyed in and accepted by the portal
 
 ---
 
-### 14. Bringing history in — CSV built 22 September 2026, Zoho year not yet imported
+### 14. Bringing history in — proven on a real Zoho company, 22 September 2026
 
 **Moved into the core in this revision.** Real money needs agreed opening balances, and an accountant cannot agree an opening balance without the prior records. It cannot sit after the modules.
 
@@ -342,6 +342,21 @@ Every imported record carries which system it came from and that system's own id
 - **No duplicates.** The source system's transaction number is kept in `imported_records`, so the same file again adds nothing.
 
 Browser check: `node tools/import.js`.
+
+**Proven on Enricher Holdings Pvt Ltd (22 September 2026).** Enricher is a real company the owner keeps in Zoho Books. Its Journal Report went in: 4,678 transactions, 1 Jan 2024 to 22 Sep 2026, in chunks of 400. Its opening balances went in too, from Zoho's trial balance as at 31 Dec 2023. Afterwards all 76 accounts on Zoho's trial balance as at 22 Sep 2026 match Sentryfi's to the laari. Retained earnings plus earnings to date also match (−933,088.31), and the balance sheet balances. Two things went wrong on the way, and both were fixed without touching a posted entry:
+- **Two opening balances went to the wrong accounts.** Both were moved with correcting entries 4680 and 4681.
+- **27 accounts were brought in as the wrong kind,** under the old guesses. They were corrected from Zoho's own classification: the account type changes and is logged, and no entry changes.
+
+What that run added to the importer:
+- It reads Zoho's Journal Report, including entity ids and three-decimal amounts.
+- It takes an optional chart of accounts that sets every account's type.
+- After an import it can correct an account's type from that chart.
+- It says plainly when an upload is a summary rather than transactions.
+- It brings a large file in 400 transactions at a time, with progress on screen.
+
+Not done yet:
+- **Opening balances from a trial balance** are still converted by hand; the importer should take Zoho's trial balance directly.
+- **Altura's own Zoho history** has not been brought in.
 
 **Zoho, directly (22 September 2026).** Read-only OAuth: the sign-in state is signed and expires, and the refresh token is stored encrypted. The connection reads Zoho's chart of accounts and every account's transactions for the chosen dates, and hands them to the same preview and commit as a CSV. It warns when a CSV import already covers those dates. It needs `ZOHO_CLIENT_ID` and `ZOHO_CLIENT_SECRET` on the server. The field names on Zoho's account-transactions response are read leniently, because the documentation does not show them. The first real connection is what checks them.
 
