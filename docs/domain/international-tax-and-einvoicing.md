@@ -2,87 +2,192 @@
 
 Last researched: 22 September 2026.
 
-Sentryfi launches in the Maldives, where GST is a two-rate, MIRA-administered tax with no mandatory e-invoicing. Every country after that adds requirements the Maldivian pack does not have: import VAT with a reclaim mechanism, mandatory structured e-invoicing cleared through a government or accredited network, and (in the EU) near-real-time digital reporting. This document exists so that "add country X" is a data-entry exercise against a known shape, not a re-architecture. It covers what a consumption tax pack must carry, how import VAT/GST changes the economics of importing (relevant because most Sentryfi customers are importers), what mandatory e-invoicing actually requires as of September 2026, what that means for Sentryfi's architecture, data residency and privacy obligations, and a ranked list of where to go next.
+Sentryfi launches in the Maldives, where GST is a two-rate, MIRA-administered tax with no mandatory e-invoicing. Every country after that adds requirements the Maldivian pack does not have:
 
-A note on the Maldives comparison the task asked for: MIRA does charge GST at the border on imported goods, calculated on CIF value plus import duty ([MIRA GST FAQ](https://www.mira.gov.mv/Pages/View/FAQ_GST)), and a GST-registered importer can generally credit that import GST as input tax against output GST on its taxable domestic supplies ([MIRA input tax rules](https://www.mira.gov.mv/Pages/View/gstinputtax)). So "Maldives taxes only domestic supply" is not literally true of the border charge itself — it is true of the *mechanism*: MIRA has no postponed-accounting or deferment scheme, so the importer pays GST in cash at customs and waits to recover it through the normal periodic return, with a 12-month time limit to claim it. That cash-flow gap, not an exemption from import tax, is the real Maldivian characteristic, and it is what the comparison below is built around.
+- import VAT with a genuine reclaim/deferment mechanism,
+- mandatory structured e-invoicing cleared through a government or accredited network, and
+- (in the EU) near-real-time digital reporting on top of e-invoicing.
+
+This document exists so that "add country X" is a data-entry exercise against a known shape, not a re-architecture. It covers:
+
+1. what a consumption tax pack must carry,
+2. how import VAT/GST changes the economics of importing (most Sentryfi customers are importers),
+3. what mandatory e-invoicing actually requires as of September 2026,
+4. what that means for Sentryfi's architecture,
+5. data residency and privacy obligations, and
+6. a ranked list of where to go next.
+
+**A note on the Maldives comparison the task asked for.** MIRA does charge GST at the border on imported goods, calculated on CIF value plus import duty ([MIRA GST FAQ](https://www.mira.gov.mv/Pages/View/FAQ_GST)), and a GST-registered importer can generally credit that import GST as input tax against output GST on its taxable domestic supplies ([MIRA input tax rules](https://www.mira.gov.mv/Pages/View/gstinputtax)). So "Maldives taxes only domestic supply" is not literally true of the border charge itself — it is true of the *mechanism*: MIRA has no postponed-accounting or deferment scheme, so the importer pays GST in cash at customs and waits to recover it through the normal periodic return, subject to a 12-month time limit to claim it. That cash-flow gap, not an exemption from import tax, is the real Maldivian characteristic, and it is what the comparison in section 2 is built around.
 
 ## 1. The shape of a consumption tax pack
 
-Every jurisdiction Sentryfi could plausibly enter taxes consumption with some variant of VAT or GST. The variation is not in whether the tax exists but in a fixed set of fields. Treat this as the schema a country pack must implement — build the pack as data (rates, thresholds, deadlines, box structure) against a fixed adapter interface, not as new ledger code per country.
+Every jurisdiction Sentryfi could plausibly enter taxes consumption with some variant of VAT or GST. The variation is not in whether the tax exists but in a fixed set of fields. Treat this section as the schema a country pack must implement — build the pack as data (rates, thresholds, deadlines, box structure) against a fixed adapter interface, not as new ledger code per country.
 
-**Rates and categories.** A standard rate, usually one or more reduced rates for specific categories (food, transport, medicine, tourism), a zero rate (mostly exports), and an exempt category (no output tax, no input credit — different from zero-rated). The Maldives has two rates only: 8% GGST and 17% TGST on tourism ([Overview - MIRA](https://www.mira.gov.mv/Pages/View/gst)). The UK has three (20/5/0) plus exemptions; the EU harmonises a minimum standard rate of 15% but leaves reduced-rate categories to member states.
+**Rates and categories.**
+- A standard rate, applied by default.
+- Usually one or more reduced rates for specific categories: food, transport, medicine, tourism are the common candidates.
+- A zero rate, mostly for exports — output tax is charged at 0% but input tax is still fully reclaimable.
+- An exempt category — no output tax, but *no* input credit either, which is a different economic outcome from zero-rating and must be modelled separately.
+- Worked example: the Maldives has two rates only, 8% GGST and 17% TGST on tourism goods and services ([Overview - MIRA](https://www.mira.gov.mv/Pages/View/gst)). The UK has three (20% standard / 5% reduced / 0% zero) plus a separate exempt category. The EU harmonises a minimum standard rate of 15% across member states but leaves the choice of reduced-rate categories to each country.
 
-**Registration thresholds.** A turnover figure below which registration is optional or impossible, varying from zero (Gulf states for non-residents) to tens of thousands of pounds (UK: £90,000) to none at all for certain regimes that require registration from the first transaction (many LATAM VAT-equivalents, non-resident digital service rules almost everywhere).
+**Registration thresholds.**
+- A turnover figure below which registration is optional or not permitted.
+- Ranges from zero (Gulf states, for non-resident suppliers) to tens of thousands of pounds (UK: £90,000).
+- Some regimes have no threshold at all and require registration from the first transaction — most non-resident digital-services rules work this way worldwide, and many LATAM VAT-equivalents follow the same pattern.
 
-**Tax point / time of supply.** The rule that fixes which period a transaction falls into — earliest of invoice date, payment date, or delivery/completion, with different tie-breakers by country and by transaction type (goods vs services vs continuous supply).
+**Tax point / time of supply.**
+- The rule that fixes which filing period a transaction falls into.
+- Usually the earliest of: invoice date, payment date, or delivery/completion date.
+- Tie-breakers differ by country and by transaction type — goods, services and continuous supplies (subscriptions, retainers) each commonly get their own rule.
 
-**Invoice content requirements.** A minimum field set (seller and buyer tax ID, invoice number, date, description, quantity, unit price, tax rate, tax amount, total) that every regime requires, then country-specific additions — sequence integrity rules, QR codes, digital signatures, buyer ID mandatory above a value threshold, currency and exchange rate for foreign-currency invoices.
+**Invoice content requirements.**
+- A minimum field set that every regime requires: seller and buyer identity, tax ID, invoice number, date, description, quantity, unit price, tax rate, tax amount, total.
+- Country-specific additions layer on top: sequence-integrity rules, QR codes, digital signatures, a mandatory buyer tax ID above a value threshold, and currency plus exchange rate for foreign-currency invoices.
 
-**Filing frequency and deadlines.** Monthly, quarterly, or annual, often tied to turnover band, with a filing deadline typically 15-30 days after period end and a separate (sometimes later) payment deadline.
+**Filing frequency and deadlines.**
+- Monthly, quarterly or annual, usually tied to turnover band (larger businesses file more often).
+- A filing deadline typically 15-30 days after period end.
+- A separate, sometimes later, payment deadline — filing and paying are not always the same date.
 
-**Return box structure.** The literal layout of the tax return — output tax by rate, input tax by category, adjustments, net payable/refundable. This differs enough between countries that a single generic "VAT return" object will not serialise correctly everywhere; the pack needs its own box map.
+**Return box structure.**
+- The literal layout of the tax return: output tax by rate, input tax by category, adjustments, net payable or refundable.
+- This differs enough between countries that a single generic "VAT return" object will not serialise correctly everywhere.
+- The pack needs its own declarative box map from ledger accounts to return boxes.
 
-**Credit notes and corrections.** Rules for adjusting a previously reported invoice — some regimes require a formal credit note referencing the original invoice number, others allow same-period netting, others require government-side cancellation within a time window (relevant for clearance regimes, below).
+**Credit notes and corrections.**
+- Some regimes require a formal credit note that references the original invoice number.
+- Others allow same-period netting without a formal document.
+- Clearance regimes (see section 3) often require government-side cancellation of the original document within a time window before a correction is valid.
 
-**Bad debt relief.** Whether and how a seller can recover output tax already paid on an invoice the buyer never paid, usually requiring a minimum age (6 months is common) and proof of write-off.
+**Bad debt relief.**
+- Lets a seller recover output tax already paid on an invoice the buyer never paid.
+- Usually requires a minimum debt age (six months is a common threshold) and proof of write-off.
 
-**Reverse charge.** Who accounts for the tax when a non-resident supplies a resident business — shifts the liability to the buyer, common for cross-border B2B services and mandatory in the EU for most intra-EU B2B service supplies.
+**Reverse charge.**
+- Shifts liability for the tax from a non-resident supplier to the resident business buyer.
+- Common for cross-border B2B services.
+- Mandatory in the EU for most intra-EU B2B service supplies.
 
-**Place of supply.** Three separate rule sets: for goods (generally where the goods are when transported, with special rules for chain/triangular transactions), for general services (B2B: where the customer belongs; B2C: where the supplier belongs, with big exceptions), and for digital services (almost universally: where the consumer belongs, driving the OSS/MOSS-style non-resident registration regimes now common worldwide).
+**Place of supply — three separate rule sets.**
+- Goods: generally where the goods are located when transported, with special rules for chain and triangular transactions.
+- General services: B2B — where the customer belongs; B2C — where the supplier belongs, with significant exceptions (property, events, transport).
+- Digital services: almost universally taxed where the consumer belongs, which is what drives the OSS/MOSS-style non-resident registration regimes now common worldwide.
 
-**Import VAT/GST and deferment.** Covered in depth in section 2 — whether tax is charged at the border, whether it can be deferred/postponed, and whether it is reclaimable.
+**Import VAT/GST and deferment.** Covered in depth in section 2 — whether tax is charged at the border, whether it can be deferred or postponed, and whether and how quickly it is reclaimable.
 
-**Refunds for exporters.** Zero-rating for exports plus a mechanism to reclaim the input tax that would otherwise be trapped, sometimes bundled with special exporter schemes (accelerated refund cycles, bonded warehouses) that matter a great deal for margin-thin importer-exporters.
+**Refunds for exporters.**
+- Zero-rating for exports plus a mechanism to reclaim the input tax that would otherwise be trapped.
+- Sometimes bundled with special exporter schemes — accelerated refund cycles, bonded warehouses — that matter a great deal for margin-thin importer-exporters.
 
-**What this means for a country pack:** every field above should be a named, typed attribute on a `CountryTaxPack` record (rates as a table keyed by category, thresholds as amounts with effective dates, tax-point rules as an ordered rule list, box structure as a declarative mapping from ledger accounts to return boxes). None of it should be hard-coded into ledger logic — the ledger only needs to know how to tag a transaction with a tax category and let the pack work out the rest.
+**What this means for a country pack:** every field above should be a named, typed attribute on a `CountryTaxPack` record — rates as a table keyed by category, thresholds as amounts with effective dates, tax-point rules as an ordered rule list, box structure as a declarative mapping from ledger accounts to return boxes. None of it should be hard-coded into ledger logic; the ledger only needs to know how to tag a transaction with a tax category and let the pack work out the rest.
 
 ## 2. Import VAT/GST across models
 
 Two models exist for how consumption tax treats imports.
 
-**Border-charge-with-reclaim model** (EU, UK, Singapore, Malaysia, Gulf states/GCC). Import VAT/GST is charged at the point of import, calculated on customs value (CIF, generally) plus duty, collected by customs. A VAT/GST-registered importer making taxable supplies can reclaim that import tax as input tax, exactly as it would reclaim VAT charged by a domestic supplier. Several of these jurisdictions also offer a **deferment or postponed-accounting scheme** that avoids the cash-flow gap entirely: the UK's Postponed VAT Accounting (PVA), introduced 1 January 2021, lets a business declare import VAT as both output and input tax on the *same* return, making it cash-neutral rather than paid-then-reclaimed ([Xero: Postponed VAT accounting](https://www.xero.com/uk/guides/postponed-vat-accounting/), [Sage: Postponed VAT accounting](https://www.sage.com/en-gb/blog/postponed-vat-accounting/)). The EU has an equivalent postponed-accounting option in most member states, and Singapore and Malaysia both run import GST deferment schemes for approved traders.
+**Model A — border-charge-with-reclaim** (EU, UK, Singapore, Malaysia, Gulf states/GCC).
+- Import VAT/GST is charged at the point of import, calculated on customs value (CIF, generally) plus duty, and collected by customs.
+- A VAT/GST-registered importer making taxable supplies can reclaim that import tax as input tax, exactly as it would reclaim VAT charged by a domestic supplier.
+- Several of these jurisdictions also offer a **deferment or postponed-accounting scheme** that removes the cash-flow gap entirely. The UK's Postponed VAT Accounting (PVA), introduced 1 January 2021, lets a business declare import VAT as both output and input tax on the *same* return, making it cash-neutral rather than paid-then-reclaimed ([Xero: Postponed VAT accounting](https://www.xero.com/uk/guides/postponed-vat-accounting/), [Sage: Postponed VAT accounting](https://www.sage.com/en-gb/blog/postponed-vat-accounting/)).
+- The EU has an equivalent postponed-accounting option in most member states; Singapore and Malaysia both run import GST deferment schemes for approved traders.
 
-**Domestic-supply-only-reclaim model** (Maldives, and various smaller jurisdictions without a deferment scheme). Import GST is still charged at the border — Maldives collects it on CIF plus duty ([MIRA GST FAQ](https://www.mira.gov.mv/Pages/View/FAQ_GST)) — but there is no postponed-accounting mechanism. The importer must pay the GST in cash at clearance, then wait until the next periodic GST return to claim it back as input tax, subject to a 12-month time limit and holding valid import documentation ([MIRA input tax rules](https://www.mira.gov.mv/Pages/View/gstinputtax)).
+**Model B — domestic-supply-only-reclaim** (Maldives, and various smaller jurisdictions without a deferment scheme).
+- Import GST is still charged at the border — Maldives collects it on CIF plus duty ([MIRA GST FAQ](https://www.mira.gov.mv/Pages/View/FAQ_GST)).
+- But there is no postponed-accounting mechanism.
+- The importer pays the GST in cash at clearance, then waits until the next periodic GST return to claim it back as input tax, subject to a 12-month time limit and holding valid import documentation ([MIRA input tax rules](https://www.mira.gov.mv/Pages/View/gstinputtax)).
 
-**Why this one difference changes the cost of imported goods.** The tax paid is identical in both models — what differs is who finances it and for how long. A worked comparison, both scenarios importing MVR 1,000,000 (roughly USD 65,000) of goods at 8% GST/GGST, filing monthly, mid-cycle:
+**Why this one difference changes the cost of imported goods.** The tax paid is identical in both models — what differs is who finances it, and for how long. A worked comparison, both scenarios importing goods worth MVR 1,000,000 (roughly USD 65,000) at an 8% rate, filing monthly, landing mid-cycle:
 
-- *UK-style postponed accounting:* Import VAT of £13,000 (at 20%, comparable scale) is declared as output tax and reclaimed as input tax on the same return. Net cash impact: zero. The business never actually parts with the money; it only appears and disappears on the same VAT return line.
-- *Maldives-style border charge, no deferment:* GST of MVR 80,000 is paid in cash to customs at the point of clearance. If the import lands mid-cycle, the business waits an average of ~45 days (half a monthly cycle plus the ~15-30 day filing/payment lag) before it can offset that amount against output tax, and the actual cash refund (if input tax exceeds output tax that period) can take longer still depending on MIRA's refund processing time. On MVR 80,000, at a working-capital cost of even 10% per annum, that is roughly MVR 1,000 of financing cost per import cycle — immaterial for one shipment, but compounding for an importer running continuous stock replenishment, where the trapped GST on goods-in-transit and goods-awaiting-sale becomes a permanent slice of working capital rather than a one-off cost.
+- *UK-style postponed accounting:* import VAT of, say, £13,000 (at 20%, comparable scale) is declared as output tax and reclaimed as input tax on the same return. Net cash impact: zero. The business never actually parts with the money — it only appears and disappears on the same VAT return line.
+- *Maldives-style border charge, no deferment:* GST of MVR 80,000 is paid in cash to customs at the point of clearance. Landing mid-cycle, the business waits an average of roughly 45 days — half a monthly cycle plus the 15-30 day filing/payment lag — before it can offset that amount against output tax, and any net cash refund can take longer still depending on MIRA's processing time. At a working-capital cost of even 10% per annum, that is roughly MVR 1,000 of financing cost on this one shipment — immaterial once, but compounding for an importer running continuous stock replenishment, where the trapped GST on goods-in-transit and goods-awaiting-sale becomes a permanent slice of working capital rather than a one-off cost.
 
-The practical effect: a border-charge-with-deferment country makes importing tax-neutral from a cash perspective; a border-charge-without-deferment country makes importing carry a real, ongoing financing cost proportional to inventory cycle time and the local GST rate. This is a first-order concern for any Sentryfi customer running import-heavy retail or F&B in the Maldives, and it is exactly the kind of cash-flow visibility a ledger product should be able to show (projected GST refund timing against inventory turn), not just record.
+**The practical effect:**
+- a border-charge-with-deferment country makes importing tax-neutral from a cash perspective;
+- a border-charge-without-deferment country makes importing carry a real, ongoing financing cost proportional to inventory cycle time and the local GST rate.
 
-**What this means for the ledger:** the ledger needs a distinct account (or sub-ledger) for import tax paid-but-not-yet-reclaimed, separate from ordinary input tax, with an ageing view — because in a no-deferment country that balance is real trapped cash, and the product should be able to warn a customer when it is ageing past the reclaim time limit (12 months in the Maldives) or flag the compounding cost during inventory-heavy quarters.
+This is a first-order concern for any Sentryfi customer running import-heavy retail or F&B in the Maldives, and it is exactly the kind of cash-flow visibility a ledger product should be able to show — projected GST refund timing against inventory turn — not just record.
+
+**What this means for the ledger:** the ledger needs a distinct account (or sub-ledger) for import tax paid-but-not-yet-reclaimed, separate from ordinary input tax, with an ageing view. In a no-deferment country that balance is real trapped cash, and the product should be able to warn a customer when it is ageing past the reclaim time limit (12 months in the Maldives) or flag the compounding cost during inventory-heavy quarters.
 
 ## 3. Mandatory electronic invoicing and digital reporting as of 2026
 
-Two structurally different models recur throughout this section: **clearance** (the invoice is not legally valid until a government platform approves it — the government sees every transaction as it happens) and **post-audit / e-reporting** (the invoice is issued directly to the buyer, with data reported to the tax authority separately, often after the fact). Clearance gives tax authorities real-time visibility and closes the VAT gap faster; post-audit is lighter to implement but easier to evade.
+Two structurally different models recur throughout this section:
 
-**EU — ViDA (VAT in the Digital Age).** Adopted 11 March 2025, phased to 2035. Key dates: **1 July 2030** — mandatory digital reporting requirements based on structured e-invoicing (EN 16931 standard) apply to intra-EU B2B transactions and mandatory-reverse-charge transactions; **1 January 2035** — member states that already had a pre-approved domestic system before 2024 (Italy, France, Poland, Belgium, Romania, Germany) must harmonise it with the EU standard ([EDICOM: ViDA work programme](https://edicomgroup.com/blog/vida-the-european-union-promotes-b2b-electronic-invoicing), [vatcalc.com: EU DRR e-invoice 2030](https://www.vatcalc.com/eu/eu-2028-digital-reporting-requirements-drr-e-invoice/)). This is legislated and dated but not yet in force for most member states — the domestic mandates already live (Italy, France's phase-in, Poland) are running ahead of ViDA and will need to converge onto it.
+- **Clearance** — the invoice is not legally valid until a government platform approves it; the government sees every transaction as it happens.
+- **Post-audit / e-reporting** — the invoice is issued directly to the buyer, with data reported to the tax authority separately, often after the fact.
 
-**Peppol** is not a government system but an interoperability network and document standard (based on UBL) with a four-corner model (sender → sender's access point → receiver's access point → receiver). It now covers close to 50 countries ([Qvalia: Peppol global reach 2026](https://qvalia.com/peppol-global-reach-2026-the-complete-country-guide/)), and several national mandates are built on top of it:
-- **Singapore InvoiceNow** — Peppol-based, developed by IMDA. Voluntary for general B2B, mandatory in phases for GST-registered businesses through April 2031, mandatory for invoicing government now ([Advintek: InvoiceNow & Peppol](https://invoicenow.advintek.com.sg/singapore-peppol-e-invoicing/)).
-- **Malaysia MyInvois** — the actual mandatory domestic system for LHDN tax validation; Peppol is used alongside it for cross-border document exchange, not as the compliance mechanism itself. Rollout: large taxpayers from August 2024, mid-sized 2025, and businesses with annual turnover RM1-5 million from 1 January 2026 under a penalty-free relaxation period to 31 December 2027 ([Airwallex: Peppol in Malaysia](https://www.airwallex.com/en-my/blog/what-is-peppol-malaysia)).
+Clearance gives tax authorities real-time visibility and closes the VAT gap faster; post-audit is lighter to implement but easier to evade.
+
+**EU — ViDA (VAT in the Digital Age).**
+- Adopted 11 March 2025, phased to 2035.
+- **1 July 2030** — mandatory digital reporting requirements based on structured e-invoicing (EN 16931 standard) apply to intra-EU B2B transactions and mandatory-reverse-charge transactions.
+- **1 January 2035** — member states that already had a pre-approved domestic system before 2024 (Italy, France, Poland, Belgium, Romania, Germany) must harmonise it with the EU standard.
+- Sources: [EDICOM: ViDA work programme](https://edicomgroup.com/blog/vida-the-european-union-promotes-b2b-electronic-invoicing), [vatcalc.com: EU DRR e-invoice 2030](https://www.vatcalc.com/eu/eu-2028-digital-reporting-requirements-drr-e-invoice/).
+- Status: legislated and dated, but not yet in force for most member states. The domestic mandates already live (Italy, France's phase-in, Poland) are running ahead of ViDA and will need to converge onto it by 2035.
+
+**Peppol.** Not a government system — an interoperability network and document standard (based on UBL) with a four-corner model: sender → sender's access point → receiver's access point → receiver. It now covers close to 50 countries ([Qvalia: Peppol global reach 2026](https://qvalia.com/peppol-global-reach-2026-the-complete-country-guide/)). National mandates built on top of it:
+- **Singapore InvoiceNow** — Peppol-based, developed by IMDA. Voluntary for general B2B, mandatory in phases for GST-registered businesses through April 2031, mandatory now for invoicing government ([Advintek: InvoiceNow & Peppol](https://invoicenow.advintek.com.sg/singapore-peppol-e-invoicing/)).
+- **Malaysia MyInvois** — the actual mandatory domestic system for LHDN tax validation; Peppol is used alongside it for cross-border document exchange, not as the compliance mechanism itself. Rollout: large taxpayers from August 2024, mid-sized 2025, and businesses with annual turnover RM1-5 million from 1 January 2026 under a penalty-free relaxation period running to 31 December 2027 ([Airwallex: Peppol in Malaysia](https://www.airwallex.com/en-my/blog/what-is-peppol-malaysia)).
 - **Belgium, Australia, New Zealand** — Peppol-based B2B mandates or strong adoption pushes are live or scheduled through 2026-2027, alongside France's and the UAE's newer mandates ([Qvalia: Peppol global reach 2026](https://qvalia.com/peppol-global-reach-2026-the-complete-country-guide/)).
 
-**Italy SdI.** Live since 1 January 2019 for B2B, B2C and B2G — the longest-running EU clearance mandate and a template ViDA drew on. Format: FatturaPA, an XML schema aligned to EN 16931. Model: clearance — the invoice is transmitted to the Sistema di Interscambio, validated, and only then forwarded to the buyer; it is not legally issued until SdI approves it ([EDICOM: eInvoicing in Italy](https://ec.europa.eu/digital-building-blocks/sites/spaces/DIGITAL/pages/467108890/eInvoicing+in+Italy), [OriginStamp: SdI clearance](https://originstamp.com/en/blog/reader/e-invoicing-italy-sdi-fatturapa-guide)). Submission channels include certified email (PEC), web upload, SFTP and web services — a small vendor can self-file through the free government web portal, though most use an accredited intermediary for volume.
+**Italy SdI.**
+- Live since 1 January 2019 for B2B, B2C and B2G — the longest-running EU clearance mandate and a template ViDA drew on.
+- Format: FatturaPA, an XML schema aligned to EN 16931.
+- Model: clearance — the invoice is transmitted to the Sistema di Interscambio, validated, and only then forwarded to the buyer; it is not legally issued until SdI approves it.
+- Sources: [EDICOM: eInvoicing in Italy](https://ec.europa.eu/digital-building-blocks/sites/spaces/DIGITAL/pages/467108890/eInvoicing+in+Italy), [OriginStamp: SdI clearance](https://originstamp.com/en/blog/reader/e-invoicing-italy-sdi-fatturapa-guide).
+- Self-file: submission channels include certified email (PEC), web upload, SFTP and web services — a small vendor can self-file through the free government web portal, though most use an accredited intermediary for volume.
 
-**Saudi Arabia ZATCA.** Two phases: Phase 1 (Generation) has been enforceable since December 2021 — generate and store e-invoices electronically. Phase 2 (Integration) requires the taxpayer's system to integrate with ZATCA's Fatoora platform and issue XML invoices carrying a QR code and cryptographic stamp in real time. Rollout is wave-based by turnover: **Wave 23** (turnover > SAR 750,000) due by 31 March 2026; **Wave 24** (turnover > SAR 375,000) due by 30 June 2026 — this wave makes integrated e-invoicing nearly universal down to small/mid businesses ([EY: Wave 23](https://www.ey.com/en_gl/technical/tax-alerts/saudi-arabia-announces-23rd-wave-of-phase-2-e-invoicing-integration), [ZATCA: Wave 24](https://zatca.gov.sa/en/Pages/news_1426.aspx)). Model: clearance-adjacent — near-real-time reporting with cryptographic stamping, not full pre-approval. A small business must connect its accounting/ERP software to Fatoora, directly or via an accredited solution provider; self-filing without integrated software is not viable at this stage.
+**Saudi Arabia ZATCA.**
+- Phase 1 (Generation) has been enforceable since December 2021 — generate and store e-invoices electronically.
+- Phase 2 (Integration) requires the taxpayer's system to integrate with ZATCA's Fatoora platform and issue XML invoices carrying a QR code and cryptographic stamp in real time.
+- Rollout is wave-based by turnover: **Wave 23** (turnover > SAR 750,000) due by 31 March 2026; **Wave 24** (turnover > SAR 375,000) due by 30 June 2026 — this wave makes integrated e-invoicing nearly universal down to small/mid businesses.
+- Sources: [EY: Wave 23](https://www.ey.com/en_gl/technical/tax-alerts/saudi-arabia-announces-23rd-wave-of-phase-2-e-invoicing-integration), [ZATCA: Wave 24](https://zatca.gov.sa/en/Pages/news_1426.aspx).
+- Model: clearance-adjacent — near-real-time reporting with cryptographic stamping, not full pre-approval.
+- Self-file: not viable without integrated software; a small business must connect its accounting/ERP system to Fatoora, directly or via an accredited solution provider.
 
-**India IRP / e-way bill.** Mandatory for B2B/B2G above ₹5 crore turnover. Invoice data is submitted as JSON to the government's Invoice Registration Portal (IRP), which validates it and returns an Invoice Reference Number (IRN), QR code and digital signature — a clearance model in substance, though invoices remain "issued" by the seller to the buyer directly, with the IRN attached after validation ([ClearTax: GST e-invoicing generation](https://www.logicerp.com/blog/how-to-generate-e-invoice-under-gst-in-india-2026-complete-guide-with-process-format-software/)). The separate e-way bill system governs physical movement of goods above a value threshold. A planned tightening (mandatory Ship-to GSTIN field) originally set for 1 August 2026 was put on hold by GSTN as of a 29 July 2026 advisory — a live example of "announced but not yet in force" ([GSTN advisory reporting](https://clearlycomply.org/blog/gst-e-invoicing-india-guide/)).
+**India IRP / e-way bill.**
+- Mandatory for B2B/B2G above ₹5 crore turnover.
+- Invoice data is submitted as JSON to the government's Invoice Registration Portal (IRP), which validates it and returns an Invoice Reference Number (IRN), QR code and digital signature — a clearance model in substance, though invoices remain "issued" by the seller to the buyer directly, with the IRN attached after validation ([ClearTax-sourced: GST e-invoicing generation](https://www.logicerp.com/blog/how-to-generate-e-invoice-under-gst-in-india-2026-complete-guide-with-process-format-software/)).
+- The separate e-way bill system governs physical movement of goods above a value threshold.
+- Live example of "announced but not yet in force": a planned tightening (mandatory Ship-to GSTIN field) originally set for 1 August 2026 was put on hold by GSTN as of a 29 July 2026 advisory ([GSTN advisory reporting](https://clearlycomply.org/blog/gst-e-invoicing-india-guide/)).
 
-**Brazil NF-e / NFS-e.** Long-running, mature clearance model: goods cannot legally leave a warehouse until the NF-e is authorised by the state tax authority. Services are covered separately by NFS-e, run per-municipality — over 5,500 distinct municipal systems, a serious integration burden for any small SaaS vendor targeting Brazil ([invoicedataextraction.com: Brazil NFS-e](https://invoicedataextraction.com/blog/brazil-nfs-e-municipal-service-invoices)). A 2026 tax reform is layering further change onto this system ([Fonoa: Brazil 2026 tax reform](https://www.fonoa.com/resources/blog/brazil-tax-reform-e-invoicing-2026)).
+**Brazil NF-e / NFS-e.**
+- Long-running, mature clearance model: goods cannot legally leave a warehouse until the NF-e is authorised by the state tax authority.
+- Services are covered separately by NFS-e, run per-municipality — over 5,500 distinct municipal systems, a serious integration burden for any small SaaS vendor targeting Brazil ([invoicedataextraction.com: Brazil NFS-e](https://invoicedataextraction.com/blog/brazil-nfs-e-municipal-service-invoices)).
+- A 2026 tax reform is layering further change onto this system ([Fonoa: Brazil 2026 tax reform](https://www.fonoa.com/resources/blog/brazil-tax-reform-e-invoicing-2026)).
 
-**Mexico CFDI.** Three-party clearance: the taxpayer generates a structured XML invoice (CFDI 4.0) and must route it through a certified PAC (Proveedor Autorizado de Certificación) for digital stamping before it is valid ([Vertex: Mexico e-invoicing](https://www.vertexinc.com/resources/resource-library/mexicos-e-invoicing-regulations-explained-scope-formats-and-penalties)). A small business cannot self-file directly with SAT — a PAC relationship is structurally required, which is itself a vendor-integration decision for any accounting product entering Mexico.
+**Mexico CFDI.**
+- Three-party clearance: the taxpayer generates a structured XML invoice (CFDI 4.0) and must route it through a certified PAC (Proveedor Autorizado de Certificación) for digital stamping before it is valid ([Vertex: Mexico e-invoicing](https://www.vertexinc.com/resources/resource-library/mexicos-e-invoicing-regulations-explained-scope-formats-and-penalties)).
+- A small business cannot self-file directly with SAT — a PAC relationship is structurally required, which is itself a vendor-integration decision for any accounting product entering Mexico.
 
-**Turkey.** Two parallel systems: **e-Fatura**, a clearance model (invoice routed through the GİB platform, validated, then forwarded to the buyer) mandatory for B2B once turnover exceeds TRY 3 million; and **e-Arşiv**, a post-audit model for B2C and for invoices to parties not on e-Fatura, where the seller issues directly and reports within 24 hours. Both use UBL 2.1 with QR codes and digital certificates ([vatcalc.com: Turkey e-Fatura/e-Arşiv](https://www.vatcalc.com/turkey/turkey-e-invoice-e-fatura-and-e-arsiv-update/), [Fonoa: Turkish e-invoicing guide](https://www.fonoa.com/resources/blog/practical-guide-to-turkish-e-invoicing)).
+**Turkey.** Two parallel systems:
+- **e-Fatura** — a clearance model, invoice routed through the GİB platform, validated, then forwarded to the buyer; mandatory for B2B once turnover exceeds TRY 3 million.
+- **e-Arşiv** — a post-audit model for B2C and for invoices to parties not on e-Fatura; the seller issues directly and reports within 24 hours.
+- Both use UBL 2.1 with QR codes and digital certificates ([vatcalc.com: Turkey e-Fatura/e-Arşiv](https://www.vatcalc.com/turkey/turkey-e-invoice-e-fatura-and-e-arsiv-update/), [Fonoa: Turkish e-invoicing guide](https://www.fonoa.com/resources/blog/practical-guide-to-turkish-e-invoicing)).
 
-**Egypt.** Runs a clearance-model e-invoicing system administered by the Egyptian Tax Authority (ETA), mandatory for B2B and increasingly for B2C; invoices require ETA approval (a UUID/signature) before being valid for tax purposes, broadly similar in shape to Saudi Arabia's system. (Sourced from general market knowledge current to this research date; a dedicated source-by-source check is recommended before committing engineering effort to an Egypt pack, since detail here was not independently re-verified in this pass.)
+**Egypt.** Runs a clearance-model e-invoicing system administered by the Egyptian Tax Authority (ETA), mandatory for B2B and increasingly for B2C; invoices require ETA approval (a UUID/signature) before being valid for tax purposes, broadly similar in shape to Saudi Arabia's system. *Caveat:* this entry is drawn from general market knowledge rather than a source re-verified in this research pass — confirm details against ETA's own publications before committing engineering effort to an Egypt pack.
 
-**Poland KSeF.** Signed into final law 27 August 2025. Dates: **1 February 2026** for large enterprises (2024 sales, including VAT, over PLN 200 million); **1 April 2026** for all other VAT-registered businesses; **1 January 2027** for micro-entrepreneurs. A transition period runs through 30 September 2026, during which small businesses may still issue paper or other electronic invoices ([Banqup: KSeF 2.0](https://www.banqup.com/resources/blog/poland-s-ksef-2-0-the-official-e-invoicing-mandate), [EY: Poland new timeline](https://www.ey.com/en_gl/technical/tax-alerts/poland-announces-new-timeline-for-mandatory-e-invoicing)). Model: clearance, government-run KSeF platform, XML format.
+**Poland KSeF.**
+- Signed into final law 27 August 2025.
+- **1 February 2026** — large enterprises (2024 sales, including VAT, over PLN 200 million).
+- **1 April 2026** — all other VAT-registered businesses.
+- **1 January 2027** — micro-entrepreneurs.
+- A transition period runs through 30 September 2026, during which small businesses may still issue paper or other electronic invoices.
+- Sources: [Banqup: KSeF 2.0](https://www.banqup.com/resources/blog/poland-s-ksef-2-0-the-official-e-invoicing-mandate), [EY: Poland new timeline](https://www.ey.com/en_gl/technical/tax-alerts/poland-announces-new-timeline-for-mandatory-e-invoicing).
+- Model: clearance, government-run KSeF platform, XML format.
 
-**France.** Reform dates confirmed: from **1 September 2026**, all businesses must be able to *receive* e-invoices, and issuing becomes mandatory for large and medium enterprises; from **1 September 2027**, issuing and e-reporting become mandatory for all businesses including micro-entities ([Basware: France e-invoicing mandate](https://www.basware.com/en/compliance-map/france)). Model: Continuous Transaction Control via certified private platforms (Plateformes Agréées, formerly called PDP), not a single government portal — a small vendor must connect through one of these accredited platforms, not self-file directly with the state, though the platforms themselves compete for that business.
+**France.**
+- **1 September 2026** — all businesses must be able to *receive* e-invoices; issuing becomes mandatory for large and medium enterprises.
+- **1 September 2027** — issuing and e-reporting become mandatory for all businesses, including micro-entities.
+- Source: [Basware: France e-invoicing mandate](https://www.basware.com/en/compliance-map/france).
+- Model: Continuous Transaction Control via certified private platforms (Plateformes Agréées, formerly called PDP), not a single government portal. A small vendor must connect through one of these accredited platforms, not self-file directly with the state — though the platforms themselves compete for that business.
 
-**UK Making Tax Digital (MTD).** Not e-invoicing at all — no clearance, no mandated structured invoice format. It is digital record-keeping and digital-linked filing: since April 2022, all VAT-registered businesses must keep VAT records digitally and file returns through MTD-compatible software connected to HMRC's API, with an unbroken "digital link" between every system that touches the figures (no manual re-keying, though spreadsheets remain allowed if properly linked) ([money.co.uk: MTD for VAT](https://www.money.co.uk/business/guides/making-tax-digital-for-vat)). From April 2026, MTD for Income Tax extends to sole traders/landlords with gross income over £50,000. HMRC is intensifying digital-link compliance checks into 2026 ([Mazuma Money: MTD 2026 survival guide](https://www.mazumamoney.co.uk/news/making-tax-digital-the-2026-survival-guide-for-uk-small-businesses/)). A UK-facing Sentryfi build needs an MTD-recognised filing API integration, not an e-invoicing clearance adapter.
+**UK Making Tax Digital (MTD).**
+- Not e-invoicing at all — no clearance, no mandated structured invoice format.
+- Digital record-keeping and digital-linked filing: since April 2022, all VAT-registered businesses must keep VAT records digitally and file returns through MTD-compatible software connected to HMRC's API, with an unbroken "digital link" between every system that touches the figures — no manual re-keying, though spreadsheets remain allowed if properly linked ([money.co.uk: MTD for VAT](https://www.money.co.uk/business/guides/making-tax-digital-for-vat)).
+- From April 2026, MTD for Income Tax extends to sole traders and landlords with gross income over £50,000.
+- HMRC is intensifying digital-link compliance checks into 2026 ([Mazuma Money: MTD 2026 survival guide](https://www.mazumamoney.co.uk/news/making-tax-digital-the-2026-survival-guide-for-uk-small-businesses/)).
+- A UK-facing Sentryfi build needs an MTD-recognised filing API integration, not an e-invoicing clearance adapter.
 
 **Summary table — clearance vs post-audit, format, identifier, self-file:**
 
@@ -101,36 +206,58 @@ Two structurally different models recur throughout this section: **clearance** (
 | Malaysia MyInvois | Clearance | XML/JSON | Tax ID (TIN) | Via MyInvois portal or Peppol AP |
 | UK MTD | Digital-links reporting only | N/A (no invoice format mandated) | VAT registration number | Via MTD-compatible software |
 
-**What this means for a country pack:** every country pack needs a `clearance_model` field (`none | post_audit | near_real_time | clearance`), a document `format` (free text but drawn from a small closed set — UBL, CII, FatturaPA XML, JSON, none), an `identifier_scheme` for buyer/seller tax IDs, and a `self_file` boolean plus, where false, the class of intermediary required (PAC, PDP, GSP, access point). The adapter layer sits behind this: one network adapter per clearance network (Peppol, SdI, ZATCA, IRP, KSeF, PPF/PDP…), each implementing a common "submit invoice, receive status" interface, so a country pack references an adapter by name rather than embedding integration logic.
+**What this means for a country pack:** every country pack needs:
+- a `clearance_model` field (`none | post_audit | near_real_time | clearance`),
+- a document `format` drawn from a small closed set — UBL, CII, FatturaPA XML, JSON, none,
+- an `identifier_scheme` for buyer/seller tax IDs, and
+- a `self_file` boolean plus, where false, the class of intermediary required (PAC, PDP, GSP, access point).
+
+The adapter layer sits behind this: one network adapter per clearance network (Peppol, SdI, ZATCA, IRP, KSeF, PPF/PDP, and so on), each implementing a common "submit invoice, receive status" interface, so a country pack references an adapter by name rather than embedding integration logic.
 
 ## 4. What this means for product architecture
 
-**Country pack as data, adapter per network.** The pack (section 1's schema) is pure configuration — rates, thresholds, box maps, deadlines, invoice-field requirements, clearance model. The adapter is code — one per clearance network, each translating Sentryfi's canonical invoice object into that network's wire format and handling its submission/status/error lifecycle. A new country is, ideally, a new pack plus a reference to an existing adapter (many countries share Peppol, for instance); a genuinely new network is a new adapter, built once and reused by every pack that references it.
+**Country pack as data, adapter per network.**
+- The pack (section 1's schema) is pure configuration: rates, thresholds, box maps, deadlines, invoice-field requirements, clearance model.
+- The adapter is code — one per clearance network, translating Sentryfi's canonical invoice object into that network's wire format and handling its submission/status/error lifecycle.
+- A new country is, ideally, a new pack plus a reference to an existing adapter (many countries share Peppol, for instance).
+- A genuinely new network is a new adapter, built once and reused by every pack that references it.
 
 **Invariants that must not vary**, regardless of country pack:
 - **Double entry.** Every transaction balances. No jurisdiction's tax rule should ever require an unbalanced posting; tax is always its own account line.
-- **Hash chain / append-only ledger integrity.** Clearance regimes (Italy, Saudi, Brazil, Mexico, Poland) all depend on the seller's own record being immutable and sequential — if Sentryfi's ledger can be edited after the fact, it cannot honestly represent what was submitted to a clearance network. The internal hash chain must be the source of truth that the e-invoice submission is checked against, not the other way round.
-- **Numbering / sequence integrity.** Nearly every regime cares about invoice numbering — no gaps, no reuse, strictly increasing within a series. This must be enforced once, centrally, not per-country, because a single global invoice-numbering violation (e.g. a void that leaves a gap) breaks compliance everywhere simultaneously.
+- **Hash chain / append-only ledger integrity.** Clearance regimes (Italy, Saudi, Brazil, Mexico, Poland) all depend on the seller's own record being immutable and sequential. If Sentryfi's ledger can be edited after the fact, it cannot honestly represent what was submitted to a clearance network. The internal hash chain must be the source of truth that the e-invoice submission is checked against, not the other way round.
+- **Numbering / sequence integrity.** Nearly every regime cares about invoice numbering — no gaps, no reuse, strictly increasing within a series. This must be enforced once, centrally, not per-country, because a single global invoice-numbering violation (a void that leaves a gap, for instance) breaks compliance everywhere simultaneously.
 
-**Fields that must be captured up front** to satisfy the strictest regimes even in countries that don't yet require them (capturing now avoids a painful retrofit later):
+**Fields that must be captured up front** to satisfy the strictest regimes even in countries that don't yet require them — capturing now avoids a painful retrofit later:
 - **Buyer tax ID** — mandatory for B2B in essentially every clearance regime; missing it blocks clearance outright in Italy, Saudi, India, Mexico, Poland.
 - **Unit codes** — UN/CEFACT unit-of-measure codes are required by UBL/CII-based formats (Peppol, France, EU EN 16931); a line item recorded only as "1 unit" cannot be mapped.
-- **HS codes** — required for goods lines in several customs-adjacent regimes and useful regardless for import VAT/GST classification (section 2).
-- **Payment means** — EN 16931 and most clearance formats require a payment means code (bank transfer, card, cash, etc.), not just an amount.
+- **HS codes** — required for goods lines in several customs-adjacent regimes, and useful regardless for import VAT/GST classification (section 2).
+- **Payment means** — EN 16931 and most clearance formats require a payment means code (bank transfer, card, cash, and so on), not just an amount.
 - **Currency of tax** — where an invoice is issued in a foreign currency, the tax amount itself is usually required in local currency at a specified exchange-rate source and date; storing only the invoice currency is insufficient.
-- **Sequence integrity** — as above, but worth repeating as a field-capture concern: the pack needs to know, per document type, what numbering series applies and enforce it at creation time, not at submission time.
+- **Sequence integrity** — as above, but worth repeating as a field-capture concern: the pack needs to know, per document type, what numbering series applies, and enforce it at creation time, not at submission time.
 
 **What this means for the ledger:** add these fields to the canonical invoice/transaction schema now, as optional-but-present columns, even for the Maldives pack where none of them are currently required. The cost of an unused column is near zero; the cost of migrating historical invoices to add a mandatory buyer tax ID field after entering Saudi Arabia is not.
 
 ## 5. Data residency, privacy and record-keeping
 
-**GDPR applicability.** GDPR applies based on the residency of the data subjects (EU/EEA individuals whose personal data is processed), not on where Sentryfi's servers sit — a Maldives-hosted product with EU-resident customers or EU-resident data subjects within customer books is in scope. Personal data (director names, employee payroll data, individual customer contacts) held inside a bookkeeping product is squarely "personal data" under GDPR.
+**GDPR applicability.**
+- GDPR applies based on the residency of the data subjects (EU/EEA individuals whose personal data is processed), not on where Sentryfi's servers sit.
+- A Maldives-hosted product with EU-resident customers, or with EU-resident individuals inside customer books, is in scope.
+- Personal data held inside a bookkeeping product — director names, employee payroll data, individual customer contacts — is squarely "personal data" under GDPR.
 
-**Retention.** GDPR's storage-limitation principle requires purpose-bound retention, not a fixed universal period — but tax and accounting legal obligations override the general "delete when no longer needed" instinct: most jurisdictions mandate 5-7 years of accounting record retention, and GDPR explicitly permits retention for as long as a legal obligation requires it ([Secure Privacy: GDPR storage limitation](https://secureprivacy.ai/blog/eu-data-retention-rules-gdpr)). Practically: Sentryfi should retain full transaction and invoice history for at least 7 years (the common upper bound across the target markets) regardless of any customer deletion request for the underlying business, while still honouring deletion requests for personal data that is *not* part of the statutory accounting record (e.g. a contact's phone number once no longer needed, versus the invoice line itself).
+**Retention.**
+- GDPR's storage-limitation principle requires purpose-bound retention, not a fixed universal period.
+- Tax and accounting legal obligations override the general "delete when no longer needed" instinct: most jurisdictions mandate 5-7 years of accounting record retention, and GDPR explicitly permits retention for as long as a legal obligation requires it ([Secure Privacy: GDPR storage limitation](https://secureprivacy.ai/blog/eu-data-retention-rules-gdpr)).
+- Practically: Sentryfi should retain full transaction and invoice history for at least 7 years (the common upper bound across the target markets) regardless of any customer deletion request for the underlying business, while still honouring deletion requests for personal data that is *not* part of the statutory accounting record — a contact's phone number once no longer needed, for instance, as distinct from the invoice line itself.
 
-**Where data may be stored.** No default requirement to host inside the EU/EEA — cloud accounting SaaS commonly runs on AWS/Azure/GCP, which are global infrastructure, and cross-border transfer is lawful with the right mechanism (adequacy decision, Standard Contractual Clauses, or equivalent) ([Scrut: data retention by region](https://www.scrut.io/post/post-data-retention-policy-by-region)). Some jurisdictions (notably several Gulf states and some LATAM regimes) do impose stricter local-storage or local-processing requirements for tax-relevant data specifically — this needs a per-country check as Sentryfi expands, and should be a field on the country pack (`data_residency_requirement`), not assumed away.
+**Where data may be stored.**
+- No default requirement to host inside the EU/EEA. Cloud accounting SaaS commonly runs on AWS/Azure/GCP, which are global infrastructure, and cross-border transfer is lawful with the right mechanism — an adequacy decision, Standard Contractual Clauses, or equivalent ([Scrut: data retention by region](https://www.scrut.io/post/post-data-retention-policy-by-region)).
+- Some jurisdictions — notably several Gulf states and some LATAM regimes — do impose stricter local-storage or local-processing requirements for tax-relevant data specifically. This needs a per-country check as Sentryfi expands, and should be a field on the country pack (`data_residency_requirement`), not assumed away.
 
-**What cautious buyers ask for.** A due-diligence-minded SME or its accountant will typically ask for: an immutable audit trail (who changed what, when — directly satisfied by the hash-chained ledger); a full data export in a portable format (not vendor lock-in); a documented deletion/retention policy that explains why full deletion isn't offered for statutory accounting records; and a list of sub-processors (cloud host, email provider, any e-invoicing network access point) with their own data-protection commitments, typically via a Data Processing Agreement under GDPR Article 28 where EU data subjects are involved ([dev.to: GDPR for accounting software providers](https://dev.to/custodiaadmin/gdpr-for-accounting-software-providers-client-financial-data-multi-tenancy-and-audit-trail-1ld2)).
+**What cautious buyers ask for.** A due-diligence-minded SME or its accountant will typically ask for:
+- an immutable audit trail — who changed what, when, directly satisfied by the hash-chained ledger;
+- a full data export in a portable format, so there is no vendor lock-in;
+- a documented deletion/retention policy that explains why full deletion isn't offered for statutory accounting records; and
+- a list of sub-processors (cloud host, email provider, any e-invoicing network access point) with their own data-protection commitments, typically via a Data Processing Agreement under GDPR Article 28 where EU data subjects are involved ([dev.to: GDPR for accounting software providers](https://dev.to/custodiaadmin/gdpr-for-accounting-software-providers-client-financial-data-multi-tenancy-and-audit-trail-1ld2)).
 
 **What this means for the ledger:** the audit trail and hash chain built for compliance reasons doubles as the GDPR accountability artefact — keep it that way rather than building a separate "audit log" feature. Build the sub-processor list and DPA as a real, published document before the first EU-adjacent customer, not reactively.
 
@@ -138,16 +265,34 @@ Two structurally different models recur throughout this section: **clearance** (
 
 Ranked by e-invoicing burden (lower is easier), market size for small importers, language fit, and similarity to the Maldivian GST pack (two-rate GST, no mandatory e-invoicing, border-charge import tax without deferment).
 
-1. **Sri Lanka.** No mandatory clearance e-invoicing as of this research; VAT structure (single standard rate, registration threshold, standard invoice content rules) is close enough to the Maldivian pack to reuse most of the schema with minor changes. English is a working business language. Large Maldivian-adjacent trade relationship and shared import-heavy SME profile (retail, F&B, construction materials) — the same customer archetype Sentryfi already serves. Lowest integration burden of any option on this list.
+1. **Sri Lanka.**
+   - No mandatory clearance e-invoicing as of this research.
+   - VAT structure (single standard rate, registration threshold, standard invoice content rules) is close enough to the Maldivian pack to reuse most of the schema with minor changes.
+   - English is a working business language.
+   - Large Maldivian-adjacent trade relationship and shared import-heavy SME profile (retail, F&B, construction materials) — the same customer archetype Sentryfi already serves.
+   - Lowest integration burden of any option on this list.
 
-2. **Mauritius.** Similar profile to Sri Lanka: VAT (15% standard), English as a business/legal language, no mandatory structured e-invoicing yet, small-island import-dependent economy structurally similar to the Maldives (tourism-heavy, goods-import-heavy). Smaller absolute market than Sri Lanka but very high similarity of pack shape, making it a near-zero-cost second market once the first non-Maldives pack is built.
+2. **Mauritius.**
+   - Similar profile to Sri Lanka: VAT at 15% standard, English as a business/legal language, no mandatory structured e-invoicing yet.
+   - Small-island import-dependent economy structurally similar to the Maldives (tourism-heavy, goods-import-heavy).
+   - Smaller absolute market than Sri Lanka, but very high similarity of pack shape, making it a near-zero-cost second market once the first non-Maldives pack is built.
 
-3. **Malaysia.** Larger market, English widely used in business, but MyInvois is now a hard requirement — turnover bands down to RM1-5 million must comply from January 2026 (penalty-free until end 2027) ([Airwallex: Peppol in Malaysia](https://www.airwallex.com/en-my/blog/what-is-peppol-malaysia)). This is real e-invoicing integration work (a MyInvois/Peppol adapter), but Malaysia is a materially bigger addressable market of small importers than Sri Lanka or Mauritius, and the border-charge-with-reclaim import GST model is worth having a working example of in the product. Justifies the investment as market #3, after the low-cost markets prove the pack-as-data architecture.
+3. **Malaysia.**
+   - Larger market, English widely used in business.
+   - MyInvois is now a hard requirement — turnover bands down to RM1-5 million must comply from January 2026, penalty-free until end 2027 ([Airwallex: Peppol in Malaysia](https://www.airwallex.com/en-my/blog/what-is-peppol-malaysia)).
+   - Real e-invoicing integration work (a MyInvois/Peppol adapter), but a materially bigger addressable market of small importers than Sri Lanka or Mauritius, and the border-charge-with-reclaim import GST model is worth having a working example of in the product.
+   - Justifies the investment as market #3, after the low-cost markets prove the pack-as-data architecture.
 
-4. **Singapore.** Similar logic to Malaysia — Peppol-based InvoiceNow, English-native, sophisticated small-business market, GST-registered mandate phasing in through April 2031 giving a long runway ([Advintek: InvoiceNow & Peppol](https://invoicenow.advintek.com.sg/singapore-peppol-e-invoicing/)). Reuses the Peppol adapter built for Malaysia. Smaller number of "small importer" customers than Malaysia proportionally (more services-heavy economy) but very high willingness to pay and low language/regulatory-translation cost.
+4. **Singapore.**
+   - Similar logic to Malaysia — Peppol-based InvoiceNow, English-native, sophisticated small-business market, GST-registered mandate phasing in through April 2031, giving a long runway ([Advintek: InvoiceNow & Peppol](https://invoicenow.advintek.com.sg/singapore-peppol-e-invoicing/)).
+   - Reuses the Peppol adapter built for Malaysia.
+   - Smaller number of "small importer" customers than Malaysia proportionally (more services-heavy economy), but very high willingness to pay and low language/regulatory-translation cost.
 
-5. **UAE (or wider GCC).** Attractive market size and strong trade ties to the Maldives (import routes, expatriate business community), but e-invoicing mandates are landing on the Peppol network with 2026-2027 dates and GCC VAT/border-charge-with-reclaim rules add real complexity beyond Malaysia/Singapore (multiple Emirates-level nuances, Arabic-language legal requirements in places). Rank it below Singapore/Malaysia because the integration and localisation cost is higher for a comparable or smaller number of small-importer customers relative to effort.
+5. **UAE (or wider GCC).**
+   - Attractive market size and strong trade ties to the Maldives (import routes, expatriate business community).
+   - E-invoicing mandates are landing on the Peppol network with 2026-2027 dates, and GCC VAT/border-charge-with-reclaim rules add real complexity beyond Malaysia/Singapore — multiple Emirates-level nuances, Arabic-language legal requirements in places.
+   - Ranked below Singapore/Malaysia because the integration and localisation cost is higher for a comparable or smaller number of small-importer customers relative to effort.
 
-Deliberately excluded from the near-term list: Saudi Arabia, India, Brazil, Mexico, Poland, France — each requires accredited-intermediary integration (PAC, PDP, GSP, KSeF platform) or Arabic/Portuguese/Spanish/Polish/French-language compliance depth disproportionate to Sentryfi's current stage, and none has the "similar pack shape" advantage that makes Sri Lanka and Mauritius cheap next steps.
+**Deliberately excluded from the near-term list:** Saudi Arabia, India, Brazil, Mexico, Poland, France. Each requires accredited-intermediary integration (PAC, PDP, GSP, KSeF platform) or Arabic/Portuguese/Spanish/Polish/French-language compliance depth disproportionate to Sentryfi's current stage, and none has the "similar pack shape" advantage that makes Sri Lanka and Mauritius cheap next steps.
 
 **What this means for a country pack:** build the pack schema and the Peppol adapter first — they are reused across Malaysia, Singapore and eventually the UAE — rather than building a bespoke adapter for any single-country clearance system before there is a second customer market that needs it.

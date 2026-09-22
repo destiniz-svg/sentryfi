@@ -95,7 +95,7 @@ Each one is switched on per company and invisible when it is off. None of them m
 
 **Industry packs**
 
-- **Projects and job costing.** Budgets, cost codes, budget against actual, cost to complete, project profitability.
+- **Projects, and the work that takes time.** Its own module, asked for on 23 September 2026, and the one most of these businesses live in. A project is anything with a start, an end and money moving through it: a contract, a fit-out, a survey, a design job, a boat refit, a client engagement. It holds the schedule and the phases, the budget by cost code, what has been spent and committed so far, the hours people and machines put in, what has been claimed and certified, what is retained, and what it will cost to finish. It is watched rather than merely recorded: an owner is told when a project turns, not when the year closes. Construction is the sharp case — bills of quantity, variations, progress claims, certification, retention, mobilisation recovery, work in progress, revenue over time — and every other project business is the same machinery with fewer parts.
 - **Procurement.** Purchase requests, orders, goods received, three-way matching, spending limits and approvals.
 - **Construction.** Bills of quantity, variations, progress claims, retention, certified work, work in progress.
 - **Equipment and rental.** Machine register, utilisation, hours, fuel and maintenance cost, machine-level profitability, rate cards.

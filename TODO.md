@@ -488,9 +488,28 @@ The list was completed on 22 September 2026, when the product's audience widened
 
 ---
 
-### 19. Projects and job costing
+### 19. Projects, and the work that takes time
 
-Budgets, cost codes, budget against actual, cost to complete, project profitability. Costs already hang off journal lines rather than documents, so a project report is a ledger query. First, because every bill Altura records wants a project on it.
+Its own module, asked for by the owner on 23 September 2026: "all kinds, especially construction in mind — basically time-based business activities, tracking and monitoring in a separate module." Costs already hang off journal lines rather than documents, so a project report stays a ledger query. First, because every bill Altura records wants a project on it.
+
+**What a project holds**
+
+- **Its shape.** Start, planned end, phases or stages, and the milestones money hangs on. Enough of a schedule to say whether the work is late, not a scheduling product.
+- **Its money.** A budget by cost code, what has been spent, and — the figure everyone forgets — what has been *committed*: orders placed and subcontracts signed that will become cost whether or not anybody has invoiced yet. Available budget is the budget less spent less committed.
+- **Its hours.** Time from people and hours from machines, priced in as cost and out as charge where the work is billed by time. A time-based business whose hours never reach the ledger cannot know what it earns.
+- **Its claims.** What was claimed, what was certified (the two differ, and the certified figure is the one that becomes an invoice), what was retained, what advance is still being recovered, and what is due for release.
+- **Its truth at a date.** Cost to complete, and therefore whether the project is profitable — and revenue recognised over time from that, per IFRS 15, rather than from whatever was invoiced this month.
+
+**What it does that a cost report does not: it watches.**
+
+- Tells the owner when a cost code passes its budget, in the week it happens.
+- Says when a project's cost to complete moves against it — the earliest honest sign of a loss.
+- Raises a claim that is due, a certification that has not come back, a retention that is now releasable, and an advance that is not being recovered fast enough.
+- Shows one line per project the owner can read in ten seconds: spent, committed, claimed, certified, retained, and where it will land.
+
+**Outside construction, same machinery, fewer parts.** An engineering study bills by milestone and needs unbilled work in progress. A freelance job bills by time and needs recoverable disbursements kept apart from the freelancer's own costs. A boat refit is a small contract with variations. A fit-out is a contract with retention. The module is one thing with parts switched on by the kind of business, not four modules.
+
+**Done when:** an owner opens one project and sees what it has cost, what is committed, what is claimed and certified, what is retained and what it will cost to finish — and is told about the turn before the month ends. Every figure on it opens onto the entries behind it.
 
 ---
 
