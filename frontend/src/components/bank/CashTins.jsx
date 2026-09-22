@@ -62,6 +62,16 @@ export function CashTins({ banks }) {
                   {t.holder ? `Held by ${t.holder}` : "Nobody holds it"} · float {t.float || "not set"}
                 </div>
                 {t.askedFor && <div className="text-[13px] mt-0.5">Asked for {t.askedFor}</div>}
+                {t.handed?.length > 0 && (
+                  <div className="text-[13px] mt-0.5">
+                    {t.handed.map((h) => h.amount).join(" and ")} handed over, waiting for {t.holder || "the holder"} to confirm
+                  </div>
+                )}
+                {t.paidByHolder && (
+                  <div className="text-[13px] mt-0.5 text-[var(--danger)]">
+                    {t.holder || "The holder"} paid {t.paidByHolder} out of pocket
+                  </div>
+                )}
               </div>
               {t.overdrawn && <Badge tone="danger">Below zero</Badge>}
               <div className="text-right ml-auto">
@@ -212,7 +222,10 @@ function GiveCash({ tin, banks, onClose }) {
     try {
       const r = await give.mutateAsync();
       refresh();
-      toast.success(`MVR ${r.given} to ${tin.name} · entry ${r.entryNo}`, tin.holder ? `Hand it to ${tin.holder}.` : undefined);
+      toast.success(
+        `MVR ${r.given} handed over · entry ${r.entryNo}`,
+        `It is in ${tin.name} once ${tin.holder || "the holder"} confirms on their phone.`
+      );
       onClose();
     } catch (ex) {
       setErr(ex.message || "That did not work.");

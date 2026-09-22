@@ -45,6 +45,7 @@ CREATE INDEX IF NOT EXISTS cash_boxes_company_idx ON cash_boxes(company_id);
 ALTER TABLE cash_boxes ADD COLUMN IF NOT EXISTS float_laari BIGINT
   CHECK (float_laari IS NULL OR float_laari >= 0);
 
+
 -- What somebody counted, and what the books said at that moment. Both are
 -- kept: the difference is the finding, and a count that only stored the
 -- difference could not be checked afterwards.
@@ -146,6 +147,18 @@ $rls$;
 -- edited: a wrong count is followed by another count, and a wrong spend is
 -- reversed like anything else that touched the books.
 REVOKE DELETE ON cash_counts, cash_spends, cash_topups FROM sentryfi_app;
+
+-- Handing cash over is not finished until the person holding the tin says
+-- they received it: the signature on a petty cash voucher, as a tap. Until
+-- then the money has left the bank but is not in the tin; it sits in "cash
+-- handed over, not yet confirmed". Top-ups given before this existed were
+-- straight into the tin, so needs_receipt defaults to false for them.
+ALTER TABLE cash_topups ADD COLUMN IF NOT EXISTS needs_receipt BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE cash_topups ADD COLUMN IF NOT EXISTS received_laari BIGINT;
+ALTER TABLE cash_topups ADD COLUMN IF NOT EXISTS received_reason TEXT;
+ALTER TABLE cash_topups ADD COLUMN IF NOT EXISTS received_by UUID REFERENCES users(id);
+ALTER TABLE cash_topups ADD COLUMN IF NOT EXISTS received_at TIMESTAMPTZ;
+ALTER TABLE cash_topups ADD COLUMN IF NOT EXISTS received_entry_id UUID REFERENCES journal_entries(id);
 `;
 
 module.exports = { CASH_SQL };

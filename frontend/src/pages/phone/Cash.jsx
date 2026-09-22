@@ -93,8 +93,12 @@ export default function PhoneCash() {
       figure={box ? box.inBox : "0.00"}
       position={
         box
-          ? box.toReimburse
-            ? `${box.toReimburse} to put back`
+          ? box.paidByHolder
+            ? `${box.yours ? "You" : box.holder || "The holder"} paid ${box.paidByHolder} out of pocket`
+            : box.handed?.length
+            ? "Cash waiting to be confirmed"
+            : box.toReimburse
+            ? `${box.toReimburse} to reimburse`
             : box.overdrawn
             ? "More has gone out than went in"
             : box.lastCounted
@@ -133,6 +137,13 @@ export default function PhoneCash() {
         </div>
       ) : (
         <>
+          {box.yours && box.handed?.map((h) => <Handed key={h.id} handed={h} onDone={refresh} toast={toast} />)}
+          {!box.yours && box.handed?.length > 0 && (
+            <p className="px-5 pt-4 text-[15px]">
+              {box.handed.map((h) => h.amount).join(" and ")} handed over, waiting for {box.holder || "the holder"} to confirm.
+            </p>
+          )}
+
           {(box.float || box.toReimburse) && (
             <div className="px-5 pt-4 grid grid-cols-2 gap-3" data-testid="tin-float">
               <div>
@@ -144,9 +155,13 @@ export default function PhoneCash() {
                 <div className="tabular text-[20px] font-semibold mt-1">{box.toReimburse || "Nothing"}</div>
               </div>
               <p className="col-span-2 text-[13px]" style={{ color: "var(--ink-muted)" }}>
-                {box.toReimburse
-                  ? "What was spent from the tin. The office puts it back to bring the tin up to its float."
-                  : "The tin is full."}
+                {box.paidByHolder
+                  ? `The tin is below zero: ${box.paidByHolder} was paid out of pocket, and the office owes it back along with the float.`
+                  : box.toReimburse
+                    ? "What was spent from the tin. The office puts it back to bring the tin up to its float."
+                    : box.handed?.length
+                      ? "The rest is on its way, once it is confirmed."
+                      : "The tin is full."}
                 {box.holder && !box.yours ? ` Held by ${box.holder}.` : ""}
               </p>
             </div>
@@ -324,6 +339,80 @@ function History({ boxId, companyId }) {
  * The name matters more than it looks: a count says which tin it was, and
  * "Cash" is not an answer when there are three sites.
  */
+/**
+ * Cash handed to this person, waiting for them to say they have it: the
+ * signature on a petty cash voucher. Until they do, it is not in their tin.
+ */
+function Handed({ handed, onDone, toast }) {
+  const [different, setDifferent] = useState(false);
+  const [received, setReceived] = useState("");
+  const [reason, setReason] = useState("");
+  const [err, setErr] = useState("");
+  const send = useMutation({ mutationFn: (body) => cashApi.receive(handed.id, body) });
+
+  async function confirm(body) {
+    setErr("");
+    try {
+      const r = await send.mutateAsync(body);
+      toast.success(
+        `${r.received} is in your tin`,
+        r.received === r.given ? "Thank you." : `The office handed over ${r.given}; the difference is recorded.`
+      );
+      onDone();
+    } catch (ex) {
+      setErr(ex.message || "That did not work.");
+    }
+  }
+
+  return (
+    <div className="mx-5 mt-4 p-4 border-2 border-[var(--ink)] on-yellow bg-[var(--accent)]" data-testid="handed">
+      <div className="font-display text-[22px] font-bold leading-tight">MVR {handed.amount} handed to you</div>
+      <p className="text-[14px] mt-1">Did you receive it? It is in your tin once you say so.</p>
+      {!different ? (
+        <div className="flex flex-col gap-2 mt-3">
+          <button type="button" className="phone-do" disabled={send.isPending} onClick={() => confirm({})}>
+            Yes, I received {handed.amount}
+          </button>
+          <button type="button" className="phone-do" onClick={() => setDifferent(true)}>
+            I got a different amount
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2 mt-3">
+          <input
+            aria-label="What you received"
+            value={received}
+            onChange={(e) => setReceived(e.target.value)}
+            inputMode="decimal"
+            placeholder="What you received"
+            className={FIELD}
+          />
+          <input
+            aria-label="Why it was different"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Why it was different"
+            className={FIELD}
+          />
+          <button
+            type="button"
+            className="phone-do"
+            disabled={send.isPending || !received.trim() || !reason.trim()}
+            onClick={() => confirm({ received: received.trim(), reason: reason.trim() })}
+          >
+            Confirm {received.trim() || "it"}
+          </button>
+        </div>
+      )}
+      {err && (
+        <p role="alert" className="text-[13px] mt-2" style={{ color: "var(--danger)" }}>
+          {err}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function OpenSheet({ open, onClose, onDone, onOpened, toast }) {
   const { companyId } = useCompany();
   const [name, setName] = useState("");

@@ -98,15 +98,59 @@ const bad = (m) => {
     ok(`the office handed ${TIN} to them with a float of 1,000.00`);
     await page.screenshot({ path: "shots/tins-desk.png", fullPage: true });
 
+    const laari = (t) => Math.round(Number(String(t).replace(/[^0-9.-]/g, "")) * 100);
+    const inTin = async () => laari(await them.locator(".phone-band-figure span").last().innerText());
+
     await them.goto(BASE + "/cash", { waitUntil: "networkidle" });
     await them.getByText(`In the tin: ${TIN}`).waitFor({ timeout: 15000 });
-    const float = await them.getByTestId("tin-float").innerText();
-    if (/1,000\.00/.test(float)) ok("they see their tin, its float and what is owed back");
-    else bad(`their tin shows: ${float}`);
+    // Anything left handed over from an earlier run is confirmed first.
+    while (await them.getByTestId("handed").count()) {
+      await them.getByTestId("handed").first().getByRole("button", { name: /yes, i received/i }).click();
+      await them.waitForTimeout(1500);
+    }
+    const before = await inTin();
+
+    // The office hands over 1,000.00.
+    await page.reload({ waitUntil: "networkidle" });
+    await tins.locator("li", { hasText: TIN }).getByRole("button", { name: /reimburse|give cash/i }).click();
+    await page.fill("#give-amount", "1,000.00");
+    await page.getByRole("button", { name: /^give mvr/i }).click();
+    await page.locator("#give-amount").waitFor({ state: "detached", timeout: 10000 });
+    await tins.locator("li", { hasText: TIN }).getByText(/waiting for .* to confirm/).waitFor({ timeout: 10000 });
+    ok("the desk shows the cash waiting for the holder to confirm");
+
+    await them.goto(BASE + "/dashboard", { waitUntil: "networkidle" });
+    await them.getByTestId("cash-waiting").waitFor({ timeout: 15000 });
+    ok("their home says cash was handed to them");
+    await them.screenshot({ path: "shots/tin-waiting-home.png" });
+    await them.getByTestId("cash-waiting").click();
+    await them.getByTestId("handed").waitFor({ timeout: 15000 });
+    if ((await inTin()) === before) ok("it is not in the tin before they confirm");
+    else bad("the cash was in the tin before it was confirmed");
+    await them.screenshot({ path: "shots/tin-confirm.png", fullPage: true });
+    await them.getByTestId("handed").getByRole("button", { name: /yes, i received 1,000\.00/i }).click();
+    await them.getByTestId("handed").waitFor({ state: "detached", timeout: 10000 });
+    await them.waitForTimeout(1000);
+    const after = await inTin();
+    if (after === before + 100000) ok("confirmed: 1,000.00 is in the tin");
+    else bad(`after confirming, the tin went from ${before} to ${after}`);
+
+    // They spend 200.00 more than the tin holds, out of their own pocket.
+    const spend = (after + 20000) / 100;
+    await them.getByRole("button", { name: /money out of the tin/i }).click();
+    await them.fill("#cash-amount", spend.toFixed(2));
+    await them.fill("#cash-what", "Boat fare, paid myself");
+    await them.getByRole("button", { name: /^take mvr/i }).click();
+    await them.locator("#cash-amount").waitFor({ state: "detached", timeout: 15000 });
+    await them.waitForTimeout(1000);
+    const end = await inTin();
+    const said = await them.locator(".phone-band-lines").innerText();
+    if (end === -20000 && /paid 200\.00 out of pocket/i.test(said)) ok("spending past empty shows -200.00, paid out of pocket");
+    else bad(`after spending past empty: ${end}, "${said}"`);
+    await them.screenshot({ path: "shots/tin-phone.png", fullPage: true });
     const others = await them.getByText("Other tins").count();
     if (!others) ok("they see only their own tin");
     else bad("they can see other people's tins");
-    await them.screenshot({ path: "shots/tin-phone.png", fullPage: true });
     await stranger.close();
 
     await page.goto(BASE + "/settings", { waitUntil: "networkidle" });

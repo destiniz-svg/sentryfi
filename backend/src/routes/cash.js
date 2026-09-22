@@ -85,7 +85,11 @@ router.get(
                 COALESCE(SUM(l.debit_laari) - SUM(l.credit_laari), 0) AS balance,
                 (SELECT max(c.counted_at) FROM cash_counts c WHERE c.box_id = b.id) AS last_counted,
                 (SELECT COALESCE(SUM(t.asked_laari), 0) FROM cash_topups t
-                  WHERE t.box_id = b.id AND t.status = 'asked') AS asked_for
+                  WHERE t.box_id = b.id AND t.status = 'asked') AS asked_for,
+                (SELECT COALESCE(json_agg(json_build_object('id', t.id, 'amount', t.given_laari, 'at', t.settled_at)
+                                          ORDER BY t.settled_at), '[]'::json)
+                   FROM cash_topups t
+                  WHERE t.box_id = b.id AND t.status = 'given' AND t.needs_receipt AND t.received_at IS NULL) AS handed
            FROM cash_boxes b
            LEFT JOIN users u ON u.id = b.holder_id
            LEFT JOIN projects p ON p.id = b.project_id
@@ -107,7 +111,10 @@ router.get(
         // What it takes to put the tin back as it was handed out: the float
         // less what is in it. With no float set, only what went below zero,
         // which the holder paid out of their own pocket.
-        const owed = float !== null ? float - balance : -balance;
+        // Cash handed over but not yet confirmed is on its way, not owed.
+        const handed = (b.handed || []).map((h) => ({ id: h.id, amount: BigInt(h.amount), at: h.at }));
+        const onItsWay = handed.reduce((sum, h) => sum + h.amount, 0n);
+        const owed = (float !== null ? float - balance : -balance) - onItsWay;
         return {
         id: b.id,
         name: b.name,
@@ -116,6 +123,10 @@ router.get(
         float: float === null ? null : money(float),
         toReimburse: owed > 0n ? money(owed) : null,
         yours: b.holder_id === req.user.id,
+        // Negative when the holder has paid more than the tin had, out of
+        // their own pocket: the company owes them that.
+        paidByHolder: balance < 0n ? money(-balance) : null,
+        handed: handed.map((h) => ({ id: h.id, amount: money(h.amount), at: h.at })),
         project: b.project_name,
         inBox: money(b.balance),
         // Below zero means more has been spent than was ever put in. It is not
@@ -368,6 +379,32 @@ router.post(
         })
       );
       res.status(201).json({ entryNo: String(result.entry.entryNo), given: money(result.topup.given_laari) });
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
+/** The holder confirms what they received. Only the holder may, like signing for it. */
+router.post(
+  "/topups/:id/receive",
+  requireCan("spend_cash", "count_cash", "record"),
+  asyncHandler(async (req, res) => {
+    const parsed = z
+      .object({ received: amount.nullish(), reason: z.string().trim().max(300).nullish() })
+      .safeParse(req.body ?? {});
+    if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
+    try {
+      const result = await asCompany(req, async (client) => {
+        const { rows } = await client.query(
+          `SELECT b.holder_id FROM cash_topups t JOIN cash_boxes b ON b.id = t.box_id WHERE t.id = $1`,
+          [req.params.id]
+        );
+        if (!rows[0]) throw new Error("There is nothing waiting to be confirmed here.");
+        if (rows[0].holder_id !== req.user.id) throw new Error("Only the person holding the tin can confirm they received it.");
+        return cash.receive(client, { companyId: req.companyId, userId: req.user.id, topupId: req.params.id, ...parsed.data });
+      });
+      res.status(201).json({ entryNo: String(result.entry.entryNo), received: formatLaari(result.received), given: formatLaari(result.given) });
     } catch (err) {
       throw ApiError.badRequest(err.message);
     }

@@ -18,6 +18,9 @@ export const cashApi = {
 
   askFor: (boxId, payload) => apiClient.post(`/cash/${boxId}/topup`, payload).then((r) => r.data),
 
+  /** The holder confirms what they received. Nothing is in the tin until they do. */
+  receive: (topupId, body) => apiClient.post(`/cash/topups/${topupId}/receive`, body || {}).then((r) => r.data),
+
   /** Who holds a tin, and what it is meant to hold. */
   change: (boxId, payload) => apiClient.patch(`/cash/${boxId}`, payload).then((r) => r.data),
 

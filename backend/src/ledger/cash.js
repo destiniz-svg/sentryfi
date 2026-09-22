@@ -289,8 +289,24 @@ async function askTopup(client, { companyId, userId, boxId, amount, note }) {
 }
 
 /**
- * Giving it. This is the moment it becomes money: out of the bank, into the
- * tin.
+ * Where handed-over cash waits for the holder to say they have it. Made when
+ * first needed, like the differences account.
+ */
+async function handoverAccount(client, { companyId }) {
+  const found = await accountByCode(client, { companyId, code: "1290" });
+  if (found) return found;
+  await client.query(
+    `INSERT INTO accounts (company_id, code, name, type)
+     VALUES ($1, '1290', 'Cash handed over, not yet confirmed', 'asset')
+     ON CONFLICT (company_id, code) DO NOTHING`,
+    [companyId]
+  );
+  return accountByCode(client, { companyId, code: "1290" });
+}
+
+/**
+ * Giving it. The money leaves the bank now, but it is not in the tin until
+ * the holder confirms they received it (see receive).
  *
  * What was given is recorded separately from what was asked for, because they
  * are different numbers often enough to matter and the gap is worth seeing.
@@ -320,22 +336,24 @@ async function giveTopup(client, { companyId, userId, topupId, given, fromAccoun
     : await accountByCode(client, { companyId, code: "1100" });
   if (!bank) throw new Error("That is not a bank account of this company.");
 
+  const waiting = await handoverAccount(client, { companyId });
   const entry = await postEntry(client, {
     companyId,
     userId,
     date: new Date(),
     source: "cash_topup",
     sourceId: topup.id,
-    narrative: `Cash to ${topup.box_name}`,
+    narrative: `Cash handed over for ${topup.box_name}`,
     lines: [
-      { accountId: topup.box_account, debit: laari, memo: `Top-up for ${topup.box_name}` },
+      { accountId: waiting.id, debit: laari, memo: `For ${topup.box_name}, waiting to be confirmed` },
       { accountId: bank.id, credit: laari, memo: `Cash drawn for ${topup.box_name}` },
     ],
   });
 
   const { rows } = await client.query(
     `UPDATE cash_topups
-        SET status = 'given', given_laari = $3, entry_id = $4, settled_by = $5, settled_at = now()
+        SET status = 'given', given_laari = $3, entry_id = $4, settled_by = $5, settled_at = now(),
+            needs_receipt = true
       WHERE id = $1 AND company_id = $2 RETURNING *`,
     [topupId, companyId, laari.toString(), entry.id, userId]
   );
@@ -358,7 +376,55 @@ async function give(client, { companyId, userId, boxId, amount, fromAccountId, n
   return result;
 }
 
+/**
+ * The holder says what they received. Only then is it in the tin. If it was
+ * not what was handed over, the holder says so and why, and the difference is
+ * its own entry, the same way a count's difference is.
+ */
+async function receive(client, { companyId, userId, topupId, received, reason }) {
+  const { rows: found } = await client.query(
+    `SELECT t.*, b.name AS box_name, b.account_id AS box_account
+       FROM cash_topups t JOIN cash_boxes b ON b.id = t.box_id
+      WHERE t.id = $1 AND t.company_id = $2 FOR UPDATE OF t`,
+    [topupId, companyId]
+  );
+  const t = found[0];
+  if (!t || t.status !== "given" || !t.needs_receipt) throw new Error("There is nothing waiting to be confirmed here.");
+  if (t.received_at) throw new Error("That was already confirmed.");
+
+  const given = BigInt(t.given_laari);
+  const got = received === undefined || received === null || received === "" ? given : toLaari(received);
+  if (got < 0n) throw new Error("How much did you receive?");
+  const said = String(reason || "").trim();
+  if (got !== given && !said) throw new Error("Say why it was different from what was handed over.");
+
+  const waiting = await handoverAccount(client, { companyId });
+  const lines = [{ accountId: waiting.id, credit: given, memo: `Confirmed for ${t.box_name}` }];
+  if (got > 0n) lines.push({ accountId: t.box_account, debit: got, memo: `Received into ${t.box_name}` });
+  if (got !== given) {
+    const diff = await differencesAccount(client, { companyId });
+    lines.push(
+      got < given
+        ? { accountId: diff.id, debit: given - got, memo: said }
+        : { accountId: diff.id, credit: got - given, memo: said }
+    );
+  }
+  const entry = await postEntry(client, {
+    companyId, userId, date: new Date(), source: "cash_topup", sourceId: t.id,
+    narrative: got === given ? `${t.box_name} received the cash handed over` : `${t.box_name} received ${formatLaari(got)} of ${formatLaari(given)}: ${said}`,
+    lines,
+  });
+  await client.query(
+    `UPDATE cash_topups SET received_laari = $2, received_reason = $3, received_by = $4, received_at = now(), received_entry_id = $5
+      WHERE id = $1`,
+    [t.id, got.toString(), said || null, userId, entry.id]
+  );
+  return { entry, given, received: got };
+}
+
 module.exports = {
+  receive,
+  handoverAccount,
   give,
   boxBalance,
   accountByCode,
