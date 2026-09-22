@@ -14,6 +14,8 @@ import { CURRENCIES, cn } from "@/lib/utils";
 import { TaxSection } from "@/components/settings/TaxSection";
 import { CompaniesSection } from "@/components/settings/CompaniesSection";
 import { PeopleSection } from "@/components/settings/PeopleSection";
+import { BackupsSection } from "@/components/settings/BackupsSection";
+import { useCompany } from "@/context/CompanyContext";
 
 function FieldLabel({ children, htmlFor }) {
   return (
@@ -374,6 +376,7 @@ function PasswordSection() {
 
 export default function Settings() {
   const [tab, setTab] = useState("company");
+  const { can } = useCompany();
 
   return (
     <div className="space-y-6">
@@ -385,6 +388,7 @@ export default function Settings() {
           <TabsTrigger value="people">People</TabsTrigger>
           <TabsTrigger value="companies">Companies</TabsTrigger>
           <TabsTrigger value="tax">Tax</TabsTrigger>
+          {can("manage_settings") && <TabsTrigger value="backups">Backups</TabsTrigger>}
           <TabsTrigger value="profile">Account</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
           <TabsTrigger value="password">Password</TabsTrigger>
@@ -399,6 +403,9 @@ export default function Settings() {
           </TabsContent>
           <TabsContent value="companies">
             <CompaniesSection />
+          </TabsContent>
+          <TabsContent value="backups">
+            <BackupsSection />
           </TabsContent>
           <TabsContent value="tax">
             <TaxSection />

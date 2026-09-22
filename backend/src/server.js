@@ -14,6 +14,7 @@ const healthRouter = require("./routes/health");
 const authRouter = require("./routes/auth");
 const settingsRouter = require("./routes/settings");
 const invitesRouter = require("./routes/invites");
+const backupsRouter = require("./routes/backups");
 const itemsRouter = require("./routes/items");
 const companiesRouter = require("./routes/companies");
 const billsRouter = require("./routes/bills");
@@ -63,6 +64,7 @@ app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/settings", settingsRouter);
 app.use("/api/invites", invitesRouter);
+app.use("/api/backups", backupsRouter);
 app.use("/api/items", itemsRouter);
 // The ledger side. Everything below here is scoped to a company by
 // requireCompany, and every write goes through asCompany so the database
@@ -123,6 +125,7 @@ async function start() {
     await connectDB();
     app.listen(env.port, () => {
       console.log(`Server listening on http://localhost:${env.port} (${env.nodeEnv})`);
+      require("./backup").schedule();
     });
   } catch (err) {
     console.error("Failed to start server:", err.message);

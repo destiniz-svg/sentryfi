@@ -190,6 +190,27 @@ router.get(
         });
       }
 
+      // 0. The books are backed up and proven to restore, or somebody who can
+      //    fix it is told. Silence from a backup job is how nobody notices it
+      //    stopped months ago.
+      if (req.can("manage_settings") && process.env.BACKUP_KEY) {
+        const { rows: last } = await client.query(
+          `SELECT max(started_at) FILTER (WHERE ok) AS good,
+                  (SELECT problem FROM backup_runs ORDER BY started_at DESC LIMIT 1) AS problem
+             FROM backup_runs`
+        );
+        const good = last[0]?.good ? new Date(last[0].good) : null;
+        if (!good || Date.now() - good.getTime() > 36 * 3600_000) {
+          found.push({
+            kind: "money_at_risk",
+            title: good ? "The books have not been backed up for over a day" : "The books have not been backed up yet",
+            detail: last[0]?.problem ? `The last try failed: ${last[0].problem}` : "Nothing has been backed up and restored successfully.",
+            does: "See backups",
+            href: "/settings",
+          });
+        }
+      }
+
       // 7. The GST return. Only in the last two weeks, and until somebody says
       //    it was filed: a countdown that is always there is one nobody reads.
       //    Late is money at risk, because MIRA fines late returns.
