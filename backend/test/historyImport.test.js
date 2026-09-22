@@ -41,6 +41,20 @@ describe("reading the file", () => {
     expect([money("1,234.50"), money("(1,234.50)"), money("-12"), money(""), money("abc")]).toEqual([123_450n, -123_450n, -1_200n, 0n, null]);
   });
 
+  it("reads Zoho's Journal Report: entity ids, three-decimal amounts, the document number shown", () => {
+    const r = read(
+      [
+        "date,entity_type,entity_id,number,account,account_code,debit,credit,contact_name,contact_id",
+        "2024-01-01,expense,395321300000027,773,GST - Tax Payable,,7.110,0.000,,",
+        "2024-01-01,expense,395321300000027,773,Transport Expenses,,4573.000,0.000,,",
+        "2024-01-01,expense,395321300000027,773,Petty Cash,,0.000,4580.110,,",
+      ].join("\n")
+    );
+    expect(r.transactions).toHaveLength(1);
+    expect(r.transactions[0]).toMatchObject({ theirId: "773", type: "expense", balanced: true, debit: 458_011n });
+    expect(money("7.115")).toBe(712n);
+  });
+
   it("says plainly when the file is a summary, not transactions", () => {
     expect(() => read("name,account_id,credit_total,debit_total,balance,is_debit\nSales,1,203750.00,0.00,-203750.00,false")).toThrow(/This is a summary/);
   });

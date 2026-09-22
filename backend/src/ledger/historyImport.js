@@ -26,14 +26,14 @@ const { toLaari, formatLaari } = require("./money");
 // Headings seen in exports, lower-cased and stripped of punctuation.
 const ALIASES = {
   date: ["date", "journal date", "transaction date", "entry date", "posting date"],
-  id: ["journal number", "journal", "journal no", "transaction", "transaction number", "transaction no", "transaction id", "entry number", "entry no", "voucher", "voucher no"],
-  type: ["transaction type", "journal type", "type", "source"],
+  id: ["entity id", "journal number", "journal", "journal no", "transaction", "transaction number", "transaction no", "transaction id", "entry number", "entry no", "voucher", "voucher no"],
+  type: ["entity type", "transaction type", "journal type", "type", "source"],
   account: ["account", "account name", "ledger", "ledger account"],
   code: ["account code", "code", "account no", "account number"],
   debit: ["debit", "debit bcy", "debit fcy", "dr", "debit amount", "base currency debit"],
   credit: ["credit", "credit bcy", "credit fcy", "cr", "credit amount", "base currency credit"],
-  memo: ["description", "notes", "narration", "memo", "transaction details", "details", "particulars"],
-  reference: ["reference number", "reference", "reference no", "ref"],
+  memo: ["description", "notes", "narration", "memo", "transaction details", "details", "particulars", "contact name"],
+  reference: ["number", "reference number", "reference", "reference no", "ref"],
 };
 
 const norm = (s) => String(s || "").toLowerCase().replace(/[#().,:_-]+/g, " ").replace(/\s+/g, " ").trim();
@@ -75,8 +75,12 @@ function money(s) {
     negative = !negative;
     t = t.slice(1);
   }
-  if (!/^\d+(\.\d{1,2})?$/.test(t)) return null;
-  const v = toLaari(t);
+  // Zoho writes three places ("7.110"). A laari is two; anything past that is
+  // rounded half up, which for Zoho's own exports is always a trailing zero.
+  const m = /^(\d+)(?:\.(\d+))?$/.exec(t);
+  if (!m) return null;
+  const frac = (m[2] || "").padEnd(3, "0");
+  const v = BigInt(m[1]) * 100n + BigInt(frac.slice(0, 2)) + (Number(frac[2]) >= 5 ? 1n : 0n);
   return negative ? -v : v;
 }
 
@@ -149,8 +153,10 @@ function read(text) {
     cr = cr < 0n ? 0n : cr;
     if (dr === 0n && cr === 0n) return;
 
-    const theirId = cell("id") || cell("reference");
-    const key = theirId ? `${cell("type")}|${theirId}|${date}` : `row|${rowNo}`;
+    // Grouped by the system's own id; shown by the number a person knows it by.
+    const theirKey = cell("id") || cell("reference");
+    const theirId = cell("reference") || cell("id");
+    const key = theirKey ? `${cell("type")}|${theirKey}|${date}` : `row|${rowNo}`;
     if (!byKey.has(key)) byKey.set(key, { key, date, type: cell("type"), theirId, memo: "", lines: [] });
     const t = byKey.get(key);
     if (!t.memo && cell("memo")) t.memo = cell("memo");
