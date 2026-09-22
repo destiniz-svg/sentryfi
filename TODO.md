@@ -21,6 +21,8 @@ One list of everything left open, gathered from the steps below, so none of it h
 - Rotate the demo password before real money. The leaked screenshot still sits in the public repository's git history; purging it needs a history rewrite and the owner's say-so.
 
 **Still to build:**
+- **Revaluing foreign balances at month end** (unrealised exchange gains and losses), and the realised gain or loss when a dollar bill is paid at a different rate. Today a dollar balance stays at the rufiyaa it came in at (step 15).
+- **Sales invoices in dollars**, and dollar lines in history import and bank statements (step 15).
 - **Opening balances straight from a trial balance** (Zoho's `.xlsx` or `.csv`). For Enricher they were converted by hand (step 14).
 - **Bank lines that pay a bill** should settle that bill. Today they settle the supplier's balance as a whole, until bills know what has been paid against them (step 9).
 - **Company Annual Fee, Withholding Tax and Remittance Tax** in the tax calendar (step 13).
@@ -250,7 +252,7 @@ Bank accounts and cash boxes as real accounts, with balances derived from the le
 
 **What happened.** A bank account is an 11xx account and a tin is a 12xx account; both are read from journal lines and nothing stores a balance. A transfer is one balanced entry, and the same transfer sent twice lands once. A count that disagrees keeps what was counted, posts the difference with its reason, and refuses to save without one. The purchased expenses table and route are gone (the migration drops the table only if empty). Browser checks: `node tools/bank.js`, `node tools/cash.js`.
 
-Not done, on purpose: opening balances for an existing bank account come with history import (step 14), and only rufiyaa accounts exist until step 15.
+Not done, on purpose: opening balances for an existing bank account come with history import (step 14), and dollar accounts arrived with step 15.
 
 ---
 
@@ -411,6 +413,15 @@ Everything that has to be true before a real figure is entered.
 Held in the currency it happened in, reported in the company's own, with the rate used stored rather than recomputed. Altura already banks in MVR and USD.
 
 **Done when:** a USD bill and an MVR bill sit in the same books, the reported total is right, and last year's figures do not move when today's rate does.
+
+**Done (22 September 2026):**
+- The books stay in rufiyaa. A line that happened in another currency also keeps its currency, amount and rate, stored once and never recomputed (`backend/src/ledger/fx.js`, `backend/src/config/fx-schema.js`). Conversion is integer arithmetic, rounded half up once.
+- A bank account can be opened in USD (or EUR, GBP, AED, INR, CNY, SGD, JPY). The Bank page shows its balance in dollars, with the rufiyaa it is carried at underneath.
+- Move money between a rufiyaa account and a dollar account asks for both figures, as the bank shows them, and records the rate between them. Two foreign currencies go through rufiyaa, one step at a time.
+- A bill can be in another currency. The tax is worked out in that currency, then each part converted at the rate on the bill. The form offers the latest rate recorded by a bill or a transfer on or before the bill's date.
+- Tests: a USD bill balances in rufiyaa and does not move when a new rate is recorded; a dollar account reads both balances (`backend/test/fx.test.js`). Browser check: `tools/fx.js`.
+
+**Still owed:** see the "Still to build" list at the top.
 
 ---
 

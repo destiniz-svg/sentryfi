@@ -97,8 +97,8 @@ export default function Bank() {
                 </div>
                 <ul className="divide-y divide-[var(--border)]">
                   {rows.map((p) => (
-                    <li key={p.id} className="flex items-center gap-4 px-5 py-4">
-                      <div className="min-w-0 flex-1">
+                    <li key={p.id} className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-4">
+                      <div className="min-w-[12rem] flex-1">
                         <div className="text-[15px] font-medium truncate">{p.name.replace(/^Cash: /, "")}</div>
                         <div className="text-[13px] text-[var(--ink-muted)] tabular">
                           {p.code}
@@ -121,7 +121,7 @@ export default function Bank() {
                         </Button>
                       )}
                       {p.overdrawn && <Badge tone="danger">Below zero</Badge>}
-                      <div className="text-right">
+                      <div className="text-right ml-auto">
                         <div
                           className={`tabular text-[17px] font-semibold ${p.overdrawn ? "text-[var(--danger)]" : ""}`}
                         >
