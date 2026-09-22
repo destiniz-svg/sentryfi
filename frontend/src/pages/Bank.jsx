@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Modal } from "@/components/ui/Modal";
 import { bankApi } from "@/api/bank";
+import { CashTins } from "@/components/bank/CashTins";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 
@@ -33,10 +34,8 @@ const CURRENCIES = ["USD", "EUR", "GBP", "AED", "INR", "CNY", "SGD", "JPY"];
 /** A place's balance in its own currency: "USD 800.00", or the rufiyaa figure. */
 const own = (p) => (p.foreign ? `${p.currency} ${p.balanceFc}` : p.balance);
 
-const GROUPS = [
-  { kind: "bank", title: "Bank accounts" },
-  { kind: "box", title: "Cash boxes" },
-];
+// Cash tins have their own card below: who holds each, and what it is owed.
+const GROUPS = [{ kind: "bank", title: "Bank accounts" }];
 
 export default function Bank() {
   const { companyId, can } = useCompany();
@@ -139,6 +138,7 @@ export default function Bank() {
               </Card>
             );
           })}
+          <CashTins banks={places.filter((p) => p.kind === "bank" && !p.foreign)} />
         </div>
       )}
 

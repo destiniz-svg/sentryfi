@@ -28,17 +28,28 @@ const COMPANY_HEADER = "x-company-id";
  * through route files, so "who can post an adjustment?" is readable in one
  * place instead of assembled from a dozen.
  */
+// Shaped on what the common small-business ledgers offer (Xero, QuickBooks,
+// Zoho Books): an owner who can do everything; an accountant who keeps and
+// closes the books and runs petty cash but does not decide who works here;
+// standard, approving and read-only users; and field roles that only feed the
+// books from where the work is — the camera and the tin they were handed.
+// Field roles never read the books. What they hold (their own tin) is scoped
+// by the routes, not by a capability.
 const CAN = {
   administrator: [
-    "read", "record", "approve", "adjust", "close", "manage_people", "manage_settings",
+    "read", "record", "approve", "adjust", "close", "manage_cash", "read_trail",
+    "manage_people", "manage_settings",
   ],
-  accountant: ["read", "record", "adjust", "close"],
+  accountant: ["read", "record", "approve", "adjust", "close", "manage_cash", "read_trail"],
   manager: ["read", "record"],
   approver: ["read", "approve"],
   viewer: ["read"],
   auditor: ["read", "read_trail"],
-  site_staff: ["capture"],
-  cash_holder: ["capture", "spend_cash", "count_cash"],
+  // Photographs bills and runs the tin they were given: spends, counts, asks
+  // for more, and sees what is owed back to it.
+  site_staff: ["capture", "spend_cash", "count_cash"],
+  // Holds a tin and nothing else.
+  cash_holder: ["spend_cash", "count_cash"],
   procurement: ["capture", "order", "receive"],
 };
 

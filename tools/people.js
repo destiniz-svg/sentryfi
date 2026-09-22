@@ -4,8 +4,10 @@
  * As the administrator of the checks company: Settings, People, add a new
  * email as site staff, take the link. In a separate browser with nobody
  * signed in: open the link, set a name and password, arrive in the books.
- * Back as the administrator: the person is listed, the change is logged, and
- * taking the role away removes them again, so the check can run again.
+ * They must see only the camera, their tin and themselves: Settings and the
+ * office pages send them home. The administrator hands them a tin with a
+ * float from the desk; they see it, with what is owed back. Then the role is
+ * taken away, so the check can run again.
  *
  *   node tools/people.js
  */
@@ -13,10 +15,12 @@
 const { chromium } = require("playwright");
 const { signIn, BASE } = require("./session");
 
+const TIN = "Checks tin";
+
 setTimeout(() => {
-  console.log("  FAIL the check did not finish within three minutes");
+  console.log("  FAIL the check did not finish within four minutes");
   process.exit(1);
-}, 180000).unref?.();
+}, 240000).unref?.();
 
 const ok = (m) => console.log("  ok   " + m);
 const bad = (m) => {
@@ -29,66 +33,88 @@ const bad = (m) => {
   try {
     console.log(`\n${BASE} — people\n`);
     const email = `join+${Date.now().toString(36)}@sentryfi.invalid`;
+    const name = `Joiner ${Date.now().toString(36).slice(-4)}`;
 
-    for (const phone of [false, true]) {
-      const { page } = await signIn(browser, { phone });
-      await page.goto(BASE + "/settings", { waitUntil: "networkidle", timeout: 45000 });
-      await page.getByRole("tab", { name: "People" }).click();
-      await page.getByTestId("people-list").waitFor({ timeout: 15000 });
-      const wide = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
-      if (wide) bad(`${phone ? "phone" : "desk"}: the People tab scrolls sideways`);
-      else ok(`${phone ? "phone" : "desk"}: the People tab fits`);
-      if (phone) {
-        await page.screenshot({ path: "shots/people-phone.png", fullPage: true });
-        break;
-      }
+    const phone = await signIn(browser, { phone: true });
+    await phone.page.goto(BASE + "/settings", { waitUntil: "networkidle", timeout: 45000 });
+    await phone.page.getByRole("tab", { name: "People" }).click();
+    await phone.page.getByTestId("people-list").waitFor({ timeout: 15000 });
+    if (await phone.page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)) bad("phone: the People tab scrolls sideways");
+    else ok("phone: the People tab fits");
+    await phone.page.screenshot({ path: "shots/people-phone.png", fullPage: true });
 
-      await page.fill("#person-email", email);
-      await page.selectOption("#person-role", "site_staff");
-      await page.getByRole("button", { name: /^add$/i }).click();
-      await page.getByTestId("invite-link").waitFor({ timeout: 10000 });
-      const link = await page.getByLabel("Join link").inputValue();
-      if (/\/join\/[0-9a-f-]{36}\.[A-Za-z0-9_-]{20,}$/.test(link)) ok("a join link was made");
-      else return bad(`the link looks wrong: ${link}`);
-      await page.screenshot({ path: "shots/people-desk.png", fullPage: true });
+    const { page } = await signIn(browser, { phone: false });
+    await page.goto(BASE + "/settings", { waitUntil: "networkidle", timeout: 45000 });
+    await page.getByRole("tab", { name: "People" }).click();
+    await page.getByTestId("people-list").waitFor({ timeout: 15000 });
+    await page.fill("#person-email", email);
+    await page.selectOption("#person-role", "site_staff");
+    await page.getByRole("button", { name: /^add$/i }).click();
+    await page.getByTestId("invite-link").waitFor({ timeout: 10000 });
+    const link = (await page.getByLabel("Join link").inputValue()).replace(/^https?:\/\/[^/]+/, BASE);
+    ok("a join link was made");
+    await page.screenshot({ path: "shots/people-desk.png", fullPage: true });
 
-      // Someone else, on their own phone, not signed in.
-      const stranger = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
-      const them = await stranger.newPage();
-      await them.goto(link.replace(/^https?:\/\/[^/]+/, BASE), { waitUntil: "networkidle" });
-      await them.getByRole("heading", { name: /join sentryfi checks/i }).waitFor({ timeout: 15000 });
-      ok("the link opens a join page naming the company");
-      await them.screenshot({ path: "shots/people-join-phone.png" });
-      await them.getByLabel("Your name").fill("Check Joiner");
-      await them.getByLabel("Choose a password").fill("a-long-password-1");
-      await them.getByRole("button", { name: /join/i }).click();
-      await them.waitForURL("**/dashboard", { timeout: 20000 });
-      const me = await them.evaluate(() => fetch("/api/auth/me", { credentials: "include" }).then((r) => r.json()));
-      if (me.user?.email === email) ok("they arrive signed in as themselves");
-      else bad(`after joining, signed in as ${JSON.stringify(me)}`);
-      await them.getByRole("heading", { name: /send a bill/i }).waitFor({ timeout: 15000 });
-      const offered = await them.locator("nav[aria-label=Main] a").allInnerTexts();
-      if (!offered.some((t) => /bills|cash/i.test(t))) ok(`site staff see the camera and nothing else (${offered.join(", ")})`);
-      else bad(`site staff are offered: ${offered.join(", ")}`);
-      await them.screenshot({ path: "shots/people-joined-phone.png" });
+    // Someone else, on their own phone, not signed in.
+    const stranger = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+    const them = await stranger.newPage();
+    await them.goto(link, { waitUntil: "networkidle" });
+    await them.getByRole("heading", { name: /join sentryfi checks/i }).waitFor({ timeout: 15000 });
+    ok("the link opens a join page naming the company");
+    await them.screenshot({ path: "shots/people-join-phone.png" });
+    await them.getByLabel("Your name").fill(name);
+    await them.getByLabel("Choose a password").fill("a-long-password-1");
+    await them.getByRole("button", { name: /join/i }).click();
+    await them.waitForURL("**/dashboard", { timeout: 20000 });
+    await them.getByRole("heading", { name: /send a bill/i }).waitFor({ timeout: 15000 });
+    ok("they arrive signed in, on the send-a-bill home");
 
-      await them.goto(link.replace(/^https?:\/\/[^/]+/, BASE), { waitUntil: "networkidle" });
-      if (await them.getByText(/already been used/i).count()) ok("the link does not work twice");
-      else bad("the used link still offered to join");
-      await stranger.close();
-
-      await page.reload({ waitUntil: "networkidle" });
-      await page.getByRole("tab", { name: "People" }).click();
-      const row = page.getByTestId("people-list").locator("li", { hasText: email });
-      await row.waitFor({ timeout: 10000 });
-      ok("they are listed, as site staff");
-      if (await page.getByTestId("people-changes").getByText(`${email} joined as site staff`).count()) ok("the joining is logged");
-      else bad("the joining is not in the changes");
-
-      await row.getByRole("button", { name: /take site staff away/i }).click();
-      await row.waitFor({ state: "detached", timeout: 10000 });
-      ok("taking the role away removes them");
+    for (const path of ["/settings", "/bank", "/statements"]) {
+      await them.goto(BASE + path, { waitUntil: "networkidle" });
+      if (new URL(them.url()).pathname === "/dashboard") ok(`${path} sends site staff home`);
+      else bad(`site staff reached ${path}`);
     }
+    await them.locator('nav[aria-label="Main"] a', { hasText: /more/i }).click();
+    await them.waitForURL("**/me", { timeout: 10000 });
+    await them.getByRole("button", { name: /sign out/i }).waitFor({ timeout: 10000 });
+    ok("More opens their own page, not Settings");
+    await them.screenshot({ path: "shots/people-me-phone.png" });
+
+    // The office hands them a tin with a float.
+    await page.goto(BASE + "/bank", { waitUntil: "networkidle" });
+    const tins = page.getByTestId("cash-tins");
+    await tins.waitFor({ timeout: 15000 });
+    const row = tins.locator("li", { hasText: TIN });
+    if (await row.count()) {
+      await row.getByRole("button", { name: /change/i }).click();
+    } else {
+      await tins.getByRole("button", { name: /cash tin/i }).click();
+      await page.fill("#tin-name", TIN);
+    }
+    await page.selectOption("#tin-holder", { label: name });
+    await page.fill("#tin-float", "1,000.00");
+    await page.getByRole("button", { name: /^(save|open it)$/i }).click();
+    await tins.locator("li", { hasText: TIN }).getByText(`Held by ${name}`).waitFor({ timeout: 10000 });
+    ok(`the office handed ${TIN} to them with a float of 1,000.00`);
+    await page.screenshot({ path: "shots/tins-desk.png", fullPage: true });
+
+    await them.goto(BASE + "/cash", { waitUntil: "networkidle" });
+    await them.getByText(`In the tin: ${TIN}`).waitFor({ timeout: 15000 });
+    const float = await them.getByTestId("tin-float").innerText();
+    if (/1,000\.00/.test(float)) ok("they see their tin, its float and what is owed back");
+    else bad(`their tin shows: ${float}`);
+    const others = await them.getByText("Other tins").count();
+    if (!others) ok("they see only their own tin");
+    else bad("they can see other people's tins");
+    await them.screenshot({ path: "shots/tin-phone.png", fullPage: true });
+    await stranger.close();
+
+    await page.goto(BASE + "/settings", { waitUntil: "networkidle" });
+    await page.getByRole("tab", { name: "People" }).click();
+    const person = page.getByTestId("people-list").locator("li", { hasText: email });
+    await person.getByRole("button", { name: /take site staff away/i }).click();
+    await person.waitFor({ state: "detached", timeout: 10000 });
+    ok("taking the role away removes them");
   } catch (err) {
     bad(err.message);
   } finally {

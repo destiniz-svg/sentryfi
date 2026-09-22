@@ -18,6 +18,12 @@ export const cashApi = {
 
   askFor: (boxId, payload) => apiClient.post(`/cash/${boxId}/topup`, payload).then((r) => r.data),
 
+  /** Who holds a tin, and what it is meant to hold. */
+  change: (boxId, payload) => apiClient.patch(`/cash/${boxId}`, payload).then((r) => r.data),
+
+  /** Money handed to a tin: its float, or putting back what was spent. */
+  giveTo: (boxId, payload) => apiClient.post(`/cash/${boxId}/give`, payload).then((r) => r.data),
+
   give: (topupId, given) =>
     apiClient.post(`/cash/topups/${topupId}/give`, given ? { given } : {}).then((r) => r.data),
 };

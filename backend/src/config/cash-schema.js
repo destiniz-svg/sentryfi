@@ -39,6 +39,11 @@ CREATE TABLE IF NOT EXISTS cash_boxes (
   UNIQUE (company_id, name)
 );
 CREATE INDEX IF NOT EXISTS cash_boxes_company_idx ON cash_boxes(company_id);
+-- The float: what the tin is meant to hold when full. What it takes to bring
+-- it back up is the float less what the books say is in it, which is exactly
+-- what the holder has spent and is owed back. Set by whoever hands the tin out.
+ALTER TABLE cash_boxes ADD COLUMN IF NOT EXISTS float_laari BIGINT
+  CHECK (float_laari IS NULL OR float_laari >= 0);
 
 -- What somebody counted, and what the books said at that moment. Both are
 -- kept: the difference is the finding, and a count that only stored the

@@ -5,7 +5,7 @@ const ApiError = require("../utils/ApiError");
 const { requireAuth } = require("../middleware/auth");
 const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
-const { formatLaari } = require("../ledger/money");
+const { formatLaari, toLaari } = require("../ledger/money");
 const cash = require("../ledger/cash");
 
 /**
@@ -29,6 +29,31 @@ const newBox = z.object({
   name: z.string().trim().min(2, "A cash box needs a name.").max(80),
   holderId: z.string().uuid().nullish(),
   projectId: z.string().uuid().nullish(),
+  float: amount.nullish(),
+});
+
+const changeBox = z.object({
+  holderId: z.string().uuid().nullish(),
+  float: amount.nullish(),
+});
+
+const giveMoney = z.object({
+  amount,
+  bankAccountId: z.string().uuid().nullish(),
+  note: z.string().trim().max(300).nullish(),
+});
+
+/**
+ * Someone who cannot read the books reaches only the tin they hold. Without
+ * this a site supervisor could spend from, or read, another site's tin by id.
+ */
+const holdsBox = asyncHandler(async (req, res, next) => {
+  if (req.can("read")) return next();
+  const held = await asCompany(req, async (client) =>
+    (await client.query("SELECT 1 FROM cash_boxes WHERE id = $1 AND holder_id = $2", [req.params.id, req.user.id])).rowCount
+  );
+  if (!held) throw ApiError.forbidden("That is not your tin.");
+  next();
 });
 
 const newSpend = z.object({
@@ -54,7 +79,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const boxes = await asCompany(req, async (client) => {
       const { rows } = await client.query(
-        `SELECT b.id, b.name, b.account_id, b.opened_at,
+        `SELECT b.id, b.name, b.account_id, b.opened_at, b.holder_id, b.float_laari,
                 u.name AS holder_name,
                 p.name AS project_name,
                 COALESCE(SUM(l.debit_laari) - SUM(l.credit_laari), 0) AS balance,
@@ -67,18 +92,30 @@ router.get(
            LEFT JOIN journal_lines l
                   ON l.account_id = b.account_id AND l.company_id = b.company_id
           WHERE b.company_id = $1 AND b.closed_at IS NULL
+            AND ($2::uuid IS NULL OR b.holder_id = $2)
           GROUP BY b.id, u.name, p.name
           ORDER BY b.opened_at`,
-        [req.companyId]
+        [req.companyId, req.can("read") ? null : req.user.id]
       );
       return rows;
     });
 
     res.json({
-      boxes: boxes.map((b) => ({
+      boxes: boxes.map((b) => {
+        const balance = BigInt(b.balance);
+        const float = b.float_laari === null ? null : BigInt(b.float_laari);
+        // What it takes to put the tin back as it was handed out: the float
+        // less what is in it. With no float set, only what went below zero,
+        // which the holder paid out of their own pocket.
+        const owed = float !== null ? float - balance : -balance;
+        return {
         id: b.id,
         name: b.name,
         holder: b.holder_name,
+        holderId: b.holder_id,
+        float: float === null ? null : money(float),
+        toReimburse: owed > 0n ? money(owed) : null,
+        yours: b.holder_id === req.user.id,
         project: b.project_name,
         inBox: money(b.balance),
         // Below zero means more has been spent than was ever put in. It is not
@@ -86,7 +123,8 @@ router.get(
         overdrawn: BigInt(b.balance) < 0n,
         lastCounted: b.last_counted,
         askedFor: BigInt(b.asked_for) > 0n ? money(b.asked_for) : null,
-      })),
+        };
+      }),
     });
   })
 );
@@ -111,7 +149,7 @@ router.get(
 
 router.post(
   "/",
-  requireCan("manage_settings"),
+  requireCan("manage_cash"),
   asyncHandler(async (req, res) => {
     const parsed = newBox.safeParse(req.body);
     if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
@@ -135,6 +173,7 @@ router.post(
 router.post(
   "/:id/spend",
   requireCan("spend_cash", "record"),
+  holdsBox,
   asyncHandler(async (req, res) => {
     const parsed = newSpend.safeParse(req.body);
     if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
@@ -166,6 +205,7 @@ router.post(
 router.post(
   "/:id/count",
   requireCan("count_cash", "record"),
+  holdsBox,
   asyncHandler(async (req, res) => {
     const parsed = newCount.safeParse(req.body);
     if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
@@ -207,6 +247,7 @@ router.post(
 router.get(
   "/:id/history",
   requireCan("read", "spend_cash", "count_cash"),
+  holdsBox,
   asyncHandler(async (req, res) => {
     const data = await asCompany(req, async (client) => {
       const { rows: spends } = await client.query(
@@ -261,6 +302,7 @@ router.get(
 router.post(
   "/:id/topup",
   requireCan("spend_cash", "record"),
+  holdsBox,
   asyncHandler(async (req, res) => {
     const parsed = newTopup.safeParse(req.body);
     if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
@@ -275,6 +317,57 @@ router.post(
         })
       );
       res.status(201).json({ id: topup.id, asked: money(topup.asked_laari), status: topup.status });
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
+/** Who holds a tin, and what it is meant to hold. */
+router.patch(
+  "/:id",
+  requireCan("manage_cash"),
+  asyncHandler(async (req, res) => {
+    const parsed = changeBox.safeParse(req.body ?? {});
+    if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
+    const { holderId, float } = parsed.data;
+    const changed = await asCompany(req, async (client) => {
+      if (holderId) {
+        const { rowCount } = await client.query(
+          "SELECT 1 FROM memberships WHERE user_id = $1 AND company_id = $2", [holderId, req.companyId]
+        );
+        if (!rowCount) throw ApiError.badRequest("That person is not in this company.");
+      }
+      const { rows } = await client.query(
+        `UPDATE cash_boxes
+            SET holder_id = COALESCE($3, holder_id),
+                float_laari = CASE WHEN $4::boolean THEN $5::bigint ELSE float_laari END
+          WHERE id = $1 AND company_id = $2 AND closed_at IS NULL RETURNING id`,
+        [req.params.id, req.companyId, holderId || null, float !== undefined,
+         float === undefined || float === null ? null : String(toLaari(float))]
+      );
+      return rows[0];
+    });
+    if (!changed) throw ApiError.notFound("That cash box is not open.");
+    res.json({ ok: true });
+  })
+);
+
+/** Money handed to a tin: its float, or putting back what was spent. */
+router.post(
+  "/:id/give",
+  requireCan("approve", "adjust"),
+  asyncHandler(async (req, res) => {
+    const parsed = giveMoney.safeParse(req.body ?? {});
+    if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
+    try {
+      const result = await asCompany(req, (client) =>
+        cash.give(client, {
+          companyId: req.companyId, userId: req.user.id, boxId: req.params.id,
+          amount: parsed.data.amount, fromAccountId: parsed.data.bankAccountId, note: parsed.data.note,
+        })
+      );
+      res.status(201).json({ entryNo: String(result.entry.entryNo), given: money(result.topup.given_laari) });
     } catch (err) {
       throw ApiError.badRequest(err.message);
     }

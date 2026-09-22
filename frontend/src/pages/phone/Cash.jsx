@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { companiesApi } from "@/api/companies";
 import { cashApi } from "@/api/cash";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
@@ -92,7 +93,9 @@ export default function PhoneCash() {
       figure={box ? box.inBox : "0.00"}
       position={
         box
-          ? box.overdrawn
+          ? box.toReimburse
+            ? `${box.toReimburse} to put back`
+            : box.overdrawn
             ? "More has gone out than went in"
             : box.lastCounted
               ? `Last counted ${when(box.lastCounted)}`
@@ -118,7 +121,7 @@ export default function PhoneCash() {
             A cash box is the tin one person carries on one site. Everything spent out of it
             goes into the books as it happens.
           </p>
-          {can("manage_settings") ? (
+          {can("manage_cash") ? (
             <button type="button" className="phone-do mt-4" onClick={() => setDoing("open")}>
               Open a cash box
             </button>
@@ -130,6 +133,25 @@ export default function PhoneCash() {
         </div>
       ) : (
         <>
+          {(box.float || box.toReimburse) && (
+            <div className="px-5 pt-4 grid grid-cols-2 gap-3" data-testid="tin-float">
+              <div>
+                <div className="phone-section-h">Float</div>
+                <div className="tabular text-[20px] font-semibold mt-1">{box.float || "Not set"}</div>
+              </div>
+              <div>
+                <div className="phone-section-h">To reimburse</div>
+                <div className="tabular text-[20px] font-semibold mt-1">{box.toReimburse || "Nothing"}</div>
+              </div>
+              <p className="col-span-2 text-[13px]" style={{ color: "var(--ink-muted)" }}>
+                {box.toReimburse
+                  ? "What was spent from the tin. The office puts it back to bring the tin up to its float."
+                  : "The tin is full."}
+                {box.holder && !box.yours ? ` Held by ${box.holder}.` : ""}
+              </p>
+            </div>
+          )}
+
           {mayHandle && (
             <div className="px-5 pt-4 flex flex-col gap-2">
               <button type="button" className="phone-do" onClick={() => setDoing("spend")}>
@@ -175,7 +197,7 @@ export default function PhoneCash() {
             </>
           )}
 
-          {can("manage_settings") && (
+          {can("manage_cash") && (
             <div className="px-5 pt-5 pb-2">
               <button type="button" className="phone-do" onClick={() => setDoing("open")}>
                 Open another cash box
@@ -303,16 +325,24 @@ function History({ boxId, companyId }) {
  * "Cash" is not an answer when there are three sites.
  */
 function OpenSheet({ open, onClose, onDone, onOpened, toast }) {
+  const { companyId } = useCompany();
   const [name, setName] = useState("");
+  const [holderId, setHolderId] = useState("");
+  const [float, setFloat] = useState("");
   const [err, setErr] = useState("");
   const send = useMutation({ mutationFn: cashApi.open });
+  const { data: people } = useQuery({
+    queryKey: ["people", companyId],
+    queryFn: companiesApi.people,
+    enabled: open && Boolean(companyId),
+  });
 
   async function onSubmit(e) {
     e.preventDefault();
     setErr("");
     if (name.trim().length < 2) return setErr("What is this tin called?");
     try {
-      const box = await send.mutateAsync({ name: name.trim() });
+      const box = await send.mutateAsync({ name: name.trim(), holderId: holderId || null, float: float.trim() || null });
       toast.success(`${box.name} is open`, "Nothing is in it yet. Ask for a top-up to put money in.");
       setName("");
       onDone();
@@ -344,6 +374,21 @@ function OpenSheet({ open, onClose, onDone, onOpened, toast }) {
           placeholder="Hulhumale site"
           className={FIELD}
         />
+      </label>
+      <label className="block mt-4">
+        <span className="text-sm font-medium block mb-1.5">Who holds it?</span>
+        <select id="cash-box-holder" value={holderId} onChange={(e) => setHolderId(e.target.value)} className={FIELD}>
+          <option value="">Me</option>
+          {(people?.members || []).map((m) => (
+            <option key={m.user_id} value={m.user_id}>
+              {m.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block mt-4">
+        <span className="text-sm font-medium block mb-1.5">Float: what it holds when full</span>
+        <input id="cash-box-float" value={float} onChange={(e) => setFloat(e.target.value)} inputMode="decimal" placeholder="5,000.00" className={`${FIELD} tabular`} />
       </label>
       {err && (
         <p role="alert" className="text-[13px] mt-4" style={{ color: "var(--danger)" }}>

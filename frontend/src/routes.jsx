@@ -52,6 +52,7 @@ const Settings = lazy(() => import("@/pages/Settings"));
 const PhoneHome = lazy(() => import("@/pages/phone/Home"));
 const PhoneBills = lazy(() => import("@/pages/phone/BillsBoard"));
 const PhoneCash = lazy(() => import("@/pages/phone/Cash"));
+const PhoneMe = lazy(() => import("@/pages/phone/Me"));
 
 /**
  * Which register this screen is in.
@@ -61,7 +62,10 @@ const PhoneCash = lazy(() => import("@/pages/phone/Cash"));
  * are different screens with different chrome — not the same screen restyled.
  */
 function OnPhone({ board, desk }) {
-  return usePhone() ? board : desk;
+  const phone = usePhone();
+  const { can } = useCompany();
+  // Field staff get the board on any screen: the desk is the office's.
+  return phone || !can("read") ? board : desk;
 }
 
 function ProtectedShell() {
@@ -110,6 +114,7 @@ export const router = createBrowserRouter([
     errorElement: <ErrorPage />,
     children: [
       { path: "dashboard", element: <OnPhone board={<PhoneHome />} desk={<Attention />} /> },
+      { path: "me", element: <PhoneMe /> },
       { path: "figures", element: <Figures /> },
       // Still on the purchased product's tables. See config/readiness.js.
       { path: "invoices", element: <Invoices /> },

@@ -115,7 +115,10 @@ function PhoneNav({ onSnap }) {
   const shows = (to) =>
     to === "/bills" ? can("read") : to === "/cash" ? can("read") || can("spend_cash") || can("count_cash") : true;
   const left = NAV.filter((item) => shows(item.to));
-  const right = NAV_RIGHT.filter((item) => shows(item.to));
+  // More is the company's settings for the office, and "me" for the field.
+  const right = NAV_RIGHT.filter((item) => shows(item.to)).map((item) =>
+    item.to === "/settings" && !can("read") ? { ...item, to: "/me" } : item
+  );
   // The shutter stays in the middle whatever is either side of it.
   const side = Math.max(left.length, right.length);
 

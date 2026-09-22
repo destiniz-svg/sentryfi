@@ -18,14 +18,14 @@ import { useToast } from "@/context/UIContext";
  */
 
 export const ROLE_TEXT = {
-  administrator: { label: "Administrator", does: "Everything, including people and settings" },
-  accountant: { label: "Accountant", does: "Records, corrects and closes the books" },
-  manager: { label: "Manager", does: "Records bills and invoices" },
+  administrator: { label: "Owner / administrator", does: "Everything, including people and settings" },
+  accountant: { label: "Accountant", does: "Keeps and closes the books, approves, runs petty cash" },
+  manager: { label: "Manager", does: "Records bills and invoices, reads the figures" },
   approver: { label: "Approver", does: "Approves what others record" },
   viewer: { label: "Viewer", does: "Reads the figures, changes nothing" },
   auditor: { label: "Auditor", does: "Reads everything, including the trail" },
-  site_staff: { label: "Site staff", does: "Photographs bills, and nothing else" },
-  cash_holder: { label: "Cash holder", does: "Holds a cash box: spends from it and counts it" },
+  site_staff: { label: "Site staff", does: "Photographs bills and runs the cash tin handed to them" },
+  cash_holder: { label: "Cash holder", does: "Runs the cash tin handed to them, nothing else" },
   procurement: { label: "Procurement", does: "Orders and receives" },
 };
 

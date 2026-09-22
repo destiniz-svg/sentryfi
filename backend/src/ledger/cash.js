@@ -108,7 +108,7 @@ async function openAssetAccount(client, { companyId, prefix, name, currency = nu
  * every box would mean a count could only ever check the total, which is
  * precisely the figure nobody is holding.
  */
-async function openBox(client, { companyId, userId, name, holderId, projectId }) {
+async function openBox(client, { companyId, userId, name, holderId, projectId, float }) {
   const clean = String(name || "").trim();
   if (!clean) throw new Error("A cash box needs a name, so a count can say which tin it was.");
 
@@ -123,9 +123,9 @@ async function openBox(client, { companyId, userId, name, holderId, projectId })
   const account = await openAssetAccount(client, { companyId, prefix: "12", name: `Cash: ${clean}` });
 
   const { rows } = await client.query(
-    `INSERT INTO cash_boxes (company_id, name, account_id, holder_id, project_id)
-     VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [companyId, clean, account.id, holderId || userId, projectId || null]
+    `INSERT INTO cash_boxes (company_id, name, account_id, holder_id, project_id, float_laari)
+     VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+    [companyId, clean, account.id, holderId || userId, projectId || null, float ? toLaari(float).toString() : null]
   );
   return rows[0];
 }
@@ -342,7 +342,24 @@ async function giveTopup(client, { companyId, userId, topupId, given, fromAccoun
   return { topup: rows[0], entry };
 }
 
+/**
+ * Money handed to the tin by somebody who can move it: the float to start
+ * with, or putting back what was spent. Any request the holder had open is
+ * answered by it, so nobody is paid twice for one ask.
+ */
+async function give(client, { companyId, userId, boxId, amount, fromAccountId, note }) {
+  const asked = await askTopup(client, { companyId, userId, boxId, amount, note: note || "Given from the office" });
+  const result = await giveTopup(client, { companyId, userId, topupId: asked.id, given: amount, fromAccountId });
+  await client.query(
+    `UPDATE cash_topups SET status = 'given', given_laari = 0, entry_id = $3, settled_by = $4, settled_at = now()
+      WHERE company_id = $1 AND box_id = $2 AND status = 'asked'`,
+    [companyId, boxId, result.entry.id, userId]
+  );
+  return result;
+}
+
 module.exports = {
+  give,
   boxBalance,
   accountByCode,
   differencesAccount,

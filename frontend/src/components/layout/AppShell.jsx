@@ -1,11 +1,12 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { CommandPalette } from "./CommandPalette";
 import { MobileNav } from "./MobileNav";
 import { RouteFallback } from "@/components/ui/RouteFallback";
 import { usePhone } from "@/lib/phone";
+import { useCompany } from "@/context/CompanyContext";
 
 /**
  * The screens that carry the phone board's own chrome.
@@ -14,11 +15,17 @@ import { usePhone } from "@/lib/phone";
  * must stand out of the way entirely rather than wrapping them — two navs on
  * one screen is not a style problem, it is two answers to "where am I".
  */
-const BOARD = new Set(["/dashboard", "/bills", "/cash"]);
+const BOARD = new Set(["/dashboard", "/bills", "/cash", "/me"]);
+
+// Where someone who feeds the books but does not read them may go: the
+// camera, their tin, and their own account. Everything else is the office's.
+const FIELD = new Set(["/dashboard", "/cash", "/me"]);
 
 export function AppShell() {
   const location = useLocation();
   const phone = usePhone();
+  const { can } = useCompany();
+  const field = !can("read");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
 
@@ -47,7 +54,9 @@ export function AppShell() {
     setNavOpen(false);
   }, [location.pathname]);
 
-  if (phone && BOARD.has(location.pathname)) {
+  if (field && !FIELD.has(location.pathname)) return <Navigate to="/dashboard" replace />;
+
+  if ((phone || field) && BOARD.has(location.pathname)) {
     return (
       <Suspense fallback={<RouteFallback />}>
         <Outlet />
