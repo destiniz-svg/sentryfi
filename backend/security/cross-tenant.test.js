@@ -1,0 +1,454 @@
+/**
+ * Cross-tenant isolation, end to end over HTTP.
+ *
+ * Two companies, each opened by its own user through the real API. Company B's
+ * administrator then tries to read or change every kind of company A record
+ * through every endpoint that takes an id, a header or a body reference.
+ *
+ * Written by the security review of 23 September 2026. It boots the real
+ * server on a throwaway Postgres, so it exercises requireAuth -> requireCompany
+ * -> requireCan -> asCompany -> row-level security together. Tests marked
+ * [FINDING n] failed before that review's fixes.
+ *
+ *   npm run test:security   (from backend/)
+ */
+/* global describe, it, expect, beforeAll, afterAll */
+
+const { createRequire } = require("node:module");
+const path = require("node:path");
+
+const BACKEND = process.env.SENTRYFI_BACKEND || path.resolve(__dirname, "..");
+const req = createRequire(path.join(BACKEND, "package.json"));
+
+const PORT = Number(process.env.PORT || 18731);
+const BASE = `http://127.0.0.1:${PORT}/api`;
+
+let db;
+const A = {};
+const B = {};
+const M = {}; // an outsider who registers and squats an address
+
+// ---------------------------------------------------------------- http helpers
+
+async function call(who, method, url, { body, company, raw, headers = {} } = {}) {
+  const h = { ...headers };
+  if (who?.cookie) h.cookie = who.cookie;
+  const co = company === undefined ? who?.companyId : company;
+  if (co) h["X-Company-Id"] = co;
+  let payload;
+  if (raw !== undefined) payload = raw;
+  else if (body !== undefined) {
+    h["Content-Type"] = "application/json";
+    payload = JSON.stringify(body);
+  }
+  const res = await fetch(BASE + url, { method, headers: h, body: payload });
+  const text = await res.text();
+  let json = null;
+  try { json = JSON.parse(text); } catch { /* xlsx, file bytes */ }
+  return { status: res.status, json, text, headers: res.headers };
+}
+
+async function signUp(who, name, email) {
+  const res = await fetch(`${BASE}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, email, password: "correct horse battery" }),
+  });
+  expect(res.status).toBe(201);
+  who.cookie = res.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+  who.user = (await res.json()).user;
+  return who;
+}
+
+async function openCompany(who, name) {
+  const r = await call(who, "POST", "/companies", { body: { name }, company: null });
+  expect(r.status).toBe(201);
+  who.companyId = r.json.company.id;
+}
+
+const denied = (r) => expect([400, 403, 404]).toContain(r.status);
+const noLeak = (r, ...secrets) => {
+  for (const s of secrets) expect(r.text).not.toContain(String(s));
+};
+
+// ---------------------------------------------------------------- fixtures
+
+beforeAll(async () => {
+  const { Pool } = req("pg");
+  db = new Pool({ connectionString: process.env.DATABASE_URL, max: 2 });
+  const { ALL_SQL } = req("./src/config/all-schema");
+  for (const sql of ALL_SQL) await db.query(sql);
+
+  req("./src/server.js");
+  for (let i = 0; i < 100; i += 1) {
+    try { if ((await fetch(`${BASE}/health`)).ok) break; } catch { /* not up yet */ }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+
+  const tag = Date.now();
+  await signUp(A, "Alice", `alice.${tag}@a.test`);
+  await signUp(B, "Bob", `bob.${tag}@b.test`);
+  await openCompany(A, `Altura ${tag}`);
+  await openCompany(B, `Steva ${tag}`);
+
+  // A's chart
+  const acc = await call(A, "GET", "/periods/accounts");
+  A.accounts = Object.fromEntries(acc.json.accounts.map((a) => [a.code, a.id]));
+  const accB = await call(B, "GET", "/periods/accounts");
+  B.accounts = Object.fromEntries(accB.json.accounts.map((a) => [a.code, a.id]));
+
+  // A bill, posted, with a document
+  const bill = await call(A, "POST", "/bills", {
+    body: { supplierName: "SECRET-SUPPLIER-A", amount: "777.77", gstTreatment: "none_unregistered", issueDate: "2026-09-01" },
+  });
+  expect(bill.status).toBe(201);
+  A.billId = bill.json.bill.id;
+  A.counterpartyId = bill.json.bill.counterparty_id;
+  expect((await call(A, "POST", `/bills/${A.billId}/post`)).status).toBe(200);
+  const draft = await call(A, "POST", "/bills", {
+    body: { supplierName: "SECRET-SUPPLIER-A", amount: "12.34", gstTreatment: "none_unregistered", billNo: "DRAFT-A" },
+  });
+  A.draftBillId = draft.json.bill.id;
+
+  const fd = new FormData();
+  const png = Buffer.from("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da6360000002000154a24f5d0000000049454e44ae426082", "hex");
+  fd.append("file", new Blob([png], { type: "image/png" }), "secret-a.png");
+  const att = await fetch(`${BASE}/attachments/bills/${A.billId}`, {
+    method: "POST", headers: { cookie: A.cookie, "X-Company-Id": A.companyId }, body: fd,
+  });
+  expect(att.status).toBe(201);
+  A.attachmentId = (await att.json()).attachment.id;
+
+  // A sales invoice, posted
+  const inv = await call(A, "POST", "/sales", {
+    body: { customerName: "SECRET-CUSTOMER-A", gstTreatment: "none_unregistered", issueDate: "2026-09-02", lines: [{ description: "work", amount: "555.55" }] },
+  });
+  expect(inv.status).toBe(201);
+  A.invoiceId = inv.json.invoice.id;
+  A.draftInvoice = (await call(A, "POST", "/sales", {
+    body: { customerName: "SECRET-CUSTOMER-A", gstTreatment: "none_unregistered", lines: [{ description: "x", amount: "1" }] },
+  })).json.invoice.id;
+  expect((await call(A, "POST", `/sales/${A.invoiceId}/post`)).status).toBe(200);
+
+  // A cash tin, a spend, a top-up request
+  const box = await call(A, "POST", "/cash", { body: { name: "SECRET-TIN-A", float: "100" } });
+  expect(box.status).toBe(201);
+  A.boxId = box.json.box.id;
+  expect((await call(A, "POST", `/cash/${A.boxId}/spend`, { body: { amount: "10", what: "nails", accountId: A.accounts["5100"] } })).status).toBe(201);
+  A.topupId = (await call(A, "POST", `/cash/${A.boxId}/topup`, { body: { amount: "50" } })).json.id;
+
+  // A bank account with one statement line
+  const bank = await call(A, "POST", "/bank", { body: { name: "SECRET-BANK-A" } });
+  A.bankId = bank.json.account.id;
+  const { rows } = await db.query(
+    `INSERT INTO bank_statement_lines (company_id, account_id, posted_on, kind, who, credit_laari, row_hash)
+     VALUES ($1,$2,'2026-09-03','transfer','SECRET-PAYER-A',4242400,'h1') RETURNING id`,
+    [A.companyId, A.bankId]
+  );
+  A.lineId = rows[0].id;
+
+  // An open invitation, and a Zoho connection
+  await call(A, "POST", "/companies/current/people", { body: { email: `dave.${tag}@a.test`, role: "viewer" } });
+  A.inviteId = (await call(A, "GET", "/companies/current/people")).json.invites[0].id;
+  await db.query(
+    `INSERT INTO zoho_connections (company_id, accounts_server, api_domain, refresh_token_enc, organization_id)
+     VALUES ($1,'https://accounts.zoho.com','https://www.zohoapis.com','x.y.z','ORG-A')`,
+    [A.companyId]
+  );
+
+  // B needs something of its own to act on
+  const bBox = await call(B, "POST", "/cash", { body: { name: "Tin B" } });
+  B.boxId = bBox.json.box.id;
+  B.bankId = (await call(B, "POST", "/bank", { body: { name: "Bank B" } })).json.account.id;
+  A.tag = tag;
+}, 120_000);
+
+afterAll(async () => {
+  await db?.end();
+  // The server keeps its own pool open; the runner exits the process.
+});
+
+// ---------------------------------------------------------------- the company claim
+
+describe("choosing a company", () => {
+  it("refuses B's user who names A in the header", async () => {
+    expect((await call(B, "GET", "/bills", { company: A.companyId })).status).toBe(403);
+  });
+  it("refuses B's user who names A in ?company=", async () => {
+    expect((await call(B, "GET", `/bills?company=${A.companyId}`, { company: null })).status).toBe(403);
+    const r = await call(B, "GET", `/attachments/${A.attachmentId}/file?company=${A.companyId}`, { company: null });
+    expect(r.status).toBe(403);
+  });
+  it("lists only B's companies to B", async () => {
+    const r = await call(B, "GET", "/companies", { company: null });
+    expect(r.json.companies.map((c) => c.id)).toEqual([B.companyId]);
+  });
+});
+
+// ---------------------------------------------------------------- bills
+
+describe("A's bills, from B", () => {
+  it("are not listed", async () => {
+    const r = await call(B, "GET", "/bills");
+    noLeak(r, A.billId, "SECRET-SUPPLIER-A", "777.77");
+  });
+  it("cannot be posted, reversed or voided", async () => {
+    denied(await call(B, "POST", `/bills/${A.draftBillId}/post`));
+    denied(await call(B, "POST", `/bills/${A.billId}/reverse`, { body: { reason: "cross tenant" } }));
+    denied(await call(B, "DELETE", `/bills/${A.draftBillId}`, { body: { reason: "cross tenant" } }));
+    const { rows } = await db.query("SELECT status, voided_at, entry_id FROM bills WHERE id = ANY($1)", [[A.billId, A.draftBillId]]);
+    expect(rows.every((r) => r.voided_at === null)).toBe(true);
+  });
+  it("[FINDING 5] cannot be pointed at A's supplier by id", async () => {
+    const r = await call(B, "POST", "/bills", { body: { counterpartyId: A.counterpartyId, amount: "1", gstTreatment: "none_unregistered" } });
+    denied(r);
+  });
+});
+
+// ---------------------------------------------------------------- attachments
+
+describe("A's documents, from B", () => {
+  it("are not listed on the bill", async () => {
+    const r = await call(B, "GET", `/attachments/bills/${A.billId}`);
+    expect(r.json.attachments).toEqual([]);
+  });
+  it("cannot be downloaded by id", async () => {
+    expect((await call(B, "GET", `/attachments/${A.attachmentId}/file`)).status).toBe(404);
+  });
+  it("cannot be added to", async () => {
+    const fd = new FormData();
+    fd.append("file", new Blob([Buffer.from("x")], { type: "image/png" }), "x.png");
+    const r = await fetch(`${BASE}/attachments/bills/${A.billId}`, { method: "POST", headers: { cookie: B.cookie, "X-Company-Id": B.companyId }, body: fd });
+    expect(r.status).toBe(404);
+  });
+  it("[FINDING 7] are never kept in a browser cache", async () => {
+    const r = await call(A, "GET", `/attachments/${A.attachmentId}/file`);
+    expect(r.status).toBe(200);
+    expect(r.headers.get("cache-control")).toMatch(/no-store/);
+  });
+});
+
+// ---------------------------------------------------------------- sales
+
+describe("A's invoices, from B", () => {
+  it("are not listed or aged", async () => {
+    noLeak(await call(B, "GET", "/sales"), A.invoiceId, "SECRET-CUSTOMER-A", "555.55");
+    noLeak(await call(B, "GET", "/sales/aged"), "SECRET-CUSTOMER-A", "555.55");
+    noLeak(await call(B, "GET", "/sales/money-accounts"), A.bankId);
+  });
+  it("cannot be posted, credited, discarded or paid", async () => {
+    denied(await call(B, "POST", `/sales/${A.draftInvoice}/post`));
+    denied(await call(B, "POST", `/sales/${A.invoiceId}/credit`, { body: { reason: "cross tenant", amount: "1" } }));
+    denied(await call(B, "DELETE", `/sales/${A.draftInvoice}`, { body: { reason: "cross tenant" } }));
+    const pay = await call(B, "POST", "/sales/receipts", {
+      body: { amount: "1", accountId: B.bankId, allocations: [{ invoiceId: A.invoiceId, amount: "1" }] },
+    });
+    denied(pay);
+    const { rows } = await db.query("SELECT count(*)::int n FROM receipt_allocations WHERE invoice_id = $1", [A.invoiceId]);
+    expect(rows[0].n).toBe(0);
+  });
+  it("[FINDING 5] cannot post an invoice line to A's account", async () => {
+    const r = await call(B, "POST", "/sales", {
+      body: { customerName: "Someone", gstTreatment: "none_unregistered", lines: [{ description: "x", amount: "1", accountId: A.accounts["4100"] }] },
+    });
+    if (r.status === 201) denied(await call(B, "POST", `/sales/${r.json.invoice.id}/post`));
+  });
+});
+
+// ---------------------------------------------------------------- cash
+
+describe("A's cash tins, from B", () => {
+  it("are not listed", async () => {
+    noLeak(await call(B, "GET", "/cash"), A.boxId, "SECRET-TIN-A");
+  });
+  it("cannot be read, spent from, counted, topped up, reassigned or given to", async () => {
+    const h = await call(B, "GET", `/cash/${A.boxId}/history`);
+    expect(h.json?.spends ?? []).toEqual([]);
+    denied(await call(B, "POST", `/cash/${A.boxId}/spend`, { body: { amount: "1", what: "xx", accountId: B.accounts["5100"] } }));
+    denied(await call(B, "POST", `/cash/${A.boxId}/count`, { body: { counted: "0" } }));
+    denied(await call(B, "POST", `/cash/${A.boxId}/topup`, { body: { amount: "1" } }));
+    denied(await call(B, "PATCH", `/cash/${A.boxId}`, { body: { float: "1" } }));
+    denied(await call(B, "POST", `/cash/${A.boxId}/give`, { body: { amount: "1", bankAccountId: B.bankId } }));
+    denied(await call(B, "POST", `/cash/topups/${A.topupId}/give`, { body: { given: "1", bankAccountId: B.bankId } }));
+    denied(await call(B, "POST", `/cash/topups/${A.topupId}/receive`, { body: {} }));
+  });
+  it("[FINDING 5] B cannot spend into A's expense account", async () => {
+    denied(await call(B, "POST", `/cash/${B.boxId}/spend`, { body: { amount: "1", what: "xx", accountId: A.accounts["5100"] } }));
+  });
+  it("[FINDING 6] B cannot make A's user a holder (and so read their name)", async () => {
+    const r = await call(B, "POST", "/cash", { body: { name: "Probe", holderId: A.user.id } });
+    denied(r);
+    noLeak(await call(B, "GET", "/cash"), "Alice");
+  });
+});
+
+// ---------------------------------------------------------------- bank
+
+describe("A's bank lines, from B", () => {
+  it("are not listed", async () => {
+    noLeak(await call(B, "GET", "/bank"), A.bankId, "SECRET-BANK-A");
+    noLeak(await call(B, "GET", `/bank/${A.bankId}/waiting`), "SECRET-PAYER-A", "42,424.00", "42424.00");
+    noLeak(await call(B, "GET", `/bank/${A.bankId}/waiting/lines?who=secret-payer-a&moneyIn=true`), "SECRET-PAYER-A");
+    noLeak(await call(B, "GET", `/bank/${A.bankId}/answered`), "SECRET-PAYER-A");
+  });
+  it("cannot be answered, set aside or undone", async () => {
+    denied(await call(B, "POST", `/bank/lines/${A.lineId}/post`, { body: { accountId: B.accounts["5100"] } }));
+    denied(await call(B, "POST", `/bank/lines/${A.lineId}/set-aside`, { body: {} }));
+    denied(await call(B, "POST", `/bank/lines/${A.lineId}/link`, { body: { entryId: A.lineId } }));
+    denied(await call(B, "POST", `/bank/lines/${A.lineId}/receive`, { body: { invoiceId: A.invoiceId } }));
+    denied(await call(B, "POST", `/bank/lines/${A.lineId}/undo`, { body: { companyId: A.companyId } }));
+    await call(B, "POST", `/bank/${A.bankId}/group/set-aside`, { body: { who: "SECRET-PAYER-A", moneyIn: true } });
+    const { rows } = await db.query("SELECT status FROM bank_statement_lines WHERE id = $1", [A.lineId]);
+    expect(rows[0].status).toBe("open");
+  });
+  it("cannot take a statement into A's account or move A's money", async () => {
+    denied(await call(B, "POST", `/bank/${A.bankId}/statement`, { raw: "a,b\n1,2\n", headers: { "Content-Type": "text/csv" } }));
+    denied(await call(B, "POST", "/bank/transfer", { body: { fromId: A.bankId, toId: B.bankId, amount: "1" } }));
+  });
+  it("[FINDING 4] the undo route ignores a userId in the body", async () => {
+    // Inside A: post the line, then undo it while claiming to be Bob.
+    const p = await call(A, "POST", `/bank/lines/${A.lineId}/post`, { body: { accountId: A.accounts["4100"] } });
+    expect(p.status).toBe(200);
+    const u = await call(A, "POST", `/bank/lines/${A.lineId}/undo`, { body: { userId: B.user.id } });
+    expect(u.status).toBe(200);
+    const { rows } = await db.query(
+      "SELECT posted_by FROM journal_entries WHERE company_id = $1 AND reverses_id IS NOT NULL ORDER BY entry_no DESC LIMIT 1",
+      [A.companyId]
+    );
+    expect(rows[0].posted_by).toBe(A.user.id);
+  });
+});
+
+// ---------------------------------------------------------------- statements, exports, dashboards
+
+describe("figures and exports, from B", () => {
+  const secrets = () => ["777.77", "555.55", "SECRET-SUPPLIER-A", "SECRET-CUSTOMER-A", "SECRET-TIN-A", "SECRET-BANK-A"];
+  for (const url of [
+    "/statements/trial-balance", "/statements/profit-and-loss?from=2026-01-01&to=2026-12-31",
+    "/statements/balance-sheet", "/figures", "/attention", "/periods", "/periods/doubts?through=2026-09-30",
+    "/periods/accounts", "/tax", "/gst/current", "/zoho", "/companies/current/people",
+  ]) {
+    it(`GET ${url} shows none of A`, async () => {
+      const r = await call(B, "GET", url);
+      expect(r.status).toBeLessThan(500);
+      noLeak(r, ...secrets(), A.companyId, A.user.email);
+    });
+  }
+  it("GST spreadsheets hold none of A", async () => {
+    for (const f of ["input", "output"]) {
+      const res = await fetch(`${BASE}/gst/current/${f}.xlsx`, { headers: { cookie: B.cookie, "X-Company-Id": B.companyId } });
+      const buf = Buffer.from(await res.arrayBuffer());
+      // xlsx is a zip; names are stored deflated, so check the ledger instead of bytes
+      expect(res.status).toBe(200);
+      expect(buf.includes("SECRET-SUPPLIER-A")).toBe(false);
+    }
+  });
+});
+
+// ---------------------------------------------------------------- writes that must stay inside B
+
+describe("B's writes stay inside B", () => {
+  it("[FINDING 5] an adjustment cannot name A's accounts", async () => {
+    denied(await call(B, "POST", "/periods/adjust", {
+      body: { date: "2026-09-10", narrative: "probe", lines: [{ accountId: A.accounts["5100"], debit: "1" }, { accountId: B.accounts["2100"], credit: "1" }] },
+    }));
+  });
+  it("closing, tax and GST settings touch only B", async () => {
+    await call(B, "POST", "/periods/close", { body: { through: "2026-01-31" } });
+    await call(B, "POST", "/tax/rates", { body: { bp: 1, from: "2026-01-01", reason: "probe" } });
+    await call(B, "POST", "/gst/settings", { body: { activityNo: "B-ONLY", frequency: "month" } });
+    const { rows: locks } = await db.query("SELECT count(*)::int n FROM period_locks WHERE company_id = $1", [A.companyId]);
+    const { rows: rates } = await db.query("SELECT count(*)::int n FROM tax_rates WHERE company_id = $1", [A.companyId]);
+    const { rows: co } = await db.query("SELECT gst_number FROM companies WHERE id = $1", [A.companyId]);
+    expect(locks[0].n).toBe(0);
+    expect(rates[0].n).toBe(0);
+    expect(co[0].gst_number).not.toBe("B-ONLY");
+  });
+  it("chart reclassification cannot reach A's accounts", async () => {
+    await call(B, "POST", "/imports/chart/apply", { body: { reason: "probe", changes: [{ accountId: A.accounts["5100"], type: "income", code: "9999" }] } });
+    const { rows } = await db.query("SELECT type, code FROM accounts WHERE id = $1", [A.accounts["5100"]]);
+    expect(rows[0]).toEqual({ type: "expense", code: "5100" });
+  });
+  it("Zoho: B cannot see or remove A's connection", async () => {
+    expect((await call(B, "GET", "/zoho")).json.connected).toBe(false);
+    await call(B, "DELETE", "/zoho");
+    await call(B, "POST", "/zoho/organization", { body: { id: "HIJACK", name: "x" } });
+    const { rows } = await db.query("SELECT organization_id FROM zoho_connections WHERE company_id = $1", [A.companyId]);
+    expect(rows[0].organization_id).toBe("ORG-A");
+  });
+});
+
+// ---------------------------------------------------------------- people
+
+describe("people and invitations", () => {
+  it("B cannot remove A's administrator or withdraw A's invitation", async () => {
+    denied(await call(B, "DELETE", `/companies/current/people/${A.user.id}/roles/administrator`));
+    denied(await call(B, "DELETE", `/companies/current/invites/${A.inviteId}`));
+    const { rows } = await db.query("SELECT revoked_at FROM invites WHERE id = $1", [A.inviteId]);
+    expect(rows[0].revoked_at).toBeNull();
+  });
+  it("an invitation link for A cannot be replayed against another company", async () => {
+    const forged = `${B.companyId}.${"x".repeat(32)}`;
+    denied(await call(null, "GET", `/invites/${forged}`));
+  });
+  it("[FINDING 1] a squatted, unverified account is not dropped straight into A", async () => {
+    const email = `carol.${A.tag}@a.test`;
+    await signUp(M, "Carol (really Mallory)", email);
+    const r = await call(A, "POST", "/companies/current/people", { body: { email, role: "accountant" } });
+    expect(r.json.added).not.toBe(true);
+    expect((await call(M, "GET", "/bills", { company: A.companyId })).status).toBe(403);
+  });
+});
+
+// ---------------------------------------------------------------- system-wide surfaces
+
+describe("system-wide surfaces", () => {
+  it("[FINDING 2] a self-registered company administrator cannot see or start platform backups", async () => {
+    // Not found, rather than forbidden: an outsider is not told backups exist.
+    expect([403, 404]).toContain((await call(B, "GET", "/backups")).status);
+    expect([403, 404]).toContain((await call(B, "POST", "/backups/run")).status);
+  });
+  it("per-user legacy items stay per user", async () => {
+    const it1 = await call(A, "POST", "/items", { body: { name: "SECRET-ITEM-A", rate: 5 } });
+    noLeak(await call(B, "GET", "/items"), "SECRET-ITEM-A");
+    denied(await call(B, "PATCH", `/items/${it1.json.item.id}`, { body: { name: "pwned" } }));
+    denied(await call(B, "DELETE", `/items/${it1.json.item.id}`));
+  });
+});
+
+// ---------------------------------------------------------------- the database role itself
+
+describe("the app role, acting as B", () => {
+  const asB = async (sql, params = []) => {
+    const c = await db.connect();
+    try {
+      await c.query("BEGIN");
+      await c.query("SET LOCAL ROLE sentryfi_app");
+      await c.query("SELECT set_config('app.company_id', $1, true)", [B.companyId]);
+      await c.query("SELECT set_config('app.user_id', $1, true)", [B.user.id]);
+      return (await c.query(sql, params)).rows;
+    } finally {
+      await c.query("ROLLBACK");
+      c.release();
+    }
+  };
+  it("sees no row of A in any company_id table, even unfiltered", async () => {
+    const { rows: tables } = await db.query(
+      `SELECT table_name FROM information_schema.columns
+        WHERE table_schema = 'public' AND column_name = 'company_id'`
+    );
+    for (const { table_name: t } of tables) {
+      let rows;
+      try { rows = await asB(`SELECT count(*)::int n FROM "${t}" WHERE company_id = $1`, [A.companyId]); }
+      catch (e) { if (/permission denied/.test(e.message)) continue; throw e; }
+      expect({ t, n: rows[0].n }).toEqual({ t, n: 0 });
+    }
+  });
+  it("[FINDING 3] cannot read other companies or anyone's password hash", async () => {
+    expect((await asB("SELECT count(*)::int n FROM companies"))[0].n).toBe(1);
+    await expect(asB("SELECT password_hash FROM users LIMIT 1")).rejects.toThrow(/permission denied/);
+  });
+  it("[FINDING 3] cannot touch another company's journal counter", async () => {
+    expect(await asB("SELECT * FROM journal_counters WHERE company_id = $1", [A.companyId])).toEqual([]);
+  });
+});

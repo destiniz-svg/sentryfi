@@ -74,7 +74,7 @@ router.post(
 // for the next foreign document; nothing already recorded changes with it.
 const newRate = z.object({
   currency,
-  on: z.string().regex(/^d{4}-d{2}-d{2}$/, "Use YYYY-MM-DD"),
+  on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD"),
   rate: z.union([z.string().trim(), z.number()]).transform(String),
   source: z.string().trim().max(120).nullish(),
 });
@@ -85,7 +85,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const cur = currency.safeParse(req.query.currency || "");
     if (!cur.success) throw ApiError.badRequest(cur.error.issues[0].message);
-    const on = /^d{4}-d{2}-d{2}$/.test(req.query.on || "") ? req.query.on : null;
+    const on = /^\d{4}-\d{2}-\d{2}$/.test(req.query.on || "") ? req.query.on : null;
     const found = await asCompany(req, async (client) => ({
       base: await fx.baseCurrency(client, { companyId: req.companyId }),
       latest: await fx.rateOn(client, { companyId: req.companyId, currency: cur.data, on }),
@@ -251,7 +251,9 @@ const answer = (fn) =>
   asyncHandler(async (req, res) => {
     try {
       const out = await asCompany(req, (client) =>
-        fn(client, { companyId: req.companyId, userId: req.user.id, lineId: req.params.id, ...req.body })
+        // Who and where come from the session, never the body: a body naming
+        // another user or company must not be able to speak for them.
+        fn(client, { ...req.body, companyId: req.companyId, userId: req.user.id, lineId: req.params.id })
       );
       res.json(out);
     } catch (err) {
@@ -275,7 +277,7 @@ router.post(
 );
 router.post("/lines/:id/receive", ask, lineBody(z.object({ invoiceId: uuid })), answer(reconcile.receiveAgainst));
 router.post("/lines/:id/set-aside", ask, lineBody(z.object({ note: z.string().trim().max(300).nullish() })), answer(reconcile.setAside));
-router.post("/lines/:id/undo", ask, answer(reconcile.undo));
+router.post("/lines/:id/undo", ask, lineBody(z.object({})), answer(reconcile.undo));
 
 /** Everything owed to one payee, answered the same way in one go. */
 router.post(
@@ -286,10 +288,10 @@ router.post(
     try {
       const out = await asCompany(req, (client) =>
         reconcile.postGroup(client, {
+          ...req.body,
           companyId: req.companyId,
           userId: req.user.id,
           bankId: req.params.accountId,
-          ...req.body,
         })
       );
       res.json(out);
@@ -307,7 +309,7 @@ router.post(
     try {
       res.json(
         await asCompany(req, (client) =>
-          reconcile.setAsideGroup(client, { companyId: req.companyId, userId: req.user.id, bankId: req.params.accountId, ...req.body })
+          reconcile.setAsideGroup(client, { ...req.body, companyId: req.companyId, userId: req.user.id, bankId: req.params.accountId })
         )
       );
     } catch (err) {

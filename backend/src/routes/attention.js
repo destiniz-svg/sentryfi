@@ -1,4 +1,5 @@
 const express = require("express");
+const { isPlatformAdmin } = require("../middleware/platform");
 
 const asyncHandler = require("../utils/asyncHandler");
 const { requireAuth } = require("../middleware/auth");
@@ -193,7 +194,7 @@ router.get(
       // 0. The books are backed up and proven to restore, or somebody who can
       //    fix it is told. Silence from a backup job is how nobody notices it
       //    stopped months ago.
-      if (req.can("manage_settings") && process.env.BACKUP_KEY) {
+      if (isPlatformAdmin(req.user) && process.env.BACKUP_KEY) {
         const { rows: last } = await client.query(
           `SELECT max(started_at) FILTER (WHERE ok) AS good,
                   (SELECT problem FROM backup_runs ORDER BY started_at DESC LIMIT 1) AS problem

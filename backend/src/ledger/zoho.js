@@ -104,13 +104,19 @@ async function exchange({ code, accountsServer }) {
 
 // ---- the API ---------------------------------------------------------------------
 
+// Zoho's data centres, by name. A pattern like www.zohoapis.[a-z.]+ also
+// matched www.zohoapis.evil.com (security review, 23 September 2026).
+const ZOHO_API_HOSTS = new Set(
+  ["com", "eu", "in", "com.au", "jp", "ca", "com.cn", "sa", "uk"].map((tld) => `https://www.zohoapis.${tld}`)
+);
+
 /**
  * A client for one connection. Access tokens last an hour, so one is fetched
  * per use from the stored refresh token. Zoho allows 100 calls a minute per
  * organisation; a 429 waits and tries again.
  */
 async function clientFor(conn) {
-  if (!/^https:\/\/www\.zohoapis\.[a-z.]+$/.test(conn.api_domain)) throw new Error("The stored Zoho API host is not Zoho's.");
+  if (!ZOHO_API_HOSTS.has(conn.api_domain)) throw new Error("The stored Zoho API host is not Zoho's.");
   const t = await tokenCall(conn.accounts_server, { grant_type: "refresh_token", refresh_token: open(conn.refresh_token_enc) });
   const get = async (path, params = {}) => {
     const q = new URLSearchParams({ ...params, ...(conn.organization_id ? { organization_id: conn.organization_id } : {}) });

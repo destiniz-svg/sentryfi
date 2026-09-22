@@ -14,7 +14,8 @@
     "ledger:selftest": "node scripts/ledger-selftest.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:local": "node scripts/test-local.js"
+    "test:local": "node scripts/test-local.js",
+    "test:security": "node scripts/test-security.js"
   },
   "author": "",
   "license": "ISC",

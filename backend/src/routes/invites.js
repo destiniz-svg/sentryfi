@@ -49,7 +49,9 @@ router.post(
     } catch (err) {
       throw ApiError.badRequest(err.message);
     }
-    res.cookie(env.cookieName, signToken({ sub: joined.user.id }), cookieOptions);
+    // The session carries the person's current version, like any sign-in.
+    const who = await require("../models/User").findById(joined.user.id);
+    res.cookie(env.cookieName, signToken({ sub: joined.user.id, v: who?.token_version || 0 }), cookieOptions);
     res.status(201).json(joined);
   })
 );

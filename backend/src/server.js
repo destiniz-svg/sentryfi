@@ -35,11 +35,30 @@ const salesRouter = require("./routes/sales");
 
 const app = express();
 
-// Standard security headers. contentSecurityPolicy is off deliberately: the
-// front end inlines styles, and a CSP that is subtly wrong gets switched off
-// in a panic the first time it breaks a page. It belongs in its own change,
-// measured against the real app.
-app.use(helmet({ contentSecurityPolicy: false }));
+// Standard security headers. The content security policy is report-only for
+// now: a policy that is subtly wrong gets switched off in a panic the first
+// time it breaks a page, so it is watched in the browser console against the
+// real app before it is enforced (security review, 23 September 2026).
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: false,
+      reportOnly: true,
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        connectSrc: ["'self'"],
+        workerSrc: ["'self'", "blob:"],
+        frameAncestors: ["'none'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+      },
+    },
+  })
+);
 
 app.set("trust proxy", 1);
 // The web app is served from this same origin in production, so no

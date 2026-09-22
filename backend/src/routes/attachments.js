@@ -127,7 +127,9 @@ router.get(
     );
     // Private: this is one company's document and must never sit in a shared
     // cache. Immutable: the hash is the address, so the bytes cannot change.
-    res.setHeader("Cache-Control", "private, max-age=31536000, immutable");
+    // Not kept on the device: a shared site phone must not hold a bill after
+    // its reader signs out (security review, 23 September 2026).
+    res.setHeader("Cache-Control", "private, no-store");
     res.send(file.bytes);
   })
 );

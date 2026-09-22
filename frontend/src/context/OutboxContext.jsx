@@ -2,7 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { useQueryClient } from "@tanstack/react-query";
 import { billsApi } from "@/api/bills";
 import { useCompany } from "@/context/CompanyContext";
-import { hold, send, waiting } from "@/lib/queue";
+import { hold, mine, send, waiting } from "@/lib/queue";
+import { useAuth } from "@/context/AuthContext";
 
 /**
  * What is still on the phone.
@@ -17,6 +18,8 @@ const OutboxContext = createContext(null);
 
 export function OutboxProvider({ children }) {
   const { companyId } = useCompany();
+  const { user } = useAuth();
+  const userId = user?.id;
   const queryClient = useQueryClient();
   const [items, setItems] = useState([]);
   const [sending, setSending] = useState(false);
@@ -24,15 +27,16 @@ export function OutboxProvider({ children }) {
 
   const refresh = useCallback(async () => {
     const all = await waiting();
-    setItems(all.filter((i) => !companyId || i.companyId === companyId));
-  }, [companyId]);
+    setItems(companyId && userId ? mine(all, { companyId, userId }) : []);
+  }, [companyId, userId]);
 
   const flush = useCallback(async () => {
-    if (!companyId || sending || !navigator.onLine) return undefined;
+    if (!companyId || !userId || sending || !navigator.onLine) return undefined;
     setSending(true);
     try {
       const result = await send({
         companyId,
+        userId,
         record: billsApi.record,
         attach: billsApi.attach,
         put: billsApi.post,
@@ -47,18 +51,18 @@ export function OutboxProvider({ children }) {
     } finally {
       setSending(false);
     }
-  }, [companyId, sending, queryClient, refresh]);
+  }, [companyId, userId, sending, queryClient, refresh]);
 
   const queue = useCallback(
     async ({ payload, files }) => {
-      const ref = await hold({ companyId, payload, files });
+      const ref = await hold({ companyId, userId, payload, files });
       await refresh();
       // Try immediately: "offline" is often a request that failed rather than
       // a connection that is genuinely down.
       flush();
       return ref;
     },
-    [companyId, refresh, flush]
+    [companyId, userId, refresh, flush]
   );
 
   useEffect(() => {

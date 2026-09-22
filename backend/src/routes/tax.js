@@ -36,7 +36,7 @@ router.post(
   asyncHandler(async (req, res) => {
     try {
       const out = await asCompany(req, (client) =>
-        tax.setRate(client, { companyId: req.companyId, userId: req.user.id, ...req.body })
+        tax.setRate(client, { ...req.body, companyId: req.companyId, userId: req.user.id })
       );
       res.status(201).json(out);
     } catch (err) {

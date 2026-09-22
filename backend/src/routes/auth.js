@@ -1,4 +1,5 @@
 const express = require("express");
+const { isPlatformAdmin } = require("../middleware/platform");
 const { z } = require("zod");
 
 const env = require("../config/env");
@@ -35,8 +36,27 @@ const passwordSchema = z.object({
   newPassword: z.string().min(8).max(128),
 });
 
+// A real bcrypt hash of a random secret nobody holds, made once on first use.
+// Failed sign-ins per address, as well as per network: ten in fifteen minutes
+// and that address waits. ponytail: in memory, per process; move to the
+// database if Sentryfi ever runs on more than one.
+const failures = new Map();
+const WINDOW = 15 * 60 * 1000;
+function tooMany(email) {
+  const now = Date.now();
+  const recent = (failures.get(email) || []).filter((t) => now - t < WINDOW);
+  failures.set(email, recent);
+  return recent.length >= 10;
+}
+function failed(email) {
+  failures.set(email, [...(failures.get(email) || []), Date.now()]);
+}
+
+let dummyHash = null;
+const dummy = async () => (dummyHash ||= await User.hashPassword(require("crypto").randomBytes(24).toString("hex")));
+
 function issueSession(res, user) {
-  const token = signToken({ sub: user.id });
+  const token = signToken({ sub: user.id, v: user.token_version || 0 });
   res.cookie(env.cookieName, token, cookieOptions);
 }
 
@@ -73,12 +93,24 @@ router.post(
   validate(loginSchema),
   asyncHandler(async (req, res) => {
     const { email, password } = req.body;
+    const key = String(email).trim().toLowerCase();
+    if (tooMany(key)) throw new ApiError(429, "Too many tries for this address. Wait fifteen minutes and try again.");
 
     const record = await User.findByEmail(email);
-    if (!record) throw ApiError.unauthorized("Invalid credentials");
+    if (!record) {
+      // The same bcrypt work as a wrong password, so the time taken does not
+      // say whether the address has an account.
+      await User.comparePassword(password, await dummy());
+      failed(key);
+      throw ApiError.unauthorized("Invalid credentials");
+    }
 
     const ok = await User.comparePassword(password, record.password_hash);
-    if (!ok) throw ApiError.unauthorized("Invalid credentials");
+    if (!ok) {
+      failed(key);
+      throw ApiError.unauthorized("Invalid credentials");
+    }
+    failures.delete(key);
 
     const user = {
       id: record.id,
@@ -86,9 +118,22 @@ router.post(
       name: record.name,
       created_at: record.created_at,
       updated_at: record.updated_at,
+      token_version: record.token_version,
     };
     issueSession(res, user);
+    delete user.token_version;
     res.json({ user });
+  })
+);
+
+/** Ends every session this person has, on every device, this one included. */
+router.post(
+  "/logout-everywhere",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await User.bumpTokenVersion(req.user.id);
+    res.clearCookie(env.cookieName, { ...cookieOptions, maxAge: 0 });
+    res.json({ ok: true });
   })
 );
 
@@ -101,7 +146,7 @@ router.get(
   "/me",
   requireAuth,
   asyncHandler(async (req, res) => {
-    res.json({ user: req.user });
+    res.json({ user: { ...req.user, platformAdmin: isPlatformAdmin(req.user) } });
   })
 );
 
@@ -132,7 +177,10 @@ router.patch(
 
     const passwordHash = await User.hashPassword(req.body.newPassword);
     await User.updatePassword(req.user.id, passwordHash);
-    res.json({ ok: true });
+    // Every other session ends; this one carries on with a fresh one.
+    const v = await User.bumpTokenVersion(req.user.id);
+    issueSession(res, { id: req.user.id, token_version: v });
+    res.json({ ok: true, otherSessionsEnded: true });
   })
 );
 

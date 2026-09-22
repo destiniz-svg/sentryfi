@@ -29,6 +29,7 @@ async function asCompany(req, fn) {
   }
   return withTransaction(async (client) => {
     await assumeIdentity(client, { companyId: req.companyId, userId: req.user.id });
+    await client.query("SELECT set_config('app.company_pinned', $1, true)", [req.companyId]);
     return fn(client);
   });
 }

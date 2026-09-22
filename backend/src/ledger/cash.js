@@ -118,6 +118,12 @@ async function openBox(client, { companyId, userId, name, holderId, projectId, f
   );
   if (existing.length) throw new Error(`There is already a cash box called "${clean}".`);
 
+  // Whoever holds it has to be someone in this company.
+  if (holderId && holderId !== userId) {
+    const { rows: member } = await client.query("SELECT 1 FROM memberships WHERE user_id = $1 AND company_id = $2", [holderId, companyId]);
+    if (!member.length) throw new Error("That person is not in this company.");
+  }
+
   // 1200 is "Cash boxes" in the starting chart; each box hangs beneath it with
   // its own code so its balance stands alone.
   const account = await openAssetAccount(client, { companyId, prefix: "12", name: `Cash: ${clean}` });

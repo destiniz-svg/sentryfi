@@ -284,6 +284,21 @@ router.post(
         }
       }
 
+      // Ids from the client must be this company's: a foreign key only checks
+      // that the id exists somewhere (security review, 23 September 2026).
+      const ours = async (sql, id, said) => {
+        if (!id) return;
+        const { rows } = await client.query(sql, [req.companyId, id, req.user.id]);
+        if (!rows.length) throw ApiError.badRequest(said);
+      };
+      await ours("SELECT 1 FROM counterparties WHERE company_id = $1 AND id = $2 AND $3::uuid IS NOT NULL", b.counterpartyId, "That supplier is not in these books.");
+      await ours("SELECT 1 FROM projects WHERE company_id = $1 AND id = $2 AND $3::uuid IS NOT NULL", b.projectId, "That project is not in these books.");
+      await ours(
+        "SELECT 1 FROM memberships WHERE $1::uuid IS NOT NULL AND company_id = $2 AND user_id = $3",
+        b.billedToCompany,
+        "You are not in the company it was billed to."
+      );
+
       let counterpartyId = b.counterpartyId || null;
       let learned = [];
       let conflicts = [];

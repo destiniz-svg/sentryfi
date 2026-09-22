@@ -80,7 +80,7 @@ export async function waiting() {
   }
 }
 
-export async function hold({ companyId, payload, files }) {
+export async function hold({ companyId, userId, payload, files }) {
   // If the capture screen already decided on a key — because it tried to send
   // and the reply never came — keep it. A new key here would make the retry a
   // second bill instead of the same one.
@@ -90,6 +90,9 @@ export async function hold({ companyId, payload, files }) {
       store.put({
         ref,
         companyId,
+        // Whose it is: on a shared site phone the next person to sign in must
+        // not send the last one's bills as their own.
+        userId,
         payload: { ...payload, clientRef: ref },
         files,
         queuedAt: Date.now(),
@@ -122,10 +125,14 @@ export async function noteAttempt(ref, error) {
  * the entry exactly where it was. The only thing that removes a bill from here
  * is the server saying it has it.
  */
-export async function send({ companyId, record, attach, put }) {
+/** Items taken by this person in this company. Ones from before items carried a person are anyone's. */
+export const mine = (items, { companyId, userId }) =>
+  items.filter((i) => i.companyId === companyId && (!i.userId || i.userId === userId));
+
+export async function send({ companyId, userId, record, attach, put }) {
   if (!navigator.onLine) return { sent: 0, failed: 0, skipped: true };
 
-  const items = (await waiting()).filter((i) => i.companyId === companyId);
+  const items = mine(await waiting(), { companyId, userId });
   let sent = 0;
   let failed = 0;
 

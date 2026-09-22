@@ -1,7 +1,7 @@
 const bcrypt = require("bcrypt");
 const { query, queryOne } = require("../config/db");
 
-const PUBLIC_COLS = "id, email, name, created_at, updated_at";
+const PUBLIC_COLS = "id, email, name, created_at, updated_at, token_version";
 
 function hashPassword(plain) {
   return bcrypt.hash(plain, 12);
@@ -40,6 +40,12 @@ async function updateName(id, name) {
   );
 }
 
+/** Ends every session signed before now. Returns the new version. */
+async function bumpTokenVersion(id) {
+  const row = await queryOne("UPDATE users SET token_version = token_version + 1 WHERE id = $1 RETURNING token_version", [id]);
+  return row?.token_version;
+}
+
 async function updatePassword(id, passwordHash) {
   await query(
     `UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1`,
@@ -48,6 +54,7 @@ async function updatePassword(id, passwordHash) {
 }
 
 module.exports = {
+  bumpTokenVersion,
   PUBLIC_COLS,
   hashPassword,
   comparePassword,

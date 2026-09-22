@@ -1,7 +1,7 @@
 const express = require("express");
 const asyncHandler = require("../utils/asyncHandler");
 const { requireAuth } = require("../middleware/auth");
-const { requireCompany, requireCan } = require("../middleware/company");
+const { requirePlatformAdmin } = require("../middleware/platform");
 const { pool } = require("../config/db");
 const backup = require("../backup");
 const s3 = require("../backup/s3");
@@ -9,13 +9,12 @@ const s3 = require("../backup/s3");
 /**
  * Whether the books are backed up, and proven to restore.
  *
- * ponytail: backups are of the whole system, so any company's administrator
- * sees the same runs; move this to a platform-owner role once there are
- * companies that are not ours.
+ * Backups are of the whole system, every company's books, so they belong to
+ * the people who run Sentryfi, not to any one company's administrator.
  */
 
 const router = express.Router();
-router.use(requireAuth, requireCompany, requireCan("manage_settings"));
+router.use(requireAuth, requirePlatformAdmin);
 
 router.get(
   "/",

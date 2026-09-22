@@ -53,15 +53,25 @@ async function list(client, { companyId }) {
 }
 
 /**
- * Someone with a login is in at once. Anyone else gets a link; the secret in
- * it is returned once, here, and only its hash is kept.
+ * Someone already in this company takes the new role at once. Everyone else,
+ * with a login or without, gets a link; the secret in it is returned once,
+ * here, and only its hash is kept.
+ *
+ * Adding anyone with a login straight in was how an outsider could get into a
+ * company: register the address first, then wait to be added (security review,
+ * 23 September 2026). And the answer said whether an address had an account.
+ * A link has to be handed to the person, which is the proof it is them.
  */
 async function add(client, { companyId, userId, email, role }) {
   checkRole(role);
   const clean = String(email || "").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) throw new Error("That is not an email address.");
 
-  const { rows: found } = await client.query("SELECT id, name FROM users WHERE email = $1", [clean]);
+  const { rows: found } = await client.query(
+    `SELECT u.id, u.name FROM users u
+      WHERE u.email = $1 AND EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = u.id AND m.company_id = $2)`,
+    [clean, companyId]
+  );
   if (found[0]) {
     const { rowCount } = await client.query(
       `INSERT INTO memberships (user_id, company_id, role) VALUES ($1,$2,$3)

@@ -68,9 +68,19 @@ describe("adding people", () => {
       const hashOf = await bcrypt.hash("the-right-one", 4);
       await client.query(`INSERT INTO users (name, email, password_hash) VALUES ('Aisha','aisha@sentryfi.invalid',$1)`, [hashOf]);
       await assumeIdentity(client, { companyId, userId });
+      // Having a login is not being let in: an outsider could register the
+      // address first. They get a link like anyone else, and the answer does
+      // not say the address has an account.
       const second = await people.add(client, { companyId, userId, email: "Aisha@Sentryfi.invalid", role: "viewer" });
-      expect(second).toMatchObject({ added: true, name: "Aisha" });
-      await expect(people.add(client, { companyId, userId, email: "aisha@sentryfi.invalid", role: "viewer" }))
+      expect(second.added).toBe(false);
+      expect(second.token).toMatch(/./);
+      expect(second.name).toBeUndefined();
+
+      // Someone already in the company takes another role at once.
+      const { rows: me } = await client.query("SELECT email FROM users WHERE id = $1", [userId]);
+      const more = await people.add(client, { companyId, userId, email: me[0].email, role: "viewer" });
+      expect(more.added).toBe(true);
+      await expect(people.add(client, { companyId, userId, email: me[0].email, role: "viewer" }))
         .rejects.toThrow(/already has that role/);
     }));
 
@@ -80,10 +90,11 @@ describe("adding people", () => {
       await expect(people.removeRole(client, { companyId, userId, memberId: userId, role: "administrator" }))
         .rejects.toThrow(/only administrator/);
 
+      const link = await people.add(client, { companyId, userId, email: "two@sentryfi.invalid", role: "administrator" });
       await fresh(client);
-      await client.query(`INSERT INTO users (name, email, password_hash) VALUES ('Two','two@sentryfi.invalid','x')`);
+      await people.acceptInvite(client, { token: link.token, name: "Two", password: "longenough1" });
+      await fresh(client);
       await assumeIdentity(client, { companyId, userId });
-      await people.add(client, { companyId, userId, email: "two@sentryfi.invalid", role: "administrator" });
       await people.removeRole(client, { companyId, userId, memberId: userId, role: "administrator" });
 
       const { members, changes } = await people.list(client, { companyId });

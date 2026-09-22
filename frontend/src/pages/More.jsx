@@ -68,7 +68,7 @@ export default function More() {
           { name: "Invoices", to: "/invoices" },
           can("manage_people") && { name: "People", to: "/settings?tab=people" },
           { name: "Cash tins", to: "/bank" },
-          can("manage_settings") && { name: "Backups", to: "/settings?tab=backups" },
+          user?.platformAdmin && { name: "Backups", to: "/settings?tab=backups" },
           { name: "Settings", to: "/settings", side: company?.name },
         ]}
       />
