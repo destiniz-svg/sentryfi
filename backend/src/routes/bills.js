@@ -9,6 +9,7 @@ const { asCompany } = require("../ledger/session");
 const { reverseEntry } = require("../ledger/post");
 const { splitTax, findPossibleDuplicates, postBill } = require("../ledger/bills");
 const taxEngine = require("../ledger/tax");
+const fx = require("../ledger/fx");
 const { findOrCreate, observe } = require("../ledger/counterparties");
 const { toLaari, formatLaari } = require("../ledger/money");
 const { uploadReceipt } = require("../middleware/upload");
@@ -37,6 +38,9 @@ const billBody = z.object({
   amount: z.union([z.string(), z.number()]),
   gstTreatment: z.enum(GST_TREATMENTS).default("unknown"),
   gstRateBp: z.number().int().min(0).max(10000).nullish(),
+  // Another currency: its code, and how many of ours one of it bought.
+  currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/, "A currency is three letters, like USD.").nullish(),
+  fxRate: z.union([z.string().trim(), z.number()]).nullish(),
   projectId: z.string().uuid().nullish(),
   billedToCompany: z.string().uuid().nullish(),
   // Generated on the phone before there is any signal, so a send that is
@@ -225,6 +229,7 @@ router.post(
 
     let split;
     let rateBp = null;
+    let foreign = null;
     try {
       // The rate printed on the paper, or else the one in force on its date.
       // Kept on the bill, so a later rate change never reaches it.
@@ -242,6 +247,18 @@ router.post(
         b.gstTreatment === "unknown"
           ? { net: toLaari(b.amount), tax: 0n, gross: toLaari(b.amount) }
           : splitTax(b.amount, b.gstTreatment, rateBp);
+
+      // A bill in another currency: the tax is worked out in that currency,
+      // as printed, and each part converted once at the rate on the bill.
+      // Both are kept; the books use the converted figures.
+      const base = await asCompany(req, (client) => fx.baseCurrency(client, { companyId: req.companyId }));
+      if (b.currency && b.currency !== base) {
+        if (!b.fxRate) throw new Error(`What rate turned ${b.currency} into ${base} on this bill?`);
+        foreign = { currency: b.currency, rate: String(b.fxRate), ...split };
+        const net = fx.toBase(split.net, b.fxRate);
+        const tax = fx.toBase(split.tax, b.fxRate);
+        split = { net, tax, gross: net + tax };
+      }
     } catch (err) {
       throw ApiError.badRequest(err.message);
     }
@@ -302,18 +319,30 @@ router.post(
         `INSERT INTO bills
            (company_id, counterparty_id, bill_no, issue_date, due_date,
             net_laari, tax_laari, gross_laari, gst_treatment, gst_rate_bp,
-            project_id, billed_to_company, received_by, client_ref, status)
+            project_id, billed_to_company, received_by, client_ref, status,
+            currency, fx_rate, fc_net, fc_tax, fc_gross)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::gst_t,$10,$11,$12,$13,$14,
-                 CASE WHEN $9 = 'unknown' THEN 'awaiting_review'::bill_t ELSE 'draft'::bill_t END)
+                 CASE WHEN $9 = 'unknown' THEN 'awaiting_review'::bill_t ELSE 'draft'::bill_t END,
+                 COALESCE($15, (SELECT base_currency FROM companies WHERE id = $1)), $16, $17, $18, $19)
          RETURNING *`,
         [
           req.companyId, counterpartyId, b.billNo || null, b.issueDate || null, b.dueDate || null,
           String(split.net), String(split.tax), String(split.gross),
           b.gstTreatment, rateBp,
           b.projectId || null, b.billedToCompany || null, req.user.id, b.clientRef || null,
+          foreign ? foreign.currency : null, foreign ? foreign.rate : null,
+          foreign ? String(foreign.net) : null, foreign ? String(foreign.tax) : null, foreign ? String(foreign.gross) : null,
         ]
       );
       const bill = rows[0];
+
+      // The rate on this bill is the best guess for the next one.
+      if (foreign) {
+        await fx.recordRate(client, {
+          companyId: req.companyId, userId: req.user.id, currency: foreign.currency,
+          on: bill.issue_date, rate: foreign.rate, source: `Bill ${bill.bill_no || ""}`.trim(),
+        });
+      }
 
       // Warn now, while it can still be dealt with cheaply.
       const duplicates = await findPossibleDuplicates(client, {

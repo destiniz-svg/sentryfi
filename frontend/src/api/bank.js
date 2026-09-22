@@ -4,7 +4,11 @@ export const bankApi = {
   /** Bank accounts and open cash boxes, with what the books say is in each. */
   places: () => apiClient.get("/bank").then((r) => r.data.places),
 
-  open: (name) => apiClient.post("/bank", { name }).then((r) => r.data.account),
+  open: (name, currency) => apiClient.post("/bank", { name, currency: currency || null }).then((r) => r.data.account),
+
+  /** The latest rate recorded on or before a date, offered for the next foreign document. */
+  rate: (currency, on) => apiClient.get("/bank/rates", { params: { currency, on } }).then((r) => r.data),
+  recordRate: (body) => apiClient.post("/bank/rates", body).then((r) => r.data),
 
   /** clientRef makes a resend land on the first attempt instead of moving the money twice. */
   transfer: (payload) => apiClient.post("/bank/transfer", payload).then((r) => r.data),

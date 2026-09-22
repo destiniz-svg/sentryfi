@@ -8,18 +8,24 @@ const { asCompany } = require("../ledger/session");
 const { formatLaari } = require("../ledger/money");
 const bank = require("../ledger/bank");
 const reconcile = require("../ledger/reconcile");
+const fx = require("../ledger/fx");
 
 /** Bank accounts and tins, and money moving between them. Every balance is read from the journal. */
 
 const router = express.Router();
 router.use(requireAuth, requireCompany);
 
-const newBank = z.object({ name: z.string().trim().min(2, "A bank account needs a name.").max(80) });
+const currency = z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/, "A currency is three letters, like USD.");
+const newBank = z.object({
+  name: z.string().trim().min(2, "A bank account needs a name.").max(80),
+  currency: currency.nullish(),
+});
 
 const newTransfer = z.object({
   fromId: z.string().uuid("Where does it come from?"),
   toId: z.string().uuid("Where does it go?"),
   amount: z.union([z.string().trim().min(1), z.number()]),
+  amountFc: z.union([z.string().trim().min(1), z.number()]).nullish(),
   note: z.string().trim().max(300).nullish(),
   on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD").nullish(),
   clientRef: z.string().uuid().nullish(),
@@ -36,7 +42,10 @@ router.get(
         code: p.code,
         name: p.name,
         kind: p.kind,
+        currency: p.currency,
+        foreign: p.foreign,
         balance: formatLaari(p.balance),
+        balanceFc: p.foreign ? formatLaari(p.balanceFc) : undefined,
         overdrawn: p.balance < 0n,
         statement: p.kind === "bank" ? { lines: p.lines, waiting: p.waiting } : undefined,
       })),
@@ -54,10 +63,51 @@ router.post(
       const account = await asCompany(req, (client) =>
         bank.openBank(client, { companyId: req.companyId, ...parsed.data })
       );
-      res.status(201).json({ account: { id: account.id, code: account.code, name: account.name } });
+      res.status(201).json({ account: { id: account.id, code: account.code, name: account.name, currency: account.currency.trim() } });
     } catch (err) {
       throw ApiError.badRequest(err.message);
     }
+  })
+);
+
+// Rates as people recorded them. The latest on or before a date is offered
+// for the next foreign document; nothing already recorded changes with it.
+const newRate = z.object({
+  currency,
+  on: z.string().regex(/^d{4}-d{2}-d{2}$/, "Use YYYY-MM-DD"),
+  rate: z.union([z.string().trim(), z.number()]).transform(String),
+  source: z.string().trim().max(120).nullish(),
+});
+
+router.get(
+  "/rates",
+  requireCan("read"),
+  asyncHandler(async (req, res) => {
+    const cur = currency.safeParse(req.query.currency || "");
+    if (!cur.success) throw ApiError.badRequest(cur.error.issues[0].message);
+    const on = /^d{4}-d{2}-d{2}$/.test(req.query.on || "") ? req.query.on : null;
+    const found = await asCompany(req, async (client) => ({
+      base: await fx.baseCurrency(client, { companyId: req.companyId }),
+      latest: await fx.rateOn(client, { companyId: req.companyId, currency: cur.data, on }),
+    }));
+    res.json({ currency: cur.data, ...found });
+  })
+);
+
+router.post(
+  "/rates",
+  requireCan("approve", "adjust"),
+  asyncHandler(async (req, res) => {
+    const parsed = newRate.safeParse(req.body);
+    if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
+    try {
+      await asCompany(req, (client) =>
+        fx.recordRate(client, { companyId: req.companyId, userId: req.user.id, ...parsed.data })
+      );
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+    res.status(201).json({ ok: true });
   })
 );
 

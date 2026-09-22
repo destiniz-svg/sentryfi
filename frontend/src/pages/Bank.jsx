@@ -27,6 +27,12 @@ const FIELD =
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+// What a bank account can be kept in besides our own. The books stay in ours.
+const CURRENCIES = ["USD", "EUR", "GBP", "AED", "INR", "CNY", "SGD", "JPY"];
+
+/** A place's balance in its own currency: "USD 800.00", or the rufiyaa figure. */
+const own = (p) => (p.foreign ? `${p.currency} ${p.balanceFc}` : p.balance);
+
 const GROUPS = [
   { kind: "bank", title: "Bank accounts" },
   { kind: "box", title: "Cash boxes" },
@@ -115,10 +121,17 @@ export default function Bank() {
                         </Button>
                       )}
                       {p.overdrawn && <Badge tone="danger">Below zero</Badge>}
-                      <div
-                        className={`tabular text-[17px] font-semibold ${p.overdrawn ? "text-[var(--danger)]" : ""}`}
-                      >
-                        {p.balance}
+                      <div className="text-right">
+                        <div
+                          className={`tabular text-[17px] font-semibold ${p.overdrawn ? "text-[var(--danger)]" : ""}`}
+                        >
+                          {own(p)}
+                        </div>
+                        {p.foreign && (
+                          <div className="tabular text-[12px] text-[var(--ink-muted)]" title="What it cost in our currency, at the rates it came in at">
+                            {p.balance} in the books
+                          </div>
+                        )}
                       </div>
                     </li>
                   ))}
@@ -152,6 +165,7 @@ function MoveMoney({ places, onClose }) {
   const [fromId, setFromId] = useState(places[0]?.id || "");
   const [toId, setToId] = useState(places[1]?.id || "");
   const [amount, setAmount] = useState("");
+  const [amountFc, setAmountFc] = useState("");
   const [on, setOn] = useState(today());
   const [note, setNote] = useState("");
   const [err, setErr] = useState("");
@@ -161,21 +175,36 @@ function MoveMoney({ places, onClose }) {
 
   const send = useMutation({ mutationFn: bankApi.transfer });
   const name = (id) => places.find((p) => p.id === id)?.name.replace(/^Cash: /, "");
+  const from = places.find((p) => p.id === fromId);
+  const to = places.find((p) => p.id === toId);
+  const foreign = from?.foreign ? from : to?.foreign ? to : null;
+  const base = places.find((p) => !p.foreign)?.currency || "MVR";
+  const num = (x) => Number(String(x).replace(/,/g, ""));
+  const rate = foreign && num(amount) > 0 && num(amountFc) > 0 ? (num(amount) / num(amountFc)).toFixed(4) : null;
 
   const blocker = !amount.trim()
     ? "How much is moving?"
     : fromId === toId
       ? "That is the same place twice"
-      : null;
+      : from?.foreign && to?.foreign && from.currency !== to.currency
+        ? `Move ${from.currency} to ${base} first`
+        : foreign && !amountFc.trim()
+          ? `How much in ${foreign.currency}?`
+          : null;
 
   async function onSubmit(e) {
     e.preventDefault();
     if (blocker) return setErr(blocker);
     setErr("");
     try {
-      const r = await send.mutateAsync({ fromId, toId, amount: amount.trim(), on, note: note.trim() || null, clientRef });
+      const r = await send.mutateAsync({
+        fromId, toId, amount: amount.trim(), amountFc: foreign ? amountFc.trim() : null, on, note: note.trim() || null, clientRef,
+      });
       refresh();
-      toast.success(`MVR ${amount.trim()} moved · entry ${r.entryNo}`, `${name(fromId)} to ${name(toId)}.`);
+      toast.success(
+        `${foreign ? `${foreign.currency} ${amountFc.trim()}` : `${base} ${amount.trim()}`} moved · entry ${r.entryNo}`,
+        `${name(fromId)} to ${name(toId)}.`
+      );
       onClose();
     } catch (ex) {
       setErr(ex.message || "That could not be moved.");
@@ -184,7 +213,7 @@ function MoveMoney({ places, onClose }) {
 
   const options = places.map((p) => (
     <option key={p.id} value={p.id}>
-      {p.name.replace(/^Cash: /, "")} · MVR {p.balance}
+      {p.name.replace(/^Cash: /, "")} · {p.foreign ? own(p) : `${p.currency || "MVR"} ${p.balance}`}
     </option>
   ));
 
@@ -205,7 +234,7 @@ function MoveMoney({ places, onClose }) {
         </label>
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
-            <span className="text-sm font-medium block mb-1.5">How much</span>
+            <span className="text-sm font-medium block mb-1.5">How much{foreign ? ` in ${base}` : ""}</span>
             <input id="move-amount" value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" className={`${FIELD} tabular`} />
           </label>
           <label className="block">
@@ -213,6 +242,15 @@ function MoveMoney({ places, onClose }) {
             <input type="date" value={on} onChange={(e) => setOn(e.target.value)} className={`${FIELD} tabular`} />
           </label>
         </div>
+        {foreign && (
+          <label className="block">
+            <span className="text-sm font-medium block mb-1.5">How much in {foreign.currency}</span>
+            <input id="move-amount-fc" value={amountFc} onChange={(e) => setAmountFc(e.target.value)} inputMode="decimal" className={`${FIELD} tabular`} />
+            <span className="text-[12px] text-[var(--ink-muted)] block mt-1.5">
+              Both figures as the bank shows them.{rate && ` That is ${rate} ${base} to 1 ${foreign.currency}.`}
+            </span>
+          </label>
+        )}
         <label className="block">
           <span className="text-sm font-medium block mb-1.5">What for</span>
           <input id="move-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional" className={FIELD} />
@@ -231,7 +269,7 @@ function MoveMoney({ places, onClose }) {
         </Button>
         <Button type="submit" variant={blocker ? "outline" : "accent"} disabled={send.isPending}>
           {send.isPending && <Loader2 size={14} className="animate-spin" />}
-          {blocker || `Move MVR ${amount.trim()}`}
+          {blocker || `Move ${foreign ? `${foreign.currency} ${amountFc.trim()}` : `${base} ${amount.trim()}`}`}
         </Button>
       </div>
     </Modal>
@@ -242,17 +280,19 @@ function OpenBank({ open, onClose }) {
   const toast = useToast();
   const refresh = useRefresh();
   const [name, setName] = useState("");
+  const [currency, setCurrency] = useState("");
   const [err, setErr] = useState("");
-  const make = useMutation({ mutationFn: bankApi.open });
+  const make = useMutation({ mutationFn: ({ name, currency }) => bankApi.open(name, currency) });
 
   async function onSubmit(e) {
     e.preventDefault();
     setErr("");
     try {
-      const a = await make.mutateAsync(name.trim());
+      const a = await make.mutateAsync({ name: name.trim(), currency });
       refresh();
       toast.success(`${a.name} is open`, "It starts at nothing. Move money in from another account.");
       setName("");
+      setCurrency("");
       onClose();
     } catch (ex) {
       setErr(ex.message || "That could not be opened.");
@@ -264,6 +304,17 @@ function OpenBank({ open, onClose }) {
       <label className="block">
         <span className="text-sm font-medium block mb-1.5">Name</span>
         <input id="bank-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Bank of Maldives USD" className={FIELD} />
+      </label>
+      <label className="block mt-4">
+        <span className="text-sm font-medium block mb-1.5">Kept in</span>
+        <select id="bank-currency" value={currency} onChange={(e) => setCurrency(e.target.value)} className={FIELD}>
+          <option value="">Our own currency</option>
+          {CURRENCIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
       </label>
       {err && (
         <p role="alert" className="text-[13px] text-[var(--danger)] mt-4">

@@ -207,10 +207,17 @@ async function postBill(client, { companyId, userId, billId, accounts }) {
     );
   }
 
+  // A bill in another currency: each line also keeps its own-currency amount
+  // and the rate on the bill, so the figure can always be read in both.
+  const foreign = bill.fc_gross !== null && bill.fc_gross !== undefined;
+  const fc = (amount) =>
+    foreign && BigInt(amount) > 0n ? { currency: bill.currency.trim(), amount: BigInt(amount), rate: String(bill.fx_rate) } : undefined;
+
   const lines = [
     {
       accountId: accounts.expense,
       debit: net,
+      fc: foreign ? fc(bill.fc_net) : undefined,
       counterpartyId: bill.counterparty_id,
       projectId: bill.project_id,
       memo: bill.bill_no ? `Bill ${bill.bill_no}` : null,
@@ -223,6 +230,7 @@ async function postBill(client, { companyId, userId, billId, accounts }) {
     lines.push({
       accountId: accounts.taxReclaimable,
       debit: tax,
+      fc: foreign ? fc(bill.fc_tax) : undefined,
       counterpartyId: bill.counterparty_id,
       memo: `GST ${bill.gst_treatment === "inclusive" ? "included in" : "added to"} the price`,
     });
@@ -231,6 +239,7 @@ async function postBill(client, { companyId, userId, billId, accounts }) {
   lines.push({
     accountId: accounts.payable,
     credit: gross,
+    fc: foreign ? fc(bill.fc_gross) : undefined,
     counterpartyId: bill.counterparty_id,
     memo: bill.counterparty_name || null,
   });

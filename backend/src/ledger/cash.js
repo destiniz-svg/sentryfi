@@ -75,7 +75,7 @@ async function differencesAccount(client, { companyId }) {
  * the next free code: 1111, 1112, ... The family's own 1100/1200 is the
  * starting chart's account and stays where it is.
  */
-async function openAssetAccount(client, { companyId, prefix, name }) {
+async function openAssetAccount(client, { companyId, prefix, name, currency = null }) {
   const { rows: used } = await client.query(
     `SELECT code FROM accounts WHERE company_id = $1 AND code LIKE $2`,
     [companyId, `${prefix}%`]
@@ -92,9 +92,10 @@ async function openAssetAccount(client, { companyId, prefix, name }) {
   if (!code) throw new Error("There is no room for another account in the chart of accounts.");
 
   const { rows } = await client.query(
-    `INSERT INTO accounts (company_id, code, name, type)
-     VALUES ($1, $2, $3, 'asset') RETURNING id, code, name`,
-    [companyId, code, name]
+    `INSERT INTO accounts (company_id, code, name, type, currency)
+     VALUES ($1, $2, $3, 'asset', COALESCE($4, (SELECT base_currency FROM companies WHERE id = $1)))
+     RETURNING id, code, name, currency`,
+    [companyId, code, name, currency]
   );
   return rows[0];
 }

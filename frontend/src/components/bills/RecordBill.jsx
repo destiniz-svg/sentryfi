@@ -4,6 +4,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { useBillMutations } from "@/hooks/useBills";
 import { billsApi } from "@/api/bills";
+import { bankApi } from "@/api/bank";
 import { useToast } from "@/context/UIContext";
 import { useOutbox } from "@/context/OutboxContext";
 import { usePhone } from "@/lib/phone";
@@ -113,7 +114,7 @@ export function RecordBill({ open, onClose }) {
     ? "Who is it from?"
     : !(amountNow > 0)
       ? "Add the amount"
-      : `Record MVR ${formatAmount(form.amount)}`;
+      : `Record ${form.currency || "MVR"} ${formatAmount(form.amount)}`;
   const cameraInputRef = useRef(null);
   const libraryInputRef = useRef(null);
 
@@ -124,8 +125,25 @@ export function RecordBill({ open, onClose }) {
       billNo: "",
       issueDate: today(),
       gstTreatment: "inclusive",
+      currency: "", // our own
+      fxRate: "",
     };
   }
+
+  // A bill in another currency is offered the latest rate somebody recorded on
+  // or before its date. Only offered: the rate on the bank's advice is the one
+  // that belongs on it, and once recorded it never changes.
+  useEffect(() => {
+    if (!form.currency) return;
+    let live = true;
+    bankApi
+      .rate(form.currency, form.issueDate)
+      .then((r) => live && r.latest && setForm((f) => (f.fxRate ? f : { ...f, fxRate: r.latest.rate })))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [form.currency, form.issueDate]);
 
   useEffect(() => {
     if (open) {
@@ -248,6 +266,10 @@ export function RecordBill({ open, onClose }) {
     setErr("");
 
     if (!form.supplierName.trim()) return setErr("Who is the bill from?");
+    if (form.currency && !(Number(form.fxRate) > 0)) {
+      setErr(`What rate did the bank use for ${form.currency}? MVR for 1 ${form.currency}.`);
+      return;
+    }
     if (!(Number(String(form.amount).replace(/,/g, "")) > 0)) {
       return setErr("How much is it for?");
     }
@@ -264,6 +286,8 @@ export function RecordBill({ open, onClose }) {
       billNo: form.billNo.trim() || null,
       issueDate: form.issueDate || null,
       gstTreatment: form.gstTreatment,
+      currency: form.currency || null,
+      fxRate: form.currency ? form.fxRate.trim() : null,
       // No rate sent: the server uses the one in force on the bill date, from
       // the tax engine, and keeps it on the bill.
       supplier: supplierFacts || undefined,
@@ -529,6 +553,40 @@ export function RecordBill({ open, onClose }) {
               className={`${inputClass} tabular`}
             />
           </Field>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="In" htmlFor="bill-currency">
+            <select
+              id="bill-currency"
+              value={form.currency}
+              onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value, fxRate: "" }))}
+              className={inputClass}
+            >
+              <option value="">MVR</option>
+              {["USD", "EUR", "GBP", "AED", "INR", "CNY", "SGD", "JPY"].map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {form.currency && (
+            <Field
+              label={`MVR for 1 ${form.currency}`}
+              htmlFor="bill-rate"
+              hint={amountNow > 0 && Number(form.fxRate) > 0 ? `MVR ${formatAmount((amountNow * Number(form.fxRate)).toFixed(2))} in the books.` : undefined}
+            >
+              <input
+                id="bill-rate"
+                value={form.fxRate}
+                onChange={set("fxRate")}
+                inputMode="decimal"
+                placeholder="15.42"
+                className={`${inputClass} tabular`}
+              />
+            </Field>
+          )}
         </div>
 
         <Field

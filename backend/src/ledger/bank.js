@@ -3,6 +3,7 @@ const { toLaari, formatLaari } = require("./money");
 const { openAssetAccount } = require("./cash");
 const statement = require("./statement");
 const reconcile = require("./reconcile");
+const fx = require("./fx");
 
 /**
  * Where the money sits, and moving it between places.
@@ -16,9 +17,14 @@ const reconcile = require("./reconcile");
 /** The bank accounts and open tins, each with what the books say is in it. */
 async function places(client, { companyId }) {
   const { rows } = await client.query(
-    `SELECT a.id, a.code, a.name,
+    `SELECT a.id, a.code, a.name, a.currency,
+            a.currency <> (SELECT c.base_currency FROM companies c WHERE c.id = a.company_id) AS foreign,
             CASE WHEN b.id IS NULL THEN 'bank' ELSE 'box' END AS kind,
             COALESCE(SUM(l.debit_laari) - SUM(l.credit_laari), 0) AS balance,
+            -- What is in it in its own currency, when that is not ours: the sum of
+            -- the foreign amounts on its lines, signed the same way.
+            COALESCE(SUM(CASE WHEN l.currency = a.currency THEN
+                         CASE WHEN l.debit_laari > 0 THEN l.amount_fc ELSE -l.amount_fc END END), 0) AS balance_fc,
             (SELECT count(*) FROM bank_statement_lines s WHERE s.account_id = a.id)::int AS lines,
             (SELECT count(*) FROM bank_statement_lines s WHERE s.account_id = a.id AND s.status = 'open')::int AS waiting
        FROM accounts a
@@ -30,11 +36,11 @@ async function places(client, { companyId }) {
       ORDER BY a.code`,
     [companyId]
   );
-  return rows.map((r) => ({ ...r, balance: BigInt(r.balance) }));
+  return rows.map((r) => ({ ...r, currency: (r.currency || "").trim(), balance: BigInt(r.balance), balanceFc: BigInt(r.balance_fc) }));
 }
 
 /** A second bank account, or a first at a new bank. Starts at nothing. */
-async function openBank(client, { companyId, name }) {
+async function openBank(client, { companyId, name, currency }) {
   const clean = String(name || "").trim();
   if (clean.length < 2) throw new Error("A bank account needs a name, so a statement can say which one it was.");
   const { rows } = await client.query(
@@ -42,7 +48,9 @@ async function openBank(client, { companyId, name }) {
     [companyId, clean]
   );
   if (rows.length) throw new Error(`There is already an account called "${clean}".`);
-  return openAssetAccount(client, { companyId, prefix: "11", name: clean });
+  const cur = currency ? String(currency).trim().toUpperCase() : null;
+  if (cur && !/^[A-Z]{3}$/.test(cur)) throw new Error("A currency is three letters, like USD.");
+  return openAssetAccount(client, { companyId, prefix: "11", name: clean, currency: cur });
 }
 
 /**
@@ -52,7 +60,7 @@ async function openBank(client, { companyId, name }) {
  * connection is sent again until the phone hears back, and without it the
  * second send would move the money twice. Same ref, same answer.
  */
-async function transfer(client, { companyId, userId, fromId, toId, amount, note, on, clientRef }) {
+async function transfer(client, { companyId, userId, fromId, toId, amount, amountFc, note, on, clientRef }) {
   const laari = toLaari(amount);
   if (laari <= 0n) throw new Error("How much is moving?");
   if (!fromId || !toId) throw new Error("Say where it comes from and where it goes.");
@@ -80,6 +88,21 @@ async function transfer(client, { companyId, userId, fromId, toId, amount, note,
   const to = all.find((p) => p.id === toId);
   if (!from || !to) throw new Error("Money can only be moved between bank accounts and open cash boxes.");
 
+  // A place in another currency moves in that currency too. Both figures are
+  // what the bank said; the rate between them is recorded, not assumed.
+  let fc = null;
+  if (from.foreign || to.foreign) {
+    if (from.foreign && to.foreign && from.currency !== to.currency) {
+      throw new Error(`${from.currency} to ${to.currency} goes through a rufiyaa account, one step at a time.`);
+    }
+    const currency = from.foreign ? from.currency : to.currency;
+    if (amountFc === undefined || amountFc === null || amountFc === "") throw new Error(`How much in ${currency}?`);
+    const fcMinor = toLaari(amountFc);
+    if (fcMinor <= 0n) throw new Error(`How much in ${currency}?`);
+    fc = { currency, amount: fcMinor, rate: fx.rateBetween(laari, fcMinor) };
+  }
+  const fcOf = (p) => (p.foreign ? fc : null);
+
   const said = String(note || "").trim();
   const entry = await postEntry(client, {
     companyId,
@@ -89,11 +112,11 @@ async function transfer(client, { companyId, userId, fromId, toId, amount, note,
     sourceId: clientRef || null,
     narrative: `Moved ${formatLaari(laari)} from ${from.name} to ${to.name}${said ? ` - ${said}` : ""}`,
     lines: [
-      { accountId: to.id, debit: laari, memo: `From ${from.name}` },
-      { accountId: from.id, credit: laari, memo: `To ${to.name}` },
+      { accountId: to.id, debit: laari, memo: `From ${from.name}`, fc: fcOf(to) },
+      { accountId: from.id, credit: laari, memo: `To ${to.name}`, fc: fcOf(from) },
     ],
   });
-  return { entry, from, to, amount: laari, alreadyHad: false };
+  return { entry, from, to, amount: laari, fc, alreadyHad: false };
 }
 
 /**
