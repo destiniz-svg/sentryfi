@@ -284,13 +284,17 @@ The second half of the goal, and the thing nobody else does.
 
 ---
 
-### 12. The tax engine
+### 12. The tax engine — done 22 September 2026
 
 **Moved earlier in this revision, and the reason matters.** Bills currently hard-code 8%. Every bill recorded before this exists carries a rate the engine never set, and reconciling those afterwards is worse than ordering it correctly now, before the volume arrives.
 
 Rates, periods, treatments and forms as versioned configuration with effective dates. A rate change must not rewrite history: a bill keeps the rate it was quoted at.
 
 **Done when:** the Maldives pack drives everything the app hard-codes today, a second generic pack exists, and changing a rate from a date leaves every earlier bill untouched.
+
+**What happened.** All three hold. `backend/src/ledger/tax.js` holds the packs as dated data. The Maldives pack has general GST at 6% from 2 Jan 2013 and 8% from 1 Jan 2023. It has tourism GST from 3.5% in 2011 up to 17% from 1 Jul 2025, and returns due by the 28th. The generic pack has one rate that the company states. A bill or invoice gets the rate in force on its own date, and keeps it. A rate printed on the paper wins. A rate change is an append-only row in `tax_rates`, and it reaches only documents dated from that day. The GST arithmetic is in basis points, so a rate such as 8.5% is exact. Bills and invoices share one split. The old "default tax %" setting from the purchased product is gone from the screen. Browser check: `node tools/tax.js`. The rate history is from MIRA publications and is to be confirmed by the accountant before the first filing.
+
+Not done: the bill reader prompt still mentions 8% as a hint to the model. It never sets a rate.
 
 ---
 
