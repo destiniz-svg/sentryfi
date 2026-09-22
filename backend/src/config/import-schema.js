@@ -63,6 +63,31 @@ BEGIN
 END
 $rls$;
 GRANT UPDATE (organization_id, organization_name) ON zoho_connections TO sentryfi_app;
+
+-- Correcting what kind of account something is. No entry changes: every
+-- journal line keeps pointing at the same account, and the statements read
+-- the kind fresh each time. But it moves figures between the profit and loss
+-- and the balance sheet, so each change is written down with its reason.
+CREATE TABLE IF NOT EXISTS account_changes (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id  UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  account_id  UUID NOT NULL REFERENCES accounts(id),
+  from_type   TEXT NOT NULL,
+  to_type     TEXT NOT NULL,
+  from_code   TEXT NOT NULL,
+  to_code     TEXT NOT NULL,
+  reason      TEXT NOT NULL,
+  changed_by  UUID NOT NULL REFERENCES users(id),
+  changed_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE account_changes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE account_changes FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS company_isolation ON account_changes;
+CREATE POLICY company_isolation ON account_changes
+  USING (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid)
+  WITH CHECK (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid);
+GRANT SELECT, INSERT ON account_changes TO sentryfi_app;
+GRANT UPDATE (type, code) ON accounts TO sentryfi_app;
 GRANT DELETE ON zoho_connections TO sentryfi_app;
 `;
 

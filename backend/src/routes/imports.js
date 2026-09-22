@@ -70,4 +70,41 @@ router.post(
   })
 );
 
+/** After an import: which accounts' kind disagrees with their chart. Reads only. */
+router.post(
+  "/chart/check",
+  requireCan("manage_settings"),
+  express.text({ type: () => true, limit: "5mb" }),
+  asyncHandler(async (req, res) => {
+    const system = String(req.query.system || "zoho");
+    try {
+      const differ = await asCompany(req, (client) =>
+        history.chartDifferences(client, { companyId: req.companyId, system, text: typeof req.body === "string" ? req.body : "" })
+      );
+      res.json({ differ });
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
+/** Correct those accounts' kind. No entry changes; each change is logged with its reason. */
+router.post(
+  "/chart/apply",
+  requireCan("manage_settings"),
+  asyncHandler(async (req, res) => {
+    const changes = Array.isArray(req.body?.changes) ? req.body.changes : [];
+    if (!changes.length) throw ApiError.badRequest("Nothing to change.");
+    try {
+      res.json(
+        await asCompany(req, (client) =>
+          history.reclassify(client, { companyId: req.companyId, userId: req.user.id, changes, reason: req.body.reason })
+        )
+      );
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
 module.exports = router;

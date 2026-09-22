@@ -48,6 +48,8 @@ export default function Import() {
   const [ours, setOurs] = useState([]);
   // Their own account types, from their chart of accounts, when given.
   const [chart, setChart] = useState({});
+  // Accounts already brought in whose kind their chart disagrees with.
+  const [differ, setDiffer] = useState([]);
   // Where the transactions come from: a file, or Zoho directly over dates.
   const [source, setSource] = useState(null); // { kind: "csv" } | { kind: "zoho", from, to }
 
@@ -106,12 +108,34 @@ export default function Import() {
         .post("/imports/chart", await file.text(), { headers: { "Content-Type": "text/csv" } })
         .then((r) => r.data);
       setChart(types);
+      const csv = await file.text();
+      const check = await apiClient
+        .post(`/imports/chart/check?system=${system}`, csv, { headers: { "Content-Type": "text/csv" } })
+        .then((r) => r.data)
+        .catch(() => ({ differ: [] }));
+      setDiffer(check.differ);
       // Accounts already listed take their own type; ones pointed at an account here stay.
       setAnswer((m) => Object.fromEntries(Object.entries(m).map(([k, v]) => [k, v.startsWith("new:") && types[k] ? `new:${types[k]}` : v])));
     } catch (ex) {
       toast.error("That chart could not be read", ex.message);
     }
   }
+
+  const fix = useMutation({
+    mutationFn: () =>
+      apiClient
+        .post("/imports/chart/apply", {
+          changes: differ.map((d) => ({ accountId: d.accountId, type: d.should })),
+          reason: "Corrected from their chart of accounts",
+        })
+        .then((r) => r.data),
+    onSuccess: (r) => {
+      queryClient.invalidateQueries();
+      toast.success(`${r.changed} ${r.changed === 1 ? "account" : "accounts"} corrected`, "No entry changed. The statements now put them in the right place.");
+      setDiffer([]);
+    },
+    onError: (ex) => toast.error("Nothing was changed", ex.message),
+  });
 
   async function onBring() {
     const mapping = Object.fromEntries(
@@ -179,6 +203,34 @@ export default function Import() {
           </p>
         )}
       </Card>
+
+      {differ.length > 0 && (
+        <Card padding="none" className="overflow-hidden mb-4" data-testid="chart-differ">
+          <div className="px-5 pt-4 pb-2 text-[15px] font-semibold">
+            {differ.length} {differ.length === 1 ? "account was" : "accounts were"} brought in as the wrong kind
+          </div>
+          <p className="px-5 pb-3 text-[13px] text-[var(--ink-muted)]">
+            Their chart says otherwise. Correcting them changes no entry and no balance: it moves each one to the right place on the
+            profit and loss and the balance sheet. Each change is written down.
+          </p>
+          <ul className="divide-y divide-[var(--border)] border-t border-[var(--border)]">
+            {differ.map((d) => (
+              <li key={d.accountId} className="flex flex-wrap items-baseline justify-between gap-x-4 px-5 py-2.5 text-[14px]">
+                <span className="font-medium">{d.name}</span>
+                <span className="text-[13px] text-[var(--ink-muted)]">
+                  {TYPES.find((t) => t.value === d.now)?.label} → <strong className="text-[var(--ink)]">{TYPES.find((t) => t.value === d.should)?.label}</strong>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="flex justify-end px-5 py-4 border-t border-[var(--border)]">
+            <Button variant="accent" disabled={fix.isPending} onClick={() => fix.mutate()}>
+              {fix.isPending && <Loader2 size={15} className="animate-spin" />}
+              Correct {differ.length} {differ.length === 1 ? "account" : "accounts"}
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {look.isPending && (
         <p className="flex items-center gap-2 text-[14px] text-[var(--ink-muted)]">

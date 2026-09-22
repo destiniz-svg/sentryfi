@@ -11,7 +11,7 @@
 import { describe, it, expect, afterAll } from "vitest";
 import { inRollback, aCompanyWith, closePool } from "./setup";
 import { assumeIdentity } from "../src/ledger/post";
-import { read, money, guessType, readChart, preview, commit } from "../src/ledger/historyImport";
+import { read, money, guessType, readChart, chartDifferences, reclassify, preview, commit } from "../src/ledger/historyImport";
 import { trialBalance } from "../src/ledger/statements";
 
 afterAll(closePool);
@@ -136,6 +136,29 @@ describe("bringing it in", () => {
         [b.companyId]
       );
       expect(rows.map((r) => r.narrative)).toEqual([expect.stringMatching(/OB-1/), expect.stringMatching(/JV-7/)]);
+    }));
+
+  it("corrects an imported account's kind from their chart, moving nothing but the statements", () =>
+    inRollback(async (client) => {
+      const b = await aBusiness(client);
+      const p = await preview(client, { ...b.base, text: ZOHO });
+      // Brought in with a wrong guess: the rental income filed as spending.
+      const mapping = Object.fromEntries(p.accounts.filter((a) => !a.accountId).map((a) => [a.theirs, { create: a.theirs === "Rental Income" ? "expense" : a.suggestType }]));
+      await commit(client, { ...b.base, text: ZOHO, mapping });
+      const chart = '"Account Name","Account Type"\n"Fuel and Oil","Expense"\n"Rental Income","Income"';
+      const differ = await chartDifferences(client, { ...b.base, text: chart });
+      expect(differ.map((d) => [d.name, d.now, d.should])).toEqual([["Rental Income", "expense", "income"]]);
+
+      const before = await trialBalance(client, { companyId: b.companyId, asAt: "2025-12-31" });
+      await expect(reclassify(client, { ...b.base, changes: [{ accountId: differ[0].accountId, type: "income" }], reason: "" })).rejects.toThrow(/Say why/);
+      expect(await reclassify(client, { ...b.base, changes: [{ accountId: differ[0].accountId, type: "income" }], reason: "Their chart says so" })).toEqual({ changed: 1 });
+
+      const after = await trialBalance(client, { companyId: b.companyId, asAt: "2025-12-31" });
+      expect(after.debit).toBe(before.debit); // the entries are untouched
+      const { rows } = await client.query("SELECT type::text AS type, code FROM accounts WHERE id = $1", [differ[0].accountId]);
+      expect(rows[0].type).toBe("income");
+      expect(rows[0].code.startsWith("4")).toBe(true);
+      expect(await chartDifferences(client, { ...b.base, text: chart })).toEqual([]);
     }));
 
   it("will not bring anything in while an account is unanswered", () =>

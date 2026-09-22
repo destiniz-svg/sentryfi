@@ -216,6 +216,57 @@ function readChart(text) {
   return out;
 }
 
+const FAMILY = { asset: "1", liability: "2", equity: "3", income: "4", expense: "5" };
+
+/**
+ * Accounts brought in from a system whose kind here disagrees with their own
+ * chart: the ones to correct. Only accounts that came in through an import,
+ * so the starting chart is never second-guessed by somebody else's file.
+ */
+async function chartDifferences(client, { companyId, system, text }) {
+  const theirs = readChart(text);
+  const { rows } = await client.query(
+    `SELECT DISTINCT a.id, a.code, a.name, a.type::text AS type, m.their_name
+       FROM import_account_map m JOIN accounts a ON a.id = m.account_id
+      WHERE m.company_id = $1 AND m.system = $2`,
+    [companyId, system]
+  );
+  return rows
+    .filter((r) => theirs[r.their_name] && theirs[r.their_name] !== r.type)
+    .map((r) => ({ accountId: r.id, code: r.code, name: r.name, now: r.type, should: theirs[r.their_name] }));
+}
+
+/**
+ * Says what kind of account something really is. Nothing posted changes: the
+ * lines still point at the same account, and every statement reads the kind
+ * afresh. The code moves into the kind's own thousand so the chart still reads
+ * in order. Each change is written down with who made it and why.
+ */
+async function reclassify(client, { companyId, userId, changes, reason }) {
+  const why = String(reason || "").trim();
+  if (why.length < 3) throw new Error("Say why these accounts are being changed.");
+  let changed = 0;
+  for (const c of changes) {
+    if (!FAMILY[c.type]) throw new Error(`${c.type} is not a kind of account.`);
+    const { rows } = await client.query(
+      "SELECT id, code, name, type::text AS type FROM accounts WHERE id = $1 AND company_id = $2",
+      [c.accountId, companyId]
+    );
+    const a = rows[0];
+    if (!a) throw new Error("One of those accounts is not in these books.");
+    if (a.type === c.type) continue;
+    const code = a.code.startsWith(FAMILY[c.type]) ? a.code : await nextCode(client, { companyId, type: c.type });
+    await client.query("UPDATE accounts SET type = $3::account_t, code = $4 WHERE id = $1 AND company_id = $2", [a.id, companyId, c.type, code]);
+    await client.query(
+      `INSERT INTO account_changes (company_id, account_id, from_type, to_type, from_code, to_code, reason, changed_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [companyId, a.id, a.type, c.type, a.code, code, why, userId]
+    );
+    changed += 1;
+  }
+  return { changed };
+}
+
 /** Their account names, each with what it is here or a suggestion. */
 async function mapAccounts(client, { companyId, system, transactions }) {
   const theirs = new Map();
@@ -352,4 +403,4 @@ async function commit(client, { companyId, userId, system, text, transactions: g
   return { posted, remaining: fresh.length - batch.length, alreadyHad: had.size, unbalanced: transactions.filter((t) => !had.has(t.key) && !t.balanced).length };
 }
 
-module.exports = { read, money, guessType, readChart, preview, commit, finish };
+module.exports = { read, money, guessType, readChart, chartDifferences, reclassify, preview, commit, finish };
