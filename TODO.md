@@ -21,6 +21,7 @@ One list of everything left open, gathered from the steps below, so none of it h
 - Rotate the demo password before real money. The leaked screenshot still sits in the public repository's git history; purging it needs a history rewrite and the owner's say-so.
 
 **Still to build:**
+- **People, the rest of step 16:** spending limits per person; passkeys; ending every other session when a password changes; a password reset an administrator can hand out; a desk view for site staff and cash holders (today only their phone view is trimmed); a screen for posting the drafts site staff send in, if the bills list does not already make them obvious.
 - **Revaluing foreign balances at month end** (unrealised exchange gains and losses), and the realised gain or loss when a dollar bill is paid at a different rate. Today a dollar balance stays at the rufiyaa it came in at (step 15).
 - **Sales invoices in dollars**, and dollar lines in history import and bank statements (step 15).
 - **Opening balances straight from a trial balance** (Zoho's `.xlsx` or `.csv`). For Enricher they were converted by hand (step 14).
@@ -431,7 +432,14 @@ Held in the currency it happened in, reported in the company's own, with the rat
 
 **Done:** a request resolves to a company, checks membership, and carries capabilities.
 
-**Still owed:** the screens for adding people, spending limits, passkeys, and ending every other session when a password changes.
+**Done (22 September 2026):**
+- Settings, People: everyone in the books with their roles in plain words, open invitations, and a log of every change.
+- An administrator adds someone by email and role. Someone who already signs in to Sentryfi is in at once. Anyone else gets a one-use link, valid seven days, to send by WhatsApp; it opens a join page where they set their own name and password. Only a hash of the link is stored (`backend/src/ledger/people.js`, `backend/src/config/people-schema.js`).
+- Roles can be taken away; the only administrator cannot. The change log can be added to and never edited.
+- Site staff can photograph and send a bill, which waits as a draft for the office to post. Their phone shows the camera and nothing they cannot open.
+- Tests: `backend/test/people.test.js`. Browser check: `tools/people.js`.
+
+**Still owed:** see the "Still to build" list at the top.
 
 ---
 
