@@ -520,6 +520,33 @@ Quantity-based stock, landed cost, margin per unit.
 
 ---
 
+### 23a. Imports, and what a container really costs
+
+Asked for by the owner on 22 September 2026: "when we import products we are confused how this costing is done, including taxation and the charges banks charge."
+
+A **shipment** is the thing that collects costs. It opens when an order is placed or an invoice arrives, and it stays open for the weeks the goods take to arrive, gathering whatever comes against it:
+
+- The supplier's invoice, in its own currency, at the rate on the day.
+- Freight, insurance, and the agent's own invoice.
+- Customs duty, which in the Maldives is charged on the CIF value — the goods plus freight plus insurance — at the rate for that commodity.
+- What the bank charged to send the money: the transfer fee, any letter-of-credit commission, and the difference between the rate the bank gave and the rate the books use.
+- Inland transport, handling, and anything else spent getting the goods to where they are sold from.
+
+Each cost carries two answers the app suggests and a person can change: **does it belong in the cost of the goods** (freight, duty and the bank's fee do; a tax that can be claimed back does not, and storage caused by delay is a loss rather than a cost), and **how is it spread** across the items — by value, by weight, by volume, or by count. The result is a true cost per unit, beside the invoice price, with the difference said out loud: "these cost 14% more than the invoice."
+
+What it must do that a spreadsheet does not:
+
+- **Say what has not arrived.** A shipment knows the costs an import usually has, so it can say the clearing agent's bill is still missing and the cost per unit is not final.
+- **Handle a cost that arrives after the goods are sold.** It cannot go back into stock; it goes to the cost of what was sold, and the owner is told why.
+- **Keep the exchange difference separate.** The rate moving between the invoice and the payment is not part of what the goods cost; it is the currency, and hiding it inside stock hides it forever.
+- **Show the margin that follows.** What these goods must sell for to make the intended margin, from the landed cost rather than the invoice price.
+
+**Done when:** an owner can open one shipment and see what the container actually cost, what is still to come, what each unit costs landed, and what it must sell for — and a month later the stock on the balance sheet agrees with that figure.
+
+**To confirm with the accountant before it is built:** exactly when GST is charged on imported goods in the Maldives and when the input tax on it may be claimed, since duty is collected by Customs and GST is administered by MIRA, and the two are not the same event. The rule decides whether GST ever touches the cost of the goods.
+
+---
+
 ### 24. Hospitality
 
 Rooms, occupancy, ADR and RevPAR, food and beverage, guest deposits, agent commissions. When the hotel opens.
@@ -537,7 +564,7 @@ Last. It touches tax differently in every jurisdiction, so it waits for the engi
 Not a module: four properties every screen must have, asked for on 22 September 2026.
 
 - **Offline, everywhere a person works in the field.** Bills already queue and send themselves. The same must hold for cash spent, counts, deliveries received and confirming money handed over: recorded on the phone with no signal, sent when there is one, and never recorded twice.
-- **Guided.** Opening books, bringing history in, the first bill, the first close, the first return — walked through in the app, not in a manual.
+- **Guided, and teaching as it goes.** Opening books, bringing history in, the first bill, the first close, the first return — walked through in the app, not in a manual. Then one sentence beside the figure that explains it: why the bank's fee is part of what the goods cost and the reclaimable tax is not, why a late cost cannot go back into stock. A founder who uses this for a year should understand their own books.
 - **Made for AI to work with.** The reader exists for photographs and voice. Beyond it: the documented interface, the same door a person uses, for a company's own assistant and for other software. It may read, draft and propose; it may never post.
 - **Analytics a founder asks for.** Which site made money, who pays late, what the month costs before it ends, what is committed but unspent — each figure traceable to the entries behind it.
 
