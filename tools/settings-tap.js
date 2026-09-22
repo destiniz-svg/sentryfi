@@ -38,7 +38,10 @@ const seen = (page) =>
       for (const path of paths) {
         await page.locator(`a[href="${path}"]`).first().click();
         await page.waitForURL(`**${path}`, { timeout: 10000 });
-        await page.waitForTimeout(2000);
+        // Wait for the screen itself, not just the address: a page still
+        // fetching its figures has no heading to measure yet.
+        await page.locator("main h1").first().waitFor({ timeout: 15000 });
+        await page.waitForTimeout(1500);
         const o = await seen(page);
         const where = `${phone ? "phone" : "desk"} ${path}`;
         if (o > 0.99) ok(`${where} is visible on the first tap`);

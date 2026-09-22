@@ -18,6 +18,9 @@ const SIZES = [
   { name: "unfolded", width: 760, height: 1000, board: true },
   { name: "tablet", width: 1024, height: 1000, board: false },
 ];
+// /me is the field worker's own page and is the board at any width: whoever
+// opens it is someone who only ever sees the board.
+const ALWAYS_BOARD = new Set(["/me"]);
 const PAGES = ["/dashboard", "/cash", "/me"];
 
 const ok = (m) => console.log("  ok   " + m);
@@ -37,11 +40,12 @@ const bad = (m) => {
         await page.goto(BASE + path, { waitUntil: "networkidle", timeout: 45000 });
         await page.waitForTimeout(800);
         const board = await page.locator(".phone-board").count();
-        if (size.board && !board) {
+        const wantBoard = size.board || ALWAYS_BOARD.has(path);
+        if (wantBoard && !board) {
           bad(`${size.name} ${path}: the board is not there`);
           continue;
         }
-        if (!size.board) {
+        if (!wantBoard) {
           if (board) bad(`${size.name} ${path}: the phone board on a ${size.width}px screen`);
           else ok(`${size.name} ${path}: the desk register, as it should be`);
           continue;
