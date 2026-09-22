@@ -134,7 +134,7 @@ export default function Bills() {
           }
           action={
             canRecord && (
-              <Button variant="accent" onClick={() => setRecording(true)}>
+              <Button variant="outline" onClick={() => setRecording(true)}>
                 <Plus size={16} /> Record a bill
               </Button>
             )

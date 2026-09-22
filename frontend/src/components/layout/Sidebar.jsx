@@ -1,173 +1,91 @@
 import { NavLink } from "react-router-dom";
-import {
-  LayoutGrid,
-  Gauge,
-  Settings,
-  LogOut,
-  ReceiptText,
-  FileText,
-  Landmark,
-  Lock,
-  Scale,
-  Percent,
-} from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
+import { useCompany } from "@/context/CompanyContext";
+import { SECTIONS } from "@/lib/sections";
+import { ROLE_TEXT } from "@/lib/roles";
 import AILogo from "./AILogo";
 
-const NAV = [
-// Only what reads from the books. The rest is in config/readiness.js with
-// the step that brings each one back.
-  { to: "/dashboard", icon: LayoutGrid, label: "What needs you" },
-  { to: "/figures", icon: Gauge, label: "Figures" },
-  { to: "/bills", icon: ReceiptText, label: "Bills" },
-  { to: "/invoices", icon: FileText, label: "Invoices" },
-  { to: "/bank", icon: Landmark, label: "Bank and cash" },
-  { to: "/closing", icon: Lock, label: "Closing" },
-  { to: "/statements", icon: Scale, label: "Statements" },
-  { to: "/tax", icon: Percent, label: "GST return" },
-];
+/**
+ * The desk's rail (DESIGN.md, "The desk register, rebuilt").
+ *
+ * Grouped under condensed labels — Needs you, Money, The books — with the
+ * company's settings and the signed-in person at the foot, because a flat
+ * list stops working at about ten places and the module list is longer than
+ * that. 216px with a 2px ink rule on a wide screen; on a tablet it keeps its
+ * icons and drops the words, and every icon still carries its name.
+ */
 
-const ROW_BASE =
-  "relative flex items-center h-11 w-11 rounded-2xl overflow-hidden " +
-  "group-hover/sidebar:w-[200px] " +
-  "transition-[width,background-color,color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]";
+const LABEL = "font-display text-[14px] font-bold uppercase tracking-[0.10em] whitespace-nowrap";
 
-const LABEL_BASE =
-  "text-sm font-medium whitespace-nowrap pr-4 " +
-  "opacity-0 -translate-x-1 " +
-  "transition-[opacity,transform] duration-200 ease-out " +
-  "group-hover/sidebar:opacity-100 group-hover/sidebar:translate-x-0 group-hover/sidebar:delay-100";
-
-function NavItem({ to, icon: Icon, label }) {
+function Item({ to, icon: Icon, label }) {
   return (
-    <NavLink to={to} title={label} className="block">
-      {({ isActive }) => (
-        <div
-          className={cn(
-            ROW_BASE,
-            isActive
-              ? "bg-[var(--ink)] text-[var(--bg)] shadow-card"
-              : "text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]",
-          )}
-        >
-          <span className="h-11 w-11 flex items-center justify-center shrink-0">
-            <Icon size={18} strokeWidth={2} />
-          </span>
-          <span className={LABEL_BASE}>{label}</span>
-        </div>
-      )}
-    </NavLink>
-  );
-}
-
-function ActionRow({ icon: Icon, label, onClick, to }) {
-  const inner = (isActive) => (
-    <div
-      className={cn(
-        ROW_BASE,
-        isActive
-          ? "bg-[var(--ink)] text-[var(--bg)] shadow-card"
-          : "text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
-      )}
+    <NavLink
+      to={to}
+      end={to === "/dashboard"}
+      title={label}
+      aria-label={label}
+      className={({ isActive }) =>
+        cn(
+          "flex items-center gap-3 h-11 px-0 lg:px-5 justify-center lg:justify-start",
+          isActive ? "bg-[var(--ink)] text-[var(--accent)]" : "text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+        )
+      }
     >
-      <span className="h-11 w-11 flex items-center justify-center shrink-0">
-        <Icon size={18} />
-      </span>
-      <span className={LABEL_BASE}>{label}</span>
-    </div>
-  );
-
-  if (to) {
-    return (
-      <NavLink to={to} title={label} className="block">
-        {({ isActive }) => inner(isActive)}
-      </NavLink>
-    );
-  }
-
-  return (
-    <button onClick={onClick} title={label} className="block">
-      {inner(false)}
-    </button>
+      <Icon size={20} strokeWidth={2} aria-hidden="true" className="shrink-0" />
+      <span className={cn(LABEL, "hidden lg:inline truncate")}>{label}</span>
+    </NavLink>
   );
 }
 
 export function Sidebar() {
   const { user, logout } = useAuth();
-  const displayName = user?.name || "Account";
-  const displayEmail = user?.email || "";
+  const { company, roles, can } = useCompany();
+  const role = ROLE_TEXT[roles?.[0]]?.label;
 
   return (
-    <aside
-      className={cn(
-        "group/sidebar hidden md:flex shrink-0 h-[calc(100vh-32px)] sticky top-4 ml-4",
-        "flex-col items-center justify-between py-5 rounded-3xl",
-        "bg-[var(--surface)] border border-[var(--border)] shadow-card overflow-hidden",
-        "w-[88px] hover:w-[248px]",
-        "transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
-      )}
-    >
-      <div className="flex flex-col items-center gap-6 w-full">
-        <div
-          className={cn(
-            "flex items-center h-14 w-14 group-hover/sidebar:w-[200px]",
-            "transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
-          )}
-        >
-          <div className="h-12 w-12 flex items-center justify-center shrink-0">
-            <AILogo />
+    <aside className="hidden md:flex shrink-0 flex-col sticky top-0 h-screen w-[72px] lg:w-[216px] border-r-2 border-[var(--ink)] bg-[var(--surface)] py-6 overflow-y-auto">
+      <div className="flex items-center gap-2 px-0 lg:px-5 justify-center lg:justify-start mb-6">
+        <AILogo size={36} />
+        <div className="hidden lg:block min-w-0">
+          <div className="font-display text-[24px] font-semibold tracking-[-0.03em] leading-none">Sentryfi</div>
+          <div className="text-[12px] font-display font-bold uppercase tracking-[0.12em] text-[var(--ink-muted)] truncate mt-1">
+            {company?.name}
           </div>
-          <span
-            className={cn(
-              "ml-2 font-display text-base font-semibold text-[var(--ink)] whitespace-nowrap",
-              "opacity-0 -translate-x-1",
-              "transition-[opacity,transform] duration-200 ease-out",
-              "group-hover/sidebar:opacity-100 group-hover/sidebar:translate-x-0 group-hover/sidebar:delay-100",
-            )}
-          >
-            Sentryfi
-          </span>
         </div>
-
-        <nav className="flex flex-col items-center gap-1.5">
-          {NAV.map((item) => (
-            <NavItem key={item.to} {...item} />
-          ))}
-        </nav>
       </div>
 
-      <div className="flex flex-col items-center gap-2 w-full">
-        <ActionRow icon={Settings} label="Settings" to="/settings" />
-        <ActionRow icon={LogOut} label="Log out" onClick={logout} />
-
-        <div
-          className={cn(
-            "flex items-center h-12 mt-1 w-10 group-hover/sidebar:w-[200px] overflow-hidden",
-            "transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
-          )}
-        >
-          <div className="h-10 w-10 rounded-full bg-[var(--accent-soft)] text-[var(--accent-strong)] font-semibold flex items-center justify-center text-sm ring-2 ring-[var(--surface)] shrink-0">
-            {user?.name?.[0]?.toUpperCase() || "R"}
-          </div>
-          <div
-            className={cn(
-              "ml-3 min-w-0 flex-1",
-              "opacity-0 -translate-x-1",
-              "transition-[opacity,transform] duration-200 ease-out",
-              "group-hover/sidebar:opacity-100 group-hover/sidebar:translate-x-0 group-hover/sidebar:delay-100",
-            )}
-          >
-            <div className="text-sm font-semibold text-[var(--ink)] truncate">
-              {displayName}
+      <nav aria-label="Sections" className="flex-1">
+        {SECTIONS.map((s, i) => (
+          <div key={s.label} className={i ? "mt-4" : ""}>
+            <div className="hidden lg:block px-5 pb-1.5 font-display text-[12px] font-bold uppercase tracking-[0.12em] text-[var(--ink-muted)]">
+              {s.label}
             </div>
-            {displayEmail && (
-              <div className="text-[12px] text-[var(--ink-muted)] truncate">
-                {displayEmail}
-              </div>
-            )}
+            {i > 0 && <div className="lg:hidden mx-4 mb-4 border-t border-[var(--border)]" aria-hidden="true" />}
+            {s.items.filter((it) => !it.can || can(it.can)).map((it) => (
+              <Item key={it.to} {...it} />
+            ))}
           </div>
+        ))}
+      </nav>
+
+      <div className="border-t border-[var(--border)] pt-3 mt-4">
+        <Item to="/settings" icon={Settings} label="Settings" />
+        <div className="hidden lg:block px-5 pt-3">
+          <div className="text-[14px] font-semibold truncate">{user?.name || "Account"}</div>
+          {role && <div className="text-[12px] text-[var(--ink-muted)] truncate">{role}</div>}
         </div>
+        <button
+          type="button"
+          onClick={logout}
+          title="Sign out"
+          aria-label="Sign out"
+          className="flex items-center gap-3 h-11 w-full px-0 lg:px-5 justify-center lg:justify-start text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)] mt-1"
+        >
+          <LogOut size={20} aria-hidden="true" className="shrink-0" />
+          <span className={cn(LABEL, "hidden lg:inline")}>Sign out</span>
+        </button>
       </div>
     </aside>
   );

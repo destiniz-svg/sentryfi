@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { companiesApi } from "@/api/companies";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
+import { ROLE_TEXT } from "@/lib/roles";
 
 /**
  * Who is in these books, and what each of them may do.
@@ -17,17 +18,6 @@ import { useToast } from "@/context/UIContext";
  * password. Nobody chooses a password for somebody else.
  */
 
-export const ROLE_TEXT = {
-  administrator: { label: "Owner / administrator", does: "Everything, including people and settings" },
-  accountant: { label: "Accountant", does: "Keeps and closes the books, approves, runs petty cash" },
-  manager: { label: "Manager", does: "Records bills and invoices, reads the figures" },
-  approver: { label: "Approver", does: "Approves what others record" },
-  viewer: { label: "Viewer", does: "Reads the figures, changes nothing" },
-  auditor: { label: "Auditor", does: "Reads everything, including the trail" },
-  site_staff: { label: "Site staff", does: "Photographs bills and runs the cash tin handed to them" },
-  cash_holder: { label: "Cash holder", does: "Runs the cash tin handed to them, nothing else" },
-  procurement: { label: "Procurement", does: "Orders and receives" },
-};
 
 const CHANGE_TEXT = {
   added: "added as",

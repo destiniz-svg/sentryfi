@@ -5,7 +5,7 @@ import { ArrowRight, Loader2 } from "lucide-react";
 import { AuthShell, AuthField, AuthPrimaryButton, AuthErrorBanner } from "@/components/auth/AuthShell";
 import AILogo from "@/components/layout/AILogo";
 import { apiClient } from "@/api/client";
-import { ROLE_TEXT } from "@/components/settings/PeopleSection";
+import { ROLE_TEXT } from "@/lib/roles";
 
 /**
  * Where a join link lands.

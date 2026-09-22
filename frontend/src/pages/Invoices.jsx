@@ -203,7 +203,7 @@ export default function Invoices() {
           }
           action={
             mayRecord && (
-              <Button variant="accent" onClick={() => { setRaiseKey((k) => k + 1); setRaising(true); }}>
+              <Button variant="outline" onClick={() => { setRaiseKey((k) => k + 1); setRaising(true); }}>
                 <Plus size={16} /> New invoice
               </Button>
             )
