@@ -21,7 +21,7 @@ One list of everything left open, gathered from the steps below, so none of it h
 - Rotate the demo password before real money. The leaked screenshot still sits in the public repository's git history; purging it needs a history rewrite and the owner's say-so.
 
 **Still to build:**
-- **People, the rest of step 16:** spending limits per person; passkeys; ending every other session when a password changes; a password reset an administrator can hand out; a desk view for site staff and cash holders (today only their phone view is trimmed); a screen for posting the drafts site staff send in, if the bills list does not already make them obvious.
+- **People, the rest of step 16:** spending limits per person; passkeys; ending every other session when a password changes; a password reset an administrator can hand out; a clear queue on the desk for the drafts site staff send in; spending limits on a tin (a single spend over N needs approval); reimbursing a holder who paid out of their own pocket with no tin at all (an expense claim).
 - **Revaluing foreign balances at month end** (unrealised exchange gains and losses), and the realised gain or loss when a dollar bill is paid at a different rate. Today a dollar balance stays at the rufiyaa it came in at (step 15).
 - **Sales invoices in dollars**, and dollar lines in history import and bank statements (step 15).
 - **Opening balances straight from a trial balance** (Zoho's `.xlsx` or `.csv`). For Enricher they were converted by hand (step 14).
@@ -437,7 +437,9 @@ Held in the currency it happened in, reported in the company's own, with the rat
 - An administrator adds someone by email and role. Someone who already signs in to Sentryfi is in at once. Anyone else gets a one-use link, valid seven days, to send by WhatsApp; it opens a join page where they set their own name and password. Only a hash of the link is stored (`backend/src/ledger/people.js`, `backend/src/config/people-schema.js`).
 - Roles can be taken away; the only administrator cannot. The change log can be added to and never edited.
 - Site staff can photograph and send a bill, which waits as a draft for the office to post. Their phone shows the camera and nothing they cannot open.
-- Tests: `backend/test/people.test.js`. Browser check: `tools/people.js`.
+- Roles follow common small-business practice (Xero, QuickBooks, Zoho Books): owner; accountant (keeps and closes the books, approves, runs petty cash); manager; approver; viewer; auditor; and field roles. Site staff photograph bills and run the tin handed to them; a cash holder runs a tin only. Field roles reach only home, their own tin and a Me page (password, sign out), on any device; Settings and every office page send them home.
+- Cash tins have a float. What was spent shows as "to reimburse", on the holder's phone and on the Bank page, where the owner or accountant hands a tin to someone, changes the holder or float, and reimburses from a bank account in one tap. A holder sees and uses only their own tin.
+- Tests: `backend/test/people.test.js`, `backend/test/cash.test.js`. Browser check: `tools/people.js`.
 
 **Still owed:** see the "Still to build" list at the top.
 
