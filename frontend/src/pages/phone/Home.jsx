@@ -21,6 +21,41 @@ import { RecordBill } from "@/components/bills/RecordBill";
  */
 
 export default function PhoneHome() {
+  const { can } = useCompany();
+  return can("read") ? <BooksHome /> : <SendHome />;
+}
+
+/**
+ * Home for someone whose job is to send bills in, not to read the books:
+ * site staff. The camera, and nothing that would only say "not allowed".
+ */
+function SendHome() {
+  const { count } = useOutbox();
+  const [snapping, setSnapping] = useState(false);
+  return (
+    <PhoneShell
+      heading="Send a bill"
+      unit=""
+      figure="Snap it"
+      position="The office puts it in the books"
+      sync={count > 0 ? `${count} waiting` : "Up to date"}
+      onSnap={() => setSnapping(true)}
+    >
+      <div className="px-5 pt-5">
+        <div className="border-t pt-4 font-display text-[28px] leading-[1.05] font-bold" style={{ borderColor: "var(--border)" }}>
+          Every bill, as it arrives
+        </div>
+        <p className="mt-2 text-[15px] leading-[1.45]">
+          Press the yellow button, photograph the bill, check what was read, and send it. No signal? It waits on this
+          phone and sends itself later.
+        </p>
+      </div>
+      <RecordBill open={snapping} onClose={() => setSnapping(false)} />
+    </PhoneShell>
+  );
+}
+
+function BooksHome() {
   const { companyId } = useCompany();
   const { count } = useOutbox();
   const [snapping, setSnapping] = useState(false);

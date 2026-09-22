@@ -110,10 +110,14 @@ const NAV_RIGHT = [
 function PhoneNav({ onSnap }) {
   const { pathname } = useLocation();
   const { count } = useOutbox();
+  const { can } = useCompany();
+  // Only the places this person can open. Site staff get the camera and More.
+  const shows = (to) =>
+    to === "/bills" ? can("read") : to === "/cash" ? can("read") || can("spend_cash") || can("count_cash") : true;
 
   return (
     <nav aria-label="Main" className="on-ink phone-nav">
-      {NAV.map((item) => (
+      {NAV.filter((item) => shows(item.to)).map((item) => (
         <NavItem key={item.to} item={item} active={pathname === item.to} />
       ))}
 
@@ -136,7 +140,7 @@ function PhoneNav({ onSnap }) {
         )}
       </button>
 
-      {NAV_RIGHT.map((item) => (
+      {NAV_RIGHT.filter((item) => shows(item.to)).map((item) => (
         <NavItem key={item.to} item={item} active={pathname === item.to} />
       ))}
     </nav>

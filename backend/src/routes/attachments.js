@@ -26,7 +26,7 @@ router.use(requireAuth, requireCompany);
 /** Attach a file to a bill. */
 router.post(
   "/bills/:id",
-  requireCan("record"),
+  requireCan("record", "capture"),
   uploadReceipt("file"),
   asyncHandler(async (req, res) => {
     const sha = crypto.createHash("sha256").update(req.file.buffer).digest();

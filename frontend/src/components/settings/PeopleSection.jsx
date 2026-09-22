@@ -60,6 +60,7 @@ export function PeopleSection() {
   const withdraw = useMutation({ mutationFn: companiesApi.withdrawInvite, onSuccess: refresh });
 
   const manage = can("manage_people");
+  const admins = data?.members.filter((m) => m.roles.includes("administrator")).length || 0;
 
   async function onAdd(e) {
     e.preventDefault();
@@ -130,7 +131,7 @@ export function PeopleSection() {
                     className="inline-flex items-center gap-1 h-8 pl-3 pr-1 rounded-full border border-[var(--border)] text-[13px]"
                   >
                     {ROLE_TEXT[r]?.label || r}
-                    {manage && (
+                    {manage && !(r === "administrator" && admins <= 1) && (
                       <button
                         type="button"
                         aria-label={`Take ${ROLE_TEXT[r]?.label || r} away from ${m.name}`}

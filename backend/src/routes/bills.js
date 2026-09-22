@@ -84,7 +84,7 @@ const serialize = (row) => ({
  */
 router.post(
   "/scan",
-  requireCan("record"),
+  requireCan("record", "capture"),
   // Every scan is a paid call to the reader. The limiter used to sit only on
   // the purchased AI routes, so this one — the one actually in use — had none.
   aiLimiter,
@@ -221,7 +221,7 @@ router.get(
  */
 router.post(
   "/",
-  requireCan("record"),
+  requireCan("record", "capture"),
   asyncHandler(async (req, res) => {
     const parsed = billBody.safeParse(req.body);
     if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);

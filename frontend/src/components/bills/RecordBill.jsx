@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { useBillMutations } from "@/hooks/useBills";
 import { billsApi } from "@/api/bills";
 import { bankApi } from "@/api/bank";
+import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 import { useOutbox } from "@/context/OutboxContext";
 import { usePhone } from "@/lib/phone";
@@ -60,6 +61,7 @@ export function RecordBill({ open, onClose }) {
   // screen both registers share, so it carries both and picks.
   const board = usePhone();
   const { offer } = useUndo();
+  const { can } = useCompany();
   const inputClass = board ? BOARD_INPUT : DESK_INPUT;
 
   // A field the reader doubted wears the yellow; everything else stays ink on
@@ -347,6 +349,17 @@ export function RecordBill({ open, onClose }) {
        * The desk keeps the two steps. An accountant is reviewing what other
        * people recorded, and that is a different act from recording it.
        */
+      // Site staff send the bill in; putting it in the books is somebody
+      // else's job, so for them recording is the whole of it.
+      if (board && !can("record")) {
+        toast.success(
+          `Sent · ${form.supplierName.trim()}`,
+          "Someone in the office checks it and puts it in the books."
+        );
+        onClose();
+        return;
+      }
+
       if (board) {
         try {
           const entry = await post.mutateAsync(result.bill.id);
