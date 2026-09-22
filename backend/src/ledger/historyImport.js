@@ -174,7 +174,9 @@ const TYPE_BY_CODE = { 1: "asset", 2: "liability", 3: "equity", 4: "income", 5: 
 function guessType(name, code) {
   if (/^\d/.test(code || "") && TYPE_BY_CODE[code[0]]) return TYPE_BY_CODE[code[0]];
   const n = name.toLowerCase();
-  if (/receivable|bank|cash|petty|deposit|prepaid|inventory|stock|equipment|vehicle|furniture|input (tax|gst)|gst (paid|receivable|claim)/.test(n)) return "asset";
+  // A current account with another company ("KENGO PVT LTD C/A") is money between the two,
+  // held as an asset until it is known which way it runs.
+  if (/receivable|bank|cash|petty|deposit|prepaid|inventory|stock|equipment|vehicle|furniture|building|land|machinery|input (tax|gst)|gst (paid|receivable|claim)|c/a|current a/?c|current account/.test(n)) return "asset";
   if (/payable|loan|accrued|output (tax|gst)|gst (payable|owed)|tax payable|advance from|director.*(loan|current)/.test(n)) return "liability";
   if (/capital|equity|retained|drawings|share|reserve/.test(n)) return "equity";
   if (/income|revenue|sales|rental income|interest received|discount received/.test(n)) return "income";

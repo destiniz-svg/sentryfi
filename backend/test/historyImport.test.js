@@ -66,6 +66,7 @@ describe("reading the file", () => {
   it("guesses what an unknown account is from its name", () => {
     expect([guessType("Accounts Receivable"), guessType("GST Payable"), guessType("Owner's Capital"), guessType("Rental Income"), guessType("Fuel and Oil")])
       .toEqual(["asset", "liability", "equity", "income", "expense"]);
+    expect([guessType("KENGO PVT LTD C/A"), guessType("Bever Builders Current Account"), guessType("VILUDHOLHI BUILDING")]).toEqual(["asset", "asset", "asset"]);
   });
 });
 
