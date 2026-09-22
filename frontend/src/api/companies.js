@@ -20,6 +20,11 @@ export const companiesApi = {
       .get("/companies/current", { params: companyId ? { company: companyId } : undefined })
       .then((r) => r.data),
 
-  /** Who else is in it. */
+  /** Who is in it, open invitations, and the last changes. */
   people: () => apiClient.get("/companies/current/people").then((r) => r.data),
+
+  /** In at once if they have a login; otherwise a join token to send them. */
+  addPerson: (body) => apiClient.post("/companies/current/people", body).then((r) => r.data),
+  removeRole: (userId, role) => apiClient.delete(`/companies/current/people/${userId}/roles/${role}`).then((r) => r.data),
+  withdrawInvite: (id) => apiClient.delete(`/companies/current/invites/${id}`).then((r) => r.data),
 };

@@ -13,6 +13,7 @@ import { useSettings, useUpdateSettings } from "@/hooks/useSettings";
 import { CURRENCIES, cn } from "@/lib/utils";
 import { TaxSection } from "@/components/settings/TaxSection";
 import { CompaniesSection } from "@/components/settings/CompaniesSection";
+import { PeopleSection } from "@/components/settings/PeopleSection";
 
 function FieldLabel({ children, htmlFor }) {
   return (
@@ -381,6 +382,7 @@ export default function Settings() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="company">Company</TabsTrigger>
+          <TabsTrigger value="people">People</TabsTrigger>
           <TabsTrigger value="companies">Companies</TabsTrigger>
           <TabsTrigger value="tax">Tax</TabsTrigger>
           <TabsTrigger value="profile">Account</TabsTrigger>
@@ -391,6 +393,9 @@ export default function Settings() {
         <div className="mt-6">
           <TabsContent value="company">
             <CompanySection />
+          </TabsContent>
+          <TabsContent value="people">
+            <PeopleSection />
           </TabsContent>
           <TabsContent value="companies">
             <CompaniesSection />

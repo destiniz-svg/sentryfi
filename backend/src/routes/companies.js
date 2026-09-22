@@ -7,6 +7,8 @@ const { requireAuth } = require("../middleware/auth");
 const { requireCompany, requireCan, CAN } = require("../middleware/company");
 const { withTransaction } = require("../config/db");
 const { assumeIdentity } = require("../ledger/post");
+const { asCompany } = require("../ledger/session");
+const people = require("../ledger/people");
 
 const router = express.Router();
 router.use(requireAuth);
@@ -128,26 +130,72 @@ router.post(
   })
 );
 
-/** Who else is in this company. */
+/** Who is in this company, what each may do, open invitations and the last changes. */
 router.get(
   "/current/people",
   requireCompany,
   requireCan("read"),
   asyncHandler(async (req, res) => {
-    const people = await withTransaction(async (client) => {
-      await assumeIdentity(client, { companyId: req.companyId, userId: req.user.id });
-      const { rows } = await client.query(
-        `SELECT m.id, m.role::text AS role, m.spend_limit_laari,
-                u.id AS user_id, u.name, u.email
-           FROM memberships m
-           JOIN users u ON u.id = m.user_id
-          WHERE m.company_id = $1
-          ORDER BY u.name`,
-        [req.companyId]
+    const found = await asCompany(req, (client) => people.list(client, { companyId: req.companyId }));
+    res.json({ ...found, you: { id: req.user.id, roles: req.roles } });
+  })
+);
+
+const newPerson = z.object({
+  email: z.string().trim().toLowerCase().email("That is not an email address."),
+  role: z.enum(people.ROLES),
+});
+
+/** Adds someone, or makes them a link to join with. */
+router.post(
+  "/current/people",
+  requireCompany,
+  requireCan("manage_people"),
+  asyncHandler(async (req, res) => {
+    const parsed = newPerson.safeParse(req.body);
+    if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
+    try {
+      const done = await asCompany(req, (client) =>
+        people.add(client, { companyId: req.companyId, userId: req.user.id, ...parsed.data })
       );
-      return rows;
-    });
-    res.json({ people, you: { roles: req.roles } });
+      res.status(201).json(done);
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
+router.delete(
+  "/current/people/:userId/roles/:role",
+  requireCompany,
+  requireCan("manage_people"),
+  asyncHandler(async (req, res) => {
+    try {
+      await asCompany(req, (client) =>
+        people.removeRole(client, {
+          companyId: req.companyId, userId: req.user.id, memberId: req.params.userId, role: req.params.role,
+        })
+      );
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+    res.json({ ok: true });
+  })
+);
+
+router.delete(
+  "/current/invites/:id",
+  requireCompany,
+  requireCan("manage_people"),
+  asyncHandler(async (req, res) => {
+    try {
+      await asCompany(req, (client) =>
+        people.withdraw(client, { companyId: req.companyId, userId: req.user.id, inviteId: req.params.id })
+      );
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+    res.json({ ok: true });
   })
 );
 

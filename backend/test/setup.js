@@ -26,6 +26,7 @@ const { PERIOD_SQL } = require("../src/config/period-schema");
 const { TAX_SQL } = require("../src/config/tax-schema");
 const { IMPORT_SQL } = require("../src/config/import-schema");
 const { FX_SQL } = require("../src/config/fx-schema");
+const { PEOPLE_SQL } = require("../src/config/people-schema");
 
 const url = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
 
@@ -82,6 +83,7 @@ async function applySchemaOn(p) {
   await p.query(TAX_SQL);
   await p.query(IMPORT_SQL);
   await p.query(FX_SQL);
+  await p.query(PEOPLE_SQL);
 }
 
 /**

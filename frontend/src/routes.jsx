@@ -10,6 +10,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
+import Join from "@/pages/Join";
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
 import OpenBooks from "@/pages/OpenBooks";
@@ -102,6 +103,7 @@ export const router = createBrowserRouter([
   { path: "/", element: <Landing />, errorElement: <ErrorPage /> },
   { path: "/login", element: <Login />, errorElement: <ErrorPage /> },
   { path: "/register", element: <Register />, errorElement: <ErrorPage /> },
+  { path: "/join/:token", element: <Join />, errorElement: <ErrorPage /> },
   {
     path: "/",
     element: <ProtectedShell />,

@@ -13,6 +13,7 @@ const { notFound, errorHandler } = require("./middleware/errorHandler");
 const healthRouter = require("./routes/health");
 const authRouter = require("./routes/auth");
 const settingsRouter = require("./routes/settings");
+const invitesRouter = require("./routes/invites");
 const itemsRouter = require("./routes/items");
 const companiesRouter = require("./routes/companies");
 const billsRouter = require("./routes/bills");
@@ -61,6 +62,7 @@ if (!env.isProd) app.use(morgan("dev"));
 app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/settings", settingsRouter);
+app.use("/api/invites", invitesRouter);
 app.use("/api/items", itemsRouter);
 // The ledger side. Everything below here is scoped to a company by
 // requireCompany, and every write goes through asCompany so the database
