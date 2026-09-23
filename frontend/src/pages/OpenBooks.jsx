@@ -62,7 +62,7 @@ export default function OpenBooks() {
       <div className="w-full max-w-[460px]">
         <AILogo size={40} />
 
-        <h1 className="text-[32px] leading-[1.08] tracking-[-0.03em] font-semibold text-[var(--ink)] mt-7">
+        <h1 className="text-[28px] leading-[1.08] tracking-[-0.03em] font-semibold text-[var(--ink)] mt-7">
           Open a set of books.
         </h1>
         <p className="text-[var(--ink-muted)] mt-3 text-[15px] leading-relaxed">

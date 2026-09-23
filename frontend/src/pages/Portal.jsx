@@ -41,7 +41,7 @@ export default function Portal() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-[13px] uppercase tracking-[0.12em] font-display font-bold text-[var(--ink-muted)]">{data.company.name}</div>
-            <h1 className="font-display text-[30px] font-bold tracking-tight mt-1">{data.customer}</h1>
+            <h1 className="font-display text-[28px] font-semibold tracking-tight mt-1">{data.customer}</h1>
             {data.company.tin && <div className="text-[13px] text-[var(--ink-muted)]">Their GST number {data.company.tin}</div>}
           </div>
           <button type="button" onClick={() => window.print()} className="print:hidden h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--surface)] inline-flex items-center gap-2 text-[14px]">

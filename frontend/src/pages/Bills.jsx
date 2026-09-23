@@ -161,6 +161,14 @@ export default function Bills() {
               // In the books means the money has moved, and moved money is
               // reversed, never voided.
               const inBooks = bill.status === "posted";
+              const who = bill.supplier_name || "this supplier";
+              const more = canRecord && !isVoid
+                ? inBooks
+                  ? [{ label: "Take it back out", icon: Undo2, onSelect: () => onReverse(bill) }]
+                  : [{ label: "Void it", icon: Ban, onSelect: () => setVoiding(bill) }]
+                : [];
+              const menu = more.length > 0 && <RowMenu label={`More for the bill from ${who}`} busy={reversing === bill.id} items={more} />;
+              const decide = canRecord && !isVoid && !inBooks;
               return (
                 <div
                   key={bill.id}
@@ -192,7 +200,8 @@ export default function Bills() {
                     )}
                   </div>
 
-                  <div className="order-3 md:order-none col-span-2 md:col-span-1">
+                  <div className="order-3 md:order-none col-span-2 md:col-span-1 flex items-start justify-between gap-2">
+                    <div className="min-w-0">
                     <Badge tone={isVoid ? "neutral" : status.tone} title={bill.void_reason || undefined}>
                       {isVoid ? "Void" : status.label}
                     </Badge>
@@ -201,9 +210,11 @@ export default function Bills() {
                         Say how its GST was quoted
                       </span>
                     )}
+                    </div>
+                    <div className="md:hidden -my-2 -mr-2">{menu}</div>
                   </div>
 
-                  <div className="order-4 md:order-none col-span-2 md:col-span-1 md:justify-self-end flex flex-wrap items-center gap-1.5 empty:hidden">
+                  <div className={`order-4 md:order-none col-span-2 md:col-span-1 md:justify-self-end flex-wrap items-center gap-1.5 ${decide ? "flex" : "hidden md:flex"}`}>
                     {canRecord && !isVoid && bill.status !== "posted" && (
                       <Button variant="ghost" onClick={() => setSplitting(bill)} aria-label={`What the bill from ${bill.supplier_name || "this supplier"} was for`}>
                         <ListTree size={14} /> What it was for
@@ -219,22 +230,7 @@ export default function Bills() {
                         Put in the books
                       </Button>
                     )}
-                    {canRecord && !isVoid && inBooks && (
-                      <RowMenu
-                        label={`More for the bill from ${bill.supplier_name || "this supplier"}`}
-                        busy={reversing === bill.id}
-                        items={[{ label: "Take it back out", icon: Undo2, onSelect: () => onReverse(bill) }]}
-                      />
-                    )}
-                    {canRecord && !isVoid && !inBooks && (
-                      <button
-                        onClick={() => setVoiding(bill)}
-                        aria-label={`Void the bill from ${bill.supplier_name || "this supplier"}`}
-                        className="h-11 w-11 rounded-full flex items-center justify-center text-[var(--ink-muted)] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 transition-opacity hover:bg-[var(--surface-2)] hover:text-[var(--danger)]"
-                      >
-                        <Ban size={15} />
-                      </button>
-                    )}
+                    <div className="hidden md:block">{menu}</div>
                   </div>
                 </div>
               );

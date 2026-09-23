@@ -37,7 +37,7 @@ export default function MobileMoney() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-display text-[30px] font-bold tracking-tight">Money</h1>
+      <h1 className="font-display text-[28px] font-semibold tracking-tight">Money</h1>
       <Segments
         label="Money"
         value={view}

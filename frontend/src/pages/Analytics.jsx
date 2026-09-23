@@ -68,7 +68,7 @@ export default function Analytics() {
     <div className="space-y-4 min-w-0">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="font-display text-[30px] font-semibold tracking-tight leading-none">Analytics</h1>
+          <h1 className="font-display text-[28px] font-semibold tracking-tight leading-none">Analytics</h1>
           <p className="text-[14px] text-[var(--ink-muted)] mt-1.5">
             {span(period)}, against {a ? (a.compare === "year" ? `the same dates a year earlier (${formatDate(a.previous.from)} – ${formatDate(a.previous.to)})` : `${formatDate(a.previous.from)} – ${formatDate(a.previous.to)}`) : "the period before"}. Every figure opens onto its entries.
           </p>

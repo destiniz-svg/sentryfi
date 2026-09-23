@@ -6,6 +6,7 @@ colors:
   ink: "#141414"
   board-white: "#FFFFFF"
   concrete: "#6B7078"
+  caption: "#5C5B55"
   money-in: "#167A41"
   money-out: "#C62B20"
   hairline: "#E6E7EA"
@@ -45,6 +46,18 @@ typography:
     fontSize: "15px"
     fontWeight: 600
     lineHeight: 1.3
+    letterSpacing: "normal"
+  page-title:
+    fontFamily: "Barlow, Helvetica Neue, Arial, sans-serif"
+    fontSize: "28px"
+    fontWeight: 600
+    lineHeight: 1.15
+    letterSpacing: "-0.02em"
+  body-lg:
+    fontFamily: "Barlow, Helvetica Neue, Arial, sans-serif"
+    fontSize: "16px"
+    fontWeight: 400
+    lineHeight: 1.45
     letterSpacing: "normal"
   body:
     fontFamily: "Barlow, Helvetica Neue, Arial, sans-serif"
@@ -97,6 +110,9 @@ typography:
     letterSpacing: "-0.03em"
 rounded:
   none: "0px"
+  control: "12px"
+  card: "20px"
+  sheet: "28px"
   full: "9999px"
 spacing:
   hair: "2px"
@@ -466,6 +482,9 @@ The floating nav on the phone is tinted ink glass: `rgba(20,20,20,0.88)` with `b
 **The Glass Is Navigation Rule.** Tinted ink glass with blur belongs to the phone nav bar only.
 
 ## Shapes
+
+**The refined register (24 September 2026).** The main app, desk and phone, now rounds on four steps: `12px` for controls, list rows and the rail's current-page pill; `20px` for cards (`24px` for the one black card); `28px` for the top of a sheet rising from the bottom edge; and `9999px` for buttons, chips, segmented controls and avatars. Cards separate by a soft lift, not a border. The square rule below still describes the site-staff board and the printed paper; it no longer describes the main app. On a phone nothing is set below 13px, captions use `caption` (#5C5B55, 6.3:1 on the ground) so they hold up in daylight, and fields and phone body copy use `body-lg` (16px). The desk rail is sentence-case Barlow at 15px with the current page as a rounded ink pill, the same as the Settings list; condensed capitals are kept for the wordmark and numbers, not for navigation or status.
+
 
 Square **on the phone board**. Every field, strip, button, input, tag, pill, tile, and table cell has `border-radius: 0` there. **The desk register rounds**, on the scale `0`, `10px` for controls, `14px` for cards and `9999px` for pills and avatars; nothing else is permitted. Circles are reserved for the shutter (an ink disc inside a yellow ring, at a 76:58, 88:68, or 84:64 ratio), the brand mark (a yellow disc with a 6-unit ink ring, one horizontal rule, one vertical post), and the app icon's platform-masked tile (`rx` 116 on 512). The receipt placeholder sits at -4deg to read as a physical object; nothing else rotates.
 
