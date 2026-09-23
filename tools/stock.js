@@ -130,12 +130,25 @@ const api = (page, method, url, body) =>
     await page.waitForTimeout(1000);
     if (/14 bag/.test(await row().innerText()) && /1,610\.00/.test(await row().innerText())) ok("counted one short: 14 left, worth 1,610.00");
     else bad(`after the count the row reads: ${(await row().innerText()).replace(/\s+/g, " ")}`);
+    // Two bags come back on a credit note, at the 115.00 they left at.
+    await page.goto(BASE + "/invoices", { waitUntil: "networkidle" });
+    const creditBtn = page.getByRole("button", { name: "Credit note" });
+    await page.locator("div").filter({ hasText: `Check stock customer ${tag}` }).filter({ has: creditBtn }).last().getByRole("button", { name: "Credit note" }).click();
+    await page.fill("#credit-amount", "300");
+    await page.fill("#credit-reason", "Two bags came back");
+    await page.getByLabel(`${name} coming back`).fill("2");
+    await page.getByRole("button", { name: /^Credit MVR/ }).click();
+    await page.waitForURL(/\/documents\/credit_note\//, { timeout: 20000 });
+    await page.goto(BASE + "/stock", { waitUntil: "networkidle" });
+    const returned = (await row().innerText()).replace(/\s+/g, " ");
+    if (/16 bag/.test(returned) && /1,840\.00/.test(returned)) ok("two bags came back on a credit note: 16 on hand, worth 1,840.00");
+    else bad(`after the credit note the row reads: ${returned}`);
     await page.screenshot({ path: "shots/stock-desk.png", fullPage: true });
 
     await row().getByRole("button").first().click();
     await page.getByText(/Counted 1 bag|Counted -1|Counted/).first().waitFor({ timeout: 10000 });
     const hist = await page.locator("[role=dialog]").innerText();
-    if (/Already had 10/.test(hist) && /Bought 10/.test(hist) && /Sold 5/.test(hist)) ok("its history lists what came in, went out, and the count");
+    if (/Already had 10/.test(hist) && /Bought 10/.test(hist) && /Sold 5/.test(hist) && /Came back 2/.test(hist)) ok("its history lists what came in, went out, came back, and the count");
     else bad(`the history reads: ${hist.replace(/\s+/g, " ")}`);
     await context.close();
 
