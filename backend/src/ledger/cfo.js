@@ -408,7 +408,7 @@ async function brief(client, { companyId, today = todayHere(), fresh = false }) 
     marketQuiet: moved.length
       ? null
       : mk.length
-        ? `The rates you record have not moved this week: ${mk.map((m) => m.text.replace(/.$/, "")).join("; ")}.`
+        ? `The rates you record have not moved this week: ${mk.map((m) => m.text.replace(/\.$/, "")).join("; ")}.`
         : "No market note yet: Sentryfi reads the rates you record, and outside prices (fuel, freight, MMA rates) come when their sources are chosen.",
     learned: lesson(p, today),
   };
