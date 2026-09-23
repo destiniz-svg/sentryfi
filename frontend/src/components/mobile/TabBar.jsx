@@ -16,7 +16,7 @@ const TABS = [
   { to: "/money", icon: ReceiptText, label: "Money", also: ["/bills", "/invoices"] },
   null, // Record
   { to: "/bank", icon: Landmark, label: "Bank", also: ["/bank/"] },
-  { to: "/more", icon: Menu, label: "More", also: ["/settings", "/statements", "/closing", "/tax", "/import", "/assets", "/loans", "/stock", "/shipments", "/projects", "/orders"] },
+  { to: "/more", icon: Menu, label: "More", also: ["/settings", "/statements", "/closing", "/tax", "/import", "/assets", "/loans", "/stock", "/shipments", "/projects", "/orders", "/claims", "/approvals", "/payments"] },
 ];
 
 export function TabBar({ onRecord }) {

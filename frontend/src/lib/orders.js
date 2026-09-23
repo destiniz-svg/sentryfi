@@ -11,3 +11,13 @@ export const ORDER_STATUS = {
   declined: { tone: "neutral", buy: "Declined", sell: "Declined" },
   expired: { tone: "neutral", buy: "Expired", sell: "Past its date" },
 };
+
+/** Where an expense claim stands. */
+export const CLAIM_STATUS = {
+  draft: { tone: "neutral", label: "Not sent" },
+  submitted: { tone: "accent", label: "Waiting for approval" },
+  approved: { tone: "accent", label: "Approved, to pay back" },
+  part_paid: { tone: "accent", label: "Part paid back" },
+  paid: { tone: "success", label: "Paid back" },
+  rejected: { tone: "danger", label: "Not approved" },
+};

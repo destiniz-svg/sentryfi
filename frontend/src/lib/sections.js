@@ -1,4 +1,4 @@
-import { Boxes, ClipboardList, FileText, HardHat, Ship, Gauge, HandCoins, Landmark, LayoutGrid, Lock, Package, Percent, ReceiptText, Scale, Upload } from "lucide-react";
+import { Banknote, Boxes, CheckCheck, ClipboardList, FileText, HardHat, Ship, Gauge, HandCoins, Landmark, LayoutGrid, Lock, Package, Percent, ReceiptText, Scale, Upload, Wallet } from "lucide-react";
 
 /**
  * The desk's places, grouped the way an owner thinks about them (DESIGN.md,
@@ -11,6 +11,7 @@ export const SECTIONS = [
     items: [
       { to: "/dashboard", icon: LayoutGrid, label: "What needs you" },
       { to: "/figures", icon: Gauge, label: "Figures" },
+      { to: "/approvals", icon: CheckCheck, label: "Approvals", can: "approve" },
     ],
   },
   {
@@ -20,6 +21,8 @@ export const SECTIONS = [
       { to: "/invoices", icon: FileText, label: "Invoices" },
       { to: "/projects", icon: HardHat, label: "Projects" },
       { to: "/orders", icon: ClipboardList, label: "Orders" },
+      { to: "/payments", icon: Banknote, label: "Payments", can: "record" },
+      { to: "/claims", icon: Wallet, label: "Expense claims" },
       { to: "/bank", icon: Landmark, label: "Bank and cash" },
       { to: "/loans", icon: HandCoins, label: "Loans" },
     ],
