@@ -41,8 +41,8 @@ function presets() {
     { key: "month", label: "This month", from: ymd(new Date(y, m, 1)), to: ymd(t) },
     { key: "last", label: "Last month", from: ymd(new Date(y, m - 1, 1)), to: ymd(lastDay(y, m - 1)) },
     { key: "quarter", label: "This quarter", from: ymd(new Date(y, q, 1)), to: ymd(t) },
-    { key: "ytd", label: "Year to date", from: ymd(new Date(y, 0, 1)), to: ymd(t) },
-    { key: "12m", label: "12 months", from: ymd(new Date(y, m - 11, 1)), to: ymd(t) },
+    { key: "ytd", label: "Year to date", from: ymd(new Date(y, 0, 1)), to: ymd(t), compare: "year" },
+    { key: "12m", label: "12 months", from: ymd(new Date(y, m - 11, 1)), to: ymd(t), compare: "year" },
   ];
 }
 const span = (p) => (p.from.slice(0, 7) === p.to.slice(0, 7) ? formatDate(p.from).replace(/^\d+\s/, "") : `${formatDate(p.from)} – ${formatDate(p.to)}`);
@@ -53,8 +53,8 @@ export default function Analytics() {
   const [period, setPeriod] = useState(all[3]);
   const [open, setOpen] = useState(null); // the figure whose entries are showing
   const { data: a, isFetching } = useQuery({
-    queryKey: ["analytics", companyId, period.from, period.to],
-    queryFn: () => apiClient.get(`/analytics?from=${period.from}&to=${period.to}`).then((r) => r.data),
+    queryKey: ["analytics", companyId, period.from, period.to, period.compare],
+    queryFn: () => apiClient.get(`/analytics?from=${period.from}&to=${period.to}${period.compare ? `&compare=${period.compare}` : ""}`).then((r) => r.data),
     enabled: Boolean(companyId),
     placeholderData: (prev) => prev,
   });
@@ -70,7 +70,7 @@ export default function Analytics() {
         <div className="min-w-0">
           <h1 className="font-display text-[30px] font-semibold tracking-tight leading-none">Analytics</h1>
           <p className="text-[14px] text-[var(--ink-muted)] mt-1.5">
-            {span(period)}, against the {a ? `${formatDate(a.previous.from)} – ${formatDate(a.previous.to)}` : "period"} before it. Every figure opens onto its entries.
+            {span(period)}, against {a ? (a.compare === "year" ? `the same dates a year earlier (${formatDate(a.previous.from)} – ${formatDate(a.previous.to)})` : `${formatDate(a.previous.from)} – ${formatDate(a.previous.to)}`) : "the period before"}. Every figure opens onto its entries.
           </p>
         </div>
         {isFetching && <Loader2 size={16} className="animate-spin text-[var(--ink-muted)]" aria-label="Updating" />}
@@ -214,8 +214,8 @@ function Kpis({ a, look }) {
   const tiles = [
     { label: "Income", v: k.income.now, change: k.income.change, spark: series((m) => m.income), open: { type: "income", what: "Income", amount: k.income.now } },
     { label: "Costs", v: k.costs.now, change: k.costs.change, bad: true, spark: series((m) => m.costs), open: { type: "expense", what: "Costs", amount: k.costs.now } },
-    { label: "Profit", v: k.profit.now, change: k.profit.change, note: k.margin.now !== null ? `${k.margin.now}% margin` : null, spark: series((m) => m.income - m.costs) },
-    { label: "Cash now", v: k.cash.now, change: k.cash.change, note: "change since the period began", open: { type: "cash", what: "Money in and out of cash and bank", amount: null, allTime: true } },
+    { label: "Profit", v: k.profit.now, change: k.profit.change, sub: k.margin.now !== null ? `${k.margin.now}% of income` : null, spark: series((m) => m.income - m.costs) },
+    { label: "Cash now", v: k.cash.now, change: k.cash.change, open: { type: "cash", what: "Money in and out of cash and bank", amount: null, allTime: true } },
     { label: "Owed to you", v: k.owed.now, note: k.owed.overdueRaw > 0 ? `${k.owed.overdue} overdue` : "nothing overdue", to: "/invoices", tone: k.owed.overdueRaw > 0 },
   ];
   return (
@@ -227,10 +227,11 @@ function Kpis({ a, look }) {
             <div className="text-[21px] font-semibold tracking-[-0.02em] mt-1 tabular truncate">
               <Money amount={t.v} />
             </div>
-            <div className="flex items-center gap-2 mt-0.5 min-h-[18px]">
-              {"change" in t && <Change value={t.change} bad={t.bad} />}
-              {t.note && <span className={`text-[12px] truncate ${t.tone ? "text-[var(--danger)]" : "text-[var(--ink-muted)]"}`}>{t.note}</span>}
+            <div className="mt-0.5 min-h-[18px] text-[12px]">
+              {"change" in t && (t.change === null ? <span className="text-[var(--ink-muted)]">no earlier figures</span> : <Change value={t.change} bad={t.bad} />)}
+              {t.note && <span className={t.tone ? "text-[var(--danger)]" : "text-[var(--ink-muted)]"}>{t.note}</span>}
             </div>
+            {t.sub && <div className="text-[12px] text-[var(--ink-muted)]">{t.sub}</div>}
             {t.spark && <Spark values={t.spark} tone={t.bad ? "var(--ink-muted)" : "var(--ink)"} />}
           </>
         );
@@ -498,9 +499,9 @@ function ThisMonth({ m }) {
         {r.lastMonth > 0 && <span className="absolute -top-1 -bottom-1 w-0.5 bg-[var(--accent)]" style={{ left: `${(r.lastMonth / scale) * 100}%` }} title="Last month" />}
       </div>
       <div className="mt-2 grid grid-cols-3 gap-2 text-[12px]">
-        <span><span className="block text-[var(--ink-muted)]">So far, day {m.day} of {m.days}</span><b className="text-[14px] tabular"><Money amount={m.soFar} /></b></span>
-        <span><span className="block text-[var(--ink-muted)]">At this pace</span><b className="text-[14px] tabular"><Money amount={m.pace} /></b></span>
-        <span><span className="block text-[var(--ink-muted)] inline-flex items-center gap-1"><span className="h-2 w-0.5 bg-[var(--accent)]" />Last month</span><b className="text-[14px] tabular"><Money amount={m.lastMonth} /></b></span>
+        <span><span className="block text-[var(--ink-muted)]">So far, day {m.day} of {m.days}</span><b className="block text-[14px] tabular"><Money amount={m.soFar} /></b></span>
+        <span><span className="block text-[var(--ink-muted)]">At this pace</span><b className="block text-[14px] tabular"><Money amount={m.pace} /></b></span>
+        <span><span className="flex items-center gap-1 text-[var(--ink-muted)]"><span className="h-2.5 w-0.5 bg-[var(--accent)]" aria-hidden="true" />Last month</span><b className="block text-[14px] tabular"><Money amount={m.lastMonth} /></b></span>
       </div>
       {m.stillDue.length > 0 && (
         <div className="mt-4">

@@ -26,7 +26,8 @@ router.get(
   requireCan("read"),
   asyncHandler(async (req, res) => {
     const { from, to } = period(req.query);
-    res.json(await asCompany(req, (client) => analytics.overview(client, { companyId: req.companyId, from, to })));
+    const compare = req.query.compare === "year" ? "year" : undefined;
+    res.json(await asCompany(req, (client) => analytics.overview(client, { companyId: req.companyId, from, to, compare })));
   })
 );
 

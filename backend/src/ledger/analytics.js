@@ -18,8 +18,14 @@ const iso = (d) => d.toISOString().slice(0, 10);
 const f = formatLaari;
 const pct = (now, before) => (before > 0n ? Math.round(Number(((now - before) * 1000n) / before)) / 10 : null);
 
-/** The period just before this one, as long as it. */
-function previous(from, to) {
+/**
+ * What a period is measured against: the same dates a year earlier (for a
+ * year to date or twelve months, as an accountant reads them), or else the
+ * period just before it, as long as it.
+ */
+const yearEarlier = (d) => `${Number(d.slice(0, 4)) - 1}${d.slice(4) === "-02-29" ? "-02-28" : d.slice(4)}`;
+function previous(from, to, compare) {
+  if (compare === "year") return { from: yearEarlier(from), to: yearEarlier(to) };
   const days = Math.round((Date.parse(to) - Date.parse(from)) / DAY) + 1;
   return { from: iso(new Date(Date.parse(from) - days * DAY)), to: iso(new Date(Date.parse(from) - DAY)) };
 }
@@ -35,8 +41,8 @@ async function totals(client, companyId, from, to) {
   return { income: BigInt(rows[0].income), costs: BigInt(rows[0].costs) };
 }
 
-async function overview(client, { companyId, from, to }) {
-  const prev = previous(from, to);
+async function overview(client, { companyId, from, to, compare }) {
+  const prev = previous(from, to, compare);
   const [now, before] = [await totals(client, companyId, from, to), await totals(client, companyId, prev.from, prev.to)];
   const profit = now.income - now.costs;
   const profitBefore = before.income - before.costs;
@@ -199,7 +205,7 @@ async function overview(client, { companyId, from, to }) {
 
   const kpi = (n, b) => ({ now: f(n), before: f(b), change: pct(n, b), raw: Number(n) });
   return {
-    period: { from, to }, previous: prev,
+    period: { from, to }, previous: prev, compare: compare === "year" ? "year" : "before",
     kpis: {
       income: kpi(now.income, before.income),
       costs: kpi(now.costs, before.costs),

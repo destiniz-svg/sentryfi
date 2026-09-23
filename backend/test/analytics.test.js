@@ -47,6 +47,8 @@ describe("analytics", () => {
   it("measures a period against the one before it, as long as it", () => {
     expect(analytics.previous("2026-09-01", "2026-09-30")).toEqual({ from: "2026-08-02", to: "2026-08-31" });
     expect(analytics.previous("2026-01-01", "2026-12-31")).toEqual({ from: "2025-01-01", to: "2025-12-31" });
+    expect(analytics.previous("2026-01-01", "2026-09-24", "year")).toEqual({ from: "2025-01-01", to: "2025-09-24" });
+    expect(analytics.previous("2028-01-01", "2028-02-29", "year")).toEqual({ from: "2027-01-01", to: "2027-02-28" });
   });
 
   it("opens every figure onto entries that add up to it", () =>
