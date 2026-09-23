@@ -519,7 +519,7 @@ export function FittedPaper({ model, max = 1 }) {
     document.fonts?.ready.then(() => paper.current && setHeight(paper.current.offsetHeight * scale));
   }, [model.font, scale]);
   return (
-    <div ref={box} className="w-full" style={{ height: height ?? undefined }}>
+    <div ref={box} dir="ltr" className="w-full" style={{ height: height ?? undefined }}>
       <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", width: "max-content" }} className="shadow-[0_1px_2px_rgba(0,0,0,.06),0_8px_28px_rgba(0,0,0,.08)] print:shadow-none print:!transform-none">
         <div ref={paper}>
           <DocumentPaper model={model} />

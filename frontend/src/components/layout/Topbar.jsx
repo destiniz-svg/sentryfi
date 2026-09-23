@@ -5,6 +5,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { trail } from "@/lib/sections";
 import { NotificationsPopover } from "./NotificationsPopover";
+import { useT } from "@/lib/i18n";
 
 /**
  * The bar that says where you are: the breadcrumb at the left, search with
@@ -16,7 +17,8 @@ export function Topbar({ onOpenPalette }) {
   const { user } = useAuth();
   const { pathname } = useLocation();
   const firstName = user?.name?.split(" ")[0] || "there";
-  const crumbs = trail(pathname);
+  const { t } = useT();
+  const crumbs = trail(pathname).map((c) => t(c));
 
   const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/i.test(navigator.platform);
 
@@ -28,7 +30,7 @@ export function Topbar({ onOpenPalette }) {
           {initials(user?.name)}
         </span>
         <div className="min-w-0">
-          <p className="text-[13px] leading-4 text-[var(--ink-muted)]">{greeting()}</p>
+          <p className="text-[13px] leading-4 text-[var(--ink-muted)]">{t(greeting())}</p>
           <p className="text-[20px] leading-6 tracking-[-0.01em] truncate">{firstName}</p>
         </div>
       </div>

@@ -7,6 +7,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { SECTIONS, sectionOf } from "@/lib/sections";
 import { ROLE_TEXT } from "@/lib/roles";
 import AILogo from "./AILogo";
+import { useT } from "@/lib/i18n";
 
 /**
  * The desk's rail (DESIGN.md, "The desk register, rebuilt").
@@ -22,7 +23,9 @@ import AILogo from "./AILogo";
 const LABEL = "font-display text-[14px] font-bold uppercase tracking-[0.10em] whitespace-nowrap";
 const KEY = "sentryfi.rail";
 
-function Item({ to, icon: Icon, label }) {
+function Item({ to, icon: Icon, label: english }) {
+  const { t } = useT();
+  const label = t(english);
   return (
     <NavLink
       to={to}
@@ -66,6 +69,7 @@ function useFolded() {
 }
 
 function Group({ s, first, open, onToggle, can, tax }) {
+  const { t } = useT();
   const items = s.items.filter((it) => !it.can || can(it.can));
   if (!items.length) return null;
   const id = `rail-${s.label.replace(/\W+/g, "-").toLowerCase()}`;
@@ -78,14 +82,14 @@ function Group({ s, first, open, onToggle, can, tax }) {
         aria-controls={id}
         className="hidden lg:flex w-full items-center justify-between h-8 px-5 font-display text-[12px] font-bold uppercase tracking-[0.12em] text-[var(--ink-muted)] hover:text-[var(--ink)]"
       >
-        {s.label}
+        {t(s.label)}
         <ChevronRight size={14} aria-hidden="true" className={cn("transition-transform duration-200", open && "rotate-90")} />
       </button>
       {!first && <div className="lg:hidden mx-4 my-2 border-t border-[var(--border)]" aria-hidden="true" />}
       {/* Folded on a wide rail only: the icon rail on a tablet is short enough to show everything. */}
       <div id={id} className={cn(!open && "lg:hidden")}>
         {items.map((it) => (
-          <Item key={it.to} {...it} label={it.to === "/tax" ? `${tax} return` : it.label} />
+          <Item key={it.to} {...it} label={it.to === "/tax" && tax !== "GST" ? `${tax} return` : it.label} />
         ))}
       </div>
     </div>
@@ -93,6 +97,7 @@ function Group({ s, first, open, onToggle, can, tax }) {
 }
 
 export function Sidebar() {
+  const { t } = useT();
   const { user, logout } = useAuth();
   const { company, roles, can } = useCompany();
   const tax = company?.tax?.tax || "GST";
@@ -103,7 +108,7 @@ export function Sidebar() {
   const isOpen = (label) => label === here || !folded.has(label);
 
   return (
-    <aside className="hidden md:flex shrink-0 flex-col sticky top-0 h-screen w-[72px] lg:w-[216px] border-r-2 border-[var(--ink)] bg-[var(--surface)] pt-6 pb-3 overflow-y-auto">
+    <aside className="hidden md:flex shrink-0 flex-col sticky top-0 h-screen w-[72px] lg:w-[216px] border-r-2 rtl:border-r-0 rtl:border-l-2 border-[var(--ink)] bg-[var(--surface)] pt-6 pb-3 overflow-y-auto">
       <div className="flex items-center gap-2 px-0 lg:px-5 justify-center lg:justify-start mb-5">
         <AILogo size={36} />
         <div className="hidden lg:block min-w-0">
@@ -129,11 +134,11 @@ export function Sidebar() {
             <div className="text-[14px] font-semibold truncate">{user?.name || "Account"}</div>
             {role && <div className="text-[12px] text-[var(--ink-muted)] truncate">{role}</div>}
           </div>
-          <button type="button" onClick={logout} title="Sign out" aria-label="Sign out" className="h-9 w-9 shrink-0 inline-flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]">
+          <button type="button" onClick={logout} title={t("Sign out")} aria-label={t("Sign out")} className="h-9 w-9 shrink-0 inline-flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]">
             <LogOut size={18} aria-hidden="true" />
           </button>
         </div>
-        <button type="button" onClick={logout} title="Sign out" aria-label="Sign out" className="lg:hidden flex items-center h-10 w-full justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)] mt-1">
+        <button type="button" onClick={logout} title={t("Sign out")} aria-label={t("Sign out")} className="lg:hidden flex items-center h-10 w-full justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)] mt-1">
           <LogOut size={19} aria-hidden="true" />
         </button>
       </div>

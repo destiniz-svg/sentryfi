@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/mobile/parts";
 import { WaitingToSend } from "@/components/bills/WaitingToSend";
 import { GettingStarted } from "@/components/setup/GettingStarted";
+import { useT } from "@/lib/i18n";
 
 /**
  * Home, in the main app on a phone (DESIGN.md, "The phone, refined").
@@ -31,6 +32,7 @@ const CUSHION = 3;
 
 export default function MobileHome() {
   const { companyId } = useCompany();
+  const { t } = useT();
   const figures = useQuery({
     queryKey: ["figures", companyId],
     queryFn: () => apiClient.get("/figures").then((r) => r.data),
@@ -59,7 +61,7 @@ export default function MobileHome() {
 
       {f?.cashIsReal && (f.cashPlaces || []).length > 0 && (
         <section aria-labelledby="where" className="rounded-[24px] bg-[var(--surface)] lift p-5">
-          <h2 id="where" className="text-[17px] font-semibold tracking-[-0.01em]">Where the cash is</h2>
+          <h2 id="where" className="text-[17px] font-semibold tracking-[-0.01em]">{t("Where the cash is")}</h2>
           <ul className="mt-3 space-y-3">
             {f.cashPlaces.slice(0, 4).map((p) => (
               <li key={p.name} className="flex items-center gap-3">
@@ -82,7 +84,7 @@ export default function MobileHome() {
 
       <section aria-labelledby="needs-you">
         <h2 id="needs-you" className="text-[17px] font-semibold tracking-[-0.01em] px-1 pb-3">
-          Needs you
+          {t("Needs you")}
         </h2>
         {attention.isPending ? (
           <Skeleton className="h-[88px] rounded-[20px]" />
@@ -123,6 +125,7 @@ function Chip({ icon: Icon, dark }) {
 
 function CashCard({ f }) {
   const unit = f.currency || "MVR";
+  const { t } = useT();
   if (!f.cashIsReal) {
     return (
       <div className="rounded-[24px] bg-[var(--ink-panel)] text-[var(--on-ink-panel)] p-6">
@@ -144,7 +147,7 @@ function CashCard({ f }) {
   return (
     <div className="rounded-[24px] bg-[var(--ink-panel)] text-[var(--on-ink-panel)] p-6 flex items-start justify-between gap-4" data-testid="cash-card">
       <div className="min-w-0">
-        <div className="text-[14px] opacity-70">Cash and bank now</div>
+        <div className="text-[14px] opacity-70">{t("Cash and bank now")}</div>
         <div className="mt-2 text-[30px] font-semibold leading-none tracking-[-0.02em] tabular whitespace-nowrap">
           <span className="text-[14px] font-medium opacity-60 mr-1 align-[0.35em]">{unit}</span>
           <Money amount={f.inBankAndCash} className="text-inherit" />
@@ -156,7 +159,7 @@ function CashCard({ f }) {
       </div>
       {runway != null && (
         <div className="shrink-0 text-right">
-          <div className="text-[13px] opacity-70">It lasts</div>
+          <div className="text-[13px] opacity-70">{t("It lasts")}</div>
           <div className="mt-2 text-[20px] font-semibold leading-none">
             {runway < 1 ? "Under a month" : `${runway >= 10 ? Math.round(runway) : runway} months`}
           </div>
@@ -173,6 +176,7 @@ function CashCard({ f }) {
 /** The figures an owner looks for, all four at once: nothing hides off the edge. */
 function Figures({ f }) {
   const unit = f.currency || "MVR";
+  const { t } = useT();
   const cards = [
     { icon: ArrowDownLeft, value: f.owedToUs, label: "Owed to you", to: "/invoices" },
     { icon: ArrowUpRight, value: f.owedToSuppliers, label: "You owe suppliers", to: "/bills" },
@@ -188,7 +192,7 @@ function Figures({ f }) {
             <Money amount={c.value} />
           </div>
           <div className="mt-0.5 text-[13px] text-[var(--ink-muted)] truncate">
-            {c.label}
+            {t(c.label)}
             <span className="sr-only">, {unit}</span>
           </div>
         </Link>
@@ -199,6 +203,7 @@ function Figures({ f }) {
 
 /** Money out by month: grey columns, this month's in yellow with its figure above. */
 function MoneyOut({ f }) {
+  const { t } = useT();
   const months = f.spendByMonth.slice(-8);
   const max = Math.max(...months.map((m) => m.raw), 1);
   const last = months[months.length - 1];
@@ -206,7 +211,7 @@ function MoneyOut({ f }) {
     <section aria-labelledby="money-out" className="rounded-[24px] bg-[var(--surface)] lift p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 id="money-out" className="text-[17px] font-semibold tracking-[-0.01em]">Money out</h2>
+          <h2 id="money-out" className="text-[17px] font-semibold tracking-[-0.01em]">{t("Money out")}</h2>
           <p className="text-[13px] text-[var(--ink-muted)] mt-0.5">By month, from the books</p>
         </div>
         <div className="flex items-center gap-3 text-[12px] text-[var(--ink-muted)] pt-1">

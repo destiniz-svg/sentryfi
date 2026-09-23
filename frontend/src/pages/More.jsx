@@ -1,9 +1,10 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Banknote, Bot, Boxes, CheckCheck, ChevronRight, ClipboardList, DatabaseBackup, FileText, HandCoins, HardHat, Lock, LogOut, Moon, Package, Palette, Percent, Scale, Settings, Ship, Sunrise, Upload, User, Users, Wallet } from "lucide-react";
+import { Banknote, Bot, Languages, Boxes, CheckCheck, ChevronRight, ClipboardList, DatabaseBackup, FileText, HandCoins, HardHat, Lock, LogOut, Moon, Package, Palette, Percent, Scale, Settings, Ship, Sunrise, Upload, User, Users, Wallet } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useCompany } from "@/context/CompanyContext";
 import { PushSwitch } from "@/components/PushSwitch";
+import { useT } from "@/lib/i18n";
 
 /**
  * More, in the main app on a phone: everything that is not a daily place,
@@ -12,11 +13,12 @@ import { PushSwitch } from "@/components/PushSwitch";
  */
 
 function Group({ title, rows }) {
+  const { t } = useT();
   const shown = rows.filter(Boolean);
   if (!shown.length) return null;
   return (
     <section aria-label={title}>
-      <h2 className="text-[13px] text-[var(--ink-muted)] px-1 pt-3 pb-2">{title}</h2>
+      <h2 className="text-[13px] text-[var(--ink-muted)] px-1 pt-3 pb-2">{t(title)}</h2>
       <div className="rounded-[20px] bg-[var(--surface)] lift overflow-hidden py-1">
         {shown.map((r, i) => {
           const inner = (
@@ -26,7 +28,7 @@ function Group({ title, rows }) {
                   <r.icon size={17} strokeWidth={1.75} />
                 </span>
               )}
-              <span className="text-[15px] font-medium">{r.name}</span>
+              <span className="text-[15px] font-medium">{t(r.name)}</span>
               <span className="ml-auto flex items-center gap-1.5 text-[14px] text-[var(--ink-muted)]">
                 {r.side}
                 {r.to && <ChevronRight size={16} aria-hidden="true" />}
@@ -54,6 +56,7 @@ export default function More() {
   const { theme, toggle } = useTheme();
   const { can, company } = useCompany();
   const navigate = useNavigate();
+  const { lang, setLang } = useT();
 
   return (
     <div className="max-w-xl space-y-4">
@@ -94,6 +97,7 @@ export default function More() {
         rows={[
           { name: user?.name || "Account", icon: User, to: "/settings?tab=profile" },
           { name: "Night", icon: Moon, run: toggle, side: theme === "dark" ? "On" : "Off" },
+          { name: "Language", icon: Languages, run: () => setLang(lang === "dv" ? "en" : "dv"), side: lang === "dv" ? "ދިވެހި" : "English" },
           { name: "Sign out", icon: LogOut, run: async () => { await logout(); navigate("/login"); } },
         ]}
       />

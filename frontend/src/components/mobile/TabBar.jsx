@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { House, Landmark, LayoutGrid, Plus, ReceiptText } from "lucide-react";
 import { useOutbox } from "@/context/OutboxContext";
+import { useT } from "@/lib/i18n";
 
 /**
  * The main app's tab bar on a phone.
@@ -24,6 +25,7 @@ const TABS = [
 export function TabBar({ onRecord }) {
   const { pathname } = useLocation();
   const { count } = useOutbox();
+  const { t: tr } = useT();
   const current = (t) => pathname === t.to || (t.also || []).some((p) => pathname.startsWith(p));
 
   return (
@@ -45,8 +47,8 @@ export function TabBar({ onRecord }) {
             <NavLink
               key={t.to}
               to={t.to}
-              aria-label={t.label}
-              title={t.label}
+              aria-label={tr(t.label)}
+              title={tr(t.label)}
               aria-current={current(t) ? "page" : undefined}
               className={`h-[52px] w-[52px] rounded-full flex items-center justify-center transition-colors ${
                 current(t) ? "bg-[var(--ink)] text-[var(--surface)]" : "bg-[var(--surface-2)] text-[var(--ink-muted)]"
@@ -59,8 +61,8 @@ export function TabBar({ onRecord }) {
               key="record"
               type="button"
               onClick={onRecord}
-              aria-label="Record"
-              title="Record"
+              aria-label={tr("Record")}
+              title={tr("Record")}
               className="h-[52px] w-[52px] rounded-full bg-[var(--accent)] text-[var(--on-accent)] flex items-center justify-center"
             >
               <Plus size={24} strokeWidth={2} aria-hidden="true" />

@@ -5,6 +5,7 @@ import { ArrowRight, Check, ChevronDown, X } from "lucide-react";
 import { apiClient } from "@/api/client";
 import { useCompany } from "@/context/CompanyContext";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 /**
  * Getting the books going, at the top of Home until it is done.
@@ -26,6 +27,7 @@ export function GettingStarted({ className }) {
     }
   });
   const [all, setAll] = useState(false);
+  const { t } = useT();
   const { data } = useQuery({
     queryKey: ["setup", companyId],
     queryFn: () => apiClient.get("/companies/current/setup").then((r) => r.data),
@@ -47,7 +49,7 @@ export function GettingStarted({ className }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 id="getting-started" className="text-[17px] font-semibold tracking-[-0.01em]">
-            Getting your books going
+            {t("Getting your books going")}
           </h2>
           <p className="text-[13px] text-[var(--ink-muted)] mt-0.5">
             {data.done} of {data.total} done. Each is ticked off from your books, not by hand.

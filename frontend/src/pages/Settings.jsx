@@ -19,6 +19,7 @@ import { DevicesSection } from "@/components/settings/DevicesSection";
 import { useCompany } from "@/context/CompanyContext";
 import { Link } from "react-router-dom";
 import { AssistantKeys } from "@/components/settings/AssistantKeys";
+import { useT } from "@/lib/i18n";
 
 function FieldLabel({ children, htmlFor }) {
   return (
@@ -146,6 +147,7 @@ function ThemeOption({ value, label, icon: Icon, current, onSelect }) {
 
 function AppearanceSection() {
   const { theme, setTheme } = useTheme();
+  const { lang, setLang } = useT();
   return (
     <Card padding="lg" className="max-w-2xl">
       <CardHeader>
@@ -160,6 +162,21 @@ function AppearanceSection() {
       <div className="flex gap-3">
         <ThemeOption value="light" label="Light" icon={Sun} current={theme} onSelect={setTheme} />
         <ThemeOption value="dark" label="Dark" icon={Moon} current={theme} onSelect={setTheme} />
+      </div>
+
+      <div className="mt-6" data-testid="language">
+        <p className="text-[14px] font-medium">Language</p>
+        <div className="flex gap-2 mt-2" role="group" aria-label="Language">
+          {[
+            ["en", "English"],
+            ["dv", "ދިވެހި"],
+          ].map(([v, l]) => (
+            <button key={v} type="button" onClick={() => setLang(v)} aria-pressed={lang === v} className={`h-10 px-4 rounded-full text-[14px] font-medium ${lang === v ? "bg-[var(--ink)] text-[var(--surface)]" : "bg-[var(--surface-2)] text-[var(--ink-muted)]"}`}>
+              {l}
+            </button>
+          ))}
+        </div>
+        <p className="text-[13px] text-[var(--ink-muted)] mt-2">In Dhivehi the app reads right to left and figures stay as they are. The Dhivehi words are a first draft, and screens not yet translated stay in English.</p>
       </div>
     </Card>
   );

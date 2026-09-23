@@ -690,3 +690,36 @@ a.underline:hover { color: var(--deep-strong); }
 @media (max-width: 767px) {
   html, body { overflow-x: clip; }
 }
+
+/* ------------------------------------------------------------------
+   Dhivehi (lib/i18n.js). The page turns round: Thaana leads, the rail and
+   rows mirror, arrows point the other way. Numbers never move: every figure
+   stays left to right, isolated from the Thaana around it. Paper keeps its
+   own direction, because a document is drawn, not read in the app's.
+   ------------------------------------------------------------------ */
+[dir="rtl"] body {
+  font-family: "Noto Sans Thaana", var(--font-sans);
+}
+[dir="rtl"] .tabular,
+[dir="rtl"] [class*="tabular"],
+[dir="rtl"] input[inputmode="decimal"],
+[dir="rtl"] input[inputmode="tel"],
+[dir="rtl"] input[type="email"],
+[dir="rtl"] input[type="date"] {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+[dir="rtl"] input[inputmode="decimal"] {
+  text-align: right;
+}
+[dir="rtl"] .lucide-chevron-right,
+[dir="rtl"] .lucide-chevron-left,
+[dir="rtl"] .lucide-arrow-right,
+[dir="rtl"] .lucide-arrow-left {
+  transform: scaleX(-1);
+}
+[dir="rtl"] .sd,
+[dir="rtl"] .font-mono,
+[dir="rtl"] pre {
+  direction: ltr;
+}
