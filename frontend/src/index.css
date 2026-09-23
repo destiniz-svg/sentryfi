@@ -684,3 +684,9 @@ a.underline:hover { color: var(--deep-strong); }
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* On a phone the screen never slides sideways: whatever is wider than it is
+   clipped, not scrolled. clip, not hidden, so sticky headers keep working. */
+@media (max-width: 767px) {
+  html, body { overflow-x: clip; }
+}

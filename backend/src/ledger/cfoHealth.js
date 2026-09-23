@@ -75,9 +75,11 @@ async function health(client, { companyId, today }) {
   if (monthly > 0n) {
     const runway = Number((cash * 10n) / monthly) / 10;
     add({
-      area: "Cash", name: "Runway", value: `${runway} months`,
+      area: "Cash", name: "Runway", value: cash <= 0n ? "No cash" : `${runway} months`,
       verdict: runway < 2 ? "act" : runway < 4 ? "watch" : "good",
-      explain: `Cash of MVR ${f(cash)} would pay about ${runway} months of costs at the last three months' pace (MVR ${f(monthly)} a month, depreciation left out because it is not cash). Under two months leaves no room for a customer who pays late.`,
+      explain: cash <= 0n
+        ? `The books show MVR ${f(cash)} in the bank and tins: nothing to pay the next month's costs (about MVR ${f(monthly)}) from. Either money has come in that is not recorded yet, or it has to come in now.`
+        : `Cash of MVR ${f(cash)} would pay about ${runway} months of costs at the last three months' pace (MVR ${f(monthly)} a month, depreciation left out because it is not cash). Under two months leaves no room for a customer who pays late.`,
       basis: { cash: f(cash), costsPerMonth: f(monthly) },
     });
   }
@@ -93,7 +95,7 @@ async function health(client, { companyId, today }) {
   if (shortDebts > 0n) {
     const current = ratio(shortAssets, shortDebts);
     add({
-      area: "Liquidity", name: "Current ratio", value: String(current),
+      area: "Liquidity", name: "Current ratio", value: shortAssets <= 0n ? "Nothing to cover it" : String(current),
       verdict: current < 1 ? "act" : current < 1.5 ? "watch" : "good",
       explain: `For every MVR 1 owed in the next year (suppliers, GST, staff and loan repayments: MVR ${f(shortDebts)}) there is MVR ${current} in cash, money owed to you, stock and GST to claim back (MVR ${f(shortAssets)}). Below 1, bills can outrun the money coming in.`,
       basis: { comingIn: f(shortAssets), goingOut: f(shortDebts), loanRepaymentsNextYear: f(loanYear) },
@@ -101,7 +103,7 @@ async function health(client, { companyId, today }) {
     if (stockValue > 0n) {
       const quick = ratio(shortAssets - stockValue, shortDebts);
       add({
-        area: "Liquidity", name: "Quick ratio", value: String(quick),
+        area: "Liquidity", name: "Quick ratio", value: shortAssets - stockValue <= 0n ? "Nothing to cover it" : String(quick),
         verdict: quick < 0.8 ? "act" : quick < 1 ? "watch" : "good",
         explain: `The same without stock, which takes time to sell: MVR ${quick} for every MVR 1 owed.`,
         basis: { withoutStock: f(shortAssets - stockValue), goingOut: f(shortDebts) },
@@ -250,8 +252,9 @@ async function health(client, { companyId, today }) {
     const owe = r.out.tax - r.inp.tax;
     const late = !r.filed && r.period.daysLeft !== null && r.period.daysLeft < 0;
     add({
-      area: "Tax", name: `GST for ${r.period.label}`, value: owe === 0n ? "Nothing to pay" : owe > 0n ? `MVR ${f(owe)} to pay` : `MVR ${f(-owe)} to claim back`,
-      verdict: r.filed ? "good" : late || owe > cash ? "act" : r.period.daysLeft !== null && r.period.daysLeft <= 14 ? "watch" : "good",
+      area: "Tax", name: `GST for ${r.period.label}`, value: `${owe === 0n ? "Nothing to pay" : owe > 0n ? `MVR ${f(owe)} to pay` : `MVR ${f(-owe)} to claim back`}${late ? ", filing late" : ""}`,
+      // Acting is for a late return, or GST owed that the cash does not cover; nothing owed is never short of cash.
+      verdict: r.filed ? "good" : late || (owe > 0n && owe > cash) ? "act" : r.period.daysLeft !== null && r.period.daysLeft <= 14 ? "watch" : "good",
       explain: r.filed
         ? "Filed."
         : `${owe > 0n ? "Keep this aside: it is MIRA's money, not yours." : owe < 0n ? "It comes back when the return is filed." : "Nothing to pay, but the return still has to be filed."} ${late ? `The return was due ${-r.period.daysLeft} days ago.` : r.period.daysLeft !== null ? `The return is due in ${r.period.daysLeft} days.` : ""}`.trim(),

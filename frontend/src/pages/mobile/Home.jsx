@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/mobile/parts";
  * Home, in the main app on a phone (DESIGN.md, "The phone, refined").
  *
  * One black card for the figure that matters (cash and bank now, which way it
- * is going, how long it lasts), a row of figures to swipe through, money out
+ * is going, how long it lasts), four figures side by side, money out
  * month by month, where the cash sits, then what needs the owner. Everything
  * comes from journal lines (/figures) and from the same list the desk's "What
  * needs you" reads (/attention). Yellow only ever marks the one thing to see.
@@ -165,7 +165,7 @@ function CashCard({ f }) {
   );
 }
 
-/** The figures an owner looks for, one swipe wide. */
+/** The figures an owner looks for, all four at once: nothing hides off the edge. */
 function Figures({ f }) {
   const unit = f.currency || "MVR";
   const cards = [
@@ -175,14 +175,14 @@ function Figures({ f }) {
     { icon: Percent, value: f.gstOwed, label: "GST to set aside", to: "/tax" },
   ].filter((c) => c.value != null);
   return (
-    <div className="-mx-4 px-4 flex gap-3 overflow-x-auto snap-x scroll-px-4 no-bar pt-2 pb-6 -mt-2 mb-0" role="list" aria-label="Figures">
+    <div className="grid grid-cols-2 gap-3" role="list" aria-label="Figures">
       {cards.map((c) => (
-        <Link key={c.label} to={c.to} role="listitem" className="relative snap-start shrink-0 w-[152px] rounded-[20px] bg-[var(--surface)] p-4 shadow-[0_1px_2px_rgba(20,20,19,.04),0_6px_14px_rgba(20,20,19,.05)] [[data-theme=dark]_&]:shadow-none [[data-theme=dark]_&]:ring-1 [[data-theme=dark]_&]:ring-[var(--border)]">
+        <Link key={c.label} to={c.to} role="listitem" className="relative min-w-0 rounded-[20px] bg-[var(--surface)] lift p-4">
           <Chip icon={c.icon} />
-          <div className="mt-4 text-[19px] font-semibold tracking-[-0.01em] tabular whitespace-nowrap">
+          <div className="mt-3 text-[17px] font-semibold tracking-[-0.01em] tabular truncate">
             <Money amount={c.value} />
           </div>
-          <div className="mt-0.5 text-[13px] text-[var(--ink-muted)]">
+          <div className="mt-0.5 text-[13px] text-[var(--ink-muted)] truncate">
             {c.label}
             <span className="sr-only">, {unit}</span>
           </div>
