@@ -213,7 +213,7 @@ function Workspace({ start, mayChange, onUndo }) {
       <section className={cn("lg:flex lg:flex-col lg:min-h-0 lg:border-r lg:border-[var(--border)]", view === "preview" && "hidden lg:flex")} aria-label="Edit">
         <header className="px-5 sm:px-7 pt-6 border-b border-[var(--border)]">
           <div className="flex items-start justify-between gap-3">
-            <h1 className="font-display text-[26px] font-semibold tracking-tight leading-tight">Branding and documents</h1>
+            <h1 className="font-display text-[22px] sm:text-[26px] font-semibold tracking-tight leading-tight">Branding and documents</h1>
             <ViewSwitch view={view} setView={setView} />
           </div>
           <p className="text-[13px] text-[var(--ink-muted)] mt-1">Your brand once, then a design for each kind of document.</p>
@@ -498,7 +498,7 @@ function Workspace({ start, mayChange, onUndo }) {
 
       {/* ---- the foot */}
       {mayChange && (
-        <footer className="lg:col-span-2 sticky bottom-[92px] md:bottom-0 lg:static z-10 flex items-center gap-3 px-5 sm:px-7 py-3.5 border-t border-[var(--border)] bg-[var(--surface)] rounded-b-[14px] lg:rounded-none">
+        <footer className={cn("lg:col-span-2 sticky bottom-[92px] md:bottom-0 lg:static z-10 items-center", dirty ? "flex" : "hidden md:flex", " gap-3 px-5 sm:px-7 py-3.5 border-t border-[var(--border)] bg-[var(--surface)] rounded-b-[14px] lg:rounded-none")}>
           <span className="text-[13px] text-[var(--ink-muted)] mr-auto" data-testid="unsaved">
             {dirty ? "Changes not saved yet" : "Everything is saved"}
           </span>
