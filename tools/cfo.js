@@ -48,7 +48,7 @@ const n = (s) => Number(String(s).replace(/[^\d.-]/g, ""));
     else bad(`the profile reads ${profile.slice(0, 200)}`);
 
     const note = `Checked ${Date.now() % 100000}`;
-    await page.getByLabel("About").selectOption("What worries us");
+    await page.getByRole("group", { name: "About" }).getByRole("button", { name: "What worries us" }).click();
     await page.getByLabel("What it should know").fill(note);
     await page.getByRole("button", { name: /^tell it$/i }).click();
     await page.getByTestId("profile").getByText(note).waitFor({ timeout: 10000 });
