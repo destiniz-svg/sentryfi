@@ -106,7 +106,7 @@ export default function Cfo() {
                 <Money amount={fig.cash} className="text-inherit" />
               </div>
             </button>
-            <div className="grid grid-cols-3 gap-2 w-full sm:w-auto sm:min-w-[440px]">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full sm:w-auto sm:min-w-[440px]">
               {[
                 ["Due in, 30 days", "In, 30 days", fig.expectedIn, fig.inParts, "cfo-due-in"],
                 ["Due out, 30 days", "Out, 30 days", fig.committedOut, fig.outParts, "cfo-due-out"],
@@ -118,10 +118,10 @@ export default function Cfo() {
                   disabled={!list}
                   onClick={() => setParts({ label, list })}
                   data-testid={id}
-                  className="text-left rounded-2xl bg-white/[.07] px-3 py-2.5 enabled:hover:bg-white/[.12] disabled:cursor-default min-w-0"
+                  className="text-left rounded-2xl bg-white/[.07] px-4 sm:px-3 py-3 sm:py-2.5 enabled:hover:bg-white/[.12] disabled:cursor-default min-w-0 flex sm:block items-baseline justify-between gap-3"
                 >
-                  <div className="text-[12px] opacity-65 truncate">{short}</div>
-                  <div className={cn("mt-1 text-[15px] sm:text-[17px] font-semibold tabular truncate", id === "cfo-leaves" && (fig.short ? "text-[#ff9d8f]" : "text-[var(--accent)]"))}>
+                  <div className="text-[13px] sm:text-[12px] opacity-65 truncate">{short}</div>
+                  <div className={cn("sm:mt-1 text-[16px] sm:text-[17px] font-semibold tabular whitespace-nowrap", id === "cfo-leaves" && (fig.short ? "text-[#ff9d8f]" : "text-[var(--accent)]"))}>
                     <Money amount={v} className="text-inherit" />
                   </div>
                 </button>

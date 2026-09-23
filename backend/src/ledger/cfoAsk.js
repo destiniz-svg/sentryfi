@@ -186,6 +186,10 @@ async function ask(client, { companyId, today, company, question }, generate) {
     }
     contents.push({ role: "user", parts });
   }
+  // Out of rounds: answer from what has been read so far, with no more looking.
+  const last = await generate({ contents, config: { ...config, toolConfig: { functionCallingConfig: { mode: "NONE" } } }, raw: true });
+  const answer = String(last.text || "").trim();
+  if (answer) return { answer, looked, sources: citedIn(answer, ctx.seen) };
   return { answer: "That took more looking than it allows at once. Ask something narrower.", looked, sources: citedIn("", ctx.seen) };
 }
 

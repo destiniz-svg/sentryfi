@@ -157,4 +157,17 @@ describe("the CFO", () => {
       expect(r.answer).toContain(r.sources[0].ref);
       expect(asked).toEqual([7, 7]);
     }));
+
+  it("answers from what it has read when it runs out of rounds, rather than giving up", () =>
+    inRollback(async (client) => {
+      const co = await aBusiness(client);
+      // A model that would keep looking for ever, until told it may not.
+      const model = async ({ config }) =>
+        config.toolConfig?.functionCallingConfig?.mode === "NONE"
+          ? { text: "Cash is what the four figures say." }
+          : { functionCalls: [{ name: "figures", args: {} }], candidates: [{ content: { role: "model", parts: [] } }] };
+      const r = await ask(client, { companyId: co.companyId, today: TODAY, company: "Test", question: "How much cash?" }, model);
+      expect(r.answer).toBe("Cash is what the four figures say.");
+      expect(r.looked.length).toBe(6);
+    }));
 });
