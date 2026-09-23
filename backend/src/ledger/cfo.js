@@ -353,30 +353,26 @@ function lesson(p, today) {
   return facts[day % facts.length];
 }
 
-/** An optional written summary from Claude, given only the facts above. */
+/** An optional written summary from Gemini, given only the facts above. */
 async function writeUp(facts) {
-  // Read straight from the environment: the rest of the CFO needs no server settings.
-  const key = process.env.ANTHROPIC_API_KEY;
-  const model = process.env.CFO_MODEL || "claude-haiku-4-5-20251001";
-  if (!key) return null;
+  // Checked before loading the service: the rest of the CFO needs no server settings.
+  if (!process.env.GEMINI_API_KEY) return null;
   try {
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({
-        model: model,
-        max_tokens: 400,
-        system:
+    const gemini = require("../services/geminiService");
+    const text = await gemini.generate({
+      contents: [{ role: "user", parts: [{ text: JSON.stringify(facts) }] }],
+      config: {
+        systemInstruction:
           "You are the finance adviser inside a small company's books. Using only the facts given (never invent a figure, name or date), " +
-          'write JSON {"summary": "two plain sentences on where the business stands this morning", "advice": ["one or two specific actions, each naming a figure from the facts"]}. ' +
+          "write a summary of two plain sentences on where the business stands this morning, and one or two specific actions, each naming a figure from the facts. " +
           "Plain English, no jargon, no hedging words, no exclamation marks. If the facts are thin, say so in the summary.",
-        messages: [{ role: "user", content: JSON.stringify(facts) }],
-      }),
+        responseMimeType: "application/json",
+        responseSchema: { type: "object", properties: { summary: { type: "string" }, advice: { type: "array", items: { type: "string" } } }, required: ["summary", "advice"] },
+        temperature: 0.2,
+      },
     });
-    if (!r.ok) throw new Error(`Claude answered ${r.status}`);
-    const text = (await r.json()).content?.[0]?.text || "";
-    const parsed = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
-    return { summary: String(parsed.summary || ""), advice: (parsed.advice || []).map(String).slice(0, 3), by: model };
+    const parsed = JSON.parse(text);
+    return { summary: String(parsed.summary || ""), advice: (parsed.advice || []).map(String).slice(0, 3), by: "Gemini" };
   } catch (err) {
     console.error(JSON.stringify({ at: "cfo-writeup", error: err.message }));
     return null;
@@ -438,4 +434,4 @@ function asText(b) {
   ];
 }
 
-module.exports = { todayHere, figures, profile, noticed, market, brief, asText, lesson, plus };
+module.exports = { todayHere, figures, profile, noticed, market, brief, asText, lesson, plus, health: require("./cfoHealth").health };

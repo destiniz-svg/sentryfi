@@ -29,7 +29,8 @@ router.get(
       noticed: await cfo.noticed(client, ctx),
       market: await cfo.market(client, ctx),
       subscription: (await client.query("SELECT send_hour, email FROM cfo_subscriptions WHERE company_id = $1 AND user_id = $2", [ctx.companyId, ctx.userId])).rows[0] || null,
-      written: Boolean(require("../config/env").anthropicApiKey),
+      health: await cfo.health(client, ctx),
+      written: Boolean(require("../config/env").geminiApiKey),
     }));
     res.json(out);
   })
@@ -40,6 +41,22 @@ router.post(
   requireCan("read"),
   asyncHandler(async (req, res) => {
     res.json({ brief: await on(req, (client, ctx) => cfo.brief(client, { ...ctx, fresh: true })) });
+  })
+);
+
+router.post(
+  "/ask",
+  requireCan("read"),
+  asyncHandler(async (req, res) => {
+    const p = z.object({ question: z.string().trim().min(3).max(500) }).safeParse(req.body ?? {});
+    if (!p.success) throw ApiError.badRequest("Ask a question, in up to 500 characters.");
+    const gemini = require("../services/geminiService");
+    if (!gemini.available()) throw ApiError.badRequest("Asking needs a Gemini key on the server.");
+    const out = await on(req, async (client, ctx) => {
+      const { rows } = await client.query("SELECT name FROM companies WHERE id = $1", [ctx.companyId]);
+      return require("../ledger/cfoAsk").ask(client, { ...ctx, company: rows[0]?.name || "the company", question: p.data.question }, gemini.generate);
+    });
+    res.json(out);
   })
 );
 

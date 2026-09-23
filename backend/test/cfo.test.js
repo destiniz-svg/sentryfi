@@ -12,6 +12,7 @@ import { assumeIdentity, postEntry } from "../src/ledger/post";
 import { postBill } from "../src/ledger/bills";
 import { raise, post } from "../src/ledger/sales";
 import * as cfo from "../src/ledger/cfo";
+import { ask } from "../src/ledger/cfoAsk";
 
 afterAll(closePool);
 
@@ -114,5 +115,46 @@ describe("the CFO", () => {
       const fresh = await cfo.brief(client, { companyId: co.companyId, today: TODAY, fresh: true });
       expect(fresh.headline).not.toBe(b.headline);
       expect(cfo.asText(fresh)[0]).toBe(fresh.headline);
+    }));
+
+  it("checks the business the way a CFO would, and ranks what needs acting on first", () =>
+    inRollback(async (client) => {
+      const co = await aBusiness(client);
+      await co.invoice("2026-07-01", "30000", "2026-07-31"); // one customer, unpaid
+      await co.bill("2026-08-15", 9000000); // MVR 90,000 of costs in the quarter
+      const checks = await cfo.health(client, { companyId: co.companyId, today: TODAY });
+      const by = Object.fromEntries(checks.map((c) => [c.name, c]));
+      // Cash 100,000 against costs of 30,000 a month.
+      expect(by["Runway"]).toMatchObject({ value: "3.3 months", verdict: "watch" });
+      // 30,000 owed on 30,000 earned in 90 days.
+      expect(by["Days to get paid"]).toMatchObject({ value: "90 days", verdict: "act" });
+      expect(by["Biggest customer"]).toMatchObject({ value: "100% of sales", verdict: "act" });
+      expect(by["Profit margin, last 90 days"].verdict).toBe("act");
+      expect(by["Up to date"].value).toBe("Bank explained");
+      const rank = { act: 0, watch: 1, good: 2 };
+      expect(checks.map((c) => rank[c.verdict])).toEqual([...checks.map((c) => rank[c.verdict])].sort());
+      for (const c of checks) expect(c.explain.length).toBeGreaterThan(10);
+    }));
+
+  it("answers a question from what its tools read, and cites only what they returned", () =>
+    inRollback(async (client) => {
+      const co = await aBusiness(client);
+      await co.invoice("2026-09-01", "4000", "2026-09-30");
+      const asked = [];
+      // A stand-in model: looks up unpaid invoices, then answers citing the one it saw and one it made up.
+      const model = async ({ contents, config }) => {
+        asked.push(config.tools[0].functionDeclarations.length);
+        const last = contents[contents.length - 1].parts[0];
+        if (!last.functionResponse) return { functionCalls: [{ name: "documents", args: { kind: "invoices", unpaid: true } }], candidates: [{ content: { role: "model", parts: [] } }] };
+        const doc = last.functionResponse.response.result.documents[0];
+        return { text: `A resort owes MVR ${doc.stillOwed} on ${doc.number}, and more on INV-FAKE-9.` };
+      };
+      const r = await ask(client, { companyId: co.companyId, today: TODAY, company: "Test", question: "Who owes us?" }, model);
+      expect(r.answer).toMatch(/owes MVR 4,000.00 on /);
+      expect(r.looked).toEqual([{ tool: "documents", args: { kind: "invoices", unpaid: true } }]);
+      expect(r.sources.length).toBe(1);
+      expect(r.sources[0].kind).toBe("invoice");
+      expect(r.answer).toContain(r.sources[0].ref);
+      expect(asked).toEqual([7, 7]);
     }));
 });

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Loader2, RefreshCw, Volume2, Square } from "lucide-react";
+import { Loader2, RefreshCw, Volume2, Square, Send } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardTitle } from "@/components/ui/Card";
@@ -106,7 +106,7 @@ export default function Cfo() {
                 ))}
               </ul>
             )}
-            <p className="text-[12px] text-[var(--ink-muted)] mt-1.5">Written by Claude from the figures on this page, and nothing else.</p>
+            <p className="text-[12px] text-[var(--ink-muted)] mt-1.5">Written by Gemini from the figures on this page, and nothing else.</p>
           </div>
         )}
 
@@ -183,6 +183,8 @@ export default function Cfo() {
       </Card>
 
       <div className="grid gap-4">
+        <Ask ready={data.written} />
+        <Health checks={data.health} />
         <Profile p={p} />
         <Settings data={data} />
       </div>
@@ -345,9 +347,118 @@ function Settings({ data }) {
       </div>
       {!data.written && (
         <p className="text-[13px] text-[var(--ink-muted)] mt-4">
-          A written summary and advice from Claude appear at the top of the brief once a Claude API key is set on the server. Everything else works without it.
+          A written summary, advice and answers to questions come from Gemini once its key is set on the server. Everything else works without it.
         </p>
       )}
+    </Card>
+  );
+}
+
+const SUGGESTED = ["Who owes us the most, and since when?", "Can we afford to pay all bills due this month?", "Why did costs go up last month?", "What should I worry about this week?"];
+
+function Ask({ ready }) {
+  const [question, setQuestion] = useState("");
+  const [asking, setAsking] = useState(false);
+  const [answers, setAnswers] = useState([]);
+  const toast = useToast();
+  const go = async (q) => {
+    const text = (q ?? question).trim();
+    if (text.length < 3 || asking) return;
+    setAsking(true);
+    try {
+      const r = await apiClient.post("/cfo/ask", { question: text });
+      setAnswers((a) => [{ question: text, ...r.data }, ...a]);
+      setQuestion("");
+    } catch (err) {
+      toast.error("It could not answer", err.message);
+    } finally {
+      setAsking(false);
+    }
+  };
+  return (
+    <Card padding="lg" data-testid="ask">
+      <CardTitle>Ask the CFO</CardTitle>
+      <p className="text-[13px] text-[var(--ink-muted)] mt-1">
+        {ready ? "Answered from your books, with the entries and documents behind each figure. It reads; it never changes anything." : "Asking needs a Gemini key on the server."}
+      </p>
+      <form
+        className="flex gap-2 mt-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          go();
+        }}
+      >
+        <input aria-label="Your question" value={question} onChange={(e) => setQuestion(e.target.value)} disabled={!ready} maxLength={500} placeholder="Ask about cash, customers, costs, GST…" className={FIELD} />
+        <Button type="submit" disabled={!ready || asking || question.trim().length < 3}>
+          {asking ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Ask
+        </Button>
+      </form>
+      {ready && answers.length === 0 && (
+        <div className="flex flex-wrap gap-2 mt-3">
+          {SUGGESTED.map((q) => (
+            <button key={q} type="button" disabled={asking} onClick={() => go(q)} className="text-[13px] rounded-full border border-[var(--border)] px-3 py-1 hover:border-[var(--ink)]">
+              {q}
+            </button>
+          ))}
+        </div>
+      )}
+      {asking && <p className="text-[13px] text-[var(--ink-muted)] mt-3">Reading the books…</p>}
+      <div className="mt-4 space-y-5">
+        {answers.map((a, i) => (
+          <div key={i} data-testid="answer">
+            <p className="text-[13px] font-semibold">{a.question}</p>
+            <p className="text-[15px] mt-1 whitespace-pre-line">{a.answer}</p>
+            {a.sources.length > 0 && (
+              <ul className="text-[12px] text-[var(--ink-muted)] mt-1.5 space-y-0.5" data-testid="sources">
+                {a.sources.map((s) => (
+                  <li key={s.kind + s.ref}>
+                    {s.kind === "entry" ? "Entry" : s.kind === "invoice" ? "Invoice" : "Bill"} {s.ref}: {s.label}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {a.looked.length > 0 && <p className="text-[12px] text-[var(--ink-muted)] mt-1">Looked at: {[...new Set(a.looked.map((l) => LOOKED[l.tool] || l.tool))].join(", ")}.</p>}
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+const LOOKED = { figures: "the four figures", health: "the checks", profile: "the profile", account_balance: "account balances", documents: "invoices and bills", monthly: "month by month", search_entries: "the journal" };
+const VERDICT = { act: ["Act", "bg-[var(--danger)]"], watch: ["Watch", "bg-[var(--warning)]"], good: ["Good", "bg-[var(--success)]"] };
+
+function Health({ checks }) {
+  const [open, setOpen] = useState(null);
+  return (
+    <Card padding="lg" data-testid="health">
+      <CardTitle>How the business stands</CardTitle>
+      <p className="text-[13px] text-[var(--ink-muted)] mt-1">What a CFO checks, from the books as they are this morning. What needs acting on comes first.</p>
+      <ul className="divide-y divide-[var(--border)] mt-3">
+        {checks.map((c, i) => (
+          <li key={c.name} className="py-2.5">
+            <button type="button" onClick={() => setOpen(open === i ? null : i)} className="w-full text-left flex items-baseline gap-3" aria-expanded={open === i}>
+              <span className={`h-2.5 w-2.5 shrink-0 rounded-full self-center ${VERDICT[c.verdict][1]}`} title={VERDICT[c.verdict][0]} />
+              <span className="flex-1 min-w-0">
+                <span className="text-[12px] text-[var(--ink-muted)] mr-2">{c.area}</span>
+                <span className="text-[15px] font-medium">{c.name}</span>
+              </span>
+              <span className="text-[14px] tabular text-right">{c.value}</span>
+            </button>
+            <p className="text-[14px] text-[var(--ink-muted)] mt-1 pl-5">{c.explain}</p>
+            {open === i && (
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 text-[12px] mt-2 pl-5" data-testid="basis">
+                {Object.entries(c.basis).map(([k, v]) => (
+                  <div key={k} className="contents">
+                    <dt className="text-[var(--ink-muted)]">{k.replace(/([A-Z])/g, " $1").replace(/(d+)/, " $1").toLowerCase()}</dt>
+                    <dd className="tabular">{v ?? "none"}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </li>
+        ))}
+      </ul>
     </Card>
   );
 }

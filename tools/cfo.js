@@ -53,6 +53,20 @@ const n = (s) => Number(String(s).replace(/[^\d.-]/g, ""));
     await page.getByRole("button", { name: /^tell it$/i }).click();
     await page.getByTestId("profile").getByText(note).waitFor({ timeout: 10000 });
     ok("a note told to it is kept on the profile");
+    const checks = await page.getByTestId("health").locator("li").count();
+    if (checks >= 3) ok(`the health checks list ${checks} things a CFO looks at`);
+    else bad(`only ${checks} health checks`);
+    await page.getByTestId("health").locator("li button").first().click();
+    await page.getByTestId("basis").first().waitFor({ timeout: 5000 });
+    ok("a check opens onto the figures it rests on");
+
+    await page.getByLabel("Your question").fill("How much cash do we have, and what is due out in the next 30 days?");
+    await page.getByRole("button", { name: /^ask$/i }).click();
+    const answer = page.getByTestId("answer").first();
+    await answer.waitFor({ timeout: 90000 });
+    const said = await answer.innerText();
+    if (/MVR [\d,]+\.\d\d/.test(said) && /Looked at:/.test(said)) ok(`asked, it answered from the books: "${said.split("\n")[1].slice(0, 140)}"`);
+    else bad(`the answer reads ${said.slice(0, 300)}`);
     await page.screenshot({ path: "shots/cfo-desk.png", fullPage: true });
 
     const phone = await signIn(browser, { phone: true });

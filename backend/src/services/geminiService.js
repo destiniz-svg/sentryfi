@@ -73,28 +73,31 @@ async function reachableModels() {
   return discovered;
 }
 
-async function callModel(model, { contents, config }) {
+async function callModel(model, { contents, config, raw }) {
   const result = await ai.models.generateContent({ model, contents, config });
+  // A raw call wants the whole answer: a function call has no text.
+  if (raw) return result;
   const text = typeof result.text === "function" ? result.text() : result.text;
   if (!text) throw new Error("Empty response from Gemini");
   return text;
 }
 
-async function generate({ contents, config }) {
+async function generate({ contents, config, raw = false }) {
+  requireAI();
   let last;
 
   // The configured model first, retried through a short spike.
   const preferred = chosen || env.geminiModel;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      const text = await callModel(preferred, { contents, config });
+      const text = await callModel(preferred, { contents, config, raw });
       chosen = preferred;
       return text;
     } catch (err) {
       last = err;
-      const raw = String(err?.message || err);
-      if (GONE.test(raw)) break;                 // wrong name: retrying will not help
-      if (!TRANSIENT.test(raw)) throw err;       // a real failure
+      const msg = String(err?.message || err);
+      if (GONE.test(msg)) break;                 // wrong name: retrying will not help
+      if (!TRANSIENT.test(msg)) throw err;       // a real failure
       if (attempt < 2) await pause(700 * (attempt + 1));
     }
   }
@@ -103,7 +106,7 @@ async function generate({ contents, config }) {
   for (const model of await reachableModels()) {
     if (model === preferred) continue;
     try {
-      const text = await callModel(model, { contents, config });
+      const text = await callModel(model, { contents, config, raw });
       // Remember it: the next bill should not pay for this search again.
       chosen = model;
       console.warn(
@@ -117,8 +120,8 @@ async function generate({ contents, config }) {
       return text;
     } catch (err) {
       last = err;
-      const raw = String(err?.message || err);
-      if (!TRANSIENT.test(raw) && !GONE.test(raw)) throw err;
+      const msg = String(err?.message || err);
+      if (!TRANSIENT.test(msg) && !GONE.test(msg)) throw err;
     }
   }
 
@@ -181,6 +184,8 @@ async function parseSpoken({ buffer, mimeType, companyName }) {
 }
 
 module.exports = {
+  available: () => Boolean(ai),
+  generate,
   parseBill,
   parseSpoken,
 };
