@@ -69,6 +69,27 @@ router.get(
   })
 );
 
+/**
+ * A receipt photographed for a claim, read: who was paid, how much, when. The
+ * same reader as bills; what it read is shown to the person, never filed as it is.
+ */
+router.post(
+  "/claims/scan",
+  mayClaim,
+  require("../middleware/rateLimit").aiLimiter,
+  require("../middleware/upload").uploadReceipt("file"),
+  asyncHandler(async (req, res) => {
+    let read;
+    try {
+      read = await require("../services/geminiService").parseBill({ buffer: req.file.buffer, mimeType: req.file.mimetype, companyName: req.company?.name });
+    } catch (err) {
+      throw ApiError.badRequest("The receipt could not be read. Type what it says instead.");
+    }
+    const x = read.extracted || {};
+    res.json({ merchant: x.supplierName || null, amount: x.grossAmount || null, spentOn: x.issueDate || null, currency: x.currency || null });
+  })
+);
+
 router.post(
   "/claims",
   mayClaim,

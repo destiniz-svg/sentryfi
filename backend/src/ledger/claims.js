@@ -61,7 +61,8 @@ async function load(client, { companyId, claimId }) {
        JOIN accounts a ON a.id = l.account_id LEFT JOIN projects p ON p.id = l.project_id WHERE l.claim_id = $1 ORDER BY l.position`,
     [claimId]
   );
-  return { claim: rows[0], lines };
+  const { rows: receipts } = await client.query("SELECT id, filename FROM attachments WHERE claim_id = $1 ORDER BY uploaded_at", [claimId]);
+  return { claim: rows[0], lines, receipts };
 }
 
 function statusOf(c) {
@@ -104,12 +105,13 @@ async function reject(client, { companyId, userId, claimId, why }) {
   await client.query("UPDATE expense_claims SET rejected_by = $2, rejected_at = now(), rejected_why = $3 WHERE id = $1", [claimId, userId, String(why).trim()]);
 }
 
-function show({ claim, lines }) {
+function show({ claim, lines, receipts = [] }) {
   return {
     id: claim.id, number: claim.number, claimant: claim.claimant, claimantId: claim.claimant_id, note: claim.note,
     status: statusOf(claim), approver: claim.approver, rejectedWhy: claim.rejected_why,
     total: formatLaari(BigInt(claim.total)), paid: formatLaari(BigInt(claim.paid)), owed: formatLaari(BigInt(claim.total) - BigInt(claim.paid)),
     lines: lines.map((l) => ({ on: l.on_text, description: l.description, account: l.account, project: l.project, amount: formatLaari(BigInt(l.amount_laari)) })),
+    receipts: receipts.map((r) => ({ id: r.id, name: r.filename })),
   };
 }
 

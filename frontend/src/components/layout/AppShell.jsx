@@ -21,7 +21,7 @@ const BOARD = new Set(["/dashboard", "/bills", "/cash", "/owed", "/me"]);
 
 // Where someone who feeds the books but does not read them may go: the
 // camera, their tin, and their own account. Everything else is the office's.
-const FIELD = new Set(["/dashboard", "/cash", "/owed", "/me"]);
+const FIELD = new Set(["/dashboard", "/cash", "/owed", "/me", "/go"]);
 
 export function AppShell() {
   const location = useLocation();
@@ -61,7 +61,8 @@ export function AppShell() {
 
   // The board's own chrome: always for field staff, and on a phone for the
   // one field tool anybody may hold (a cash tin). Everyone else keeps the app.
-  const boardHere = field ? BOARD.has(location.pathname) : phone && (location.pathname === "/cash" || location.pathname === "/owed");
+  // The expense companion (/go) is its own light app for everyone: no rail, no tab bar.
+  const boardHere = location.pathname === "/go" || (field ? BOARD.has(location.pathname) : phone && (location.pathname === "/cash" || location.pathname === "/owed"));
   if (boardHere) {
     return (
       <Suspense fallback={<RouteFallback />}>

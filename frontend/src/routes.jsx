@@ -19,6 +19,7 @@ import Portal from "@/pages/Portal";
 const Genuine = lazy(() => import("@/pages/Genuine"));
 const Practice = lazy(() => import("@/pages/Practice"));
 const Trust = lazy(() => import("@/pages/Trust"));
+const Go = lazy(() => import("@/pages/Go"));
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
 import OpenBooks from "@/pages/OpenBooks";
@@ -180,6 +181,7 @@ export const router = createBrowserRouter([
       { path: "cfo", element: <Cfo /> },
       { path: "branding", element: <Branding /> },
       { path: "practice", element: <Practice /> },
+      { path: "go", element: <Go /> },
       { path: "documents/:kind/:id", element: <Document /> },
       { path: "approvals", element: <Approvals /> },
       { path: "payments", element: <Payments /> },

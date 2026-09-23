@@ -61,6 +61,15 @@ export default function Claims() {
                     </div>
                     <div className="text-[13px] text-[var(--ink-muted)] truncate">{c.lines.map((l) => l.description).join(", ")}</div>
                     {c.rejectedWhy && <div className="text-[13px] text-[var(--danger)] mt-1">Why not: {c.rejectedWhy}</div>}
+                    {c.receipts?.length > 0 && (
+                      <div className="flex flex-wrap gap-x-3 mt-1 text-[13px]">
+                        {c.receipts.map((r, i) => (
+                          <a key={r.id} href={`/api/attachments/${r.id}/file?company=${companyId}`} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                            Receipt {i + 1}
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="text-right shrink-0">
                     <Money amount={c.total} className="text-[15px] font-semibold" />

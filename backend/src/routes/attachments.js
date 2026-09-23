@@ -73,6 +73,57 @@ router.post(
   })
 );
 
+/**
+ * A receipt on an expense claim. The person who made the claim may add them
+ * (the companion app sends them with the claim); so may anyone who records.
+ */
+router.post(
+  "/claims/:id",
+  requireCan("capture", "record", "spend_cash", "order", "read"),
+  uploadReceipt("file"),
+  asyncHandler(async (req, res) => {
+    if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) throw ApiError.notFound("No such claim in these books");
+    const sha = crypto.createHash("sha256").update(req.file.buffer).digest();
+    const result = await asCompany(req, async (client) => {
+      const { rows: claim } = await client.query("SELECT claimant_id FROM expense_claims WHERE id = $1 AND company_id = $2", [req.params.id, req.companyId]);
+      if (!claim.length) return null;
+      if (claim[0].claimant_id !== req.user.id && !req.can("record")) throw ApiError.forbidden("Only the person who made the claim adds its receipts.");
+      await client.query(
+        `INSERT INTO attachment_blobs (company_id, sha256, bytes, byte_size, content_type) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (company_id, sha256) DO NOTHING`,
+        [req.companyId, sha, req.file.buffer, req.file.size, req.file.mimetype]
+      );
+      const { rows } = await client.query(
+        `INSERT INTO attachments (company_id, claim_id, filename, content_type, byte_size, sha256, storage_key, uploaded_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, filename, content_type, byte_size, uploaded_at`,
+        [req.companyId, req.params.id, req.file.originalname || "receipt", req.file.mimetype, req.file.size, sha, `pg:${sha.toString("hex")}`, req.user.id]
+      );
+      return rows[0];
+    });
+    if (!result) throw ApiError.notFound("No such claim in these books");
+    res.status(201).json({ attachment: result });
+  })
+);
+
+/** A claim's receipts: to the person who claimed, and to anyone who reads the books. */
+router.get(
+  "/claims/:id",
+  requireCan("capture", "record", "spend_cash", "order", "read"),
+  asyncHandler(async (req, res) => {
+    if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) throw ApiError.notFound("No such claim in these books");
+    const rows = await asCompany(req, async (client) => {
+      const { rows: found } = await client.query(
+        `SELECT a.id, a.filename, a.content_type, a.byte_size, a.uploaded_at
+           FROM attachments a JOIN expense_claims c ON c.id = a.claim_id
+          WHERE a.company_id = $1 AND a.claim_id = $2 AND ($3 OR c.claimant_id = $4)
+          ORDER BY a.uploaded_at`,
+        [req.companyId, req.params.id, req.can("read"), req.user.id]
+      );
+      return found;
+    });
+    res.json({ attachments: rows });
+  })
+);
+
 /** What paper a bill has. Never the bytes — those come one at a time. */
 router.get(
   "/bills/:id",
@@ -103,16 +154,18 @@ router.get(
  */
 router.get(
   "/:id/file",
-  requireCan("read"),
+  requireCan("capture", "record", "spend_cash", "order", "read"),
   asyncHandler(async (req, res) => {
     const file = await asCompany(req, async (client) => {
+      // Anyone who reads the books; otherwise only a receipt on your own claim.
       const { rows } = await client.query(
         `SELECT b.bytes, b.content_type, a.filename, b.byte_size
            FROM attachments a
            JOIN attachment_blobs b
              ON b.company_id = a.company_id AND b.sha256 = a.sha256
-          WHERE a.id = $1 AND a.company_id = $2`,
-        [req.params.id, req.companyId]
+           LEFT JOIN expense_claims c ON c.id = a.claim_id
+          WHERE a.id = $1 AND a.company_id = $2 AND ($3 OR c.claimant_id = $4)`,
+        [req.params.id, req.companyId, req.can("read"), req.user.id]
       );
       return rows[0] || null;
     });

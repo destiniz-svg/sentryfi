@@ -1072,3 +1072,24 @@ describe("the journal download", () => {
     denied(await call(B, "GET", "/statements/journal.csv", { company: A.companyId }));
   });
 });
+
+describe("receipts on claims, from B", () => {
+  it("are added and seen only inside A", async () => {
+    const claim = await call(A, "POST", "/claims", { body: { lines: [{ spentOn: "2026-09-12", description: "Receipted taxi", accountId: A.accounts["5100"], amount: "20" }] } });
+    const png = Buffer.from("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da6360000002000154a24f5d0000000049454e44ae426082", "hex");
+    const upload = (who, company) => {
+      const fd = new FormData();
+      fd.append("file", new Blob([png], { type: "image/png" }), "receipt.png");
+      return fetch(`${BASE}/attachments/claims/${claim.json.id}`, { method: "POST", headers: { cookie: who.cookie, "X-Company-Id": company }, body: fd });
+    };
+    expect((await upload(A, A.companyId)).status).toBe(201);
+    expect([400, 403, 404]).toContain((await upload(B, B.companyId)).status);
+    const seen = await call(A, "GET", `/attachments/claims/${claim.json.id}`);
+    expect(seen.json.attachments.length).toBe(1);
+    const fromB = await call(B, "GET", `/attachments/claims/${claim.json.id}`);
+    expect(fromB.json?.attachments?.length || 0).toBe(0);
+    denied(await call(B, "GET", `/attachments/${seen.json.attachments[0].id}/file`));
+    const listed = (await call(A, "GET", "/claims")).json.claims.find((c) => c.id === claim.json.id);
+    expect(listed.receipts.length).toBe(1);
+  });
+});
