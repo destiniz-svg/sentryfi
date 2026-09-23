@@ -56,7 +56,7 @@ export default function MobileHome() {
         <section aria-labelledby="where" className="rounded-[24px] bg-[var(--surface)] lift p-5">
           <h2 id="where" className="text-[17px] font-semibold tracking-[-0.01em]">Where the cash is</h2>
           <ul className="mt-3 space-y-3">
-            {f.cashPlaces.map((p) => (
+            {f.cashPlaces.slice(0, 4).map((p) => (
               <li key={p.name} className="flex items-center gap-3">
                 <Chip icon={/tin|cash/i.test(p.name) ? Wallet : Landmark} />
                 <span className="min-w-0 flex-1 text-[15px] truncate">{p.name}</span>
@@ -66,6 +66,12 @@ export default function MobileHome() {
               </li>
             ))}
           </ul>
+          {f.cashPlaces.length > 4 && (
+            <Link to="/bank" className="mt-4 flex items-center justify-between rounded-full bg-[var(--surface-2)] h-10 px-4 text-[14px] font-medium">
+              {f.cashPlaces.length - 4} more places
+              <ChevronRight size={16} aria-hidden="true" className="text-[var(--ink-muted)]" />
+            </Link>
+          )}
         </section>
       )}
 
@@ -169,7 +175,7 @@ function Figures({ f }) {
     { icon: Percent, value: f.gstOwed, label: "GST to set aside", to: "/tax" },
   ].filter((c) => c.value != null);
   return (
-    <div className="-mx-4 px-4 flex gap-3 overflow-x-auto snap-x no-bar pb-2 -mb-2" role="list" aria-label="Figures">
+    <div className="-mx-4 px-4 flex gap-3 overflow-x-auto snap-x scroll-px-4 no-bar py-4 -my-4" role="list" aria-label="Figures">
       {cards.map((c) => (
         <Link key={c.label} to={c.to} role="listitem" className="snap-start shrink-0 w-[152px] rounded-[20px] bg-[var(--surface)] lift p-4">
           <Chip icon={c.icon} />
