@@ -19,7 +19,7 @@ const ApiError = require("../utils/ApiError");
 const hashKey = (token) => crypto.createHash("sha256").update(String(token)).digest("hex");
 
 // Where a key may go at all.
-const REACH = /^\/api\/(mcp|auth\/me|companies\/current|bills|sales|orders|figures|statements|attention|cash|bank|periods|projects|stock|shipments|assets|loans|dimensions|claims|payments|recurring|cfo|documents|tax|gst|items)(\/|$|\?)/;
+const REACH = /^\/api\/(mcp|auth\/me|companies\/current|bills|sales|orders|figures|statements|attention|cash|bank|periods|projects|stock|shipments|assets|loans|dimensions|claims|payments|recurring|cfo|analytics|documents|tax|gst|items)(\/|$|\?)/;
 // What a "draft" key may write: making a draft, never putting it in the books.
 const DRAFTS = [/^\/api\/bills$/, /^\/api\/sales$/, /^\/api\/orders$/];
 // What any key may send that changes nothing.

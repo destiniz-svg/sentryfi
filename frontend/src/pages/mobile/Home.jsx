@@ -182,7 +182,7 @@ function Figures({ f }) {
   const cards = [
     { icon: ArrowDownLeft, value: f.owedToUs, label: "Owed to you", to: "/invoices" },
     { icon: ArrowUpRight, value: f.owedToSuppliers, label: "You owe suppliers", to: "/bills" },
-    { icon: ReceiptText, value: f.spentThisMonth, label: "Spent this month", to: "/figures" },
+    { icon: ReceiptText, value: f.spentThisMonth, label: "Spent this month", to: "/analytics" },
     { icon: Percent, value: f.gstOwed, label: "GST to set aside", to: "/tax" },
   ].filter((c) => c.value != null);
   return (
@@ -382,9 +382,10 @@ function MoneyOut({ f }) {
           ))}
         </div>
       </div>
-      {kept.length < months.length && (
-        <p className="text-[12px] text-[var(--ink-muted)] mt-3">Dotted months are before these books began.</p>
-      )}
+      <div className="flex items-center justify-between gap-3 mt-3">
+        <p className="text-[12px] text-[var(--ink-muted)]">{kept.length < months.length ? "Dotted months are before these books began." : ""}</p>
+        <Link to="/analytics" className="inline-flex items-center gap-0.5 text-[13px] font-medium shrink-0">Analytics <ChevronRight size={14} /></Link>
+      </div>
     </section>
   );
 }

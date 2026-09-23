@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Banknote, Bot, Building2, Languages, Receipt, Boxes, CheckCheck, ChevronRight, ClipboardList, DatabaseBackup, FileText, HandCoins, HardHat, Lock, LogOut, Moon, Package, Palette, Percent, Scale, Settings, Ship, Sunrise, Upload, User, Users, Wallet } from "lucide-react";
+import { Banknote, Bot, Building2, Languages, Receipt, Boxes, CheckCheck, ChevronRight, ClipboardList, DatabaseBackup, FileText, HandCoins, HardHat, Lock, LogOut, Moon, Package, Palette, Percent, Scale, Settings, Ship, Sunrise, Upload, User, Users, Wallet , Gauge } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useCompany } from "@/context/CompanyContext";
@@ -65,6 +65,7 @@ export default function More() {
         title="The books"
         rows={[
           can("read") && { name: "The CFO: the morning brief", icon: Sunrise, to: "/cfo" },
+          can("read") && { name: "Analytics", icon: Gauge, to: "/analytics" },
           { name: "Statements", icon: Scale, to: "/statements" },
           { name: "Projects", icon: HardHat, to: "/projects" },
           { name: "Orders", icon: ClipboardList, to: "/orders" },

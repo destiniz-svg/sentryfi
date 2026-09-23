@@ -12,7 +12,7 @@ export const SECTIONS = [
     items: [
       { to: "/dashboard", icon: LayoutGrid, label: "What needs you" },
       { to: "/cfo", icon: Sunrise, label: "The CFO", can: "read" },
-      { to: "/figures", icon: Gauge, label: "Figures" },
+      { to: "/analytics", icon: Gauge, label: "Analytics" },
       { to: "/approvals", icon: CheckCheck, label: "Approvals", can: "approve" },
     ],
   },

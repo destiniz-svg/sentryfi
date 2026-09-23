@@ -1120,3 +1120,12 @@ describe("the database itself", () => {
     await expect(db.query("UPDATE sales_invoices SET counterparty_id = $1 WHERE id = $2", [theirs, A.invoiceId])).rejects.toMatchObject({ code: "23503" });
   });
 });
+
+describe("analytics, from B", () => {
+  it("shows B only its own books, and never opens A's entries", async () => {
+    noLeak(await call(B, "GET", "/analytics?from=2000-01-01&to=2030-12-31"), "SECRET-CUSTOMER-A", "SECRET-SUPPLIER-A", "555.55");
+    noLeak(await call(B, "GET", "/analytics/entries?type=income&from=2000-01-01&to=2030-12-31"), "SECRET-CUSTOMER-A", "555.55");
+    denied(await call(B, "GET", "/analytics?from=2000-01-01&to=2030-12-31", { company: A.companyId }));
+    denied(await call(B, "GET", "/analytics/entries?type=expense", { company: A.companyId }));
+  });
+});

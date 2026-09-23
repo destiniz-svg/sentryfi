@@ -22,6 +22,7 @@ import { useSales } from "@/hooks/useSales";
 
 const NAV_ITEMS = [
   { id: "nav:dashboard", kind: "nav", label: "What needs you", hint: "Home", to: "/dashboard", icon: LayoutGrid },
+  { id: "nav:analytics", kind: "nav", label: "Analytics", hint: "Which site made money, who pays late, where the month is heading", to: "/analytics", icon: Gauge },
   { id: "nav:figures", kind: "nav", label: "Figures", hint: "From the books", to: "/figures", icon: Gauge },
   { id: "nav:bills", kind: "nav", label: "Bills", hint: "What you owe", to: "/bills", icon: ReceiptText },
   { id: "nav:invoices", kind: "nav", label: "Invoices", hint: "What customers owe you", to: "/invoices", icon: FileText },

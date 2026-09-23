@@ -40,6 +40,7 @@ import { usePhone } from "@/lib/phone";
  * opened.
  */
 const Figures = lazy(() => import("@/pages/Figures"));
+const Analytics = lazy(() => import("@/pages/Analytics"));
 const Attention = lazy(() => import("@/pages/Attention"));
 const Bills = lazy(() => import("@/pages/Bills"));
 const NotReady = lazy(() => import("@/pages/NotReady"));
@@ -187,6 +188,7 @@ export const router = createBrowserRouter([
       { path: "payments", element: <Payments /> },
       { path: "loans", element: <Loans /> },
       { path: "figures", element: <Figures /> },
+      { path: "analytics", element: <Analytics /> },
       // Still on the purchased product's tables. See config/readiness.js.
       { path: "invoices", element: <Invoices /> },
       { path: "invoices/new", element: <NewInvoice /> },

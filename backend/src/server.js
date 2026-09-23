@@ -114,6 +114,7 @@ app.use("/api/recurring", require("./routes/recurring"));
 app.use("/api", require("./routes/claims"));
 app.use("/api/portal", require("./routes/portal").publicRouter);
 app.use("/api/cfo", require("./routes/cfo"));
+app.use("/api/analytics", require("./routes/analytics"));
 app.use("/api/verify", require("./routes/documents").verify);
 app.use("/api/keys", require("./routes/keys"));
 app.use("/api/openapi.json", require("./routes/openapi"));
