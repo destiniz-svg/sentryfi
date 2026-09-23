@@ -120,6 +120,7 @@ app.use("/api/keys", require("./routes/keys"));
 app.use("/api/openapi.json", require("./routes/openapi"));
 app.use("/api/mcp", require("./routes/mcp"));
 app.use("/api/practice", require("./routes/practice"));
+app.use("/api/webhooks", require("./routes/webhooks"));
 app.use("/api/documents", require("./routes/documents"));
 app.use("/api/notifications", require("./routes/notifications"));
 app.use("/api/push", require("./routes/notifications").devices);

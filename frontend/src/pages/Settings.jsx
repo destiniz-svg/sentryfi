@@ -19,6 +19,7 @@ import { DevicesSection } from "@/components/settings/DevicesSection";
 import { useCompany } from "@/context/CompanyContext";
 import { Link } from "react-router-dom";
 import { AssistantKeys } from "@/components/settings/AssistantKeys";
+import { Webhooks } from "@/components/settings/Webhooks";
 import { useT } from "@/lib/i18n";
 
 function FieldLabel({ children, htmlFor }) {
@@ -293,7 +294,10 @@ export default function Settings() {
             <TaxSection />
           </TabsContent>
           <TabsContent value="assistant">
-            <AssistantKeys />
+            <div className="space-y-4">
+              <AssistantKeys />
+              <Webhooks />
+            </div>
           </TabsContent>
           <TabsContent value="profile">
             <div className="space-y-4">

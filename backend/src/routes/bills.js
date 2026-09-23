@@ -615,6 +615,7 @@ router.post(
         entryNo: String(result.entry.entryNo),
         total: formatLaari(result.entry.totalLaari),
       });
+      require("../services/webhooks").emit(req.companyId, "bill.posted", { billId: req.params.id, entryNo: String(result.entry.entryNo), total: formatLaari(result.entry.totalLaari) });
     } catch (err) {
       // These are decisions a person has to make, not server faults.
       throw ApiError.badRequest(err.message);

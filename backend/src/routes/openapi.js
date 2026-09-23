@@ -29,6 +29,8 @@ const spec = {
       "Money is text with two decimals (\"1,250.00\"), never a float. Dates are YYYY-MM-DD. Errors are `{ error: { message } }` in plain words.",
       "",
       "An MCP server for assistants is at POST /api/mcp, with the same key and the same limits.",
+      "",
+      "Webhooks (Settings, Assistant) tell your software when an invoice or a bill goes into the books, or money comes in: a POST of { id, event, created, companyId, data } with the record's id, entry and total. Check `Sentryfi-Signature: t=<unix>,v1=<hex>`: HMAC-SHA256 of `t.body` with the webhook's secret. Up to three attempts; answer 2xx.",
     ].join("\n"),
   },
   servers: [{ url: "https://sentryfi.app/api" }],

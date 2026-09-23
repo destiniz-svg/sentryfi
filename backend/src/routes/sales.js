@@ -289,6 +289,7 @@ router.post(
         entryNo: String(result.entry.entryNo),
         total: formatLaari(result.entry.totalLaari),
       });
+      require("../services/webhooks").emit(req.companyId, "invoice.posted", { invoiceId: req.params.id, entryNo: String(result.entry.entryNo), total: formatLaari(result.entry.totalLaari) });
     } catch (err) {
       throw ApiError.badRequest(err.message);
     }
@@ -323,6 +324,7 @@ router.post(
         exchange: result.exchange === undefined ? null : formatLaari(result.exchange < 0n ? -result.exchange : result.exchange),
         exchangeLoss: result.exchange !== undefined && result.exchange < 0n,
       });
+      require("../services/webhooks").emit(req.companyId, "money.received", { receiptId: result.receipt.id, entryNo: String(result.entry.entryNo), applied: formatLaari(result.allocated), onAccount: formatLaari(result.onAccount) });
     } catch (err) {
       throw ApiError.badRequest(err.message);
     }

@@ -927,7 +927,7 @@ describe("every company table is walled", () => {
     );
     // Tables the app role cannot reach at all need no policy: the platform's own.
     // Looked up before anyone is known, and out of the app role's reach entirely.
-    const platform = new Set(["password_resets", "backup_runs", "portal_links", "api_keys"]);
+    const platform = new Set(["password_resets", "backup_runs", "portal_links", "api_keys", "webhooks"]);
     const open = rows.filter((r) => !platform.has(r.t) && !(r.on && r.forced && r.policies > 0)).map((r) => r.t);
     expect(open).toEqual([]);
   });
@@ -1048,5 +1048,17 @@ describe("the practice view", () => {
     expect(a.json.companies.map((c) => c.id)).not.toContain(B.companyId);
     const b = await call(B, "GET", "/practice", { company: null });
     noLeak(b, A.companyId, "SECRET-SUPPLIER-A", "Altura");
+  });
+});
+
+describe("webhooks, from B", () => {
+  it("are A's alone, refuse private addresses, and are out of a key's reach", async () => {
+    expect((await call(A, "POST", "/webhooks", { body: { url: "https://127.0.0.1/hook", events: ["invoice.posted"] } })).status).toBe(400);
+    expect((await call(A, "POST", "/webhooks", { body: { url: "http://example.com/hook", events: ["invoice.posted"] } })).status).toBe(400);
+    const listA = await call(A, "GET", "/webhooks");
+    expect(listA.status).toBe(200);
+    noLeak(await call(B, "GET", "/webhooks"), "SECRET-HOOK");
+    const key = (await call(A, "POST", "/keys", { body: { name: "Hooker", scope: "draft" } })).json.token;
+    expect((await call(null, "GET", "/webhooks", { company: null, headers: { Authorization: `Bearer ${key}` } })).status).toBe(403);
   });
 });
