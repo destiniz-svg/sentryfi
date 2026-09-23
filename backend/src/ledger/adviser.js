@@ -50,7 +50,7 @@ const ASSET_WORDS = [
 const ASSET_FLOOR = 1500000n; // MVR 15,000.00
 
 // Words that say a charge was part of landing goods from abroad.
-const LANDING_WORDS = /\b(customs|clearance|clearing|port|duty|form set|freight|shipping|demurrage|delivery order|handling|container|wharf|cnf)\b/;
+const LANDING_WORDS = /\b(customs|clearance|clearing|port|duty|form set|freight|shipping|demurrage|delivery order|handling|container|wharf|cnf|transport)\b/;
 
 async function advise(client, { companyId, counterpartyId, lines, shipmentId }) {
   // Which shipment a landing cost belongs to: the bill's own, or the only one
