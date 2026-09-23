@@ -296,6 +296,63 @@ router.post(
   })
 );
 
+/**
+ * An invoice said in a sentence ("22 days of excavator hire to Blue Lagoon at
+ * 3,000 a day, plus mobilisation 4,500, due in 30 days"), turned into the
+ * form's fields for a person to check. Nothing is saved: it fills the form,
+ * and the person saves it. Only what was said is filled; the rest is left empty.
+ */
+router.post(
+  "/from-words",
+  requireCan("record"),
+  require("../middleware/rateLimit").aiLimiter,
+  asyncHandler(async (req, res) => {
+    const text = String(req.body?.text || "").trim().slice(0, 1000);
+    if (text.length < 5) throw ApiError.badRequest("Say what the invoice is for.");
+    if (!process.env.GEMINI_API_KEY) throw ApiError.badRequest("Filling from a sentence needs a Gemini key on the server.");
+    const today = new Date().toISOString().slice(0, 10);
+    try {
+      const out = await require("../services/geminiService").generate({
+        contents: [{ role: "user", parts: [{ text }] }],
+        config: {
+          systemInstruction:
+            `Today is ${today}. Turn the person's words into an invoice's fields. Fill only what they said; never invent a customer, a price, a quantity or a date. ` +
+            "Money is digits with at most one dot, no commas or currency. A line is one charge: what, how many, the unit if said (DAY, HR, LOT, M3…), and the price for one. " +
+            "If they gave a total for a line and no price for one, put quantity 1 and that total as the rate. Due date as YYYY-MM-DD, worked out from 'due in N days' if said. " +
+            "gstTreatment only if they said: 'plus GST' is exclusive, 'including GST' is inclusive, 'no GST' is none_unregistered; otherwise null.",
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "object",
+            properties: {
+              customerName: { type: "string", nullable: true },
+              subject: { type: "string", nullable: true },
+              purchaseOrder: { type: "string", nullable: true },
+              dueDate: { type: "string", nullable: true },
+              gstTreatment: { type: "string", enum: ["exclusive", "inclusive", "none_unregistered"], nullable: true },
+              lines: { type: "array", items: { type: "object", properties: { description: { type: "string" }, quantity: { type: "string", nullable: true }, unit: { type: "string", nullable: true }, rate: { type: "string", nullable: true } }, required: ["description"] } },
+            },
+            required: ["lines"],
+          },
+          temperature: 0,
+        },
+      });
+      const p = JSON.parse(out);
+      const num = (v) => (v && /^\d+(\.\d+)?$/.test(String(v).replace(/,/g, "")) ? String(v).replace(/,/g, "") : "");
+      res.json({
+        customerName: p.customerName || "",
+        subject: p.subject || "",
+        purchaseOrder: p.purchaseOrder || "",
+        dueDate: /^\d{4}-\d{2}-\d{2}$/.test(p.dueDate || "") ? p.dueDate : null,
+        gstTreatment: p.gstTreatment || null,
+        lines: (p.lines || []).slice(0, 30).map((l) => ({ description: String(l.description || "").slice(0, 400), quantity: num(l.quantity) || "1", uom: String(l.unit || "").slice(0, 20), rate: num(l.rate) })),
+      });
+    } catch (err) {
+      console.error(JSON.stringify({ at: "sales/from-words", error: err.message }));
+      throw ApiError.badRequest("That could not be read into an invoice. Fill the form instead.");
+    }
+  })
+);
+
 /** Money in. */
 router.post(
   "/receipts",

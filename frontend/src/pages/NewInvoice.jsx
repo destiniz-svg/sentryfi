@@ -371,6 +371,19 @@ export default function NewInvoice() {
             view === "preview" && "hidden lg:block",
           )}
         >
+          <FromWords
+            onFill={(r) => {
+              setForm((x) => ({
+                ...x,
+                customerName: r.customerName || x.customerName,
+                subject: r.subject || x.subject,
+                purchaseOrder: r.purchaseOrder || x.purchaseOrder,
+                dueDate: r.dueDate || x.dueDate,
+                gstTreatment: r.gstTreatment || x.gstTreatment,
+              }));
+              if (r.lines?.length) setLines(r.lines.map((l) => ({ ...blankLine(), ...l })));
+            }}
+          />
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-3">
             <Field label="Who is it to?" htmlFor="inv-customer">
               <input
@@ -673,6 +686,46 @@ function Field({ label, htmlFor, hint, children }) {
           {hint}
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Say the invoice in a sentence and the form fills itself (POST /sales/from-words).
+ * Only what was said is filled; nothing is saved until the person saves it.
+ */
+function FromWords({ onFill }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+  async function go() {
+    setBusy(true);
+    try {
+      const r = await apiClient.post("/sales/from-words", { text });
+      onFill(r.data);
+      toast.success("Filled in", "Check each field against what you meant before saving.");
+    } catch (err) {
+      toast.error("Not filled", err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="rounded-xl bg-[var(--surface-2)] p-3" data-testid="from-words">
+      <label htmlFor="inv-words" className="block text-[13px] font-medium">Say it in a sentence</label>
+      <div className="mt-1.5 flex gap-2">
+        <input
+          id="inv-words"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), text.trim().length > 4 && go())}
+          placeholder="22 days excavator hire to Blue Lagoon at 3,000 a day, plus GST, due in 30 days"
+          className="flex-1 min-w-0 h-10 px-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[14px] outline-none focus:border-[var(--ink)]"
+        />
+        <Button type="button" variant="outline" onClick={go} disabled={busy || text.trim().length < 5}>
+          {busy ? <Loader2 size={14} className="animate-spin" /> : null} Fill it in
+        </Button>
+      </div>
     </div>
   );
 }
