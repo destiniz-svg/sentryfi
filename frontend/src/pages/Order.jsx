@@ -95,11 +95,11 @@ export default function Order() {
           <table className="w-full text-[14px] tabular" data-testid="order-lines">
             <thead>
               <tr className="text-[12px] text-[var(--ink-muted)] text-right border-b border-[var(--border)]">
-                <th className="text-left font-medium px-5 py-3">What</th>
+                <th className="text-left font-medium px-4 sm:px-5 py-3">What</th>
                 <th className="font-medium px-3 py-3">Ordered</th>
                 <th className="font-medium px-3 py-3">{buying ? "Arrived" : "Gone out"}</th>
                 <th className="font-medium px-3 py-3">{buying ? "Billed" : "Invoiced"}</th>
-                <th className="font-medium px-3 py-3">Each</th>
+                <th className="font-medium px-3 py-3 hidden sm:table-cell">Each</th>
                 <th className="font-medium px-5 py-3">Amount</th>
               </tr>
             </thead>
@@ -115,7 +115,7 @@ export default function Order() {
                   </td>
                   <td className={`px-3 py-3 ${n(l.delivered) < n(l.quantity) ? "text-[var(--ink-muted)]" : ""}`}>{l.delivered}</td>
                   <td className={`px-3 py-3 ${n(l.billed) < n(l.delivered) ? "text-[var(--accent-strong)] font-semibold" : "text-[var(--ink-muted)]"}`}>{l.billed}</td>
-                  <td className="px-3 py-3 text-[var(--ink-muted)]">
+                  <td className="px-3 py-3 text-[var(--ink-muted)] hidden sm:table-cell">
                     <Money amount={l.price} />
                   </td>
                   <td className="px-5 py-3 font-semibold">
