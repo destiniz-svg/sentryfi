@@ -309,4 +309,4 @@ async function list(client, { companyId }) {
   });
 }
 
-module.exports = { CATEGORIES, register, depreciate, dispose, list, wornAfter, monthsInUse, monthEnds, monthEnd };
+module.exports = { CATEGORIES, categoryAccounts, register, depreciate, dispose, list, wornAfter, monthsInUse, monthEnds, monthEnd };

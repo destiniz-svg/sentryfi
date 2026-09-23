@@ -23,11 +23,12 @@ const { DIMENSIONS_SQL } = require("./dimensions-schema");
 const { CURRENCY_SQL } = require("./currency-schema");
 const { ACCESS_SQL } = require("./access-schema");
 const { STOCK_SQL } = require("./stock-schema");
+const { ADVISER_SQL } = require("./adviser-schema");
 const { SECURITY_SQL } = require("./security-schema");
 
 const ALL_SQL = [
   SCHEMA_SQL, LEDGER_SQL, BILLS_SQL, ATTACHMENTS_SQL, COUNTERPARTY_SQL, CASH_SQL, SALES_SQL,
-  STATEMENT_SQL, PERIOD_SQL, TAX_SQL, IMPORT_SQL, FX_SQL, PEOPLE_SQL, BACKUP_SQL, ASSETS_SQL, LOANS_SQL, DIMENSIONS_SQL, CURRENCY_SQL, ACCESS_SQL, STOCK_SQL,
+  STATEMENT_SQL, PERIOD_SQL, TAX_SQL, IMPORT_SQL, FX_SQL, PEOPLE_SQL, BACKUP_SQL, ASSETS_SQL, LOANS_SQL, DIMENSIONS_SQL, CURRENCY_SQL, ACCESS_SQL, STOCK_SQL, ADVISER_SQL,
   // Last: it has the final word over grants made above.
   SECURITY_SQL,
 ];

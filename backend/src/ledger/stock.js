@@ -100,65 +100,9 @@ async function recordMove(client, m) {
 
 // ------------------------------------------------------------------ bills
 
-/**
- * The stock a bill brought in, turned into our own currency and split from
- * whatever else is on the bill. Amounts on the lines are before tax, in the
- * bill's own currency; each becomes its share of the bill's own-currency net.
- * What the lines do not cover (delivery, say) stays a cost.
- */
-async function billStock(client, { companyId, bill }) {
-  const { rows } = await client.query(
-    `SELECT l.item_id, l.quantity, l.amount_laari, i.name, i.unit
-       FROM bill_stock_lines l JOIN stock_items i ON i.id = l.item_id
-      WHERE l.bill_id = $1 AND l.company_id = $2 ORDER BY l.position`,
-    [bill.id, companyId]
-  );
-  if (!rows.length) return { lines: [], rest: BigInt(bill.net_laari) };
-  const foreign = bill.fc_net !== null && bill.fc_net !== undefined;
-  const printedNet = BigInt(foreign ? bill.fc_net : bill.net_laari);
-  const net = BigInt(bill.net_laari);
-  const amounts = rows.map((r) => BigInt(r.amount_laari));
-  const covered = amounts.reduce((a, b) => a + b, 0n);
-  if (covered > printedNet) throw new Error("The stock on this bill comes to more than the bill before tax.");
-  const lines = rows.map((r, i) => ({
-    itemId: r.item_id,
-    name: r.name,
-    unit: r.unit,
-    units: fromDb(r.quantity),
-    value: printedNet === 0n ? 0n : (net * amounts[i] + printedNet / 2n) / printedNet,
-  }));
-  // The whole bill is stock: the lines take exactly its net, rounding and all.
-  if (covered === printedNet) lines[lines.length - 1].value += net - lines.reduce((a, l) => a + l.value, 0n);
-  return { lines, rest: net - lines.reduce((a, l) => a + l.value, 0n) };
-}
-
-/** Replaces the stock lines on a bill not yet in the books. */
+/** Says a bill brought in only these items (billSplit.save, stock parts only). */
 async function setBillStock(client, { companyId, userId, billId, lines }) {
-  await assumeIdentity(client, { companyId, userId });
-  const { rows } = await client.query("SELECT id, status, net_laari, fc_net FROM bills WHERE id = $1 AND company_id = $2", [billId, companyId]);
-  const bill = rows[0];
-  if (!bill) throw new Error("No such bill in these books.");
-  if (bill.status === "posted") throw new Error("This bill is in the books. Reverse it to change what it brought in.");
-  const prepared = lines.map((l) => ({ itemId: l.itemId, units: toUnits(l.quantity), amount: toLaari(l.amount) }));
-  if (prepared.some((l) => l.amount <= 0n)) throw new Error("Each item needs what it cost, before tax.");
-  const printedNet = BigInt(bill.fc_net ?? bill.net_laari);
-  const covered = prepared.reduce((a, l) => a + l.amount, 0n);
-  if (covered > printedNet) {
-    throw new Error(`The items come to ${formatLaari(covered)}, more than the bill's ${formatLaari(printedNet)} before tax.`);
-  }
-  if (prepared.length) {
-    const ids = [...new Set(prepared.map((l) => l.itemId))];
-    const { rows: found } = await client.query("SELECT id FROM stock_items WHERE company_id = $1 AND id = ANY($2::uuid[]) AND archived_at IS NULL", [companyId, ids]);
-    if (found.length !== ids.length) throw new Error("One of those items is not in these books.");
-  }
-  await client.query("DELETE FROM bill_stock_lines WHERE bill_id = $1 AND company_id = $2", [billId, companyId]);
-  for (const [i, l] of prepared.entries()) {
-    await client.query(
-      "INSERT INTO bill_stock_lines (company_id, bill_id, item_id, quantity, amount_laari, position) VALUES ($1,$2,$3,$4,$5,$6)",
-      [companyId, billId, l.itemId, unitsText(l.units), l.amount.toString(), i]
-    );
-  }
-  return { lines: prepared.length, covered, rest: printedNet - covered };
+  return require("./billSplit").save(client, { companyId, userId, billId, lines: lines.map((l) => ({ ...l, kind: "stock" })) });
 }
 
 /**
@@ -340,4 +284,4 @@ async function history(client, { companyId, itemId }) {
   }));
 }
 
-module.exports = { ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, billStock, setBillStock, undoBillStock, invoiceCost, count, opening, list, history };
+module.exports = { ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, count, opening, list, history };

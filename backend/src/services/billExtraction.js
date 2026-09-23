@@ -113,6 +113,20 @@ const billSchema = {
         "The bank account number the bill asks to be paid into, digits only, as printed. " +
         "Empty if the bill does not give one.",
     },
+    lines: {
+      type: Type.ARRAY,
+      description:
+        "Each charge printed on the bill, top to bottom: what it is, how many, and the line's amount. " +
+        "Leave out subtotals, GST and totals. Empty if the bill shows no separate lines.",
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          description: { type: Type.STRING, description: "What the line is for, as printed." },
+          quantity: { type: Type.STRING, description: "How many, digits and one dot only. Empty if not shown." },
+          amount: { type: Type.STRING, description: "The line's amount, digits and one dot only." },
+        },
+      },
+    },
     confidence: {
       type: Type.OBJECT,
       required: ["supplierName", "grossAmount", "gstTreatment"],
@@ -153,6 +167,11 @@ const billValidator = z.object({
     .catch("unknown"),
   gstRatePercent: z.string().default(""),
   billedToName: z.string().default(""),
+  lines: z
+    .array(z.object({ description: z.string().default(""), quantity: z.string().default(""), amount: z.string().default("") }))
+    .max(60)
+    .catch([])
+    .default([]),
   confidence: z
     .object({
       supplierName: level.default("low"),
@@ -189,6 +208,7 @@ function billPrompt({ companyName } = {}) {
   "",
   "For confidence, be honest. 'low' on a field is useful information, not a failure.",
   "Amounts must be digits and at most one decimal point, with no currency symbol, no commas and no spaces.",
+  "List the bill's lines in lines, one per charge, exactly as printed: what, how many, and the line amount. Subtotals, GST, discounts and the grand total are not lines.",
   "Read the supplier's address, phone, email, GST number and the bank account the bill asks to be paid into, when they are printed. These are how the supplier's record fills itself in over time, so a blank is much better than a guess.",
   "The image is a photograph of a piece of paper, often taken at an angle, on a desk or a van bonnet, in poor light, with other things in the frame. Read the document in it and ignore the surroundings. If it is rotated, read it rotated.",
   "If a field is genuinely not on the paper, leave it empty. An empty field is correct and useful; an invented one is a figure somebody will pay.",
@@ -255,7 +275,7 @@ function spokenPrompt({ companyName } = {}) {
     "grossAmount is the total they said, in digits, with at most one decimal point and no currency symbol, commas or spaces. \"Two thousand five hundred\" is 2500. \"Two fifty\" said of a small purchase is 250, but if they are not clear, leave it null.",
     "issueDate only if they said a date: today's date belongs to the app, not to you.",
     "gstTreatment: 'unknown' unless they clearly said how the tax was charged — 'inclusive' if they said the price includes GST, 'exclusive' if they said GST was added on top, 'none_unregistered' if they said the supplier does not charge GST. A voice note almost never settles this, and 'unknown' is the correct answer.",
-    "Put whatever they said it was for, in their own words, in description.",
+    "Put whatever they said it was for, in their own words, in lines: one line per thing they named, with its amount if they said one.",
     "For confidence, be honest: a noisy jetty is a real thing and 'low' is useful.",
   ].filter(Boolean).join("\n");
 }

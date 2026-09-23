@@ -574,6 +574,18 @@ describe("A's stock, from B", () => {
   });
 });
 
+describe("what A's bills were for, from B", () => {
+  it("B cannot read or set the split of A's bill, nor split B's own bill onto A's accounts", async () => {
+    denied(await call(B, "GET", `/bills/${A.draftBillId}/split`));
+    denied(await call(B, "PUT", `/bills/${A.draftBillId}/split`, { body: { lines: [] } }));
+    const bill = await call(B, "POST", "/bills", { body: { supplierName: "B supplier two", amount: "100", gstTreatment: "none_unregistered", issueDate: "2026-09-03" } });
+    denied(await call(B, "PUT", `/bills/${bill.json.bill.id}/split`, { body: { lines: [{ kind: "cost", amount: "50", accountId: A.accounts["5100"] }] } }));
+    const own = await call(B, "GET", `/bills/${bill.json.bill.id}/split`);
+    expect(own.status).toBe(200);
+    noLeak(own, A.accounts["5100"]);
+  });
+});
+
 describe("confirming an email address", () => {
   const jwt = req("jsonwebtoken");
   const secret = process.env.JWT_SECRET;

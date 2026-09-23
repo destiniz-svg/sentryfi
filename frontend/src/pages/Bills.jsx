@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Boxes, Plus, Receipt, Ban, Loader2, Undo2 } from "lucide-react";
+import { ListTree, Plus, Receipt, Ban, Loader2, Undo2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -10,9 +10,8 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { VoidDialog } from "@/components/ui/VoidDialog";
 import { RecordBill } from "@/components/bills/RecordBill";
 import { WaitingToSend } from "@/components/bills/WaitingToSend";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BillStock } from "@/components/bills/BillStock";
-import { apiClient } from "@/api/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { BillSplit } from "@/components/bills/BillSplit";
 import { billsApi } from "@/api/bills";
 import { useBills, useBillMutations } from "@/hooks/useBills";
 import { useCompany } from "@/context/CompanyContext";
@@ -47,15 +46,7 @@ export default function Bills() {
   const [voiding, setVoiding] = useState(null);
   const [posting, setPosting] = useState(null);
   const [reversing, setReversing] = useState(null);
-  const [stocking, setStocking] = useState(null);
-
-  // Only a company that keeps stock is asked which items a bill brought in.
-  const { data: stockItems } = useQuery({
-    queryKey: ["stock", companyId],
-    queryFn: () => apiClient.get("/stock").then((r) => r.data.items),
-    enabled: Boolean(companyId) && can("read"),
-  });
-  const keepsStock = (stockItems || []).some((i) => !i.archived);
+  const [splitting, setSplitting] = useState(null);
 
   const canRecord = can("record");
 
@@ -213,9 +204,9 @@ export default function Bills() {
                   </div>
 
                   <div className="justify-self-end flex items-center gap-1.5">
-                    {canRecord && keepsStock && !isVoid && bill.status !== "posted" && (
-                      <Button variant="ghost" onClick={() => setStocking(bill)} aria-label={`Stock on the bill from ${bill.supplier_name || "this supplier"}`}>
-                        <Boxes size={14} /> Stock
+                    {canRecord && !isVoid && bill.status !== "posted" && (
+                      <Button variant="ghost" onClick={() => setSplitting(bill)} aria-label={`What the bill from ${bill.supplier_name || "this supplier"} was for`}>
+                        <ListTree size={14} /> What it was for
                       </Button>
                     )}
                     {canRecord && !isVoid && bill.status !== "posted" && (
@@ -260,7 +251,7 @@ export default function Bills() {
       )}
 
       <RecordBill open={recording} onClose={() => setRecording(false)} />
-      {stocking && <BillStock bill={stocking} onClose={() => setStocking(null)} />}
+      {splitting && <BillSplit bill={splitting} onClose={() => setSplitting(null)} />}
 
       <VoidDialog
         open={!!voiding}

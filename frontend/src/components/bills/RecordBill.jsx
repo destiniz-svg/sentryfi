@@ -85,6 +85,9 @@ export function RecordBill({ open, onClose }) {
   // record. The first is what gets read; all of them get kept.
   const [files, setFiles] = useState([]);
   const [supplierFacts, setSupplierFacts] = useState(null);
+  // The charges read off the paper (or what a voice note said it was for),
+  // for the adviser to say what each one is.
+  const [readLines, setReadLines] = useState(null);
   const [sure, setSure] = useState([]);
 /**
    * The button that commits names the money.
@@ -161,6 +164,7 @@ export function RecordBill({ open, onClose }) {
       setBlanks([]);
       setFiles([]);
       setSupplierFacts(null);
+      setReadLines(null);
     }
   }, [open]);
 
@@ -218,6 +222,12 @@ export function RecordBill({ open, onClose }) {
       // recognised next time it arrives written that way.
       also_seen_as: extracted.supplierAlsoSeenAs || undefined,
     });
+    const lines = extracted.lines?.length
+      ? extracted.lines
+      : extracted.description
+        ? [{ description: extracted.description, amount: extracted.grossAmount || "" }]
+        : null;
+    setReadLines(lines);
     setReadIt(true);
     setBlanks(
       [
@@ -351,6 +361,7 @@ export function RecordBill({ open, onClose }) {
       // No rate sent: the server uses the one in force on the bill date, from
       // the tax engine, and keeps it on the bill.
       supplier: supplierFacts || undefined,
+      lines: readLines || undefined,
       projectId: form.tags?.projectId || null,
       dimensionIds: form.tags?.dimensionIds?.length ? form.tags.dimensionIds : null,
     };

@@ -8,6 +8,10 @@ const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
 const { reverseEntry } = require("../ledger/post");
 const { undoBillStock, setBillStock } = require("../ledger/stock");
+const stockLedger = require("../ledger/stock");
+const billSplit = require("../ledger/billSplit");
+const adviser = require("../ledger/adviser");
+const { CATEGORIES } = require("../ledger/assets");
 const { splitTax, findPossibleDuplicates, postBill } = require("../ledger/bills");
 const taxEngine = require("../ledger/tax");
 const fx = require("../ledger/fx");
@@ -46,6 +50,11 @@ const billBody = z.object({
   // A branch, department or machine it belongs to; see config/dimensions-schema.js.
   dimensionIds: z.array(z.string().uuid()).max(6).nullish(),
   billedToCompany: z.string().uuid().nullish(),
+  // The lines read off the paper, for the adviser (ledger/adviser.js).
+  lines: z
+    .array(z.object({ description: z.string().max(300).default(""), quantity: z.union([z.string(), z.number()]).nullish(), amount: z.union([z.string(), z.number()]).nullish() }))
+    .max(60)
+    .nullish(),
   // Generated on the phone before there is any signal, so a send that is
   // retried after a lost response makes one bill rather than two.
   clientRef: z.string().uuid().nullish(),
@@ -348,10 +357,10 @@ router.post(
            (company_id, counterparty_id, bill_no, issue_date, due_date,
             net_laari, tax_laari, gross_laari, gst_treatment, gst_rate_bp,
             project_id, billed_to_company, received_by, client_ref, status,
-            currency, fx_rate, fc_net, fc_tax, fc_gross, dimension_ids)
+            currency, fx_rate, fc_net, fc_tax, fc_gross, dimension_ids, read_lines)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::gst_t,$10,$11,$12,$13,$14,
                  CASE WHEN $9 = 'unknown' THEN 'awaiting_review'::bill_t ELSE 'draft'::bill_t END,
-                 COALESCE($15, (SELECT base_currency FROM companies WHERE id = $1)), $16, $17, $18, $19, $20)
+                 COALESCE($15, (SELECT base_currency FROM companies WHERE id = $1)), $16, $17, $18, $19, $20, $21)
          RETURNING *`,
         [
           req.companyId, counterpartyId, b.billNo || null, b.issueDate || null, b.dueDate || null,
@@ -361,6 +370,9 @@ router.post(
           foreign ? foreign.currency : null, foreign ? foreign.rate : null,
           foreign ? String(foreign.net) : null, foreign ? String(foreign.tax) : null, foreign ? String(foreign.gross) : null,
           b.dimensionIds?.length ? b.dimensionIds : null,
+          b.lines?.length
+            ? JSON.stringify(b.lines.map((l) => ({ description: l.description, quantity: l.quantity ?? null, amount: l.amount === null || l.amount === undefined ? null : String(l.amount).replace(/[^\d.]/g, "") })))
+            : null,
         ]
       );
       const bill = rows[0];
@@ -447,8 +459,84 @@ router.put(
       const r = await asCompany(req, (client) =>
         setBillStock(client, { companyId: req.companyId, userId: req.user.id, billId: req.params.id, lines: parsed.data.lines })
       );
-      res.json({ ok: true, lines: r.lines, stock: formatLaari(r.covered), rest: formatLaari(r.rest) });
+      res.json({ ok: true, lines: r.parts, stock: formatLaari(r.covered), rest: formatLaari(r.rest) });
     } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
+/**
+ * What a bill was for, part by part, with the adviser's suggestions when
+ * nothing has been decided yet. Each suggestion says why, and whether it is
+ * sure (the same supplier, the same charge, decided before) or a question.
+ */
+const splitBody = z.object({
+  lines: z
+    .array(
+      z.object({
+        kind: z.enum(["stock", "cost", "asset"]),
+        description: z.string().max(300).default(""),
+        amount: z.union([z.string().trim(), z.number()]).transform(String),
+        itemId: z.string().uuid().nullish(),
+        quantity: z.union([z.string().trim(), z.number()]).transform(String).nullish(),
+        accountId: z.string().uuid().nullish(),
+        category: z.string().nullish(),
+        lifeYears: z.union([z.string().trim(), z.number()]).nullish(),
+      })
+    )
+    .max(60),
+});
+
+async function billForSplit(client, req) {
+  const { rows } = await client.query("SELECT * FROM bills WHERE id = $1 AND company_id = $2", [req.params.id, req.companyId]);
+  if (!rows[0]) throw ApiError.notFound("Bill not found");
+  return rows[0];
+}
+
+router.get(
+  "/:id/split",
+  requireCan("read", "record"),
+  asyncHandler(async (req, res) => {
+    const out = await asCompany(req, async (client) => {
+      const bill = await billForSplit(client, req);
+      const printed = billSplit.printedNetOf(bill);
+      const { parts } = await billSplit.load(client, { companyId: req.companyId, bill });
+      const show = (l) => ({
+        kind: l.kind, description: l.description, amount: formatLaari(l.amountLaari ?? l.amount), itemId: l.itemId || null,
+        quantity: l.units !== undefined ? stockLedger.unitsText(l.units) : l.quantity || "", accountId: l.accountId || null,
+        category: l.category || null, lifeYears: l.lifeYears ?? null, sure: l.sure ?? true, because: l.because || null,
+      });
+      // The choices a person can make, so recording a bill needs no other permission.
+      const { rows: accounts } = await client.query("SELECT id, code, name FROM accounts WHERE company_id = $1 AND type = 'expense' AND archived_at IS NULL ORDER BY code", [req.companyId]);
+      const { rows: items } = await client.query("SELECT id, name, unit FROM stock_items WHERE company_id = $1 AND archived_at IS NULL ORDER BY lower(name)", [req.companyId]);
+      const options = { accounts, items, categories: Object.entries(CATEGORIES).map(([key, c]) => ({ key, name: c.name, years: c.years })) };
+      const head = { currency: bill.fc_net !== null ? bill.currency.trim() : "MVR", net: formatLaari(printed), options, posted: bill.status === "posted" };
+      if (parts.length) return { ...head, decided: true, lines: parts.map(show) };
+      const advice = await adviser.advise(client, { companyId: req.companyId, counterpartyId: bill.counterparty_id, lines: adviser.linesFor(bill, printed) });
+      return { ...head, decided: false, lines: advice.map(show) };
+    });
+    res.json(out);
+  })
+);
+
+router.put(
+  "/:id/split",
+  requireCan("record"),
+  asyncHandler(async (req, res) => {
+    const parsed = splitBody.safeParse(req.body ?? {});
+    if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
+    try {
+      const r = await asCompany(req, async (client) => {
+        const bill = await billForSplit(client, req);
+        const saved = await billSplit.save(client, { companyId: req.companyId, userId: req.user.id, billId: bill.id, lines: parsed.data.lines });
+        // Remembered, so the same charge from this supplier is not asked about again.
+        await adviser.learn(client, { companyId: req.companyId, counterpartyId: bill.counterparty_id, decisions: parsed.data.lines });
+        return saved;
+      });
+      res.json({ ok: true, parts: r.parts, rest: formatLaari(r.rest) });
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
       throw ApiError.badRequest(err.message);
     }
   })
@@ -490,8 +578,11 @@ router.post(
     }
 
     try {
-      const result = await asCompany(req, (client) =>
-        postBill(client, {
+      const result = await asCompany(req, async (client) => {
+        // Nothing decided about what it was for, and the adviser sure of every
+        // line? Then it goes in on that without asking (ledger/adviser.js).
+        await adviser.applyIfSure(client, { companyId: req.companyId, userId: req.user.id, billId: req.params.id });
+        return postBill(client, {
           companyId: req.companyId,
           userId: req.user.id,
           billId: req.params.id,
@@ -500,8 +591,8 @@ router.post(
             taxReclaimable: accounts["1400"],
             payable: accounts["2100"],
           },
-        })
-      );
+        });
+      });
       res.json({
         ok: true,
         // The entry itself, so the screen that just posted it can offer to
@@ -553,6 +644,10 @@ router.post(
         userId: req.user.id,
         entryId: bill.entry_id,
         reason: reason || "Undone on the phone, within ten seconds of being recorded.",
+      });
+      // Assets it put on the register come off, unless charged against since.
+      await billSplit.undoAssets(client, { companyId: req.companyId, entryId: bill.entry_id }).catch((err) => {
+        throw ApiError.badRequest(err.message);
       });
       // Whatever stock it brought in goes back out, at what it came in at.
       await undoBillStock(client, { companyId: req.companyId, userId: req.user.id, billId: bill.id, entryId: reversal.id, on: new Date() }).catch((err) => {
