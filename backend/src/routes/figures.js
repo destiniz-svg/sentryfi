@@ -32,19 +32,30 @@ router.get(
   requireCan("read"),
   asyncHandler(async (req, res) => {
     const data = await asCompany(req, async (client) => {
-      // What has been spent, by month, from expense accounts. A debit
-      // increases a cost; a credit reduces it, which is how a reversal shows.
+      // What has been spent in each of the last twelve months, from expense
+      // accounts: a debit increases a cost, a credit reduces it (a reversal).
+      // Every month is there, empty ones as zero; months before the books'
+      // first entry are marked, so they are drawn as "not kept yet", not as
+      // months when nothing was spent.
       const { rows: spend } = await client.query(
-        `SELECT to_char(date_trunc('month', e.entry_date), 'YYYY-MM') AS ym,
-                to_char(date_trunc('month', e.entry_date), 'Mon')     AS label,
-                COALESCE(SUM(l.debit_laari - l.credit_laari), 0)::text AS amount
-           FROM journal_lines l
-           JOIN journal_entries e ON e.id = l.entry_id
-           JOIN accounts a       ON a.id = l.account_id
-          WHERE l.company_id = $1 AND a.type = 'expense'
-            AND e.entry_date >= date_trunc('month', CURRENT_DATE) - INTERVAL '5 months'
-          GROUP BY 1, 2, date_trunc('month', e.entry_date)
-          ORDER BY date_trunc('month', e.entry_date)`,
+        `WITH months AS (
+           SELECT generate_series(date_trunc('month', CURRENT_DATE) - INTERVAL '11 months', date_trunc('month', CURRENT_DATE), INTERVAL '1 month') AS m
+         ), began AS (
+           SELECT date_trunc('month', MIN(entry_date)) AS m FROM journal_entries WHERE company_id = $1
+         ), spent AS (
+           SELECT date_trunc('month', e.entry_date) AS m, SUM(l.debit_laari - l.credit_laari) AS amount
+             FROM journal_lines l
+             JOIN journal_entries e ON e.id = l.entry_id
+             JOIN accounts a       ON a.id = l.account_id
+            WHERE l.company_id = $1 AND a.type = 'expense'
+              AND e.entry_date >= date_trunc('month', CURRENT_DATE) - INTERVAL '11 months'
+            GROUP BY 1
+         )
+         SELECT to_char(months.m, 'YYYY-MM') AS ym, to_char(months.m, 'Mon') AS label,
+                COALESCE(spent.amount, 0)::text AS amount,
+                (began.m IS NULL OR months.m < began.m) AS before_books
+           FROM months CROSS JOIN began LEFT JOIN spent ON spent.m = months.m
+          ORDER BY months.m`,
         [req.companyId]
       );
 
@@ -174,7 +185,7 @@ router.get(
     const trend = cashTrend(data.before, data.moves, new Date());
     // Runway: what cash covers at the pace of the last three months' spending.
     // Said only when there is spending to measure it by.
-    const recentSpend = data.spend.slice(-3).map((r) => BigInt(r.amount));
+    const recentSpend = data.spend.filter((r) => !r.before_books).slice(-3).map((r) => BigInt(r.amount));
     const monthly = recentSpend.length ? recentSpend.reduce((a, b) => a + b, 0n) / BigInt(recentSpend.length) : 0n;
     const runwayMonths = monthly > 0n && BigInt(data.cash || 0) > 0n ? Number((BigInt(data.cash) * 10n) / monthly) / 10 : null;
 
@@ -206,11 +217,13 @@ router.get(
         ym: r.ym,
         amount: money(r.amount),
         raw: Number(r.amount),
+        beforeBooks: r.before_books,
       })),
       spendByAccount: data.byAccount.map((r) => ({
         name: r.name,
         amount: money(r.amount),
         raw: Number(r.amount),
+        beforeBooks: r.before_books,
       })),
       recent: data.recent.map((r) => ({
         entryNo: r.entry_no,

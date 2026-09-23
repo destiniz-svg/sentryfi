@@ -95,7 +95,7 @@ export default function Figures() {
             <Card padding="lg">
               <h2 className="text-[16px] font-semibold">Money out, by month</h2>
               <div className="mt-5 space-y-3">
-                {(f.spendByMonth || []).map((m) => (
+                {(f.spendByMonth || []).filter((m) => !m.beforeBooks).map((m) => (
                   <div key={m.ym} className="flex items-center gap-3">
                     <span className="w-9 text-[13px] text-[var(--ink-muted)] shrink-0">
                       {m.label}
