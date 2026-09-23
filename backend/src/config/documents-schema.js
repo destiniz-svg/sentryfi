@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS document_copies (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (company_id, kind, document_id)
 );
+-- A printed QR code carries the fingerprint; the public check finds the copy by it.
+CREATE INDEX IF NOT EXISTS document_copies_sha256 ON document_copies (sha256);
 
 DO $$
 DECLARE t TEXT;

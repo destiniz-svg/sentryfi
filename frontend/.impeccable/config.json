@@ -1,0 +1,23 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font",
+        "value": "${font.google}",
+        "createdAt": "2026-09-23T07:37:28.269Z",
+        "reason": "Claude: fonts a company picks for its own printed documents, not the app's UI type"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          "src/pages/Branding.jsx"
+        ],
+        "createdAt": "2026-09-23T07:41:17.494Z",
+        "reason": "Claude: Thaana input fields and the document typefaces a company picks for its own paper"
+      }
+    ]
+  }
+}

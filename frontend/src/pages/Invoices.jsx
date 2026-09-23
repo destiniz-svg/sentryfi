@@ -223,9 +223,9 @@ export default function Invoices() {
         </Card>
       ) : (
         <Card padding="none" className="overflow-hidden">
-          <div className="hidden md:grid grid-cols-[minmax(0,1.4fr)_150px_110px_130px_130px_auto] gap-4 px-5 py-3 border-b border-[var(--border)] text-[12px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+          <div className="hidden md:grid grid-cols-[minmax(0,1.4fr)_120px_110px_110px_150px_236px] gap-x-4 px-5 py-3 border-b border-[var(--border)] text-[12px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
             <span>Who</span>
-            <span>Reference</span>
+            <span>Number</span>
             <span>Due</span>
             <span>Status</span>
             <span className="text-right">Amount</span>
@@ -236,7 +236,7 @@ export default function Invoices() {
             {rows.map((inv) => (
               <div
                 key={inv.id}
-                className="grid grid-cols-2 md:grid-cols-[minmax(0,1.4fr)_150px_110px_130px_130px_auto] gap-x-4 gap-y-1 px-5 py-4 items-center"
+                className="grid grid-cols-2 md:grid-cols-[minmax(0,1.4fr)_120px_110px_110px_150px_236px] gap-x-4 gap-y-1 px-5 py-4 items-center"
               >
                 <div className="min-w-0 col-span-2 md:col-span-1">
                   <div className="text-sm font-semibold text-[var(--ink)] truncate">

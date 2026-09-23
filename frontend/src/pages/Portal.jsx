@@ -115,7 +115,8 @@ function IssuedInvoice({ token, id }) {
   }, [printing]);
   if (error) return <p className="mt-3 text-[14px] text-[var(--ink-muted)]">{error.message}</p>;
   if (isLoading || !data) return <p className="mt-3 text-[14px] text-[var(--ink-muted)]">Opening the invoice…</p>;
-  const model = compose({ data: data.data, brand: data.brand, template: data.template, size: templateWith(data.template).size === "a5" ? "a5" : "a4" });
+  const verifyUrl = data.issuedCopy ? `${window.location.origin}/v/${data.issuedCopy.sha256}` : null;
+  const model = compose({ data: data.data, brand: data.brand, template: data.template, size: templateWith(data.template).size === "a5" ? "a5" : "a4", verifyUrl });
   return (
     <div className="mt-4 print:hidden" data-testid="portal-paper">
       <div className="rounded-xl bg-[var(--surface-2)] p-2 sm:p-3">

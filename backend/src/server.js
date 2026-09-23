@@ -111,6 +111,7 @@ app.use("/api/recurring", require("./routes/recurring"));
 app.use("/api", require("./routes/claims"));
 app.use("/api/portal", require("./routes/portal").publicRouter);
 app.use("/api/cfo", require("./routes/cfo"));
+app.use("/api/verify", require("./routes/documents").verify);
 app.use("/api/documents", require("./routes/documents"));
 app.use("/api/notifications", require("./routes/notifications"));
 app.use("/api/push", require("./routes/notifications").devices);

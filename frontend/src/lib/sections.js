@@ -1,9 +1,10 @@
-import { Palette, Banknote, Boxes, Sunrise, CheckCheck, ClipboardList, FileText, HardHat, Ship, Gauge, HandCoins, Landmark, LayoutGrid, Lock, Package, Percent, ReceiptText, Scale, Upload, Wallet } from "lucide-react";
+import { Palette, Banknote, Boxes, Sunrise, CheckCheck, ClipboardList, FileText, HardHat, Ship, Gauge, HandCoins, Landmark, LayoutGrid, Lock, Package, Percent, ReceiptText, Scale, Settings, Upload, Wallet } from "lucide-react";
 
 /**
  * The desk's places, grouped the way an owner thinks about them (DESIGN.md,
- * "A grouped rail"). The rail draws these; the bar's breadcrumb reads them, so
- * a page is named the same in both.
+ * "A grouped rail"). The rail draws these and folds any group away; the bar's
+ * breadcrumb reads them, so a page is named the same in both. The company's
+ * own setup sits apart, at the foot of the rail.
  */
 export const SECTIONS = [
   {
@@ -16,39 +17,60 @@ export const SECTIONS = [
     ],
   },
   {
-    label: "Money",
+    label: "Buying and selling",
     items: [
-      { to: "/bills", icon: ReceiptText, label: "Bills" },
       { to: "/invoices", icon: FileText, label: "Invoices" },
-      { to: "/projects", icon: HardHat, label: "Projects" },
-      { to: "/orders", icon: ClipboardList, label: "Orders" },
+      { to: "/bills", icon: ReceiptText, label: "Bills" },
+      { to: "/orders", icon: ClipboardList, label: "Orders and quotes" },
       { to: "/payments", icon: Banknote, label: "Payments", can: "record" },
       { to: "/claims", icon: Wallet, label: "Expense claims" },
+    ],
+  },
+  {
+    label: "Money",
+    items: [
       { to: "/bank", icon: Landmark, label: "Bank and cash" },
       { to: "/loans", icon: HandCoins, label: "Loans" },
     ],
   },
   {
-    label: "The books",
+    label: "Work and assets",
     items: [
+      { to: "/projects", icon: HardHat, label: "Projects" },
       { to: "/stock", icon: Boxes, label: "Stock" },
       { to: "/shipments", icon: Ship, label: "Shipments" },
       { to: "/assets", icon: Package, label: "Fixed assets" },
-      { to: "/closing", icon: Lock, label: "Closing" },
+    ],
+  },
+  {
+    label: "The books",
+    items: [
       { to: "/statements", icon: Scale, label: "Statements" },
       { to: "/tax", icon: Percent, label: "GST return" },
-      { to: "/import", icon: Upload, label: "Bring history in", can: "manage_settings" },
+      { to: "/closing", icon: Lock, label: "Closing" },
+    ],
+  },
+  {
+    label: "Company",
+    foot: true,
+    items: [
       { to: "/branding", icon: Palette, label: "Branding and documents" },
+      { to: "/import", icon: Upload, label: "Bring history in", can: "manage_settings" },
+      { to: "/settings", icon: Settings, label: "Settings" },
     ],
   },
 ];
 
 const EXTRA = {
-  "/settings": ["Company", "Settings"],
   "/more": [null, "More"],
   "/money": [null, "Money"],
   "/cash": ["Money", "Cash tins"],
 };
+
+/** The group a path belongs to, if any. */
+export function sectionOf(pathname) {
+  return SECTIONS.find((s) => s.items.some((it) => pathname === it.to || pathname.startsWith(it.to + "/")))?.label || null;
+}
 
 /** Where a path sits: ["Money", "Bank and cash", "Statement"]. */
 export function trail(pathname) {
@@ -58,6 +80,7 @@ export function trail(pathname) {
       if (pathname.startsWith(it.to + "/")) return [s.label, it.label, it.to === "/bank" ? "Statement" : "Detail"];
     }
   }
+  if (pathname.startsWith("/documents/")) return ["Buying and selling", "Document"];
   const e = EXTRA[pathname];
   return e ? e.filter(Boolean) : [];
 }

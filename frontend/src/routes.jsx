@@ -3,7 +3,7 @@
    an object, and declares the lazy page components the routes point at. Fast
    Refresh cannot hot-swap a router, which is what the rule is protecting, so
    it has nothing to say here. */
-import { lazy } from "react";
+import { lazy, Suspense } from "react";
 import { Navigate, createBrowserRouter } from "react-router-dom";
 import ErrorPage from "./pages/ErrorPage";
 import { AppShell } from "@/components/layout/AppShell";
@@ -16,6 +16,7 @@ import Forgot from "@/pages/Forgot";
 import Verify from "@/pages/Verify";
 import CheckEmail from "@/pages/CheckEmail";
 import Portal from "@/pages/Portal";
+const Genuine = lazy(() => import("@/pages/Genuine"));
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
 import OpenBooks from "@/pages/OpenBooks";
@@ -153,6 +154,7 @@ export const router = createBrowserRouter([
   { path: "/forgot", element: <Forgot />, errorElement: <ErrorPage /> },
   { path: "/verify/:token", element: <Verify />, errorElement: <ErrorPage /> },
   { path: "/portal/:token", element: <Portal />, errorElement: <ErrorPage /> },
+  { path: "/v/:sha", element: <Suspense fallback={null}><Genuine /></Suspense>, errorElement: <ErrorPage /> },
   {
     path: "/",
     element: <ProtectedShell />,

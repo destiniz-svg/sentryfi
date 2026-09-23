@@ -35,7 +35,10 @@ async function brandOf(client, { companyId }) {
 
 async function templateOf(client, { companyId, kind }) {
   const { rows } = await client.query("SELECT settings FROM document_templates WHERE company_id = $1 AND kind = $2", [companyId, kind]);
-  return rows[0]?.settings || {};
+  // A kind keeps a library of designs (ready-made, and the company's own copies);
+  // what prints is the one in use, resolved by the editor when it saved.
+  const settings = rows[0]?.settings || {};
+  return settings.resolved || settings;
 }
 
 /** An invoice as its paper shows it: every figure from the books, as text. */

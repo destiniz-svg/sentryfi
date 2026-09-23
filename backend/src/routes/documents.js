@@ -93,7 +93,8 @@ router.put(
     const k = kind(req);
     const settings = req.body?.template;
     if (!settings || typeof settings !== "object" || Array.isArray(settings)) throw ApiError.badRequest("A template.");
-    if (JSON.stringify(settings).length > 20_000) throw ApiError.badRequest("That template is too large.");
+    if (settings.copies && (!Array.isArray(settings.copies) || settings.copies.length > 12)) throw ApiError.badRequest("Up to 12 designs of your own for each kind of document.");
+    if (JSON.stringify(settings).length > 200_000) throw ApiError.badRequest("That template is too large.");
     await asCompany(req, (client) =>
       client.query(
         `INSERT INTO document_templates (company_id, kind, settings, updated_by) VALUES ($1,$2,$3,$4)
@@ -119,4 +120,44 @@ router.get(
   })
 );
 
+/**
+ * Is this paper genuine? Public: the QR code on an issued document carries its
+ * fingerprint, and whoever holds the paper can check it against the copy kept
+ * when it was issued. The fingerprint is 64 hex characters, so it cannot be
+ * guessed; it answers only what the paper already says, plus whether it has
+ * since been cancelled.
+ */
+const verify = express.Router();
+const checking = require("express-rate-limit").rateLimit({ windowMs: 15 * 60 * 1000, limit: 60, standardHeaders: "draft-7", legacyHeaders: false });
+verify.get(
+  "/:sha",
+  checking,
+  asyncHandler(async (req, res) => {
+    if (!/^[0-9a-f]{64}$/.test(req.params.sha)) throw ApiError.notFound("No document has that fingerprint.");
+    const { pool } = require("../config/db");
+    // Outside the walls on purpose: the reader has no company. One row, found by an unguessable key.
+    const { rows } = await pool.query("SELECT kind, document_id, body, created_at FROM document_copies WHERE sha256 = $1 LIMIT 1", [req.params.sha]);
+    const c = rows[0];
+    if (!c) throw ApiError.notFound("No document has that fingerprint.");
+    let cancelled = false;
+    if (c.kind === "invoice") cancelled = Boolean((await pool.query("SELECT voided_at FROM sales_invoices WHERE id = $1", [c.document_id])).rows[0]?.voided_at);
+    const d = c.body.data || {};
+    const b = c.body.brand || {};
+    res.set("Cache-Control", "no-store");
+    res.json({
+      kind: c.kind,
+      from: b.name || b.legalName || null,
+      tin: b.tin || null,
+      number: d.number,
+      issued: d.issued,
+      to: d.to?.name || null,
+      currency: d.currency || b.baseCurrency || "MVR",
+      total: d.totals?.gross || null,
+      keptAt: c.created_at,
+      cancelled,
+    });
+  })
+);
+
 module.exports = router;
+module.exports.verify = verify;

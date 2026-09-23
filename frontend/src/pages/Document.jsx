@@ -34,7 +34,8 @@ export default function Document() {
   if (error) return <p className="text-[15px] text-[var(--ink-muted)]">{error.message}</p>;
   if (isLoading || !data) return <Skeleton className="h-[80vh] rounded-2xl" />;
   const t = templateWith(data.template);
-  const model = compose({ data: data.data, brand: data.brand, template: data.template, size: size || t.size });
+  const verifyUrl = data.issuedCopy ? `${window.location.origin}/v/${data.issuedCopy.sha256}` : null;
+  const model = compose({ data: data.data, brand: data.brand, template: data.template, size: size || t.size, verifyUrl });
 
   return (
     <div className="max-w-[980px] mx-auto">

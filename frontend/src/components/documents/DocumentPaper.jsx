@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import qrcode from "qrcode-generator";
 import { loadFont, THAANA } from "@/lib/documents";
 
 /**
@@ -74,6 +75,61 @@ const CSS = `
 .sd.receipt .row{display:flex;justify-content:space-between;gap:2mm;text-align:left}
 .sd.receipt .item{text-align:left;margin:1.2mm 0}
 .sd.receipt .strong{font-weight:700;font-size:calc(var(--sd-fs)*1.15)}
+/* the large figure */
+.sd .hero{display:flex;align-items:baseline;justify-content:space-between;gap:6mm;margin-top:8mm;padding:4mm 0;border-top:.2mm solid #e3e4e7;border-bottom:.2mm solid #e3e4e7;break-inside:avoid}
+.sd .hero .big{font-size:calc(var(--sd-fs)*2.5);font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums;color:var(--sd-accent-text);white-space:nowrap}
+.sd .hero .cur{font-size:calc(var(--sd-fs)*1.1);font-weight:600;margin-right:1.5mm;color:#5b6068}
+/* qr */
+.sd .qr{display:flex;flex-direction:column;align-items:center;gap:1mm;margin-left:auto;text-align:center}
+.sd .qr svg{width:22mm;height:22mm;display:block}
+.sd .qr p{font-size:calc(var(--sd-fs)*.72);color:#5b6068;max-width:30mm}
+.sd.receipt .qr{margin:3mm auto 0}
+.sd.receipt .qr svg{width:24mm;height:24mm}
+/* minimal */
+.sd.minimal .logo{max-height:12mm}
+.sd.minimal .name{font-size:calc(var(--sd-fs)*1.2)}
+.sd.minimal .title{font-weight:600;font-size:calc(var(--sd-fs)*2);color:#16181d}
+.sd.minimal table.lines th{border-bottom:.2mm solid #c9cbd0;color:#5b6068;font-weight:500;letter-spacing:.06em}
+.sd.minimal table.lines td{border-bottom:.15mm solid #eeeff1}
+.sd.minimal .totals tr.strong td{border-top:.2mm solid #c9cbd0;color:var(--sd-accent-text)}
+.sd.minimal .foot{text-align:left;border-top:none;padding-top:0}
+/* soft */
+.sd.soft .card{background:var(--sd-wash);border-radius:3.5mm;padding:7mm 7mm 6mm}
+.sd.soft .title{color:var(--sd-accent-text)}
+.sd.soft .logo{max-height:14mm}
+.sd.soft .hero{border:none;background:var(--sd-wash);border-radius:3mm;padding:4mm 6mm}
+.sd.soft table.lines th{background:var(--sd-wash);border-bottom:none;color:var(--sd-accent-text)}
+.sd.soft table.lines th:first-child{border-radius:2mm 0 0 2mm;padding-left:3mm}
+.sd.soft table.lines th:last-child{border-radius:0 2mm 2mm 0;padding-right:3mm}
+.sd.soft table.lines td:first-child{padding-left:3mm}
+.sd.soft table.lines td:last-child{padding-right:3mm}
+.sd.soft table.lines td{border-bottom:.15mm solid #eeeff1}
+.sd.soft .totals tr.strong td{border-top:none;background:var(--sd-wash);color:var(--sd-accent-text);padding:2.4mm 3mm}
+.sd.soft .totals tr.strong td:first-child{border-radius:2mm 0 0 2mm}
+.sd.soft .totals tr.strong td:last-child{border-radius:0 2mm 2mm 0}
+.sd.soft .foot{border-top:none}
+/* edge */
+.sd.split{border-left:7mm solid var(--sd-accent)}
+.sd.split .title{color:var(--sd-accent-text);font-size:calc(var(--sd-fs)*2.6)}
+.sd.split table.lines th{border-bottom:.5mm solid var(--sd-accent)}
+.sd.split .totals tr.strong td{border-top:.5mm solid var(--sd-accent)}
+/* elegant */
+.sd.elegant .center{text-align:center}
+.sd.elegant .center .logo{margin:0 auto 3mm}
+.sd.elegant .name{font-size:calc(var(--sd-fs)*1.7);letter-spacing:.02em}
+.sd.elegant .dbl{border-top:.2mm solid #16181d;border-bottom:.2mm solid #16181d;height:1.2mm;margin:5mm 0 4mm}
+.sd.elegant .title{text-align:center;font-weight:600;font-size:calc(var(--sd-fs)*1.35);letter-spacing:.32em;text-transform:uppercase;color:var(--sd-accent-text)}
+.sd.elegant .metarow{display:flex;justify-content:center;flex-wrap:wrap;gap:1mm 8mm;margin-top:3mm}
+.sd.elegant .metarow span{color:#5b6068;margin-right:1.5mm}
+.sd.elegant table.lines th{border-top:.2mm solid #16181d;border-bottom:.2mm solid #16181d;font-weight:600}
+.sd.elegant .totals tr.strong td{border-top:none;border-bottom:.6mm double #16181d}
+/* bold */
+.sd.bold .bigtitle{font-weight:800;font-size:calc(var(--sd-fs)*4);line-height:.95;letter-spacing:-.02em;text-transform:uppercase}
+.sd.bold .bar{width:16mm;height:1.8mm;background:var(--sd-accent);margin:3mm 0 7mm}
+.sd.bold .hero{border-top:.6mm solid #16181d;border-bottom:none}
+.sd.bold .hero .big{color:#16181d;font-size:calc(var(--sd-fs)*3)}
+.sd.bold table.lines th{border-bottom:.6mm solid #16181d;color:#16181d}
+.sd.bold .totals tr.strong td{border-top:none;background:#16181d;color:#fff;padding:2.6mm 2.5mm}
 @media print{.sd{overflow:visible}}
 `;
 
@@ -196,6 +252,36 @@ function Totals({ m }) {
   );
 }
 
+function Hero({ m }) {
+  if (!m.hero) return null;
+  return (
+    <div className="hero">
+      <div>
+        <p className="lbl" style={{ marginBottom: 0 }}>{m.hero.label}</p>
+        {m.hero.note && <p className="mute">{m.hero.note}</p>}
+      </div>
+      <p className="big">
+        <span className="cur">{m.hero.currency}</span>
+        {m.hero.value}
+      </p>
+    </div>
+  );
+}
+
+/** A QR code, drawn here from the text: nothing is fetched to make it. */
+export function Qr({ text, caption }) {
+  const q = qrcode(0, "M");
+  // UTF-8, byte by byte: payment details can carry more than ASCII.
+  q.addData(String.fromCharCode(...new TextEncoder().encode(text)), "Byte");
+  q.make();
+  return (
+    <div className="qr">
+      <span dangerouslySetInnerHTML={{ __html: q.createSvgTag({ cellSize: 2, margin: 0, scalable: true }) }} />
+      {caption && <p>{caption}</p>}
+    </div>
+  );
+}
+
 function Blocks({ m }) {
   const blocks = [m.notes, m.terms, m.payment].filter(Boolean);
   if (!blocks.length) return null;
@@ -212,7 +298,7 @@ function Blocks({ m }) {
 }
 
 function Sign({ m }) {
-  if (!m.signature && !m.stamp && !m.receivedBy) return null;
+  if (!m.signature && !m.stamp && !m.receivedBy && !m.qr) return null;
   return (
     <div className="sign">
       {m.receivedBy && (
@@ -234,6 +320,7 @@ function Sign({ m }) {
         </div>
       )}
       {m.stamp && <img className="stamp" src={m.stamp} alt="" />}
+      {m.qr && <Qr {...m.qr} />}
     </div>
   );
 }
@@ -293,7 +380,74 @@ function Receipt({ m }) {
           <p className="pre">{m.payment.text}</p>
         </>
       )}
+      {m.qr && <Qr {...m.qr} />}
       {m.footer && <p className="mute pre" style={{ marginTop: "3mm" }}>{m.footer}</p>}
+    </>
+  );
+}
+
+const HERO = new Set(["minimal", "soft", "bold"]);
+
+function Meta({ m }) {
+  return (
+    <table className="meta" style={{ marginTop: 0 }}>
+      <tbody>
+        {m.meta.map((r) => (
+          <tr key={r.label}>
+            <td>{r.label}</td>
+            <td>{r.value}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/** The top of the page, which is where the designs differ most. */
+function Head({ m }) {
+  const plain = (
+    <div className="head">
+      <From m={m} modern={m.layout === "modern"} />
+      <TitleBlock m={m} />
+    </div>
+  );
+  if (m.layout === "modern") return <div className="band">{plain}</div>;
+  if (m.layout === "soft") return <div className="card">{plain}</div>;
+  if (m.layout === "elegant")
+    return (
+      <>
+        <div className="center">
+          <From m={m} />
+        </div>
+        <div className="dbl" />
+        <p className="title">{m.title}</p>
+        {m.subtitle && <p className="mute" style={{ textAlign: "center", marginTop: "1mm" }}>{m.subtitle}</p>}
+        <div className="metarow">
+          {m.meta.map((r) => (
+            <p key={r.label}>
+              <span>{r.label}</span>
+              <b>{r.value}</b>
+            </p>
+          ))}
+        </div>
+      </>
+    );
+  if (m.layout === "bold")
+    return (
+      <>
+        <p className="bigtitle">{m.title}</p>
+        {m.subtitle && <p className="mute" style={{ marginTop: "1.5mm" }}>{m.subtitle}</p>}
+        <div className="bar" />
+        <div className="head">
+          <From m={m} />
+          <Meta m={m} />
+        </div>
+      </>
+    );
+  return (
+    <>
+      {plain}
+      {m.layout === "classic" && <div className="rule" />}
     </>
   );
 }
@@ -324,23 +478,9 @@ export function DocumentPaper({ model: m, className = "" }) {
         <Receipt m={m} />
       ) : (
         <>
-          {m.layout === "modern" ? (
-            <div className="band">
-              <div className="head">
-                <From m={m} modern />
-                <TitleBlock m={m} />
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="head">
-                <From m={m} />
-                <TitleBlock m={m} />
-              </div>
-              {m.layout === "classic" && <div className="rule" />}
-            </>
-          )}
+          <Head m={m} />
           <Parties m={m} />
+          {HERO.has(m.layout) && <Hero m={m} />}
           <Lines m={m} />
           <Totals m={m} />
           <Blocks m={m} />

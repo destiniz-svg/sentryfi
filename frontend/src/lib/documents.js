@@ -15,11 +15,24 @@ export const SIZES = {
   r58: { label: "Receipt 58 mm", width: 48, height: null, receipt: true, paper: 58 },
 };
 
-export const LAYOUTS = {
+/**
+ * The ready-made designs. Each is a way of drawing the same facts; none can
+ * drop what the law needs on the paper. They stay as they are: editing one
+ * keeps a copy of it as the company's own (see libraryOf).
+ */
+export const DESIGNS = {
+  minimal: { label: "Minimal", hint: "White and quiet. The amount due large, your colour only on the figures that matter.", light: true, template: { qr: "verify" } },
+  soft: { label: "Soft", hint: "A pale wash of your colour behind the heading and totals. Rounded, light.", light: true, template: { qr: "verify" } },
+  split: { label: "Edge", hint: "A stripe of your colour down the left edge; everything else white.", light: true },
   classic: { label: "Classic", hint: "Letterhead across the top, a quiet rule under it." },
-  modern: { label: "Modern", hint: "Your colour as a band, the title large." },
+  elegant: { label: "Elegant", hint: "Centred letterhead and fine double rules. Best with a serif face." },
+  modern: { label: "Band", hint: "Your colour as a band across the top, the title large." },
+  bold: { label: "Bold", hint: "A large title and a solid total. Hard to miss on a desk." },
   compact: { label: "Compact", hint: "Tight rows for long lists of items." },
 };
+export const LAYOUTS = DESIGNS;
+/** What a design is, apart from the wording that belongs to a kind of document. */
+export const DESIGN_KEYS = ["layout", "size", "columns", "show", "qr", "language"];
 
 export const FONTS = {
   barlow: { label: "Barlow", family: "Barlow", google: "Barlow:wght@400;500;600;700" },
@@ -117,9 +130,21 @@ export const DEFAULT_TEMPLATE = {
   notes: "",
   terms: "",
   show: { logo: true, stamp: true, signature: true, payment: true, words: true, footer: true },
+  qr: "none",
+};
+
+/** Where a QR code on the paper can point. */
+export const QR_KINDS = {
+  none: "No QR code",
+  verify: "Check it is genuine",
+  pay: "How to pay you",
+  website: "Your website",
 };
 
 export function templateWith(t) {
+  // A stored library resolves to the design in use; an issued copy is already flat.
+  if (t?.resolved) return templateWith(t.resolved);
+  if (t && (t.inUse || t.copies)) return resolve(libraryOf(t));
   const x = t || {};
   return {
     ...DEFAULT_TEMPLATE,
@@ -129,6 +154,37 @@ export function templateWith(t) {
     labels: { ...(x.labels || {}) },
     dvLabels: { ...(x.dvLabels || {}) },
   };
+}
+
+// ------------------------------------------------------------------ the library
+
+/**
+ * A kind's designs: which is in use, and the company's own copies. Stored as
+ * { inUse: "minimal" | "copy:<id>", copies: [{ id, name, from, settings }] }.
+ * A template saved before there was a library becomes the company's first copy.
+ */
+export function libraryOf(stored) {
+  const s = stored || {};
+  if (s.inUse || s.copies) return { inUse: s.inUse && (DESIGNS[s.inUse] || (s.copies || []).some((c) => "copy:" + c.id === s.inUse)) ? s.inUse : "classic", copies: s.copies || [] };
+  const flat = Object.fromEntries(Object.entries(s).filter(([k]) => k !== "resolved"));
+  if (Object.keys(flat).length) return { inUse: "copy:mine", copies: [{ id: "mine", name: "Your design", from: flat.layout || "classic", settings: templateWith(flat) }] };
+  return { inUse: "classic", copies: [] };
+}
+
+/** The flat template a design id stands for. */
+export function designTemplate(id) {
+  return templateWith({ layout: id, ...(DESIGNS[id]?.template || {}) });
+}
+
+export function resolve(lib) {
+  const copy = lib.copies.find((c) => "copy:" + c.id === lib.inUse);
+  return copy ? templateWith(copy.settings) : designTemplate(DESIGNS[lib.inUse] ? lib.inUse : "classic");
+}
+
+/** The name of the design in use, for a label. */
+export function designName(lib) {
+  const copy = lib.copies.find((c) => "copy:" + c.id === lib.inUse);
+  return copy ? copy.name : DESIGNS[lib.inUse]?.label || "Classic";
 }
 
 // ------------------------------------------------------------------ colour
@@ -199,7 +255,7 @@ export function amountInWords(text, currency) {
  * GST number, the rate and the GST, and on an invoice in another currency the
  * GST in MVR too. A template can rename a label; it cannot remove those.
  */
-export function compose({ data, brand, template, size }) {
+export function compose({ data, brand, template, size, verifyUrl }) {
   const t = templateWith(template);
   const s = SIZES[size || t.size] || SIZES.a4;
   const both = t.language === "en-dv";
@@ -250,9 +306,18 @@ export function compose({ data, brand, template, size }) {
     brand.gstRegistered && brand.gstNumber && `GST ${brand.gstNumber}`,
     brand.registrationNo && `Reg. ${brand.registrationNo}`,
   ].filter(Boolean);
+  const gross = data.totals?.gross;
+  const qr =
+    t.qr === "verify" && verifyUrl ? { text: verifyUrl, caption: "Scan to check it is genuine" }
+    : t.qr === "pay" && priced && brand.paymentDetails ? { text: brand.paymentDetails, caption: "Scan for how to pay" }
+    : t.qr === "website" && brand.website ? { text: /^https?:/i.test(brand.website) ? brand.website : "https://" + brand.website, caption: brand.website.replace(/^https?:\/\//i, "") }
+    : null;
   return {
     size: s,
-    layout: s.receipt ? "receipt" : LAYOUTS[t.layout] ? t.layout : "classic",
+    layout: s.receipt ? "receipt" : DESIGNS[t.layout] ? t.layout : "classic",
+    // The one figure a reader looks for, for the designs that set it large.
+    hero: priced && gross ? { label: data.kind === "invoice" ? (data.due ? "Amount due" : "Total") : data.kind === "credit_note" ? "Credited" : "Total", value: gross, currency, note: data.kind === "invoice" && data.due ? `by ${longDate(data.due)}` : null } : null,
+    qr,
     font: FONTS[brand.font] || FONTS.barlow,
     accent,
     accentText: readable(accent),
@@ -391,13 +456,13 @@ export const PRESETS = {
   services: {
     label: "Services",
     hint: "Hours and rates; no units or item codes.",
-    all: { layout: "modern", columns: { code: false, unit: false }, labels: { quantity: "Hours", rate: "Rate per hour" } },
+    all: { layout: "minimal", qr: "verify", columns: { code: false, unit: false }, labels: { quantity: "Hours", rate: "Rate per hour" } },
     kinds: { invoice: { terms: "Payment within 14 days of the invoice date." } },
   },
   resort: {
     label: "Resort and tourism",
-    hint: "A calm modern page; foreign-currency invoices show GST in MVR.",
-    all: { layout: "modern", columns: { code: false } },
+    hint: "A soft, light page; foreign-currency invoices show GST in MVR.",
+    all: { layout: "soft", qr: "verify", columns: { code: false } },
     kinds: { invoice: { notes: "Where prices are in US dollars, GST is shown in MVR as MIRA requires.", terms: "Payment on or before the due date." } },
   },
   retail: {

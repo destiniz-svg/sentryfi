@@ -43,6 +43,17 @@ describe("documents", () => {
       expect(d.brand).toMatchObject({ accent: "#0055aa", name: "Brand name" });
     }));
 
+  it("prints the design in use from a kind's library, and keeps it flat in the issued copy", () =>
+    inRollback(async (client) => {
+      const co = await anInvoice(client);
+      const library = { inUse: "copy:a1", copies: [{ id: "a1", name: "Ours", from: "soft", settings: { layout: "soft", qr: "verify" } }], resolved: { layout: "soft", qr: "verify" } };
+      await client.query("INSERT INTO document_templates (company_id, kind, settings) VALUES ($1,'invoice',$2)", [co.companyId, JSON.stringify(library)]);
+      expect(await documents.templateOf(client, { companyId: co.companyId, kind: "invoice" })).toEqual({ layout: "soft", qr: "verify" });
+      await post(client, { companyId: co.companyId, userId: co.userId, invoiceId: co.invoiceId });
+      const d = await documents.show(client, { companyId: co.companyId, kind: "invoice", documentId: co.invoiceId });
+      expect(d.template).toEqual({ layout: "soft", qr: "verify" });
+    }));
+
   it("keeps the issued copy as it was sent, whatever changes afterwards", () =>
     inRollback(async (client) => {
       const co = await anInvoice(client);
