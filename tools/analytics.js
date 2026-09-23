@@ -52,7 +52,7 @@ const digits = (t) => (String(t).match(/-?[\d,]+\.\d{2}/) || [""])[0];
         await page.getByRole("button", { name: /^August 2026:/ }).click();
         await page.getByRole("tab", { name: "August 2026" }).waitFor({ timeout: 10000 });
         await page.waitForTimeout(1500);
-        const said = await page.getByText(/against the/).innerText();
+        const said = await page.getByText(/, against /).innerText();
         if (/Aug 2026|August 2026/.test(said)) ok(`tapping August looks at August: "${said.slice(0, 70)}…"`);
         else bad(`after tapping August the page says: ${said}`);
         await page.screenshot({ path: "shots/analytics-august.png", fullPage: true });
