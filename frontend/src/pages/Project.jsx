@@ -274,8 +274,129 @@ export default function Project() {
             </ul>
           )}
         </Card>
+
+        <Card padding="lg" id="card-variations" className="min-w-0">
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle>Variations</CardTitle>
+            {record && p.contract && (
+              <Button variant="outline" size="sm" onClick={() => setOpen("vary")}>
+                <Plus size={14} /> Variation
+              </Button>
+            )}
+          </div>
+          <p className="text-[13px] text-[var(--ink-muted)] mt-1">
+            {p.originalContract && p.originalContract !== p.contract
+              ? `Signed at MVR ${p.originalContract}; MVR ${p.contract} with the approved variations.`
+              : "Changes to the work. Only an approved variation changes the contract."}
+            {n(p.variationsPending) !== 0 ? ` MVR ${p.variationsPending} proposed and waiting.` : ""}
+          </p>
+          {p.variations.length === 0 ? (
+            <p className="text-[14px] text-[var(--ink-muted)] mt-3">None yet.</p>
+          ) : (
+            <ul className="divide-y divide-[var(--border)] mt-2" data-testid="variations">
+              {p.variations.map((v) => (
+                <li key={v.id} className="py-2.5">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-[15px] min-w-0 truncate">
+                      <span className="text-[var(--ink-muted)]">VO-{v.number}</span> {v.description}
+                    </span>
+                    <Money amount={v.amount} className="text-[15px] font-semibold" />
+                  </div>
+                  <div className="flex items-center justify-between gap-3 mt-1">
+                    {v.status === "approved" ? (
+                      <Badge tone="success">Approved {formatDate(v.decidedOn)}</Badge>
+                    ) : v.status === "rejected" ? (
+                      <Badge>Rejected</Badge>
+                    ) : (
+                      <Badge tone="accent">Waiting for the customer</Badge>
+                    )}
+                    {record && v.status === "proposed" && (
+                      <span className="flex gap-1.5">
+                        <Button size="sm" variant="outline" onClick={() => run({ method: "post", url: `/projects/${id}/variations/${v.id}/decide`, body: { approved: true } }, () => [`VO-${v.number} approved`, "It is part of the contract now, and claims can include it."])}>
+                          Approved
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => run({ method: "post", url: `/projects/${id}/variations/${v.id}/decide`, body: { approved: false } }, () => [`VO-${v.number} rejected`, "The contract is unchanged."])}>
+                          Rejected
+                        </Button>
+                      </span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card padding="lg" id="card-boq" className="min-w-0">
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle>Bill of quantities</CardTitle>
+            {record && (
+              <Button variant="outline" size="sm" onClick={() => setOpen("boq")}>
+                {p.boq.length ? "Change" : <><Plus size={14} /> Add items</>}
+              </Button>
+            )}
+          </div>
+          <p className="text-[13px] text-[var(--ink-muted)] mt-1">
+            {p.boq.length ? `MVR ${p.boqTotal} priced. Claims are measured from it: how much of each item is done.` : "What the contract is priced from, item by item. With it, a claim is measured rather than typed."}
+          </p>
+          {p.boq.length > 0 && (
+            <ul className="divide-y divide-[var(--border)] mt-2" data-testid="boq">
+              {p.boq.map((b) => (
+                <li key={b.id} className="py-2">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-[14px] min-w-0 truncate">
+                      {b.ref && <span className="text-[var(--ink-muted)]">{b.ref} </span>}
+                      {b.description}
+                    </span>
+                    <Money amount={b.amount} className="text-[14px]" />
+                  </div>
+                  <div className="text-[12px] text-[var(--ink-muted)] tabular">
+                    {b.quantity} {b.unit} at {b.rate} · done {b.done} ({b.doneValue})
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card padding="lg" id="card-hours" className="min-w-0">
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle>Hours</CardTitle>
+            {record && (
+              <Button variant="outline" size="sm" onClick={() => setOpen("hours")}>
+                <Plus size={14} /> Hours worked
+              </Button>
+            )}
+          </div>
+          <p className="text-[13px] text-[var(--ink-muted)] mt-1">
+            {n(p.hours.total) > 0 ? `${p.hours.total} hours${n(p.hours.value) > 0 ? `, worth MVR ${p.hours.value} at their rates` : ""}. ` : ""}
+            Kept for the project, not posted: wages reach the books through bills or payroll.
+          </p>
+          {p.hours.entries.length > 0 && (
+            <ul className="divide-y divide-[var(--border)] mt-2" data-testid="hours">
+              {p.hours.entries.map((h) => (
+                <li key={h.id} className="py-2 flex items-baseline justify-between gap-3">
+                  <span className="text-[14px] min-w-0 truncate">
+                    {h.who} <span className="text-[var(--ink-muted)]">· {formatDate(h.on)}{h.note ? ` · ${h.note}` : ""}</span>
+                  </span>
+                  <span className="flex items-baseline gap-2 text-[14px] tabular shrink-0">
+                    {h.hours} h{h.rate ? <span className="text-[12px] text-[var(--ink-muted)]">at {h.rate}</span> : null}
+                    {record && (
+                      <button type="button" aria-label={`Remove ${h.who}'s hours on ${formatDate(h.on)}`} onClick={() => run({ method: "delete", url: `/projects/${id}/hours/${h.id}` })} className="text-[12px] text-[var(--ink-muted)] hover:text-[var(--danger)]">
+                        Remove
+                      </button>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
       </div>
 
+      {open === "vary" && <VaryDialog p={p} onClose={() => setOpen(null)} run={run} />}
+      {open === "boq" && <BoqDialog p={p} onClose={() => setOpen(null)} run={run} />}
+      {open === "hours" && <HoursDialog p={p} onClose={() => setOpen(null)} run={run} />}
       {open === "contract" && <ContractDialog p={p} onClose={() => setOpen(null)} run={run} />}
       {open === "budget" && <BudgetDialog p={p} onClose={() => setOpen(null)} run={run} />}
       {open === "commit" && <CommitDialog p={p} onClose={() => setOpen(null)} run={run} />}
@@ -472,6 +593,45 @@ function CommitDialog({ p, onClose, run }) {
 function ClaimDialog({ p, onClose, run }) {
   const last = p.claims[p.claims.length - 1];
   const [f, setF] = useState({ periodTo: today(), claimedToDate: "" });
+  const [done, setDone] = useState(() => Object.fromEntries(p.boq.map((b) => [b.id, b.done])));
+  if (p.boq.length) {
+    const measured = p.boq.reduce((a, b) => a + Math.round(n(done[b.id]) * n(b.rate) * 100), 0) / 100 + n(f.claimedToDate);
+    return (
+      <Dialog
+        title={`Progress claim ${(last?.number || 0) + 1}`}
+        description={`Measured: how much of each item is done to date. Comes to MVR ${measured.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${last ? `, against ${last.claimed} last time` : ""}.`}
+        onClose={onClose}
+        action="Make the claim"
+        disabled={!(measured > 0)}
+        onSubmit={() =>
+          run(
+            { method: "post", url: `/projects/${p.id}/claims`, body: { periodTo: f.periodTo, claimedToDate: f.claimedToDate || null, measured: p.boq.map((b) => ({ boqId: b.id, done: String(done[b.id] || "0").trim() || "0" })) } },
+            (r) => [`Claim ${r.number} made, MVR ${r.claimed}`, "When the engineer certifies it, certify it here and it is invoiced."]
+          )
+        }
+      >
+        <div className="grid gap-2 max-h-[45vh] overflow-y-auto" data-testid="measure">
+          {p.boq.map((b) => (
+            <label key={b.id} className="flex items-center gap-3">
+              <span className="flex-1 min-w-0 text-[14px] truncate">
+                {b.ref && <span className="text-[var(--ink-muted)]">{b.ref} </span>}
+                {b.description} <span className="text-[var(--ink-muted)]">· of {b.quantity} {b.unit}</span>
+              </span>
+              <input aria-label={`${b.ref || b.description}: done to date`} value={done[b.id]} onChange={(e) => setDone({ ...done, [b.id]: e.target.value })} inputMode="decimal" className={`${FIELD.replace("w-full", "w-28")} tabular text-right`} />
+            </label>
+          ))}
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <Field label="Approved variations done, MVR" hint="Optional, on top of the measured work.">
+            <input value={f.claimedToDate} onChange={(e) => setF({ ...f, claimedToDate: e.target.value })} inputMode="decimal" className={`${FIELD} tabular`} />
+          </Field>
+          <Field label="As at">
+            <input type="date" value={f.periodTo} onChange={(e) => setF({ ...f, periodTo: e.target.value })} className={FIELD} />
+          </Field>
+        </div>
+      </Dialog>
+    );
+  }
   return (
     <Dialog
       title={`Progress claim ${(last?.number || 0) + 1}`}
@@ -573,5 +733,92 @@ function Entries({ projectId, look, onClose }) {
         </ul>
       )}
     </Modal>
+  );
+}
+
+function VaryDialog({ p, onClose, run }) {
+  const [f, setF] = useState({ description: "", amount: "" });
+  return (
+    <Dialog
+      title={`Variation VO-${p.variations.length + 1}`}
+      description="Proposed until the customer approves it; only then does it change the contract. Work taken out is a minus amount."
+      onClose={onClose}
+      action="Propose it"
+      disabled={!f.description.trim() || !(Math.abs(n(f.amount)) > 0)}
+      onSubmit={() => run({ method: "post", url: `/projects/${p.id}/variations`, body: f }, (r) => [`VO-${r.number} proposed`, "Mark it approved when the customer agrees."])}
+    >
+      <Field label="What changes">
+        <input id="vary-what" value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Extra boundary wall on the east side" className={FIELD} />
+      </Field>
+      <Field label="By how much, MVR" hint="For work taken out, put a minus: -20000.">
+        <input id="vary-amount" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} inputMode="decimal" className={`${FIELD} tabular`} />
+      </Field>
+    </Dialog>
+  );
+}
+
+function BoqDialog({ p, onClose, run }) {
+  const blank = { ref: "", description: "", unit: "", quantity: "", rate: "" };
+  const [items, setItems] = useState(() => (p.boq.length ? p.boq.map((b) => ({ ref: b.ref || "", description: b.description, unit: b.unit, quantity: b.quantity, rate: b.rate.replace(/,/g, "") })) : [{ ...blank }]));
+  const set = (i, k, v) => setItems(items.map((it, j) => (j === i ? { ...it, [k]: v } : it)));
+  const filled = items.filter((it) => it.description.trim());
+  const total = filled.reduce((a, it) => a + Math.round(n(it.quantity) * n(it.rate) * 100), 0) / 100;
+  const cell = `${FIELD} h-9 px-2 text-[13px]`;
+  return (
+    <Dialog
+      title="Bill of quantities"
+      description={`MVR ${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} priced${p.contract ? `, against a contract of MVR ${p.contract}` : ""}. It stays as it is once a claim is measured against it.`}
+      onClose={onClose}
+      action="Save it"
+      disabled={!filled.length}
+      onSubmit={() => run({ method: "put", url: `/projects/${p.id}/boq`, body: { items: filled } }, (r) => ["Bill of quantities saved", `MVR ${r.total} priced.`])}
+    >
+      <div className="grid gap-2 max-h-[50vh] overflow-y-auto" data-testid="boq-edit">
+        {items.map((it, i) => (
+          <div key={i} className="grid grid-cols-[3.5rem_minmax(0,1fr)] sm:grid-cols-[3.5rem_minmax(0,1fr)_4rem_5rem_6rem] gap-1.5">
+            <input aria-label={`Item ${i + 1}: ref`} value={it.ref} onChange={(e) => set(i, "ref", e.target.value)} placeholder="1.1" className={cell} />
+            <input aria-label={`Item ${i + 1}: description`} value={it.description} onChange={(e) => set(i, "description", e.target.value)} placeholder="Excavation" className={cell} />
+            <input aria-label={`Item ${i + 1}: unit`} value={it.unit} onChange={(e) => set(i, "unit", e.target.value)} placeholder="m3" className={cell} />
+            <input aria-label={`Item ${i + 1}: quantity`} value={it.quantity} onChange={(e) => set(i, "quantity", e.target.value)} inputMode="decimal" placeholder="Qty" className={`${cell} tabular text-right`} />
+            <input aria-label={`Item ${i + 1}: rate`} value={it.rate} onChange={(e) => set(i, "rate", e.target.value)} inputMode="decimal" placeholder="Rate" className={`${cell} tabular text-right`} />
+          </div>
+        ))}
+      </div>
+      <Button type="button" variant="ghost" size="sm" onClick={() => setItems([...items, { ...blank }])} className="justify-self-start">
+        <Plus size={14} /> Another item
+      </Button>
+    </Dialog>
+  );
+}
+
+function HoursDialog({ p, onClose, run }) {
+  const [f, setF] = useState({ workedOn: today(), who: "", hours: "", rate: "", note: "" });
+  return (
+    <Dialog
+      title="Hours worked"
+      description={`On ${p.name}. Kept for the project; nothing is posted.`}
+      onClose={onClose}
+      action="Keep them"
+      disabled={!f.who.trim() || !(n(f.hours) > 0)}
+      onSubmit={() => run({ method: "post", url: `/projects/${p.id}/hours`, body: { ...f, rate: f.rate || null, note: f.note || null } }, () => ["Hours kept", `${f.hours} h for ${f.who}.`])}
+    >
+      <div className="grid sm:grid-cols-2 gap-4">
+        <Field label="Who">
+          <input id="hours-who" value={f.who} onChange={(e) => setF({ ...f, who: e.target.value })} placeholder="Site foreman" className={FIELD} />
+        </Field>
+        <Field label="On">
+          <input type="date" value={f.workedOn} onChange={(e) => setF({ ...f, workedOn: e.target.value })} className={FIELD} />
+        </Field>
+        <Field label="Hours">
+          <input id="hours-count" value={f.hours} onChange={(e) => setF({ ...f, hours: e.target.value })} inputMode="decimal" className={`${FIELD} tabular`} />
+        </Field>
+        <Field label="Rate an hour, MVR" hint="Optional.">
+          <input value={f.rate} onChange={(e) => setF({ ...f, rate: e.target.value })} inputMode="decimal" className={`${FIELD} tabular`} />
+        </Field>
+      </div>
+      <Field label="Note (optional)">
+        <input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="Block 3 foundations" className={FIELD} />
+      </Field>
+    </Dialog>
   );
 }

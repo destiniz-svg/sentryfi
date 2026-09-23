@@ -6,6 +6,7 @@ const { requireAuth } = require("../middleware/auth");
 const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
 const projects = require("../ledger/projects");
+const { formatLaari } = require("../ledger/money");
 
 /**
  * Projects: the contract, the budget, what is committed and spent, progress
@@ -134,9 +135,17 @@ router.post(
   "/:id/claims",
   requireCan("record"),
   refused(async (req, res) => {
-    const b = parse(z.object({ periodTo: dateText, claimedToDate: money }), req.body);
+    const b = parse(
+      z.object({
+        periodTo: dateText,
+        claimedToDate: money.nullish(),
+        measured: z.array(z.object({ boqId: z.string().uuid(), done: money })).max(500).nullish(),
+      }),
+      req.body
+    );
+    if (!b.measured && !b.claimedToDate) throw ApiError.badRequest("How much work is done to date?");
     const c = await on(req, (client, ctx) => projects.claim(client, { ...ctx, projectId: req.params.id, ...b }));
-    res.status(201).json(c);
+    res.status(201).json({ id: c.id, number: c.number, claimed: formatLaari(c.value) });
   })
 );
 
@@ -150,7 +159,6 @@ router.post(
       if (!rows.length) throw new Error("That claim is not on this project.");
       return projects.certify(client, { ...ctx, claimId: req.params.claimId, ...b });
     });
-    const { formatLaari } = require("../ledger/money");
     res.status(201).json({ certificate: formatLaari(r.certificate), retention: formatLaari(r.retention), invoiced: formatLaari(r.due) });
   })
 );
@@ -162,6 +170,72 @@ router.post(
     const b = parse(z.object({ amount: money, on: dateText }), req.body);
     await on(req, (client, ctx) => projects.releaseRetention(client, { ...ctx, projectId: req.params.id, ...b }));
     res.status(201).json({ ok: true });
+  })
+);
+
+/** A variation to the contract: proposed, then approved or rejected. */
+router.post(
+  "/:id/variations",
+  requireCan("record"),
+  refused(async (req, res) => {
+    const b = parse(z.object({ description: z.string().trim().min(1, "Say what the variation is.").max(300), amount: money }), req.body);
+    const v = await on(req, (client, ctx) => projects.vary(client, { ...ctx, projectId: req.params.id, ...b }));
+    res.status(201).json(v);
+  })
+);
+
+router.post(
+  "/:id/variations/:vid/decide",
+  requireCan("record"),
+  refused(async (req, res) => {
+    const b = parse(z.object({ approved: z.boolean(), on: dateText.nullish() }), req.body);
+    await on(req, async (client, ctx) => {
+      const { rows } = await client.query("SELECT 1 FROM project_variations WHERE id = $1 AND project_id = $2 AND company_id = $3", [req.params.vid, req.params.id, ctx.companyId]);
+      if (!rows.length) throw new Error("That variation is not on this project.");
+      await projects.decideVariation(client, { ...ctx, variationId: req.params.vid, ...b });
+    });
+    res.json({ ok: true });
+  })
+);
+
+/** The bill of quantities, replaced whole. */
+router.put(
+  "/:id/boq",
+  requireCan("record"),
+  refused(async (req, res) => {
+    const b = parse(
+      z.object({
+        items: z.array(z.object({ ref: z.string().trim().max(30).nullish(), description: z.string().trim().max(300), unit: z.string().trim().max(20).nullish(), quantity: money, rate: money })).max(500),
+      }),
+      req.body
+    );
+    const r = await on(req, (client, ctx) => projects.setBoq(client, { ...ctx, projectId: req.params.id, items: b.items }));
+    res.json({ total: formatLaari(r.total) });
+  })
+);
+
+router.post(
+  "/:id/hours",
+  requireCan("record"),
+  refused(async (req, res) => {
+    const b = parse(
+      z.object({ workedOn: dateText, who: z.string().trim().max(120), hours: money, rate: money.nullish(), note: z.string().trim().max(300).nullish() }),
+      req.body
+    );
+    const h = await on(req, (client, ctx) => projects.logHours(client, { ...ctx, projectId: req.params.id, ...b }));
+    res.status(201).json(h);
+  })
+);
+
+router.delete(
+  "/:id/hours/:hid",
+  requireCan("record"),
+  refused(async (req, res) => {
+    const gone = await on(req, async (client, ctx) =>
+      (await client.query("DELETE FROM project_hours WHERE id = $1 AND project_id = $2 AND company_id = $3", [req.params.hid, req.params.id, ctx.companyId])).rowCount
+    );
+    if (!gone) throw ApiError.notFound("Those hours are not on this project.");
+    res.json({ ok: true });
   })
 );
 

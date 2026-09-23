@@ -26,9 +26,130 @@ const bp = (v) => {
   return n;
 };
 
+/**
+ * A project, with contract_laari as the contract is now: what was signed plus
+ * the approved variations (original_laari keeps what was signed).
+ */
 async function project(client, { companyId, projectId }) {
-  const { rows } = await client.query("SELECT * FROM projects WHERE id = $1 AND company_id = $2", [projectId, companyId]);
-  if (!rows[0]) throw new Error("That project is not in these books.");
+  const { rows } = await client.query(
+    `SELECT p.*, p.contract_laari AS original_laari,
+            (SELECT COALESCE(SUM(v.amount_laari), 0) FROM project_variations v WHERE v.project_id = p.id AND v.status = 'approved') AS varied_laari
+       FROM projects p WHERE p.id = $1 AND p.company_id = $2`,
+    [projectId, companyId]
+  );
+  const p = rows[0];
+  if (!p) throw new Error("That project is not in these books.");
+  if (p.contract_laari !== null) p.contract_laari = (BigInt(p.contract_laari) + BigInt(p.varied_laari)).toString();
+  return p;
+}
+
+/** A variation to the contract, proposed. Negative for work taken out. */
+async function vary(client, { companyId, userId, projectId, description, amount }) {
+  await assumeIdentity(client, { companyId, userId });
+  const p = await project(client, { companyId, projectId });
+  if (p.contract_laari === null) throw new Error("Set the contract's value first; a variation changes it.");
+  const said = String(description || "").trim();
+  if (!said) throw new Error("Say what the variation is.");
+  const text = String(amount ?? "").trim();
+  const value = text.startsWith("-") ? -toLaari(text.slice(1)) : toLaari(text);
+  if (value === 0n) throw new Error("A variation changes the contract by something.");
+  const { rows } = await client.query(
+    `INSERT INTO project_variations (company_id, project_id, number, description, amount_laari, created_by)
+     VALUES ($1,$2,(SELECT COALESCE(MAX(number), 0) + 1 FROM project_variations WHERE project_id = $2),$3,$4,$5) RETURNING id, number`,
+    [companyId, projectId, said, value.toString(), userId]
+  );
+  return rows[0];
+}
+
+/** The customer's answer to a variation. Approved, it is part of the contract. */
+async function decideVariation(client, { companyId, userId, variationId, approved, on }) {
+  await assumeIdentity(client, { companyId, userId });
+  const { rows } = await client.query("SELECT * FROM project_variations WHERE id = $1 AND company_id = $2 FOR UPDATE", [variationId, companyId]);
+  const v = rows[0];
+  if (!v) throw new Error("That variation is not in these books.");
+  if (v.status !== "proposed") throw new Error(`VO-${v.number} was already ${v.status}.`);
+  if (approved && BigInt(v.amount_laari) < 0n) {
+    const p = await project(client, { companyId, projectId: v.project_id });
+    const last = (await claims(client, { companyId, projectId: v.project_id })).at(-1);
+    if (last && BigInt(last.claimed_to_date_laari) > BigInt(p.contract_laari) + BigInt(v.amount_laari)) {
+      throw new Error("Work already claimed comes to more than the contract would be after this omission.");
+    }
+  }
+  await client.query("UPDATE project_variations SET status = $3, decided_on = COALESCE($4::date, current_date), decided_by = $5 WHERE id = $1 AND company_id = $2", [
+    variationId, companyId, approved ? "approved" : "rejected", on || null, userId,
+  ]);
+}
+
+// ------------------------------------------------------------------ bill of quantities
+
+const QSCALE = 10000n;
+function qty(t) {
+  const s = String(t ?? "").trim();
+  if (!/^\d+(\.\d{1,4})?$/.test(s)) throw new Error("A quantity is a number, with at most four decimal places.");
+  const [w, f = ""] = s.split(".");
+  return BigInt(w) * QSCALE + BigInt(f.padEnd(4, "0"));
+}
+const qtyText = (u) => {
+  const f = (u % QSCALE).toString().padStart(4, "0").replace(/0+$/, "");
+  return `${u / QSCALE}${f ? "." + f : ""}`;
+};
+/** A quantity times a rate, to the nearest laari. */
+const valueOf = (units, rate) => (units * rate + QSCALE / 2n) / QSCALE;
+
+/** The bill of quantities, replaced whole, until a claim is measured against it. */
+async function setBoq(client, { companyId, userId, projectId, items }) {
+  await assumeIdentity(client, { companyId, userId });
+  await project(client, { companyId, projectId });
+  const { rows: used } = await client.query(
+    "SELECT 1 FROM project_claim_measures m JOIN project_boq b ON b.id = m.boq_id WHERE b.project_id = $1 AND b.company_id = $2 LIMIT 1",
+    [projectId, companyId]
+  );
+  if (used.length) throw new Error("A claim has been measured against this bill of quantities, so it stays as it is. Changes to the work are variations now.");
+  await client.query("DELETE FROM project_boq WHERE project_id = $1 AND company_id = $2", [projectId, companyId]);
+  let total = 0n;
+  for (const [i, it] of items.entries()) {
+    const description = String(it.description || "").trim();
+    if (!description) throw new Error(`Item ${i + 1} needs a description.`);
+    const q = qty(it.quantity);
+    if (q <= 0n) throw new Error(`Item ${i + 1} needs a quantity.`);
+    const rate = toLaari(it.rate);
+    total += valueOf(q, rate);
+    await client.query(
+      "INSERT INTO project_boq (company_id, project_id, ref, description, unit, quantity, rate_laari, position) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
+      [companyId, projectId, it.ref ? String(it.ref).trim() : null, description, String(it.unit || "item").trim() || "item", qtyText(q), rate.toString(), i]
+    );
+  }
+  return { total };
+}
+
+/** The bill of quantities, with how much of each item the last claim measured done. */
+async function boq(client, { companyId, projectId }) {
+  const { rows } = await client.query(
+    `SELECT b.*, (SELECT m.done FROM project_claim_measures m JOIN project_claims c ON c.id = m.claim_id
+                    WHERE m.boq_id = b.id ORDER BY c.number DESC LIMIT 1) AS done
+       FROM project_boq b WHERE b.project_id = $1 AND b.company_id = $2 ORDER BY b.position`,
+    [projectId, companyId]
+  );
+  return rows.map((r) => {
+    const q = qty(r.quantity);
+    const done = r.done === null ? 0n : qty(r.done);
+    const rate = BigInt(r.rate_laari);
+    return { id: r.id, ref: r.ref, description: r.description, unit: r.unit, quantity: qtyText(q), rate, amount: valueOf(q, rate), done: qtyText(done), doneValue: valueOf(done, rate), units: q, doneUnits: done };
+  });
+}
+
+// ------------------------------------------------------------------ hours
+
+async function logHours(client, { companyId, userId, projectId, workedOn, who, hours, rate, note }) {
+  await assumeIdentity(client, { companyId, userId });
+  await project(client, { companyId, projectId });
+  const t = String(hours ?? "").trim();
+  if (!/^\d+(\.\d{1,2})?$/.test(t) || !(Number(t) > 0 && Number(t) <= 24)) throw new Error("Hours are above zero and at most 24 in a day, to two places.");
+  if (!String(who || "").trim()) throw new Error("Say who worked them.");
+  const { rows } = await client.query(
+    "INSERT INTO project_hours (company_id, project_id, worked_on, who, hours, rate_laari, note, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id",
+    [companyId, projectId, workedOn, String(who).trim(), t, rate ? toLaari(rate).toString() : null, note ? String(note).trim() : null, userId]
+  );
   return rows[0];
 }
 
@@ -109,21 +230,44 @@ async function claims(client, { companyId, projectId }) {
 }
 
 /** A progress claim: the value of all work done to date, as at a date. */
-async function claim(client, { companyId, userId, projectId, periodTo, claimedToDate }) {
+async function claim(client, { companyId, userId, projectId, periodTo, claimedToDate, measured }) {
   await assumeIdentity(client, { companyId, userId });
   const p = await project(client, { companyId, projectId });
   if (!p.counterparty_id) throw new Error("Say who the customer is before claiming.");
   const before = await claims(client, { companyId, projectId });
   const last = before[before.length - 1];
   if (last && last.certified_to_date_laari === null) throw new Error(`Claim ${last.number} has not been certified yet. Certify it first.`);
-  const value = toLaari(claimedToDate);
+  // Measured from the bill of quantities, the claim is what is done of each
+  // item times its rate (items not mentioned stay where the last claim left
+  // them), plus claimedToDate for approved variations done, if given.
+  let value;
+  const measures = [];
+  if (measured) {
+    const items = await boq(client, { companyId, projectId });
+    if (!items.length) throw new Error("This project has no bill of quantities to measure against.");
+    const said = new Map(measured.map((m) => [m.boqId, m.done]));
+    for (const id of said.keys()) if (!items.some((b) => b.id === id)) throw new Error("That item is not on this project's bill of quantities.");
+    value = 0n;
+    for (const b of items) {
+      const done = said.has(b.id) ? qty(said.get(b.id)) : b.doneUnits;
+      const name = b.ref || b.description;
+      if (done > b.units) throw new Error(`Item ${name}: ${qtyText(done)} ${b.unit} is more than the ${b.quantity} on the bill. More than that is a variation.`);
+      if (done < b.doneUnits) throw new Error(`Item ${name}: done to date is not less than last time (${b.done}).`);
+      measures.push([b.id, qtyText(done)]);
+      value += valueOf(done, b.rate);
+    }
+    if (claimedToDate !== undefined && claimedToDate !== null && String(claimedToDate).trim() !== "") value += toLaari(claimedToDate);
+  } else value = toLaari(claimedToDate);
   if (last && value < BigInt(last.claimed_to_date_laari)) throw new Error("A claim is of all work done to date, so it is not less than the last one.");
   if (p.contract_laari !== null && value > BigInt(p.contract_laari)) throw new Error("That is more than the contract. Record the variation on the contract first.");
   const { rows } = await client.query(
     `INSERT INTO project_claims (company_id, project_id, number, period_to, claimed_to_date_laari, created_by) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, number`,
     [companyId, projectId, (last?.number || 0) + 1, periodTo, value.toString(), userId]
   );
-  return rows[0];
+  for (const [boqId, done] of measures) {
+    await client.query("INSERT INTO project_claim_measures (company_id, claim_id, boq_id, done) VALUES ($1,$2,$3,$4)", [companyId, rows[0].id, boqId, done]);
+  }
+  return { ...rows[0], value };
 }
 
 /** Retention held to date on a certified value: its share, up to the cap on the contract. */
@@ -305,12 +449,31 @@ async function summary(client, { companyId, projectId }) {
   const certifiedToDate = certifiedClaims.length ? BigInt(certifiedClaims[certifiedClaims.length - 1].certified_to_date_laari) : 0n;
   const claimedToDate = cl.length ? BigInt(cl[cl.length - 1].claimed_to_date_laari) : 0n;
   const held = await retentionHeld(client, { companyId, projectId });
+  const { rows: vRows } = await client.query("SELECT * FROM project_variations WHERE project_id = $1 AND company_id = $2 ORDER BY number", [projectId, companyId]);
+  const items = await boq(client, { companyId, projectId });
+  const { rows: hRows } = await client.query(
+    "SELECT id, worked_on, who, hours, rate_laari, note FROM project_hours WHERE project_id = $1 AND company_id = $2 ORDER BY worked_on DESC, created_at DESC",
+    [projectId, companyId]
+  );
+  const cents = (h) => BigInt(Math.round(Number(h.hours) * 100));
+  const hourCents = hRows.reduce((a, h) => a + cents(h), 0n);
+  const hoursValue = hRows.reduce((a, h) => a + (h.rate_laari === null ? 0n : (cents(h) * BigInt(h.rate_laari) + 50n) / 100n), 0n);
   const f = formatLaari;
   return {
     id: p.id,
     name: p.name,
     customerId: p.counterparty_id,
     contract: contract === null ? null : f(contract),
+    originalContract: p.original_laari === null ? null : f(BigInt(p.original_laari)),
+    variations: vRows.map((v) => ({ id: v.id, number: v.number, description: v.description, amount: f(BigInt(v.amount_laari)), status: v.status, decidedOn: v.decided_on })),
+    variationsPending: f(vRows.filter((v) => v.status === "proposed").reduce((a, v) => a + BigInt(v.amount_laari), 0n)),
+    boq: items.map((b) => ({ id: b.id, ref: b.ref, description: b.description, unit: b.unit, quantity: b.quantity, rate: f(b.rate), amount: f(b.amount), done: b.done, doneValue: f(b.doneValue) })),
+    boqTotal: f(items.reduce((a, b) => a + b.amount, 0n)),
+    hours: {
+      total: (Number(hourCents) / 100).toString(),
+      value: f(hoursValue),
+      entries: hRows.slice(0, 50).map((h) => ({ id: h.id, on: h.worked_on, who: h.who, hours: String(Number(h.hours)), rate: h.rate_laari === null ? null : f(BigInt(h.rate_laari)), note: h.note })),
+    },
     retentionPct: p.retention_bp / 100,
     retentionCapPct: p.retention_cap_bp === null ? null : p.retention_cap_bp / 100,
     startsOn: p.starts_on,
@@ -370,4 +533,4 @@ async function list(client, { companyId }) {
   return out;
 }
 
-module.exports = { RETENTION, configure, setBudget, commit, billAgainst, claim, certify, retentionOn, retentionHeld, releaseRetention, summary, entries, list };
+module.exports = { RETENTION, vary, decideVariation, setBoq, boq, logHours, configure, setBudget, commit, billAgainst, claim, certify, retentionOn, retentionHeld, releaseRetention, summary, entries, list };

@@ -118,3 +118,64 @@ describe("a construction contract", () => {
       expect((await projects.entries(client, { companyId, projectId, figure: "spent", accountId: co.code["5300"] })).map((e) => e.amount)).toEqual(["60,000.00"]);
     }));
 });
+
+describe("variations, the bill of quantities and hours", () => {
+  it("changes the contract only when a variation is approved, and lets claims follow it", () =>
+    inRollback(async (client) => {
+      const co = await aContract(client);
+      const { companyId, userId, projectId } = co;
+      const vo1 = await projects.vary(client, { companyId, userId, projectId, description: "Extra boundary wall", amount: "120000" });
+      const vo2 = await projects.vary(client, { companyId, userId, projectId, description: "Omit landscaping", amount: "-20000" });
+      expect([vo1.number, vo2.number]).toEqual([1, 2]);
+      let s = await co.summary();
+      expect([s.contract, s.originalContract, s.variationsPending]).toEqual(["1,000,000.00", "1,000,000.00", "100,000.00"]);
+      await expect(projects.claim(client, { companyId, userId, projectId, periodTo: "2026-07-31", claimedToDate: "1050000" })).rejects.toThrow(/more than the contract/);
+      await projects.decideVariation(client, { companyId, userId, variationId: vo1.id, approved: true, on: "2026-07-20" });
+      await projects.decideVariation(client, { companyId, userId, variationId: vo2.id, approved: false });
+      await expect(projects.decideVariation(client, { companyId, userId, variationId: vo2.id, approved: true })).rejects.toThrow(/already rejected/);
+      s = await co.summary();
+      expect([s.contract, s.originalContract, s.variationsPending]).toEqual(["1,120,000.00", "1,000,000.00", "0.00"]);
+      expect(s.variations.map((v) => v.status)).toEqual(["approved", "rejected"]);
+      await projects.claim(client, { companyId, userId, projectId, periodTo: "2026-07-31", claimedToDate: "1050000" });
+      // An omission that would leave the contract below what is claimed is refused.
+      const vo3 = await projects.vary(client, { companyId, userId, projectId, description: "Omit the wall again", amount: "-120000" });
+      await expect(projects.decideVariation(client, { companyId, userId, variationId: vo3.id, approved: true })).rejects.toThrow(/already claimed/);
+    }));
+
+  it("measures a claim from the bill of quantities, and never past it", () =>
+    inRollback(async (client) => {
+      const co = await aContract(client);
+      const { companyId, userId, projectId } = co;
+      await projects.setBoq(client, { companyId, userId, projectId, items: [
+        { ref: "1.1", description: "Excavation", unit: "m3", quantity: "400", rate: "250" },
+        { ref: "2.1", description: "Blockwork", unit: "m2", quantity: "1200.5", rate: "300" },
+      ] });
+      let s = await co.summary();
+      expect(s.boqTotal).toBe("460,150.00");
+      const [dig, blocks] = s.boq;
+      const c1 = await projects.claim(client, { companyId, userId, projectId, periodTo: "2026-07-31", measured: [{ boqId: dig.id, done: "400" }, { boqId: blocks.id, done: "100.25" }] });
+      expect(c1.value).toBe(13007500n); // 100,000 + 30,075
+      await expect(projects.setBoq(client, { companyId, userId, projectId, items: [] })).rejects.toThrow(/stays as it is/);
+      await projects.certify(client, { companyId, userId, claimId: c1.id, certifiedToDate: "130075", on: "2026-08-05" });
+      await expect(projects.claim(client, { companyId, userId, projectId, periodTo: "2026-08-31", measured: [{ boqId: blocks.id, done: "1300" }] })).rejects.toThrow(/more than the 1200.5/);
+      await expect(projects.claim(client, { companyId, userId, projectId, periodTo: "2026-08-31", measured: [{ boqId: blocks.id, done: "50" }] })).rejects.toThrow(/not less than last time/);
+      // Excavation stays at 400 where the last claim left it; 50,000 of approved variations on top.
+      const c2 = await projects.claim(client, { companyId, userId, projectId, periodTo: "2026-08-31", measured: [{ boqId: blocks.id, done: "600" }], claimedToDate: "50000" });
+      expect(c2.value).toBe(33000000n);
+      s = await co.summary();
+      expect(s.boq.map((b) => [b.done, b.doneValue])).toEqual([["400", "100,000.00"], ["600", "180,000.00"]]);
+    }));
+
+  it("keeps hours worked with their value, and posts nothing", () =>
+    inRollback(async (client) => {
+      const co = await aContract(client);
+      const { companyId, userId, projectId } = co;
+      const before = (await client.query("SELECT count(*)::int AS n FROM journal_entries WHERE company_id = $1", [companyId])).rows[0].n;
+      await projects.logHours(client, { companyId, userId, projectId, workedOn: "2026-07-01", who: "Site foreman", hours: "8.5", rate: "90" });
+      await projects.logHours(client, { companyId, userId, projectId, workedOn: "2026-07-02", who: "Mason", hours: "7" });
+      await expect(projects.logHours(client, { companyId, userId, projectId, workedOn: "2026-07-02", who: "Mason", hours: "25" })).rejects.toThrow(/at most 24/);
+      const s = await co.summary();
+      expect([s.hours.total, s.hours.value, s.hours.entries.length]).toEqual(["15.5", "765.00", 2]);
+      expect((await client.query("SELECT count(*)::int AS n FROM journal_entries WHERE company_id = $1", [companyId])).rows[0].n).toBe(before);
+    }));
+});

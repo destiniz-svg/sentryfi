@@ -638,6 +638,14 @@ describe("A's projects, from B", () => {
     denied(await call(B, "PUT", `/projects/${projA}/budget`, { body: { lines: [] } }));
     denied(await call(B, "POST", `/projects/${projA}/commitments`, { body: { description: "x", accountId: B.accounts["5100"], amount: "1" } }));
     denied(await call(B, "POST", `/projects/${projA}/claims`, { body: { periodTo: "2026-09-30", claimedToDate: "1" } }));
+    const voA = (await call(A, "POST", `/projects/${projA}/variations`, { body: { description: "SECRET-VO-A", amount: "5000" } })).json.id;
+    const hA = (await call(A, "POST", `/projects/${projA}/hours`, { body: { workedOn: "2026-09-01", who: "SECRET-WORKER-A", hours: "8" } })).json.id;
+    expect(voA && hA).toBeTruthy();
+    denied(await call(B, "POST", `/projects/${projA}/variations`, { body: { description: "x", amount: "1" } }));
+    denied(await call(B, "POST", `/projects/${projA}/variations/${voA}/decide`, { body: { approved: true } }));
+    denied(await call(B, "PUT", `/projects/${projA}/boq`, { body: { items: [] } }));
+    denied(await call(B, "POST", `/projects/${projA}/hours`, { body: { workedOn: "2026-09-01", who: "x", hours: "1" } }));
+    denied(await call(B, "DELETE", `/projects/${projA}/hours/${hA}`));
     denied(await call(B, "POST", `/projects/${projA}/claims/${claimA}/certify`, { body: { certifiedToDate: "1000", on: "2026-09-30" } }));
     denied(await call(B, "POST", `/projects/${projA}/retention`, { body: { amount: "1", on: "2026-09-30" } }));
     const e = await call(B, "GET", `/projects/${projA}/entries?figure=spent`);
