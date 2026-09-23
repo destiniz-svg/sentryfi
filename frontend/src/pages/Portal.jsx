@@ -1,15 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Printer } from "lucide-react";
 import { apiClient } from "@/api/client";
 import { Money } from "@/components/ui/Money";
 import { formatDate } from "@/lib/utils";
+import { FittedPaper } from "@/components/documents/DocumentPaper";
+import { PrintCopy } from "@/components/documents/PrintCopy";
+import { compose, templateWith } from "@/lib/documents";
 
 /**
  * The customer portal: what a company's customer sees from their private
  * link, without an account. Their invoices, what is still owed on each and in
- * all, and how to pay. Read-only; printable.
+ * all, and how to pay. Read-only; printable. Opening an invoice draws it as
+ * it was issued: the same paper the company sent.
  */
 export default function Portal() {
   const { token } = useParams();
@@ -83,33 +87,7 @@ export default function Portal() {
                     </div>
                     <ChevronDown size={16} className={`print:hidden text-[var(--ink-muted)] transition-transform ${open === i.id ? "rotate-180" : ""}`} aria-hidden="true" />
                   </button>
-                  {open === i.id && (
-                    <table className="w-full mt-3 text-[14px] tabular">
-                      <tbody className="divide-y divide-[var(--border)]">
-                        {i.lines.map((l, k) => (
-                          <tr key={k}>
-                            <td className="py-1.5 pr-3">
-                              {l.description}
-                              <span className="block text-[12px] text-[var(--ink-muted)]">
-                                {l.quantity} {l.unit || ""} × {l.price}
-                              </span>
-                            </td>
-                            <td className="py-1.5 text-right">
-                              <Money amount={l.amount} />
-                            </td>
-                          </tr>
-                        ))}
-                        {i.tax !== "0.00" && (
-                          <tr>
-                            <td className="py-1.5 text-[var(--ink-muted)]">GST</td>
-                            <td className="py-1.5 text-right">
-                              <Money amount={i.tax} />
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  )}
+                  {open === i.id && <IssuedInvoice token={token} id={i.id} />}
                 </li>
               );
             })}
@@ -118,5 +96,35 @@ export default function Portal() {
         <p className="mt-8 text-[12px] text-[var(--ink-muted)] print:hidden">Kept by {data.company.name} in Sentryfi. This page is for you alone; please do not share the link.</p>
       </div>
     </main>
+  );
+}
+
+/** One invoice as it was issued, and printing just that invoice. */
+function IssuedInvoice({ token, id }) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["portal-invoice", token, id],
+    queryFn: () => apiClient.get(`/portal/${token}/invoices/${id}`).then((r) => r.data),
+  });
+  const [printing, setPrinting] = useState(false);
+  useEffect(() => {
+    if (!printing) return;
+    const done = () => setPrinting(false);
+    window.addEventListener("afterprint", done, { once: true });
+    window.print();
+    return () => window.removeEventListener("afterprint", done);
+  }, [printing]);
+  if (error) return <p className="mt-3 text-[14px] text-[var(--ink-muted)]">{error.message}</p>;
+  if (isLoading || !data) return <p className="mt-3 text-[14px] text-[var(--ink-muted)]">Opening the invoice…</p>;
+  const model = compose({ data: data.data, brand: data.brand, template: data.template, size: templateWith(data.template).size === "a5" ? "a5" : "a4" });
+  return (
+    <div className="mt-4 print:hidden" data-testid="portal-paper">
+      <div className="rounded-xl bg-[var(--surface-2)] p-2 sm:p-3">
+        <FittedPaper model={model} />
+      </div>
+      <button type="button" onClick={() => setPrinting(true)} className="mt-3 h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--surface)] inline-flex items-center gap-2 text-[14px]">
+        <Printer size={15} /> Print or save this invoice as a PDF
+      </button>
+      {printing && <PrintCopy model={model} />}
+    </div>
   );
 }

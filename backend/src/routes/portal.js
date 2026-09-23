@@ -75,6 +75,33 @@ publicRouter.get(
   })
 );
 
+/**
+ * One invoice drawn as it was issued: the copy kept when it went into the
+ * books, with the company's brand as it was then. Only this customer's,
+ * only posted, only through a live link.
+ */
+publicRouter.get(
+  "/:token/invoices/:id",
+  looking,
+  asyncHandler(async (req, res) => {
+    if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) throw ApiError.notFound("No such invoice.");
+    const { rows } = await pool.query("SELECT company_id, counterparty_id, created_by FROM portal_links WHERE token_hash = $1 AND revoked_at IS NULL", [hash(req.params.token)]);
+    const link = rows[0];
+    if (!link) throw ApiError.notFound("This link has been turned off, or is not complete. Ask for a new one.");
+    const doc = await asCompany({ companyId: link.company_id, user: { id: link.created_by } }, async (client) => {
+      const { rows: mine } = await client.query(
+        "SELECT 1 FROM sales_invoices WHERE id = $1 AND company_id = $2 AND counterparty_id = $3 AND status = 'posted' AND voided_at IS NULL",
+        [req.params.id, link.company_id, link.counterparty_id]
+      );
+      if (!mine.length) return null;
+      return require("../ledger/documents").show(client, { companyId: link.company_id, kind: "invoice", documentId: req.params.id });
+    });
+    if (!doc) throw ApiError.notFound("No such invoice.");
+    res.set("Cache-Control", "no-store");
+    res.json(doc);
+  })
+);
+
 // ------------------------------------------------------------------ the company's side
 
 const manage = express.Router();

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { loadFont } from "@/lib/documents";
+import { loadFont, THAANA } from "@/lib/documents";
 
 /**
  * The paper. One drawing for every document, every layout and every size:
@@ -300,13 +300,15 @@ function Receipt({ m }) {
 
 export function DocumentPaper({ model: m, className = "" }) {
   loadFont(m.font);
+  if (m.thaana) loadFont(THAANA);
   const pad = m.size.receipt ? "3mm" : m.size.width < 160 ? "11mm" : "16mm";
   const fs = m.size.receipt ? (m.size.paper === 58 ? "7pt" : "8pt") : m.size.width < 160 ? "8.5pt" : "9.5pt";
   const style = {
     width: `${m.size.width}mm`,
     minHeight: m.size.height ? `${m.size.height}mm` : undefined,
     padding: `${m.size.receipt ? "4mm" : pad} ${pad}`,
-    fontFamily: `"${m.font.family}", system-ui, sans-serif`,
+    // Thaana letters fall through to a Thaana face; everything else keeps the brand's.
+    fontFamily: `"${m.font.family}", "${THAANA.family}", system-ui, sans-serif`,
     "--sd-fs": fs,
     "--sd-pad": pad,
     "--sd-accent": m.accent,

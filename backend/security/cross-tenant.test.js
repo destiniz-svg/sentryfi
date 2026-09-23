@@ -720,6 +720,16 @@ describe("the customer portal", () => {
     expect((await fetch(`${BASE}/portal/not-a-real-link-at-all`)).status).toBe(404);
   });
 
+  it("a link draws that customer's issued invoices only: not a draft, not another company's", async () => {
+    const mine = await fetch(`${BASE}/portal/${token}/invoices/${A.invoiceId}`);
+    expect(mine.status).toBe(200);
+    expect((await mine.json()).issuedCopy).toBeTruthy();
+    const others = (await db.query("SELECT id FROM sales_invoices WHERE (company_id = $1 AND status = 'draft') OR company_id = $2", [A.companyId, B.companyId])).rows;
+    expect(others.length).toBeGreaterThan(0);
+    for (const o of others) expect((await fetch(`${BASE}/portal/${token}/invoices/${o.id}`)).status).toBe(404);
+    expect((await fetch(`${BASE}/portal/not-a-real-link/invoices/${A.invoiceId}`)).status).toBe(404);
+  });
+
   it("B cannot make, see or turn off A's links", async () => {
     denied(await call(B, "POST", "/portal-links", { body: { counterpartyId: customerA } }));
     noLeak(await call(B, "GET", "/portal-links"), "SECRET-CUSTOMER-A");

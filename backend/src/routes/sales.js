@@ -113,6 +113,7 @@ router.get(
           id: s.id,
           invoiceNo: s.invoice_no,
           customer: s.customer,
+          customerId: s.counterparty_id,
           purchaseOrder: s.purchase_order,
           subject: s.subject,
           issueDate: s.issue_date,

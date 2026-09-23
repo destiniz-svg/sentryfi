@@ -68,11 +68,51 @@ export const LABELS = {
   payment: "How to pay",
 };
 
+/**
+ * Dhivehi labels, suggested. Written in Thaana, right to left, printed under or
+ * beside the English. Each can be changed in the template; have them checked
+ * by someone who writes Dhivehi every day before relying on them.
+ */
+export const DV_LABELS = {
+  billTo: "ކަސްޓަމަރު",
+  number: "ނަންބަރު",
+  issued: "ތާރީޚު",
+  due: "ދައްކަންޖެހޭ ތާރީޚު",
+  reference: "ރެފަރެންސް",
+  subject: "މައުޟޫޢު",
+  project: "ޕްރޮޖެކްޓް",
+  code: "ކޯޑް",
+  description: "ތަފްސީލު",
+  quantity: "އަދަދު",
+  unit: "ޔުނިޓް",
+  rate: "އަގު",
+  amount: "ޖުމްލަ",
+  net: "ޖީ.އެސް.ޓީ ނުލާ",
+  tax: "ޖީ.އެސް.ޓީ",
+  total: "ޖުމްލަ",
+  notes: "ނޯޓު",
+  terms: "ޝަރުތުތައް",
+  payment: "ފައިސާ ދައްކާނެ ގޮތް",
+};
+export const DV_TITLES = {
+  invoice: "އިންވޮއިސް",
+  tax_invoice: "ޓެކްސް އިންވޮއިސް",
+  quote: "ކޯޓޭޝަން",
+  sales_order: "ސޭލްސް އޯޑަރ",
+  purchase_order: "ޕަރޗޭސް އޯޑަރ",
+  delivery_note: "ޑެލިވަރީ ނޯޓް",
+  goods_received: "ލިބުނު މުދަލުގެ ނޯޓް",
+  credit_note: "ކްރެޑިޓް ނޯޓް",
+};
+export const THAANA = { label: "Noto Sans Thaana", family: "Noto Sans Thaana", google: "Noto+Sans+Thaana:wght@400;600;700" };
+
 export const DEFAULT_TEMPLATE = {
   layout: "classic",
   size: "a4",
   columns: { code: false, quantity: true, unit: true, rate: true },
   labels: {},
+  language: "en",
+  dvLabels: {},
   title: "",
   notes: "",
   terms: "",
@@ -87,6 +127,7 @@ export function templateWith(t) {
     columns: { ...DEFAULT_TEMPLATE.columns, ...(x.columns || {}) },
     show: { ...DEFAULT_TEMPLATE.show, ...(x.show || {}) },
     labels: { ...(x.labels || {}) },
+    dvLabels: { ...(x.dvLabels || {}) },
   };
 }
 
@@ -161,7 +202,9 @@ export function amountInWords(text, currency) {
 export function compose({ data, brand, template, size }) {
   const t = templateWith(template);
   const s = SIZES[size || t.size] || SIZES.a4;
-  const label = (k) => t.labels[k] || LABELS[k];
+  const both = t.language === "en-dv";
+  const dv = (k) => t.dvLabels[k] || DV_LABELS[k];
+  const label = (k) => (both && dv(k) ? `${t.labels[k] || LABELS[k]} · ${dv(k)}` : t.labels[k] || LABELS[k]);
   const taxed = data.gstTreatment && !["exempt", "none_unregistered", "out_of_scope"].includes(data.gstTreatment);
   const taxInvoice = data.kind === "invoice" && brand.gstRegistered && taxed;
   const custom = (t.title || "").trim();
@@ -215,7 +258,8 @@ export function compose({ data, brand, template, size }) {
     onAccent: inkOn(accent),
     wash: wash(accent),
     title,
-    subtitle: taxInvoice && custom && !/tax invoice/i.test(custom) ? custom : null,
+    subtitle: [taxInvoice && custom && !/tax invoice/i.test(custom) ? custom : null, both ? DV_TITLES[taxInvoice ? "tax_invoice" : data.kind] : null].filter(Boolean).join("  ·  ") || null,
+    thaana: both,
     from: {
       name: brand.name || brand.legalName || "Your company",
       legalName: brand.legalName && brand.legalName !== brand.name ? brand.legalName : null,
@@ -225,7 +269,7 @@ export function compose({ data, brand, template, size }) {
       logo: t.show.logo ? brand.logo : null,
     },
     to: data.to,
-    toLabel: t.labels.billTo || TO[data.kind] || LABELS.billTo,
+    toLabel: (t.labels.billTo || TO[data.kind] || LABELS.billTo) + (both ? ` · ${dv("billTo")}` : ""),
     meta,
     subject: data.subject ? { label: label("subject"), value: data.subject } : null,
     columns,
@@ -317,3 +361,60 @@ export const SAMPLES = {
     totals: { net: "6,000.00", tax: "480.00", gross: "6,480.00" },
   },
 };
+
+/**
+ * Starting points by industry: layouts, columns, labels and wording that suit
+ * how that kind of business writes its paper. Everything stays editable.
+ */
+export const PRESETS = {
+  construction: {
+    label: "Construction",
+    hint: "Project and the client's order on every document; rates by day and lot.",
+    all: { layout: "classic", columns: { code: false, unit: true } },
+    kinds: {
+      invoice: { terms: "Payment within 30 days of the invoice date. Retention, where agreed, is released on completion." },
+      quote: { terms: "Rates valid for 30 days. Work not listed is not included and is priced when asked for." },
+      delivery_note: { notes: "Check the quantities before signing. Shortages cannot be accepted afterwards." },
+    },
+  },
+  trading: {
+    label: "Trading and import",
+    hint: "Item codes and units; compact rows for long lists.",
+    all: { layout: "compact", columns: { code: true, unit: true } },
+    kinds: {
+      invoice: { terms: "Goods remain ours until paid in full." },
+      quote: { terms: "Prices depend on stock and the exchange rate on the day the order is placed." },
+      purchase_order: { notes: "Please quote this order number on your invoice and delivery note." },
+    },
+  },
+  services: {
+    label: "Services",
+    hint: "Hours and rates; no units or item codes.",
+    all: { layout: "modern", columns: { code: false, unit: false }, labels: { quantity: "Hours", rate: "Rate per hour" } },
+    kinds: { invoice: { terms: "Payment within 14 days of the invoice date." } },
+  },
+  resort: {
+    label: "Resort and tourism",
+    hint: "A calm modern page; foreign-currency invoices show GST in MVR.",
+    all: { layout: "modern", columns: { code: false } },
+    kinds: { invoice: { notes: "Where prices are in US dollars, GST is shown in MVR as MIRA requires.", terms: "Payment on or before the due date." } },
+  },
+  retail: {
+    label: "Retail",
+    hint: "Till receipts at 80 mm; codes on the line.",
+    all: { columns: { code: true, unit: false } },
+    kinds: { invoice: { size: "r80", layout: "compact", show: { words: false } } },
+  },
+};
+
+/** A template with a preset laid over it, keeping what the preset does not touch. */
+export function withPreset(template, preset, kind) {
+  const add = { ...preset.all, ...(preset.kinds[kind] || {}) };
+  return templateWith({
+    ...template,
+    ...add,
+    columns: { ...template.columns, ...(add.columns || {}) },
+    labels: { ...template.labels, ...(add.labels || {}) },
+    show: { ...template.show, ...(add.show || {}) },
+  });
+}

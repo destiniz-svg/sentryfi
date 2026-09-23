@@ -50,6 +50,46 @@ const bad = (m) => {
     ok("the 80 mm size draws as a receipt");
     await preview.screenshot({ path: "shots/branding-receipt.png" });
 
+    // ---- an industry, and Dhivehi beside the English (not saved: the check leaves the kit as it was)
+    await page.getByRole("group", { name: "Preview size" }).getByRole("button", { name: "A4" }).click();
+    await page.getByTestId("preset-services").click();
+    await preview.getByText(/^Hours/).first().waitFor({ timeout: 5000 });
+    ok("a services preset relabels quantity as Hours on the paper");
+    await page.getByLabel("Language").selectOption("en-dv");
+    const thaana = await preview.getByTestId("paper").innerText();
+    if (/[ހ-޿]/.test(thaana) && thaana.includes("ތާރީޚު")) ok("English and Dhivehi prints the Thaana labels beside the English");
+    else bad("no Thaana on the paper after choosing English and Dhivehi");
+    await preview.screenshot({ path: "shots/branding-dhivehi.png" });
+
+    // ---- the customer's link draws the issued invoice
+    const posted = await page.evaluate(async () => {
+      const headers = { "X-Company-Id": localStorage.getItem("sentryfi.company") };
+      const list = (await fetch("/api/sales", { credentials: "include", headers }).then((r) => r.json())).invoices || [];
+      return list.find((i) => i.status === "posted" && !i.voided && !i.foreign) || null;
+    });
+    if (!posted) bad("no posted invoice in the test company to show through a link");
+    else {
+      const link = await page.evaluate(async (customerId) => {
+        const headers = { "X-Company-Id": localStorage.getItem("sentryfi.company"), "Content-Type": "application/json" };
+        const r = await fetch("/api/portal-links", { method: "POST", credentials: "include", headers, body: JSON.stringify({ counterpartyId: customerId }) });
+        return (await r.json()).token;
+      }, posted.customerId);
+      const guest = await (await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })).newPage();
+      await guest.goto(`${BASE}/portal/${link}`, { waitUntil: "networkidle" });
+      await guest.getByRole("button", { name: new RegExp(posted.invoiceNo) }).click();
+      const drawnForThem = guest.getByTestId("portal-paper").getByTestId("paper");
+      await drawnForThem.waitFor({ timeout: 15000 });
+      if ((await drawnForThem.textContent()).includes(posted.invoiceNo)) ok(`the customer's link draws ${posted.invoiceNo} as it was issued`);
+      else bad("the customer's link did not draw the invoice");
+      await guest.screenshot({ path: "shots/portal-invoice-phone.png", fullPage: true });
+      await page.evaluate(async () => {
+        const headers = { "X-Company-Id": localStorage.getItem("sentryfi.company") };
+        const links = (await fetch("/api/portal-links", { credentials: "include", headers }).then((r) => r.json())).links || [];
+        const last = links[0];
+        if (last) await fetch(`/api/portal-links/${last.id}`, { method: "DELETE", credentials: "include", headers });
+      });
+    }
+
     // ---- a new invoice, drawn as it is filled in
     await page.goto(BASE + "/invoices/new", { waitUntil: "networkidle" });
     const paper = page.getByTestId("invoice-preview").getByTestId("paper");

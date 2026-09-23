@@ -9,7 +9,7 @@ import { FittedPaper } from "@/components/documents/DocumentPaper";
 import { apiClient } from "@/api/client";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
-import { compose, templateWith, SIZES, LAYOUTS, FONTS, LABELS, SAMPLES, KIND_LABEL, readable, loadFont } from "@/lib/documents";
+import { compose, templateWith, withPreset, SIZES, LAYOUTS, FONTS, LABELS, DV_LABELS, PRESETS, SAMPLES, KIND_LABEL, readable, loadFont } from "@/lib/documents";
 import { prepare, paletteOf } from "@/lib/images";
 import { FIELD } from "@/lib/shipments";
 import { cn } from "@/lib/utils";
@@ -190,6 +190,29 @@ function Editor({ start, mayChange }) {
             </Field>
           </Panel>
 
+          <Panel title="Start from your industry">
+            <p className="text-[13px] text-[var(--ink-muted)] -mt-1">Sets layouts, columns and wording for every kind of document at once. Change anything afterwards.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {Object.entries(PRESETS).map(([k, pr]) => (
+                <button
+                  key={k}
+                  type="button"
+                  data-testid={`preset-${k}`}
+                  onClick={() => {
+                    setTemplates((all) => Object.fromEntries(Object.entries(all).map(([kk, t]) => [kk, withPreset(t, pr, kk)])));
+                    setChanged(new Set(Object.keys(SAMPLES)));
+                    setSize(withPreset(templates[kind], pr, kind).size);
+                    toast.success(`${pr.label} applied`, "Every kind of document now starts from it. Save to keep it.");
+                  }}
+                  className="rounded-xl border border-[var(--border)] p-3 text-left hover:border-[var(--ink)]"
+                >
+                  <span className="block text-[14px] font-medium">{pr.label}</span>
+                  <span className="block text-[12px] text-[var(--ink-muted)] leading-snug mt-0.5">{pr.hint}</span>
+                </button>
+              ))}
+            </div>
+          </Panel>
+
           <Panel title="Each kind of document">
             <div className="flex flex-wrap gap-1.5" role="group" aria-label="Kind of document">
               {Object.keys(SAMPLES).map((k) => (
@@ -248,6 +271,12 @@ function Editor({ start, mayChange }) {
             <Field label="Terms" id="t-terms">
               <textarea id="t-terms" value={template.terms} onChange={(e) => setT("terms", e.target.value)} rows={2} placeholder="Payment within 30 days of the invoice date." className={TEXTAREA} />
             </Field>
+            <Field label="Language" id="t-lang" hint={template.language === "en-dv" ? "The Dhivehi labels are suggestions. Have someone who writes Dhivehi every day check them; each can be changed under Rename labels." : undefined}>
+              <select id="t-lang" value={template.language} onChange={(e) => setT("language", e.target.value)} className={FIELD}>
+                <option value="en">English</option>
+                <option value="en-dv">English and Dhivehi</option>
+              </select>
+            </Field>
             <details className="mt-4">
               <summary className="text-[13px] font-medium cursor-pointer">Rename labels</summary>
               <div className="grid grid-cols-2 gap-2 mt-3">
@@ -255,6 +284,16 @@ function Editor({ start, mayChange }) {
                   <input key={k} aria-label={`Label for ${l}`} value={template.labels[k] || ""} onChange={(e) => setIn("labels", k, e.target.value)} placeholder={l} className={FIELD.replace("h-11", "h-10")} />
                 ))}
               </div>
+              {template.language === "en-dv" && (
+                <>
+                  <p className="text-[13px] font-medium mt-4 mb-2">In Dhivehi</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.entries(DV_LABELS).map(([k, d]) => (
+                      <input key={k} dir="rtl" lang="dv" aria-label={`Dhivehi label for ${LABELS[k]}`} value={template.dvLabels[k] || ""} onChange={(e) => setIn("dvLabels", k, e.target.value)} placeholder={d} className={FIELD.replace("h-11", "h-10")} style={{ fontFamily: "\"Noto Sans Thaana\", sans-serif" }} />
+                    ))}
+                  </div>
+                </>
+              )}
             </details>
           </Panel>
         </fieldset>
