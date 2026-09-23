@@ -65,7 +65,7 @@ const n = (s) => Number(String(s).replace(/[^\d.-]/g, ""));
     const answer = page.getByTestId("answer").first();
     await answer.waitFor({ timeout: 90000 });
     const said = await answer.innerText();
-    if (/MVR [\d,]+\.\d\d/.test(said) && /Looked at:/.test(said)) ok(`asked, it answered from the books: "${said.split("\n")[1].slice(0, 140)}"`);
+    if (/MVR [\d,]+\.\d\d/.test(said) && /Looked at:/.test(said)) ok(`asked, it answered from the books: "${said.split("\n").filter(Boolean)[1].slice(0, 140)}"`);
     else bad(`the answer reads ${said.slice(0, 300)}`);
     await page.screenshot({ path: "shots/cfo-desk.png", fullPage: true });
 
