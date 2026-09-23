@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/Badge";
 /** A segmented control: two or three views of one list, never navigation. */
 export function Segments({ value, onChange, options, label }) {
   return (
-    <div role="tablist" aria-label={label} className="grid grid-flow-col auto-cols-fr gap-1 p-1 rounded-xl bg-[var(--surface-2)] border border-[var(--border)]">
+    <div role="tablist" aria-label={label} className="grid grid-flow-col auto-cols-fr gap-1 p-1 rounded-full bg-[var(--surface)] lift">
       {options.map((o) => (
         <button
           key={o.value}
@@ -20,8 +20,8 @@ export function Segments({ value, onChange, options, label }) {
           role="tab"
           aria-selected={value === o.value}
           onClick={() => onChange(o.value)}
-          className={`h-10 rounded-[9px] text-[15px] font-semibold ${
-            value === o.value ? "bg-[var(--surface)] text-[var(--ink)] shadow-[0_1px_2px_rgba(20,20,19,.12)]" : "text-[var(--ink-muted)]"
+          className={`h-10 rounded-full text-[14px] font-medium transition-colors ${
+            value === o.value ? "bg-[var(--ink)] text-[var(--surface)]" : "text-[var(--ink-muted)]"
           }`}
         >
           {o.label}
@@ -34,7 +34,7 @@ export function Segments({ value, onChange, options, label }) {
 /** "TODAY", "YESTERDAY", "19 SEP": where a run of rows begins. */
 export function DayHeader({ date }) {
   return (
-    <h3 className="font-display text-[13px] font-bold uppercase tracking-[0.12em] text-[var(--ink-muted)] px-1 pt-4 pb-2">
+    <h3 className="text-[13px] text-[var(--ink-muted)] px-1 pt-4 pb-2">
       {dayName(date)}
     </h3>
   );
@@ -74,11 +74,11 @@ export function MoneyRow({ who, line, amount, pill, to, action, struck }) {
   const body = (
     <div className="flex items-center gap-3 min-h-[68px] px-4 py-3 bg-[var(--surface)] w-full shrink-0 snap-start">
       <div className="min-w-0 flex-1">
-        <div className="text-[16px] font-semibold truncate">{who}</div>
+        <div className="text-[15px] font-semibold truncate">{who}</div>
         {line && <div className="text-[13px] text-[var(--ink-muted)] truncate">{line}</div>}
       </div>
       <div className="text-right shrink-0">
-        <div className={`text-[16px] font-semibold ${struck ? "line-through text-[var(--ink-muted)]" : ""}`}>
+        <div className={`text-[15px] font-semibold tabular ${struck ? "line-through text-[var(--ink-muted)]" : ""}`}>
           <Money amount={amount} />
         </div>
         {pill && (
@@ -116,9 +116,9 @@ export function MoneyRow({ who, line, amount, pill, to, action, struck }) {
 /** An empty list that teaches: what goes here, and the one way to start. */
 export function EmptyState({ title, body, action }) {
   return (
-    <div className="rounded-2xl border border-dashed border-[var(--border)] px-5 py-8 text-center">
-      <div className="font-display text-[22px] font-bold">{title}</div>
-      <p className="mt-2 text-[15px] leading-[1.45] text-[var(--ink-muted)]">{body}</p>
+    <div className="rounded-[20px] bg-[var(--surface)] lift px-5 py-7 text-center">
+      <div className="text-[17px] font-semibold tracking-[-0.01em]">{title}</div>
+      <p className="mt-1.5 text-[14px] leading-[1.45] text-[var(--ink-muted)]">{body}</p>
       {action && <div className="mt-4">{action}</div>}
     </div>
   );

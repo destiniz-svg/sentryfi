@@ -21,8 +21,17 @@ export function Topbar({ onOpenPalette }) {
   const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/i.test(navigator.platform);
 
   return (
-    <header className="flex items-center justify-between gap-6 mb-8 md:min-h-11">
-      <p className="text-sm text-[var(--ink-muted)] md:hidden">Hello, {firstName}.</p>
+    <header className="flex items-center justify-between gap-4 md:gap-6 mb-6 md:mb-8 md:min-h-11">
+      {/* On a phone: who this is, the way the day begins. */}
+      <div className="md:hidden flex items-center gap-3 min-w-0">
+        <span aria-hidden="true" className="h-11 w-11 shrink-0 rounded-full bg-[var(--ink)] text-[var(--accent)] font-display text-[18px] font-bold inline-flex items-center justify-center">
+          {initials(user?.name)}
+        </span>
+        <div className="min-w-0">
+          <p className="text-[13px] leading-4 text-[var(--ink-muted)]">{greeting()}</p>
+          <p className="text-[20px] leading-6 tracking-[-0.01em] truncate">{firstName}</p>
+        </div>
+      </div>
       <nav aria-label="Breadcrumb" className="hidden md:block min-w-0">
         <ol className="flex items-center gap-1.5 text-[14px] text-[var(--ink-muted)]">
           {crumbs.map((c, i) => {
@@ -54,11 +63,21 @@ export function Topbar({ onOpenPalette }) {
           <Search size={16} />
         </IconButton>
 
-        <IconButton onClick={toggle} title={theme === "light" ? "Night" : "Day"}>
+        <IconButton onClick={toggle} title={theme === "light" ? "Night" : "Day"} className="max-md:hidden">
           {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
         </IconButton>
         <NotificationsPopover />
       </div>
     </header>
   );
+}
+
+function greeting() {
+  const h = new Date().getHours();
+  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+}
+
+function initials(name) {
+  const parts = String(name || "").trim().split(/s+/).filter(Boolean);
+  return ((parts[0]?.[0] || "") + (parts.length > 1 ? parts.at(-1)[0] : "")).toUpperCase() || "·";
 }

@@ -380,6 +380,20 @@ Drawn against fifteen references the owner supplied (dark Untitled-UI style cons
 
 **Which register applies.** The phone board governs `App.dc.html` and the installed phone app. The desk register governs the web suite: `Web.dc.html` and the running web application. The earlier desktop artboards `Tax.dc.html`, `Bank.dc.html` and `Desktop.dc.html` were drawn in the phone board and now sit outside this rule; they are superseded by `Web.dc.html` as the reference for the web.
 
+### The phone, refined (23 September 2026)
+
+Asked for by the owner against a reference he supplied (a white, soft, one-accent finance app). It changes how the main app looks on a phone; what it holds and where things are do not change. The expense manager's board keeps its square, loud register for now.
+
+- **Ground and cards.** The page ground stays; cards are white, 20 to 24px corners, lifted by a long soft shadow (`lift`: 0 1px 2px at 4%, 0 10px 28px at 6%) and never a border. In the night theme the lift becomes a 1px border, because a shadow does not read on black.
+- **One black card per screen** for the figure that matters (on Home, cash and bank now). Inside it: a 14px label at 70%, the amount at 30px semibold with the currency small beside it, and one line of direction in yellow when it is good news, a soft red when it is not. A second column may carry one measure with a thin yellow bar.
+- **Yellow marks one thing**: the good direction, the progress bar, this month's column, and Record. Nothing else on the screen is yellow.
+- **Icons sit in a pale circle** (36px, surface-2, 1.75 stroke), everywhere a row or a figure has one.
+- **Figures swipe**: a row of 152px cards, each an icon in its circle, the amount at 19px semibold, a 13px grey label.
+- **Type**: the plain face, not the condensed one. Page title 26px semibold; card titles 17px semibold; rows 15px; labels and captions 13px grey; numbers tabular and semibold. Section labels are sentence case, never letter-spaced capitals.
+- **The top bar** is a greeting: initials in an ink circle, "Good morning" at 13px grey over the first name at 20px regular; search and the bell in soft white circles.
+- **The tab bar floats**: a white pill 16px in from the edges with five 52px round buttons, icons only (each named for a screen reader and on a long press). The current place is filled ink; Record is always yellow.
+- **Segments** are a pill with the chosen one filled ink.
+
 ### The phone, as two apps (23 September 2026)
 
 Most people use Sentryfi on a phone, and the first redesign only covered the desk. The phone is now designed as two apps from one codebase, drawn on the canvas "Sentryfi redesign direction", page **Mobile**, and grounded in `docs/domain/mobile-app-design.md`.
