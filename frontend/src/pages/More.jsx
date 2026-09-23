@@ -57,6 +57,7 @@ export default function More() {
         rows={[
           { name: "Statements", to: "/statements" },
           { name: "Projects", to: "/projects" },
+          { name: "Orders", to: "/orders" },
           { name: "Stock", to: "/stock" },
           { name: "Shipments", to: "/shipments" },
           { name: "Fixed assets", to: "/assets" },

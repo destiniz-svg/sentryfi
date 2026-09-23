@@ -53,6 +53,25 @@ router.get(
   })
 );
 
+/** The choices a new order needs, so ordering needs no other permission. */
+router.get(
+  "/options",
+  canSee,
+  asyncHandler(async (req, res) => {
+    res.json(
+      await on(req, async (client, { companyId }) => {
+        const q = async (sql) => (await client.query(sql, [companyId])).rows;
+        return {
+          accounts: await q("SELECT id, code, name FROM accounts WHERE company_id = $1 AND type = 'expense' AND archived_at IS NULL ORDER BY code"),
+          items: await q("SELECT id, name, unit, sale_price_laari FROM stock_items WHERE company_id = $1 AND archived_at IS NULL ORDER BY lower(name)"),
+          projects: await q("SELECT id, name FROM projects WHERE company_id = $1 AND archived_at IS NULL ORDER BY lower(name)"),
+          parties: await q("SELECT id, name, kind FROM counterparties WHERE company_id = $1 AND archived_at IS NULL ORDER BY lower(name)"),
+        };
+      })
+    );
+  })
+);
+
 const newBody = z.object({
   kind: z.enum(["purchase", "sale"]),
   counterpartyId: z.string().uuid().nullish(),
