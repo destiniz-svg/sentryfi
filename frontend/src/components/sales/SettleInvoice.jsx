@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { salesApi } from "@/api/sales";
 import { bankApi } from "@/api/bank";
+import { apiClient } from "@/api/client";
 import { useSalesMutations } from "@/hooks/useSales";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
@@ -206,6 +207,12 @@ export function CreditInvoice({ invoice, onClose }) {
   const [amount, setAmount] = useState(() => clean(invoice?.outstanding));
   const [reason, setReason] = useState("");
   const [err, setErr] = useState("");
+  const [back, setBack] = useState({});
+  const { data: returnable = [] } = useQuery({
+    queryKey: ["returnable", invoice?.id],
+    queryFn: () => apiClient.get(`/sales/${invoice.id}/returnable`).then((r) => r.data.items),
+    enabled: Boolean(invoice?.id),
+  });
 
   if (!invoice) return null;
 
@@ -229,6 +236,7 @@ export function CreditInvoice({ invoice, onClose }) {
         id: invoice.id,
         amount: show(asked).replace(/,/g, ""),
         reason: reason.trim(),
+        returned: Object.entries(back).filter(([, q]) => q.trim() && Number(q) > 0).map(([itemId, quantity]) => ({ itemId, quantity: quantity.trim() })),
       });
       toast.success(
         `${result.noteNo} · MVR ${result.credited} credited`,
@@ -274,6 +282,20 @@ export function CreditInvoice({ invoice, onClose }) {
             It goes on the credit note the customer receives, and into the journal.
           </span>
         </label>
+        {returnable.length > 0 && (
+          <fieldset data-testid="coming-back">
+            <legend className="text-sm font-medium mb-1">Coming back into stock</legend>
+            <p className="text-[13px] text-[var(--ink-muted)] mb-2 leading-snug">Leave it empty if nothing physically came back. What does goes back in at what it cost when it left.</p>
+            <div className="space-y-2">
+              {returnable.map((i) => (
+                <label key={i.itemId} className="flex items-center gap-3">
+                  <span className="flex-1 min-w-0 text-[14px] truncate">{i.name} <span className="text-[var(--ink-muted)]">· up to {i.quantity} {i.unit}</span></span>
+                  <input aria-label={`${i.name} coming back`} value={back[i.itemId] || ""} onChange={(e) => setBack({ ...back, [i.itemId]: e.target.value })} inputMode="decimal" placeholder="0" className={`${FIELD.replace("w-full", "w-24")} tabular text-right`} />
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
       </div>
 
       {err && (

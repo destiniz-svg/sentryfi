@@ -11,7 +11,7 @@ import { inRollback, aCompanyWith, closePool } from "./setup";
 import { assumeIdentity, reverseEntry } from "../src/ledger/post";
 import { verifyChain } from "../src/ledger/verify";
 import { postBill } from "../src/ledger/bills";
-import { raise, post } from "../src/ledger/sales";
+import { raise, post, creditNote } from "../src/ledger/sales";
 import * as stock from "../src/ledger/stock";
 
 afterAll(closePool);
@@ -211,5 +211,33 @@ describe("reorder levels", () => {
       const by = Object.fromEntries(list.map((i) => [i.name, i]));
       expect(by.Cement).toMatchObject({ low: true, reorderAt: "10" });
       expect(by.Sand.low).toBe(false);
+    }));
+});
+
+describe("goods coming back on a credit note", () => {
+  it("go back in at what they left at, come off the item's sales, and never more than went out", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      const cement = await shop.item("Cement");
+      const sand = await shop.item("Sand");
+      await shop.buy([{ itemId: cement, quantity: "10", amount: "1000.00" }]);
+      const { invoice } = await raise(client, { companyId, userId, counterpartyId: shop.customer, gstTreatment: "none_unregistered", issueDate: "2026-09-20", lines: [{ itemId: cement, quantity: 4, unitPrice: "200.00" }] });
+      await post(client, { companyId, userId, invoiceId: invoice.id });
+      // The average moves after the sale; the returned bags come back at 100, not the new average.
+      await shop.buy([{ itemId: cement, quantity: "10", amount: "1300.00" }]);
+
+      await creditNote(client, { companyId, userId, invoiceId: invoice.id, reason: "Three bags came back", amount: "600.00", issueDate: "2026-09-22", returned: [{ itemId: cement, quantity: "3" }] });
+      const held = await shop.held(cement);
+      expect(held.onHand).toBe("19");
+      expect(held.value).toBe("2,200.00");
+      expect([held.sold, held.sales, held.costOfSales, held.margin]).toEqual(["1", "200.00", "100.00", "100.00"]);
+      await shop.tied();
+      const back = (await stock.returnable(client, { companyId, invoiceId: invoice.id }))[0];
+      expect(stock.unitsText(back.units)).toBe("1");
+
+      await expect(creditNote(client, { companyId, userId, invoiceId: invoice.id, reason: "More", amount: "100.00", returned: [{ itemId: cement, quantity: "2" }] })).rejects.toThrow(/sold 1 bag of Cement still out/);
+      await expect(creditNote(client, { companyId, userId, invoiceId: invoice.id, reason: "Sand", amount: "100.00", returned: [{ itemId: sand, quantity: "1" }] })).rejects.toThrow(/sold none of that item/);
+      expect((await verifyChain(client, { companyId, userId })).ok).toBe(true);
     }));
 });

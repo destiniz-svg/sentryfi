@@ -353,7 +353,7 @@ function Opening({ item, onClose, onDone }) {
   );
 }
 
-const KIND = { bought: "Bought", sold: "Sold", counted: "Counted", opening: "Already had", undone: "Bill reversed" };
+const KIND = { bought: "Bought", sold: "Sold", counted: "Counted", opening: "Already had", undone: "Bill reversed", landed: "Landing costs", returned: "Came back" };
 
 function History({ item, onClose }) {
   const { companyId, can } = useCompany();

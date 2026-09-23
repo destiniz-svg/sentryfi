@@ -167,6 +167,56 @@ async function invoiceCost(client, { companyId, userId, invoice, lines }) {
   return { entryLines, record };
 }
 
+/** What of each item an invoice sold that has not already come back. */
+async function returnable(client, { companyId, invoiceId }) {
+  const { rows } = await client.query(
+    `SELECT m.item_id, i.name, i.unit, -SUM(m.quantity) AS q, -SUM(m.value_laari) AS v, SUM(m.sale_net_laari) AS net
+       FROM stock_moves m JOIN stock_items i ON i.id = m.item_id
+      WHERE m.company_id = $1 AND m.invoice_id = $2 AND m.kind IN ('sold','returned')
+      GROUP BY m.item_id, i.name, i.unit ORDER BY i.name`,
+    [companyId, invoiceId]
+  );
+  return rows.map((r) => ({ itemId: r.item_id, name: r.name, unit: r.unit, units: fromDb(r.q), value: BigInt(r.v), net: BigInt(r.net || 0) })).filter((r) => r.units > 0n);
+}
+
+/**
+ * Goods coming back on a credit note go back into stock at exactly what they
+ * left at on that invoice (its share of it, for part), so the average is as if
+ * they never went. Their share of the sale comes off the item's sales too.
+ */
+async function returnCost(client, { companyId, userId, invoice, returned = [] }) {
+  const back = returned.filter((r) => r && r.quantity !== undefined && String(r.quantity).trim() !== "" && Number(r.quantity) !== 0);
+  if (!back.length) return { entryLines: [], record: async () => {} };
+  const sold = new Map((await returnable(client, { companyId, invoiceId: invoice.id })).map((r) => [r.itemId, r]));
+  const stockAcc = await account(client, companyId, ACCOUNTS.stock);
+  const cogsAcc = await account(client, companyId, ACCOUNTS.cogs);
+  const moves = [];
+  const entryLines = [];
+  for (const r of back) {
+    const s = sold.get(r.itemId);
+    if (!s) throw new Error(`${invoice.invoice_no} sold none of that item, or it has all come back already.`);
+    const units = toUnits(r.quantity);
+    if (units > s.units) throw new Error(`${invoice.invoice_no} sold ${unitsText(s.units)} ${s.unit} of ${s.name} still out; ${unitsText(units)} cannot come back.`);
+    await holding(client, { companyId, itemId: r.itemId }); // lock it
+    const share = (x) => (units === s.units ? x : (x * units + s.units / 2n) / s.units);
+    const value = share(s.value);
+    const net = share(s.net);
+    s.units -= units;
+    s.value -= value;
+    s.net -= net;
+    moves.push({ itemId: r.itemId, units, value, saleNet: -net });
+    if (value > 0n) {
+      const memo = `${unitsText(units)} ${s.unit} ${s.name} back`;
+      entryLines.push({ accountId: stockAcc, debit: value, memo });
+      entryLines.push({ accountId: cogsAcc, credit: value, projectId: invoice.project_id, dimensionIds: invoice.dimension_ids, memo });
+    }
+  }
+  const record = async (entryId, on, note) => {
+    for (const m of moves) await recordMove(client, { companyId, userId, ...m, on, kind: "returned", entryId, invoiceId: invoice.id, note });
+  };
+  return { entryLines, record };
+}
+
 // ------------------------------------------------------------------ counts and opening
 
 /**
@@ -229,9 +279,9 @@ async function list(client, { companyId }) {
     `SELECT i.id, i.name, i.code, i.unit, i.sale_price_laari, i.archived_at, i.reorder_at,
             COALESCE(SUM(m.quantity), 0) AS on_hand,
             COALESCE(SUM(m.value_laari), 0) AS value,
-            COALESCE(SUM(m.sale_net_laari) FILTER (WHERE m.kind = 'sold'), 0) AS sales,
-            COALESCE(-SUM(m.value_laari) FILTER (WHERE m.kind = 'sold'), 0) AS cost_of_sales,
-            COALESCE(-SUM(m.quantity) FILTER (WHERE m.kind = 'sold'), 0) AS sold
+            COALESCE(SUM(m.sale_net_laari) FILTER (WHERE m.kind IN ('sold','returned')), 0) AS sales,
+            COALESCE(-SUM(m.value_laari) FILTER (WHERE m.kind IN ('sold','returned')), 0) AS cost_of_sales,
+            COALESCE(-SUM(m.quantity) FILTER (WHERE m.kind IN ('sold','returned')), 0) AS sold
        FROM stock_items i LEFT JOIN stock_moves m ON m.item_id = i.id AND m.company_id = i.company_id
       WHERE i.company_id = $1
       GROUP BY i.id ORDER BY lower(i.name)`,
@@ -286,4 +336,4 @@ async function history(client, { companyId, itemId }) {
   }));
 }
 
-module.exports = { ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, count, opening, list, history };
+module.exports = { ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, count, opening, list, history };

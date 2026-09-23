@@ -8,6 +8,7 @@ const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
 const { formatLaari } = require("../ledger/money");
 const { findOrCreate } = require("../ledger/counterparties");
+const stock = require("../ledger/stock");
 const sales = require("../ledger/sales");
 
 /**
@@ -79,6 +80,7 @@ const newCredit = z.object({
   amount: amount.nullish(),
   noteNo: z.string().trim().max(60).nullish(),
   issueDate: z.string().trim().nullish(),
+  returned: z.array(z.object({ itemId: z.string().uuid(), quantity: z.union([z.string().trim(), z.number()]).transform(String) })).max(50).optional(),
 });
 
 /** Every invoice, with what is left on each. */
@@ -434,6 +436,16 @@ router.post(
     } catch (err) {
       throw ApiError.badRequest(err.message);
     }
+  })
+);
+
+/** What of each item an invoice sold could still come back on a credit note. */
+router.get(
+  "/:id/returnable",
+  requireCan("read"),
+  asyncHandler(async (req, res) => {
+    const items = await asCompany(req, (client) => stock.returnable(client, { companyId: req.companyId, invoiceId: req.params.id }));
+    res.json({ items: items.map((i) => ({ itemId: i.itemId, name: i.name, unit: i.unit, quantity: stock.unitsText(i.units) })) });
   })
 );
 

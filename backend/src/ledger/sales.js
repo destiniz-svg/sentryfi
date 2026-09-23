@@ -620,6 +620,7 @@ async function creditNote(client, {
   reason,
   amount,
   issueDate,
+  returned = [],
 }) {
   const said = String(reason || "").trim();
   if (!said) throw new Error("Say why this is being credited.");
@@ -677,6 +678,10 @@ async function creditNote(client, {
     memo: `${number} against ${invoice.invoice_no}`,
   });
 
+  // Goods that come back go into stock at what they left at.
+  const back = await stock.returnCost(client, { companyId, userId, invoice, returned });
+  lines.push(...back.entryLines);
+
   const entry = await postEntry(client, {
     companyId,
     userId,
@@ -707,6 +712,7 @@ async function creditNote(client, {
     ]
   );
 
+  await back.record(entry.id, noteRows[0].issue_date, number);
   await require("./documents").keepCopy(client, { companyId, userId, kind: "credit_note", documentId: noteRows[0].id });
 
   return { note: noteRows[0], entry, creditedNet: creditNet, creditedTax: creditTax };

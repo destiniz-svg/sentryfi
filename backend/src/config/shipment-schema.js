@@ -77,7 +77,7 @@ CREATE INDEX IF NOT EXISTS shipment_costs_idx ON shipment_costs(company_id, ship
 -- A landing cost shared into goods adds value without adding any.
 ALTER TABLE stock_moves ADD COLUMN IF NOT EXISTS shipment_id UUID REFERENCES shipments(id);
 ALTER TABLE stock_moves DROP CONSTRAINT IF EXISTS stock_moves_kind_check;
-ALTER TABLE stock_moves ADD CONSTRAINT stock_moves_kind_check CHECK (kind IN ('bought','sold','counted','opening','undone','landed'));
+ALTER TABLE stock_moves ADD CONSTRAINT stock_moves_kind_check CHECK (kind IN ('bought','sold','counted','opening','undone','landed','returned'));
 ALTER TABLE stock_moves DROP CONSTRAINT IF EXISTS stock_moves_quantity_check;
 ALTER TABLE stock_moves ADD CONSTRAINT stock_moves_quantity_check CHECK (quantity <> 0 OR kind = 'landed');
 ALTER TABLE stock_moves DROP CONSTRAINT IF EXISTS stock_move_direction;

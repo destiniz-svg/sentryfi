@@ -237,6 +237,7 @@ describe("A's invoices, from B", () => {
     noLeak(await call(B, "GET", "/sales"), A.invoiceId, "SECRET-CUSTOMER-A", "555.55");
     noLeak(await call(B, "GET", "/sales/aged"), "SECRET-CUSTOMER-A", "555.55");
     noLeak(await call(B, "GET", "/sales/money-accounts"), A.bankId);
+    expect((await call(B, "GET", `/sales/${A.invoiceId}/returnable`)).json.items || []).toEqual([]);
   });
   it("cannot be posted, credited, discarded or paid", async () => {
     denied(await call(B, "POST", `/sales/${A.draftInvoice}/post`));
