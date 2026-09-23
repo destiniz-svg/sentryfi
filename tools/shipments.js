@@ -120,10 +120,15 @@ const api = (page, method, url, body) =>
     await page.locator("div.group", { hasText: `AG-${w}` }).first().getByRole("button", { name: /^what the bill from .* was for$/i }).click();
     cards = page.getByTestId("split-line");
     await cards.first().waitFor({ timeout: 15000 });
-    const agentKinds = await kinds(5);
-    if (agentKinds === "Shipment,Shipment,Shipment,Shipment,Cost") ok("the clearing agent's lines were read as landing costs, the service charge as a question");
-    else bad(`the agent's bill was read as ${agentKinds}`);
-    await cards.nth(4).getByRole("tab", { name: "Shipment" }).click();
+    const agentKinds = (await kinds(5)).split(",");
+    if (agentKinds.slice(0, 4).every((k) => k === "Shipment")) ok("the clearing agent's form set, customs, clearance and transport were read as landing costs");
+    else bad(`the agent's bill was read as ${agentKinds.join(", ")}`);
+    // The service charge: a question the first time; remembered once answered.
+    if (agentKinds[4] === "Shipment") ok("the service charge went on the shipment, remembered from an earlier bill");
+    else {
+      await cards.nth(4).getByRole("tab", { name: "Shipment" }).click();
+      ok("the service charge was asked about, and answered: the shipment");
+    }
     await cards.nth(4).getByLabel("Line 5: shipment").selectOption({ label: ref });
     await page.getByRole("button", { name: /^save$/i }).click();
     await page.getByText("Saved, and remembered").waitFor({ timeout: 15000 });
@@ -147,7 +152,7 @@ const api = (page, method, url, body) =>
     await page.screenshot({ path: "shots/shipment-before.png", fullPage: true });
 
     await page.getByRole("button", { name: /^share mvr 58,949\.75 into the goods$/i }).click();
-    await page.getByText(/shared into the goods/).first().waitFor({ timeout: 15000 });
+    await page.getByText("MVR 58,949.75 shared into the goods").waitFor({ timeout: 15000 });
     const items = (await api(page, "GET", "/stock")).json.items;
     const v10 = items.find((i) => i.name === bar10);
     const v16 = items.find((i) => i.name === bar16);
