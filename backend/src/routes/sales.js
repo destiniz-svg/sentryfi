@@ -52,6 +52,7 @@ const newInvoice = z.object({
         amount: amount.optional(),
         accountId: z.string().uuid().nullish(),
         projectId: z.string().uuid().nullish(),
+        itemId: z.string().uuid().nullish(),
       })
     )
     .min(1, "An invoice needs at least one line."),

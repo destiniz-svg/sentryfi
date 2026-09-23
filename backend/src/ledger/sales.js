@@ -34,6 +34,7 @@ async function accountByCode(client, { companyId, code }) {
 // Splitting a figure the way it was quoted is the same arithmetic for an
 // invoice as for a bill: one function, so the two cannot drift.
 const { splitTax } = require("./bills");
+const stock = require("./stock");
 
 /** A laari amount times a quantity held to four decimal places, half up. */
 function timesQuantity(unitLaari, quantity) {
@@ -126,6 +127,18 @@ async function raise(client, {
 
   const income = await accountByCode(client, { companyId, code: DEFAULT_INCOME });
 
+  // A line can sell a stock item; the item must be this company's.
+  const itemIds = [...new Set(lines.map((l) => l.itemId).filter(Boolean))];
+  const items = new Map();
+  if (itemIds.length) {
+    const { rows: found } = await client.query(
+      "SELECT id, name, unit FROM stock_items WHERE company_id = $1 AND id = ANY($2::uuid[]) AND archived_at IS NULL",
+      [companyId, itemIds]
+    );
+    if (found.length !== itemIds.length) throw new Error("One of those items is not in these books.");
+    for (const r of found) items.set(r.id, r);
+  }
+
   let net = 0n;
   let tax = 0n;
   const prepared = lines.map((line, index) => {
@@ -143,10 +156,13 @@ async function raise(client, {
     const split = splitTax(amount, gstTreatment, rateBp);
     net += split.net;
     tax += split.tax;
+    const item = line.itemId ? items.get(line.itemId) : null;
+    if (item && !(quantity > 0)) throw new Error(`Say how many ${item.name} were sold.`);
     return {
-      description: String(line.description || "").trim(),
+      itemId: item ? item.id : null,
+      description: String(line.description || "").trim() || (item ? item.name : ""),
       quantity,
-      uom: line.uom ? String(line.uom).trim() : null,
+      uom: line.uom ? String(line.uom).trim() : item ? item.unit : null,
       unitPriceLaari: unit,
       netLaari: split.net,
       taxLaari: split.tax,
@@ -223,8 +239,8 @@ async function raise(client, {
     await client.query(
       `INSERT INTO sales_invoice_lines
          (invoice_id, company_id, description, quantity, uom, unit_price_laari,
-          net_laari, tax_laari, account_id, project_id, position, fc_net)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+          net_laari, tax_laari, account_id, project_id, position, fc_net, item_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
       [
         invoice.id,
         companyId,
@@ -238,6 +254,7 @@ async function raise(client, {
         line.projectId,
         line.position,
         line.fcNet === undefined ? null : line.fcNet.toString(),
+        line.itemId,
       ]
     );
   }
@@ -324,6 +341,11 @@ async function post(client, { companyId, userId, invoiceId }) {
     });
   }
 
+  // Items sold leave stock at their average cost, in the same entry, so the
+  // sale and what it cost can never be in the books apart.
+  const sold = await stock.invoiceCost(client, { companyId, userId, invoice, lines });
+  entryLines.push(...sold.entryLines);
+
   const entry = await postEntry(client, {
     companyId,
     userId,
@@ -333,6 +355,8 @@ async function post(client, { companyId, userId, invoiceId }) {
     narrative: `${invoice.invoice_no} to ${invoice.customer_name || "a customer"}`,
     lines: entryLines,
   });
+
+  await sold.record(entry.id);
 
   await client.query(
     `UPDATE sales_invoices SET status = 'posted', entry_id = $1, updated_at = now()

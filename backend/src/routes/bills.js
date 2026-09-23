@@ -7,6 +7,7 @@ const { requireAuth } = require("../middleware/auth");
 const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
 const { reverseEntry } = require("../ledger/post");
+const { undoBillStock, setBillStock } = require("../ledger/stock");
 const { splitTax, findPossibleDuplicates, postBill } = require("../ledger/bills");
 const taxEngine = require("../ledger/tax");
 const fx = require("../ledger/fx");
@@ -403,6 +404,56 @@ router.post(
   })
 );
 
+/**
+ * The stock a bill brought in: which items, how many, and what each cost
+ * before tax, in the bill's own currency. Whatever the items do not cover
+ * stays a cost when the bill is posted.
+ */
+const stockLines = z.object({
+  lines: z
+    .array(
+      z.object({
+        itemId: z.string().uuid(),
+        quantity: z.union([z.string().trim(), z.number()]).transform(String),
+        amount: z.union([z.string().trim(), z.number()]).transform(String),
+      })
+    )
+    .max(100),
+});
+
+router.get(
+  "/:id/stock",
+  requireCan("read", "record"),
+  asyncHandler(async (req, res) => {
+    const lines = await asCompany(req, async (client) => {
+      const { rows } = await client.query(
+        `SELECT l.item_id, i.name, i.unit, l.quantity, l.amount_laari FROM bill_stock_lines l JOIN stock_items i ON i.id = l.item_id
+          WHERE l.bill_id = $1 AND l.company_id = $2 ORDER BY l.position`,
+        [req.params.id, req.companyId]
+      );
+      return rows.map((r) => ({ itemId: r.item_id, name: r.name, unit: r.unit, quantity: String(Number(r.quantity)), amount: formatLaari(BigInt(r.amount_laari)) }));
+    });
+    res.json({ lines });
+  })
+);
+
+router.put(
+  "/:id/stock",
+  requireCan("record"),
+  asyncHandler(async (req, res) => {
+    const parsed = stockLines.safeParse(req.body ?? {});
+    if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
+    try {
+      const r = await asCompany(req, (client) =>
+        setBillStock(client, { companyId: req.companyId, userId: req.user.id, billId: req.params.id, lines: parsed.data.lines })
+      );
+      res.json({ ok: true, lines: r.lines, stock: formatLaari(r.covered), rest: formatLaari(r.rest) });
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
 /** Puts a recorded bill into the books. */
 router.post(
   "/:id/post",
@@ -502,6 +553,10 @@ router.post(
         userId: req.user.id,
         entryId: bill.entry_id,
         reason: reason || "Undone on the phone, within ten seconds of being recorded.",
+      });
+      // Whatever stock it brought in goes back out, at what it came in at.
+      await undoBillStock(client, { companyId: req.companyId, userId: req.user.id, billId: bill.id, entryId: reversal.id, on: new Date() }).catch((err) => {
+        throw ApiError.badRequest(err.message);
       });
 
       // The bill goes back to being a document waiting on a decision. It is

@@ -12,6 +12,7 @@
 
 const { toLaari, formatLaari, gstWithin, gstOnTop } = require("./money");
 const { postEntry, assumeIdentity } = require("./post");
+const stock = require("./stock");
 
 const BASIS_POINTS = 10000n;
 
@@ -213,17 +214,35 @@ async function postBill(client, { companyId, userId, billId, accounts }) {
   const fc = (amount) =>
     foreign && BigInt(amount) > 0n ? { currency: bill.currency.trim(), amount: BigInt(amount), rate: String(bill.fx_rate) } : undefined;
 
-  const lines = [
-    {
+  // Stock the bill brought in goes on the Stock account at what it cost; the
+  // rest of the bill (delivery, say) stays a cost. The own-currency figure
+  // stays on the cost line only when the whole bill is a cost.
+  const received = await stock.billStock(client, { companyId, bill });
+  const lines = [];
+  if (received.lines.length) {
+    const stockAccount = await stock.account(client, companyId, stock.ACCOUNTS.stock);
+    for (const l of received.lines) {
+      lines.push({
+        accountId: stockAccount,
+        debit: l.value,
+        counterpartyId: bill.counterparty_id,
+        projectId: bill.project_id,
+        dimensionIds: bill.dimension_ids,
+        memo: `${stock.unitsText(l.units)} ${l.unit} ${l.name}`,
+      });
+    }
+  }
+  if (received.rest > 0n) {
+    lines.push({
       accountId: accounts.expense,
-      debit: net,
-      fc: foreign ? fc(bill.fc_net) : undefined,
+      debit: received.rest,
+      fc: foreign && !received.lines.length ? fc(bill.fc_net) : undefined,
       counterpartyId: bill.counterparty_id,
       projectId: bill.project_id,
       dimensionIds: bill.dimension_ids,
       memo: bill.bill_no ? `Bill ${bill.bill_no}` : null,
-    },
-  ];
+    });
+  }
 
   // Only reclaimable tax gets its own debit. An unregistered supplier's bill
   // has none, so nothing can be claimed from it.
@@ -256,6 +275,15 @@ async function postBill(client, { companyId, userId, billId, accounts }) {
     }`,
     lines,
   });
+
+  for (const l of received.lines) {
+    await stock.holding(client, { companyId, itemId: l.itemId }); // locks the item while it moves
+    await client.query(
+      `INSERT INTO stock_moves (company_id, item_id, moved_on, kind, quantity, value_laari, entry_id, bill_id, created_by)
+       VALUES ($1,$2,$3,'bought',$4,$5,$6,$7,$8)`,
+      [companyId, l.itemId, bill.issue_date || bill.received_at, stock.unitsText(l.units), l.value.toString(), entry.id, bill.id, userId]
+    );
+  }
 
   await client.query(
     `UPDATE bills SET status = 'posted', entry_id = $2, updated_at = now()

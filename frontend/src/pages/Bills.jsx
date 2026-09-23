@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Receipt, Ban, Loader2, Undo2 } from "lucide-react";
+import { Boxes, Plus, Receipt, Ban, Loader2, Undo2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -10,7 +10,9 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { VoidDialog } from "@/components/ui/VoidDialog";
 import { RecordBill } from "@/components/bills/RecordBill";
 import { WaitingToSend } from "@/components/bills/WaitingToSend";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { BillStock } from "@/components/bills/BillStock";
+import { apiClient } from "@/api/client";
 import { billsApi } from "@/api/bills";
 import { useBills, useBillMutations } from "@/hooks/useBills";
 import { useCompany } from "@/context/CompanyContext";
@@ -45,6 +47,15 @@ export default function Bills() {
   const [voiding, setVoiding] = useState(null);
   const [posting, setPosting] = useState(null);
   const [reversing, setReversing] = useState(null);
+  const [stocking, setStocking] = useState(null);
+
+  // Only a company that keeps stock is asked which items a bill brought in.
+  const { data: stockItems } = useQuery({
+    queryKey: ["stock", companyId],
+    queryFn: () => apiClient.get("/stock").then((r) => r.data.items),
+    enabled: Boolean(companyId) && can("read"),
+  });
+  const keepsStock = (stockItems || []).some((i) => !i.archived);
 
   const canRecord = can("record");
 
@@ -52,6 +63,7 @@ export default function Bills() {
     setPosting(bill.id);
     try {
       const result = await post.mutateAsync(bill.id);
+      queryClient.invalidateQueries({ queryKey: ["stock", companyId] });
       toast.success(
         `Entry ${result.entryNo} · MVR ${result.total}`,
         "It is in the books, and the two sides agree."
@@ -83,6 +95,7 @@ export default function Bills() {
         "Both the original and its reversal stay in the journal."
       );
       queryClient.invalidateQueries({ queryKey: ["bills", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["stock", companyId] });
       queryClient.invalidateQueries({ queryKey: ["figures", companyId] });
       queryClient.invalidateQueries({ queryKey: ["attention", companyId] });
     } catch (err) {
@@ -200,6 +213,11 @@ export default function Bills() {
                   </div>
 
                   <div className="justify-self-end flex items-center gap-1.5">
+                    {canRecord && keepsStock && !isVoid && bill.status !== "posted" && (
+                      <Button variant="ghost" onClick={() => setStocking(bill)} aria-label={`Stock on the bill from ${bill.supplier_name || "this supplier"}`}>
+                        <Boxes size={14} /> Stock
+                      </Button>
+                    )}
                     {canRecord && !isVoid && bill.status !== "posted" && (
                       <Button
                         variant="outline"
@@ -242,6 +260,7 @@ export default function Bills() {
       )}
 
       <RecordBill open={recording} onClose={() => setRecording(false)} />
+      {stocking && <BillStock bill={stocking} onClose={() => setStocking(null)} />}
 
       <VoidDialog
         open={!!voiding}

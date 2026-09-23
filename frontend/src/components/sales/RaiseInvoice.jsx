@@ -10,6 +10,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 import { TagPicker } from "@/components/ui/TagPicker";
 import { toDateInput } from "@/lib/utils";
+import { apiClient } from "@/api/client";
 
 /**
  * Raising an invoice.
@@ -45,7 +46,7 @@ function today(offsetDays = 0) {
   return toDateInput(d);
 }
 
-const blankLine = () => ({ description: "", quantity: "1", uom: "", rate: "" });
+const blankLine = () => ({ description: "", quantity: "1", uom: "", rate: "", itemId: "" });
 
 /** Whole laari from what was typed, never through a floating-point sum. */
 function laari(text) {
@@ -127,6 +128,27 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
   const setLine = (i, key) => (e) =>
     setLines((all) => all.map((l, j) => (j === i ? { ...l, [key]: e.target.value } : l)));
 
+  // A line can sell a stock item: picking one fills in its name, unit and
+  // price, and posting takes it out of stock at its average cost.
+  const { data: stockItems } = useQuery({
+    queryKey: ["stock", companyId],
+    queryFn: () => apiClient.get("/stock").then((r) => r.data.items),
+    enabled: Boolean(companyId) && open,
+  });
+  const forSale = (stockItems || []).filter((i) => !i.archived);
+  const pickItem = (i) => (e) => {
+    const item = forSale.find((it) => it.id === e.target.value);
+    setLines((all) =>
+      all.map((l, j) =>
+        j !== i
+          ? l
+          : item
+            ? { ...l, itemId: item.id, description: item.name, uom: item.unit, rate: item.salePrice || l.rate }
+            : { ...l, itemId: "" }
+      )
+    );
+  };
+
   const priced = lines.map((l) => {
     const rate = laari(l.rate);
     const qty = Number(String(l.quantity).replace(/,/g, ""));
@@ -178,6 +200,7 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
           quantity: Number(String(l.quantity).replace(/,/g, "")),
           uom: l.uom.trim() || null,
           unitPrice: show(laari(l.rate)).replace(/,/g, ""),
+          itemId: l.itemId || null,
         })),
       });
       toast.success(
@@ -302,6 +325,21 @@ export function RaiseInvoice({ open, onClose, onRaised }) {
                 key={i}
                 className="grid grid-cols-[1fr_72px_72px] sm:grid-cols-[1fr_72px_72px_110px_110px_44px] gap-2 items-center"
               >
+                {forSale.length > 0 && (
+                  <select
+                    aria-label={`Line ${i + 1}: from stock`}
+                    value={line.itemId}
+                    onChange={pickItem(i)}
+                    className={`${FIELD} col-span-3 sm:col-span-6 h-10 text-[14px]`}
+                  >
+                    <option value="">Not from stock</option>
+                    {forSale.map((it) => (
+                      <option key={it.id} value={it.id}>
+                        {it.name} · {it.onHand} {it.unit} on hand
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <input
                   aria-label={`Line ${i + 1}: what it is`}
                   value={line.description}

@@ -35,7 +35,7 @@ export function useSalesMutations() {
     // "sales-next" too: the suggested number was cached from the first time the
     // editor opened, so the second invoice in a row was offered the number the
     // first had just taken, and was refused.
-    for (const key of ["sales", "sales-aged", "sales-next", "figures", "attention"]) {
+    for (const key of ["sales", "sales-aged", "sales-next", "figures", "attention", "stock"]) {
       queryClient.invalidateQueries({ queryKey: [key, companyId] });
     }
   };

@@ -539,6 +539,41 @@ describe("reset links, limits and passkeys", () => {
   });
 });
 
+describe("A's stock, from B", () => {
+  let itemA;
+  beforeAll(async () => {
+    const r = await call(A, "POST", "/stock", { body: { name: "SECRET-ITEM-A", unit: "bag" } });
+    expect(r.status).toBe(201);
+    itemA = r.json.item.id;
+    expect((await call(A, "POST", `/stock/${itemA}/opening`, { body: { quantity: "10", unitCost: "99.00", on: "2026-09-01" } })).status).toBe(201);
+  });
+
+  it("B's list does not show it, and its history is empty to B", async () => {
+    const list = await call(B, "GET", "/stock");
+    expect(list.status).toBe(200);
+    noLeak(list, "SECRET-ITEM-A");
+    const h = await call(B, "GET", `/stock/${itemA}/history`);
+    expect(h.json?.moves || []).toEqual([]);
+  });
+
+  it("B cannot count it, open it, rename it or archive it", async () => {
+    denied(await call(B, "POST", `/stock/${itemA}/count`, { body: { counted: "0", on: "2026-09-02" } }));
+    denied(await call(B, "POST", `/stock/${itemA}/opening`, { body: { quantity: "1", unitCost: "1", on: "2026-09-02" } }));
+    denied(await call(B, "PATCH", `/stock/${itemA}`, { body: { name: "mine now", archived: true } }));
+    expect((await call(A, "GET", "/stock")).json.items.find((i) => i.id === itemA)).toMatchObject({ name: "SECRET-ITEM-A", onHand: "10", archived: false });
+  });
+
+  it("B cannot buy it on B's bill or sell it on B's invoice", async () => {
+    const bill = await call(B, "POST", "/bills", { body: { supplierName: "B's supplier", amount: "100", gstTreatment: "none_unregistered", issueDate: "2026-09-03" } });
+    expect(bill.status).toBe(201);
+    denied(await call(B, "PUT", `/bills/${bill.json.bill.id}/stock`, { body: { lines: [{ itemId: itemA, quantity: "1", amount: "100" }] } }));
+    denied(await call(B, "PUT", `/bills/${A.billId}/stock`, { body: { lines: [] } }));
+    denied(await call(B, "POST", "/sales", {
+      body: { customerName: "B's customer", gstTreatment: "none_unregistered", lines: [{ description: "x", amount: "1", itemId: itemA, quantity: 1 }] },
+    }));
+  });
+});
+
 describe("confirming an email address", () => {
   const jwt = req("jsonwebtoken");
   const secret = process.env.JWT_SECRET;
