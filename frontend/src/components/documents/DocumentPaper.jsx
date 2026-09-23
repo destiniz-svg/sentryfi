@@ -172,6 +172,7 @@ function Lines({ m }) {
 }
 
 function Totals({ m }) {
+  if (!m.totals.length) return null;
   return (
     <div style={{ breakInside: "avoid" }}>
       <table className="totals">
@@ -190,6 +191,7 @@ function Totals({ m }) {
           {l}
         </p>
       ))}
+      {m.priceNote && <p className="words mute">{m.priceNote}</p>}
     </div>
   );
 }
@@ -210,9 +212,18 @@ function Blocks({ m }) {
 }
 
 function Sign({ m }) {
-  if (!m.signature && !m.stamp) return null;
+  if (!m.signature && !m.stamp && !m.receivedBy) return null;
   return (
     <div className="sign">
+      {m.receivedBy && (
+        <div style={{ marginRight: "auto" }}>
+          <div style={{ height: "14mm" }} />
+          <div className="sigline">
+            <p style={{ fontWeight: 600 }}>Received by</p>
+            <p className="mute">Name, signature and date</p>
+          </div>
+        </div>
+      )}
       {m.signature && (
         <div>
           {m.signature.image && <img className="sig" src={m.signature.image} alt="" />}

@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -195,6 +196,7 @@ export function ReceiveMoney({ invoice, onClose }) {
 /** Taking some or all of an invoice back. */
 export function CreditInvoice({ invoice, onClose }) {
   const open = Boolean(invoice);
+  const navigate = useNavigate();
   const toast = useToast();
   const { credit } = useSalesMutations();
 
@@ -230,6 +232,7 @@ export function CreditInvoice({ invoice, onClose }) {
         `Of which MVR ${result.ofWhichTax} is GST that is no longer owed.`
       );
       onClose();
+      navigate(`/documents/credit_note/${result.id}`);
     } catch (ex) {
       setErr(ex.message || "That could not be credited.");
     }

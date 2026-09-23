@@ -7,7 +7,8 @@
 import { describe, it, expect, afterAll } from "vitest";
 import { inRollback, aCompanyWith, closePool } from "./setup";
 import { assumeIdentity } from "../src/ledger/post";
-import { raise, post } from "../src/ledger/sales";
+import { raise, post, creditNote } from "../src/ledger/sales";
+import * as orders from "../src/ledger/orders";
 import * as documents from "../src/ledger/documents";
 
 afterAll(closePool);
@@ -55,5 +56,31 @@ describe("documents", () => {
       expect(d.brand.accent).toBe("#111111");
       expect(d.template.layout).toBe("classic");
       expect(d.data.status).toBe("posted"); // as it stood the moment it was issued
+    }));
+
+  it("draws a quote with the GST its invoice will add, a delivery note without prices, and keeps a credit note as raised", () =>
+    inRollback(async (client) => {
+      const co = await anInvoice(client);
+      const { companyId, userId } = co;
+      const { rows: c } = await client.query("SELECT id FROM counterparties WHERE company_id = $1", [companyId]);
+      const q = await orders.create(client, { companyId, userId, kind: "quote", counterpartyId: c[0].id, orderedOn: "2026-09-20", validUntil: "2026-10-20", lines: [{ description: "Crane hire", quantity: 2, unit: "DAY", unitPrice: 1000 }] });
+      const quote = await documents.show(client, { companyId, kind: "quote", documentId: q.id });
+      expect(quote.data).toMatchObject({ kind: "quote", number: q.number, due: "2026-10-20", gstTreatment: "exclusive" });
+      expect(quote.data.totals.net).toBe("2,000.00");
+      expect(quote.data.totals.gross).toBe("2,160.00"); // at 8%
+
+      const so = await orders.create(client, { companyId, userId, kind: "sale", counterpartyId: c[0].id, orderedOn: "2026-09-21", lines: [{ description: "Sand", quantity: 10, unit: "M3", unitPrice: 400 }] });
+      const loaded = await orders.load(client, { companyId, orderId: so.id });
+      const d = await orders.deliver(client, { companyId, userId, orderId: so.id, deliveredOn: "2026-09-22", lines: [{ orderLineId: loaded.lines[0].id, quantity: 4 }] });
+      const note = await documents.show(client, { companyId, kind: "delivery_note", documentId: d.id });
+      expect(note.data).toMatchObject({ kind: "delivery_note", number: `${so.number}-D1`, priced: false, receivedBy: true });
+      expect(note.data.lines[0]).toMatchObject({ description: "Sand", quantity: "4", ordered: "10" });
+
+      await post(client, { companyId, userId, invoiceId: co.invoiceId });
+      const cn = await creditNote(client, { companyId, userId, invoiceId: co.invoiceId, reason: "Two days not worked", amount: "6000" });
+      const credit = await documents.show(client, { companyId, kind: "credit_note", documentId: cn.note.id });
+      expect(credit.issuedCopy).toBeTruthy();
+      expect(credit.data.totals.gross).toBe("6,000.00");
+      expect(credit.data.againstInvoice).toBeTruthy();
     }));
 });

@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Loader2, Upload, X, Check } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
-import { useDesign } from "@/hooks/useDesign";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -10,7 +9,7 @@ import { FittedPaper } from "@/components/documents/DocumentPaper";
 import { apiClient } from "@/api/client";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
-import { compose, templateWith, SIZES, LAYOUTS, FONTS, LABELS, SAMPLE_INVOICE, readable, loadFont } from "@/lib/documents";
+import { compose, templateWith, SIZES, LAYOUTS, FONTS, LABELS, SAMPLES, KIND_LABEL, readable, loadFont } from "@/lib/documents";
 import { prepare, paletteOf } from "@/lib/images";
 import { FIELD } from "@/lib/shipments";
 import { cn } from "@/lib/utils";
@@ -26,7 +25,14 @@ const TEXTAREA = FIELD.replace("h-11", "min-h-[84px] py-2.5");
 
 export default function Branding() {
   const { companyId, can } = useCompany();
-  const { data, isLoading } = useDesign("invoice");
+  const { data, isLoading } = useQuery({
+    queryKey: ["branding", companyId, "all"],
+    queryFn: async () => {
+      const [b, t] = await Promise.all([apiClient.get("/documents/brand"), apiClient.get("/documents/templates")]);
+      return { ...b.data, templates: t.data.templates };
+    },
+    enabled: Boolean(companyId),
+  });
   if (isLoading || !data) return <Skeleton className="h-[80vh] rounded-2xl" />;
   return <Editor key={companyId} start={data} mayChange={can("manage_settings")} />;
 }
@@ -36,8 +42,12 @@ function Editor({ start, mayChange }) {
   const qc = useQueryClient();
   const toast = useToast();
   const [brand, setBrand] = useState(() => ({ ...earlierOf(start.earlier), ...stripFixed(start.brand) }));
-  const [template, setTemplate] = useState(() => templateWith(start.template));
+  const [kind, setKind] = useState("invoice");
+  const [templates, setTemplates] = useState(() => Object.fromEntries(Object.keys(SAMPLES).map((k) => [k, templateWith(start.templates[k])])));
+  const [changed, setChanged] = useState(() => new Set());
+  const template = templates[kind];
   const [size, setSize] = useState(template.size);
+  const priced = SAMPLES[kind].priced !== false;
   const [palette, setPalette] = useState([]);
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState("design");
@@ -49,20 +59,25 @@ function Editor({ start, mayChange }) {
 
   const fixed = start.brand; // TIN, GST number, registration: kept in Tax settings
   const full = { ...fixed, ...brand, name: brand.name || fixed.legalName };
-  const model = compose({ data: sampleFor(full), brand: full, template, size });
+  const model = compose({ data: sampleFor(full, kind), brand: full, template, size });
 
   const setB = (k) => (e) => setBrand((b) => ({ ...b, [k]: e?.target ? e.target.value : e }));
-  const setT = (k, v) => setTemplate((t) => ({ ...t, [k]: v }));
-  const setIn = (group, k, v) => setTemplate((t) => ({ ...t, [group]: { ...t[group], [k]: v } }));
+  const edit = (fn) => {
+    setTemplates((all) => ({ ...all, [kind]: fn(all[kind]) }));
+    setChanged((c) => new Set(c).add(kind));
+  };
+  const setT = (k, v) => edit((t) => ({ ...t, [k]: v }));
+  const setIn = (group, k, v) => edit((t) => ({ ...t, [group]: { ...t[group], [k]: v } }));
 
   async function save() {
     setSaving(true);
     try {
       const { savedAt, ...b } = brand; // eslint-disable-line no-unused-vars
       await apiClient.put("/documents/brand", clean(b));
-      await apiClient.put("/documents/templates/invoice", { template });
+      for (const k of changed) await apiClient.put(`/documents/templates/${k}`, { template: templates[k] });
+      setChanged(new Set());
       await qc.invalidateQueries({ queryKey: ["branding", companyId] });
-      toast.success("Saved", "Every invoice from now on is drawn this way. Invoices already sent keep how they looked.");
+      toast.success("Saved", "Every document from now on is drawn this way. Invoices and credit notes already issued keep how they looked.");
     } catch (err) {
       toast.error("Could not save", err.message);
     } finally {
@@ -175,8 +190,23 @@ function Editor({ start, mayChange }) {
             </Field>
           </Panel>
 
-          <Panel title="The invoice">
-            <p className="text-[13px] font-medium mb-2">Layout</p>
+          <Panel title="Each kind of document">
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Kind of document">
+              {Object.keys(SAMPLES).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => {
+                    setKind(k);
+                    setSize(templates[k].size);
+                  }}
+                  className={cn("h-9 px-3.5 rounded-full border text-[13px] font-medium", kind === k ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--surface)]" : "border-[var(--border)]")}
+                >
+                  {KIND_LABEL[k]}
+                </button>
+              ))}
+            </div>
+            <p className="text-[13px] font-medium mt-4 mb-2">Layout</p>
             <div className="grid grid-cols-3 gap-2">
               {Object.entries(LAYOUTS).map(([k, l]) => (
                 <button key={k} type="button" onClick={() => setT("layout", k)} title={l.hint} className={cn("rounded-xl border p-3 text-left", template.layout === k ? "border-[var(--ink)] bg-[var(--surface-2)]" : "border-[var(--border)]")}>
@@ -199,18 +229,18 @@ function Editor({ start, mayChange }) {
             </Field>
             <p className="text-[13px] font-medium mt-4 mb-1.5">Columns</p>
             <div className="flex flex-wrap gap-x-5 gap-y-2">
-              {[["code", "Item code"], ["quantity", "Quantity"], ["unit", "Unit"], ["rate", "Rate"]].map(([k, l]) => (
+              {[["code", "Item code"], ["quantity", "Quantity"], ["unit", "Unit"], priced && ["rate", "Rate"]].filter(Boolean).map(([k, l]) => (
                 <Tick key={k} label={l} checked={template.columns[k]} onChange={(v) => setIn("columns", k, v)} />
               ))}
             </div>
             <p className="text-[13px] font-medium mt-4 mb-1.5">On the paper</p>
             <div className="flex flex-wrap gap-x-5 gap-y-2">
-              {[["logo", "Logo"], ["stamp", "Stamp"], ["signature", "Signature"], ["payment", "How to pay"], ["words", "Total in words"], ["footer", "Footer"]].map(([k, l]) => (
+              {[["logo", "Logo"], ["stamp", "Stamp"], ["signature", "Signature"], priced && ["payment", "How to pay"], priced && ["words", "Total in words"], ["footer", "Footer"]].filter(Boolean).map(([k, l]) => (
                 <Tick key={k} label={l} checked={template.show[k]} onChange={(v) => setIn("show", k, v)} />
               ))}
             </div>
-            <Field label="Title" id="t-title" hint={full.gstRegistered ? "A GST-registered company's invoice always says Tax Invoice; a title here prints under it." : undefined}>
-              <input id="t-title" value={template.title} onChange={(e) => setT("title", e.target.value)} placeholder="Invoice" className={FIELD} />
+            <Field label="Title" id="t-title" hint={kind === "invoice" && full.gstRegistered ? "A GST-registered company's invoice always says Tax Invoice; a title here prints under it." : undefined}>
+              <input id="t-title" value={template.title} onChange={(e) => setT("title", e.target.value)} placeholder={KIND_LABEL[kind]} className={FIELD} />
             </Field>
             <Field label="Notes" id="t-notes">
               <textarea id="t-notes" value={template.notes} onChange={(e) => setT("notes", e.target.value)} rows={2} placeholder="Please quote the invoice number with your payment." className={TEXTAREA} />
@@ -242,7 +272,7 @@ function Editor({ start, mayChange }) {
               <FittedPaper model={model} />
             </div>
           </div>
-          <p className="text-[12px] text-[var(--ink-muted)] mt-2">A made-up invoice, drawn exactly as yours will be.</p>
+          <p className="text-[12px] text-[var(--ink-muted)] mt-2">A made-up {KIND_LABEL[kind].toLowerCase()}, drawn exactly as yours will be.</p>
         </div>
       </div>
     </div>
@@ -250,9 +280,10 @@ function Editor({ start, mayChange }) {
 }
 
 /** The sample, with or without GST as this company would charge it. */
-function sampleFor(brand) {
-  if (brand.gstRegistered) return { ...SAMPLE_INVOICE, status: "posted" };
-  return { ...SAMPLE_INVOICE, status: "posted", gstTreatment: "none_unregistered", gstRatePercent: null, totals: { net: "96,400.00", tax: "0.00", gross: "96,400.00" } };
+function sampleFor(brand, kind) {
+  const s = { ...SAMPLES[kind], status: SAMPLES[kind].status === "draft" ? "posted" : SAMPLES[kind].status };
+  if (brand.gstRegistered || s.priced === false || kind === "purchase_order") return s;
+  return { ...s, gstTreatment: "none_unregistered", gstRatePercent: null, priceNote: null, totals: { ...s.totals, tax: "0.00", gross: s.totals.net } };
 }
 
 /** The old profile's details, the first time; its logo only if it is an image we can keep. */

@@ -36,12 +36,16 @@ export const KIND_LABEL = {
   sales_order: "Sales order",
   purchase_order: "Purchase order",
   delivery_note: "Delivery note",
+  goods_received: "Goods received note",
   credit_note: "Credit note",
   receipt: "Receipt",
   statement: "Statement",
 };
 
 /** Every label on the paper, renamable per template. */
+/** Who the paper is addressed to, by kind; renamable as the "Bill to" label. */
+const TO = { invoice: "Bill to", quote: "Prepared for", sales_order: "Customer", purchase_order: "Supplier", delivery_note: "Deliver to", goods_received: "Received from", credit_note: "Credit to" };
+
 export const LABELS = {
   billTo: "Bill to",
   number: "Number",
@@ -162,18 +166,20 @@ export function compose({ data, brand, template, size }) {
   const taxInvoice = data.kind === "invoice" && brand.gstRegistered && taxed;
   const custom = (t.title || "").trim();
   const title = taxInvoice ? "Tax Invoice" : custom || KIND_LABEL[data.kind] || "Document";
+  const priced = data.priced !== false;
   const accent = brand.accent || "#16181d";
   const currency = data.currency || brand.baseCurrency || "MVR";
   const showTax = taxed || Number(String(data.totals?.tax || "0").replace(/,/g, "")) > 0;
   const columns = [
     t.columns.code && data.lines.some((l) => l.code) && { key: "code", label: label("code") },
     { key: "description", label: label("description"), grow: true },
-    t.columns.quantity && { key: "quantity", label: label("quantity"), num: true },
+    !priced && data.lines.some((l) => l.ordered) && { key: "ordered", label: "Ordered", num: true },
+    (t.columns.quantity || !priced) && { key: "quantity", label: priced ? label("quantity") : data.kind === "goods_received" ? "Received" : "Delivered", num: true },
     t.columns.unit && data.lines.some((l) => l.unit) && { key: "unit", label: label("unit") },
-    t.columns.rate && data.lines.some((l) => l.rate) && { key: "rate", label: label("rate"), num: true },
-    { key: "amount", label: label("amount"), num: true },
+    priced && t.columns.rate && data.lines.some((l) => l.rate) && { key: "rate", label: label("rate"), num: true },
+    priced && { key: "amount", label: label("amount"), num: true },
   ].filter(Boolean);
-  const totals = [
+  const totals = !priced ? [] : [
     showTax && { label: label("net"), value: data.totals.net },
     showTax && { label: `${label("tax")}${data.gstRatePercent !== null && data.gstRatePercent !== undefined ? ` ${data.gstRatePercent}%` : ""}`, value: data.totals.tax },
     { label: `${label("total")} ${currency}`, value: data.totals.gross, strong: true },
@@ -188,8 +194,11 @@ export function compose({ data, brand, template, size }) {
   const meta = [
     { label: label("number"), value: data.number },
     { label: label("issued"), value: longDate(data.issued) },
-    data.due && { label: label("due"), value: longDate(data.due) },
+    data.due && { label: data.dueLabel || label("due"), value: longDate(data.due) },
+    data.orderNumber && { label: "Order", value: data.orderNumber },
+    data.againstInvoice && { label: "Against invoice", value: data.againstInvoice },
     data.reference && { label: label("reference"), value: data.reference },
+    data.approvedBy && { label: "Approved by", value: data.approvedBy },
     data.project && { label: label("project"), value: data.project },
   ].filter(Boolean);
   const idLines = [
@@ -216,21 +225,23 @@ export function compose({ data, brand, template, size }) {
       logo: t.show.logo ? brand.logo : null,
     },
     to: data.to,
-    toLabel: label("billTo"),
+    toLabel: t.labels.billTo || TO[data.kind] || LABELS.billTo,
     meta,
     subject: data.subject ? { label: label("subject"), value: data.subject } : null,
     columns,
     lines: data.lines,
     totals,
     inBase,
-    words: t.show.words && data.totals.gross ? amountInWords(data.totals.gross, currency) : null,
+    priceNote: data.priceNote || null,
+    receivedBy: Boolean(data.receivedBy),
+    words: priced && t.show.words && data.totals.gross ? amountInWords(data.totals.gross, currency) : null,
     notes: t.notes ? { label: label("notes"), text: t.notes } : null,
     terms: t.terms ? { label: label("terms"), text: t.terms } : null,
-    payment: t.show.payment && brand.paymentDetails ? { label: label("payment"), text: brand.paymentDetails } : null,
+    payment: priced && ["invoice", "quote", "sales_order"].includes(data.kind) && t.show.payment && brand.paymentDetails ? { label: label("payment"), text: brand.paymentDetails } : null,
     signature: t.show.signature && (brand.signature || brand.signatory) ? { image: brand.signature, name: brand.signatory, title: brand.signatoryTitle } : null,
     stamp: t.show.stamp ? brand.stamp : null,
     footer: t.show.footer ? brand.footer : null,
-    watermark: data.status === "void" ? "VOID" : data.status === "draft" ? "DRAFT" : null,
+    watermark: data.watermark || (data.status === "void" ? "VOID" : data.status === "draft" ? "DRAFT" : null),
   };
 }
 
@@ -251,7 +262,7 @@ export function loadFont(font) {
   document.head.appendChild(l);
 }
 
-/** A made-up invoice for the brand kit's preview. Invented names and figures. */
+/** Made-up documents for the brand kit's preview. Invented names and figures. */
 export const SAMPLE_INVOICE = {
   kind: "invoice",
   number: "INV-000142",
@@ -271,4 +282,38 @@ export const SAMPLE_INVOICE = {
     { code: "MOB", description: "Mobilisation and demobilisation", quantity: "1", unit: "LOT", rate: "4,500.00", amount: "4,500.00" },
   ],
   totals: { net: "96,400.00", tax: "7,712.00", gross: "104,112.00" },
+};
+
+const PARTY = SAMPLE_INVOICE.to;
+const SUPPLIER = { name: "Coral Steel Trading Pvt Ltd", address: "Malé, Maldives", tin: "1034567GST501" };
+const ORDER_LINES = SAMPLE_INVOICE.lines;
+export const SAMPLES = {
+  invoice: SAMPLE_INVOICE,
+  quote: { ...SAMPLE_INVOICE, kind: "quote", number: "QT-0031", reference: null, due: "2026-10-23", dueLabel: "Valid until", priceNote: "GST at 8%, the rate today; the invoice charges the rate on its own date." },
+  sales_order: { ...SAMPLE_INVOICE, kind: "sales_order", number: "SO-0012", reference: "PO-2026-0418", due: "2026-10-01", dueLabel: "Expected" },
+  purchase_order: {
+    kind: "purchase_order", number: "PO-0027", status: "open", issued: "2026-09-23", due: "2026-10-05", dueLabel: "Expected", approvedBy: "A. Manager", to: SUPPLIER,
+    gstTreatment: "none_unregistered", gstRatePercent: null, priceNote: "Prices before GST.",
+    lines: [
+      { description: "Deformed steel bar 12 mm", quantity: "180", unit: "BAR", rate: "96.00", amount: "17,280.00" },
+      { description: "Binding wire, 25 kg roll", quantity: "6", unit: "ROLL", rate: "650.00", amount: "3,900.00" },
+    ],
+    totals: { net: "21,180.00", tax: "0.00", gross: "21,180.00" },
+  },
+  delivery_note: {
+    kind: "delivery_note", number: "SO-0012-D1", status: "issued", issued: "2026-09-24", orderNumber: "SO-0012", to: PARTY, priced: false, receivedBy: true,
+    lines: ORDER_LINES.map((l) => ({ description: l.description, ordered: l.quantity, quantity: l.quantity, unit: l.unit })),
+    totals: {},
+  },
+  goods_received: {
+    kind: "goods_received", number: "PO-0027-D1", status: "issued", issued: "2026-10-04", orderNumber: "PO-0027", to: SUPPLIER, priced: false,
+    lines: [{ description: "Deformed steel bar 12 mm", ordered: "180", quantity: "180", unit: "BAR" }, { description: "Binding wire, 25 kg roll", ordered: "6", quantity: "4", unit: "ROLL" }],
+    totals: {},
+  },
+  credit_note: {
+    kind: "credit_note", number: "CN-0004", status: "posted", issued: "2026-09-28", againstInvoice: "INV-000142", subject: "Two days the excavator stood idle", to: PARTY,
+    gstTreatment: "exclusive", gstRatePercent: 8,
+    lines: [{ description: "Credit against invoice INV-000142: two days the excavator stood idle", quantity: "1", unit: null, rate: null, amount: "6,000.00" }],
+    totals: { net: "6,000.00", tax: "480.00", gross: "6,480.00" },
+  },
 };

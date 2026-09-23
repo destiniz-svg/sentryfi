@@ -69,6 +69,15 @@ const kind = (req) => {
 };
 
 router.get(
+  "/templates",
+  requireCan("read"),
+  asyncHandler(async (req, res) => {
+    const { rows } = await asCompany(req, (client) => client.query("SELECT kind, settings FROM document_templates WHERE company_id = $1", [req.companyId]));
+    res.json({ templates: Object.fromEntries(rows.map((r) => [r.kind, r.settings])) });
+  })
+);
+
+router.get(
   "/templates/:kind",
   requireCan("read"),
   asyncHandler(async (req, res) => {

@@ -331,4 +331,4 @@ async function committedOn(client, { companyId, projectId }) {
   return out;
 }
 
-module.exports = { answerQuote, create, load, approve, deliver, billFromOrder, invoiceFromOrder, finish, show, list, committedOn, nextNumber };
+module.exports = { times, answerQuote, create, load, approve, deliver, billFromOrder, invoiceFromOrder, finish, show, list, committedOn, nextNumber };

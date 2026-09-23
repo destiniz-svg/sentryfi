@@ -19,7 +19,7 @@ import { FIELD } from "@/lib/shipments";
  * changing what the document says.
  */
 
-const BACK = { invoice: "/invoices" };
+const BACK = { invoice: "/invoices", credit_note: "/invoices", quote: "/orders?kind=quote", sales_order: "/orders?kind=sale", purchase_order: "/orders?kind=purchase", delivery_note: "/orders?kind=sale", goods_received: "/orders?kind=purchase" };
 
 export default function Document() {
   const { kind, id } = useParams();
@@ -40,7 +40,7 @@ export default function Document() {
     <div className="max-w-[980px] mx-auto">
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <Link to={BACK[kind] || "/"} className="inline-flex items-center gap-1.5 h-10 px-3 -ml-3 rounded-full text-[14px] text-[var(--ink-muted)] hover:text-[var(--ink)]">
-          <ArrowLeft size={16} /> {KIND_LABEL[kind]}s
+          <ArrowLeft size={16} /> Back
         </Link>
         <h1 className="font-display text-[22px] font-bold tracking-tight mr-auto">
           {KIND_LABEL[kind]} {data.data.number}
@@ -68,7 +68,12 @@ export default function Document() {
             </span>
           </>
         ) : (
-          <span>A draft, drawn as it is now. When it goes into the books, it is kept exactly as it looks then. For a PDF, choose Save as PDF in the print window.</span>
+          <span>
+            {kind === "invoice"
+              ? "A draft, drawn as it is now. When it goes into the books, it is kept exactly as it looks then."
+              : "Drawn as it stands now, with your current design."}{" "}
+            For a PDF, choose Save as PDF in the print window.
+          </span>
         )}
       </p>
       <div className={model.size.receipt ? "max-w-[340px] mx-auto" : ""}>

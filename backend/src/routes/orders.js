@@ -111,7 +111,7 @@ router.get(
   "/:id",
   canSee,
   refused(async (req, res) => {
-    res.json(await on(req, async (client, ctx) => ({ ...orders.show(await orders.load(client, { ...ctx, orderId: req.params.id })), canApproveUpTo: await approveUpTo(client, req).then((v) => (v === null ? null : formatLaari(v < 0n ? 0n : v))), mayApprove: req.can("approve") })));
+    res.json(await on(req, async (client, ctx) => ({ ...orders.show(await orders.load(client, { ...ctx, orderId: req.params.id })), deliveries: (await client.query("SELECT id, delivered_on::text AS on, reference FROM order_deliveries WHERE order_id = $1 AND company_id = $2 ORDER BY created_at", [req.params.id, ctx.companyId])).rows, canApproveUpTo: await approveUpTo(client, req).then((v) => (v === null ? null : formatLaari(v < 0n ? 0n : v))), mayApprove: req.can("approve") })));
   })
 );
 

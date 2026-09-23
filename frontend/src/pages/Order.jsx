@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, FileText, Loader2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -21,6 +21,8 @@ import { ORDER_STATUS } from "@/lib/orders";
  * next thing to do with it — approve, record a delivery, or make the bill or
  * invoice from what moved.
  */
+
+const DOC_KIND = { quote: "quote", sale: "sales_order", purchase: "purchase_order" };
 
 const n = (s) => Number(String(s ?? "").replace(/,/g, "")) || 0;
 
@@ -66,6 +68,9 @@ export default function Order() {
         description={quote ? `Quoted ${formatDate(o.orderedOn)}${o.validUntil ? `, good until ${formatDate(o.validUntil)}` : ""}.` : `${buying ? "Ordered" : "Taken"} ${formatDate(o.orderedOn)} by ${o.orderer || "someone"}${o.approver && buying ? `, approved by ${o.approver}` : ""}${o.project ? `. For ${o.project}` : ""}.`}
         actions={
           <>
+            <Link to={`/documents/${DOC_KIND[o.kind]}/${o.id}`} className="inline-flex items-center gap-1.5 h-11 px-4 rounded-full border border-[var(--border)] text-[14px] font-medium hover:border-[var(--ink)]" data-testid="order-document">
+              <FileText size={15} /> {quote ? "The quotation" : buying ? "The purchase order" : "The sales order"}
+            </Link>
             {quote && ["quoted", "expired"].includes(o.status) && can("record") && (
               <>
                 <Button variant="outline" disabled={act.isPending} onClick={() => run(`/orders/${id}/decline`, {}, () => ["Declined", "Kept, so you can see what was lost and why."])}>
@@ -161,6 +166,26 @@ export default function Order() {
           </span>
         </div>
       </Card>
+
+      {o.deliveries?.length > 0 && (
+        <Card padding="none" className="mt-4">
+          <div className="px-5 py-3 border-b border-[var(--border)] text-[13px] font-semibold">{buying ? "Goods received" : "Delivery notes"}</div>
+          <ul className="divide-y divide-[var(--border)]">
+            {o.deliveries.map((d, i) => (
+              <li key={d.id}>
+                <Link to={`/documents/${buying ? "goods_received" : "delivery_note"}/${d.id}`} className="flex items-center gap-3 px-5 py-3 text-[14px] hover:bg-[var(--surface-2)]">
+                  <FileText size={15} className="text-[var(--ink-muted)]" />
+                  <span className="font-medium tabular">
+                    {o.number}-D{i + 1}
+                  </span>
+                  <span className="text-[var(--ink-muted)]">{formatDate(d.on)}</span>
+                  {d.reference && <span className="text-[var(--ink-muted)] truncate">{d.reference}</span>}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       {live && can("record") && (
         <div className="flex gap-2 mt-4">

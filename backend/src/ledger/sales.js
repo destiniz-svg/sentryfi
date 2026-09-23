@@ -698,6 +698,8 @@ async function creditNote(client, {
     ]
   );
 
+  await require("./documents").keepCopy(client, { companyId, userId, kind: "credit_note", documentId: noteRows[0].id });
+
   return { note: noteRows[0], entry, creditedNet: creditNet, creditedTax: creditTax };
 }
 

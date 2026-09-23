@@ -346,6 +346,7 @@ router.post(
         })
       );
       res.status(201).json({
+        id: result.note.id,
         noteNo: result.note.note_no,
         entryNo: String(result.entry.entryNo),
         credited: money(result.note.gross_laari),
