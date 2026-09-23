@@ -226,7 +226,7 @@ async function opening(client, { companyId, userId, itemId, quantity, unitCost, 
 /** Every item with what is on hand, its value, its average cost, and what its sales earned over their cost. */
 async function list(client, { companyId }) {
   const { rows } = await client.query(
-    `SELECT i.id, i.name, i.code, i.unit, i.sale_price_laari, i.archived_at,
+    `SELECT i.id, i.name, i.code, i.unit, i.sale_price_laari, i.archived_at, i.reorder_at,
             COALESCE(SUM(m.quantity), 0) AS on_hand,
             COALESCE(SUM(m.value_laari), 0) AS value,
             COALESCE(SUM(m.sale_net_laari) FILTER (WHERE m.kind = 'sold'), 0) AS sales,
@@ -250,6 +250,8 @@ async function list(client, { companyId }) {
       salePrice: r.sale_price_laari === null ? null : formatLaari(BigInt(r.sale_price_laari)),
       archived: Boolean(r.archived_at),
       onHand: unitsText(units),
+      reorderAt: r.reorder_at === null ? null : unitsText(fromDb(r.reorder_at)),
+      low: r.reorder_at !== null && !r.archived_at && units <= fromDb(r.reorder_at),
       value: formatLaari(value),
       averageCost: units > 0n ? formatLaari((value * SCALE + units / 2n) / units) : null,
       sold: unitsText(fromDb(r.sold)),

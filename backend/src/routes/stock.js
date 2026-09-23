@@ -24,6 +24,12 @@ const itemBody = z.object({
   unit: z.string().trim().min(1).max(20).default("each"),
   salePrice: money.nullish(),
 });
+/** A reorder level as the database keeps it: a number, zero or above, to four places. */
+function reorderText(v) {
+  const t = String(v).trim();
+  if (!/^\d+(\.\d{1,4})?$/.test(t)) throw ApiError.badRequest("A reorder level is a number, zero or above.");
+  return t;
+}
 const dateText = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "A date is YYYY-MM-DD.");
 
 // Anything the ledger refuses is a decision for a person, not a server fault.
@@ -70,7 +76,7 @@ router.patch(
   "/:id",
   requireCan("record"),
   refused(async (req, res) => {
-    const parsed = itemBody.partial().extend({ archived: z.boolean().optional() }).safeParse(req.body ?? {});
+    const parsed = itemBody.partial().extend({ archived: z.boolean().optional(), reorderAt: z.union([z.string().trim(), z.number()]).transform(String).nullish() }).safeParse(req.body ?? {});
     if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
     const b = parsed.data;
     const done = await asCompany(req, async (client) => {
@@ -80,7 +86,8 @@ router.patch(
            code = CASE WHEN $4::boolean THEN $5 ELSE code END,
            unit = COALESCE($6, unit),
            sale_price_laari = CASE WHEN $7::boolean THEN $8::bigint ELSE sale_price_laari END,
-           archived_at = CASE WHEN $9::boolean IS NULL THEN archived_at WHEN $9 THEN COALESCE(archived_at, now()) ELSE NULL END
+           archived_at = CASE WHEN $9::boolean IS NULL THEN archived_at WHEN $9 THEN COALESCE(archived_at, now()) ELSE NULL END,
+           reorder_at = CASE WHEN $10::boolean THEN $11::numeric ELSE reorder_at END
          WHERE id = $1 AND company_id = $2 RETURNING id`,
         [
           req.params.id, req.companyId, b.name ?? null,
@@ -88,6 +95,7 @@ router.patch(
           b.unit ?? null,
           b.salePrice !== undefined, b.salePrice ? toLaari(b.salePrice).toString() : null,
           b.archived ?? null,
+          b.reorderAt !== undefined, b.reorderAt === null || b.reorderAt === "" || b.reorderAt === undefined ? null : reorderText(b.reorderAt),
         ]
       );
       return rows[0];

@@ -115,6 +115,7 @@ export default function Stock() {
                   </button>
                   <div className="text-[14px] md:text-right tabular">
                     {i.onHand} <span className="text-[var(--ink-muted)]">{i.unit}</span>
+                    {i.low && <span className="ml-1.5 inline-block rounded-full bg-[var(--warning)]/15 text-[var(--warning)] text-[11px] font-semibold px-2 py-0.5">Low</span>}
                   </div>
                   <div className="text-[14px] text-right text-[var(--ink-muted)]">
                     <span className="md:hidden text-[12px] mr-1.5">average</span>
@@ -355,13 +356,37 @@ function Opening({ item, onClose, onDone }) {
 const KIND = { bought: "Bought", sold: "Sold", counted: "Counted", opening: "Already had", undone: "Bill reversed" };
 
 function History({ item, onClose }) {
-  const { companyId } = useCompany();
+  const { companyId, can } = useCompany();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [reorder, setReorder] = useState(item.reorderAt || "");
+  async function saveReorder() {
+    try {
+      await apiClient.patch(`/stock/${item.id}`, { reorderAt: reorder.trim() === "" ? null : reorder.trim() });
+      qc.invalidateQueries({ queryKey: ["stock", companyId] });
+      qc.invalidateQueries({ queryKey: ["attention", companyId] });
+      toast.success(reorder.trim() ? `Reorder at ${reorder.trim()} ${item.unit}` : "No reorder level", reorder.trim() ? "Needs you says so when it gets there." : "It will not be flagged as running low.");
+    } catch (err) {
+      toast.error("Not saved", err.message);
+    }
+  }
   const { data, isLoading } = useQuery({
     queryKey: ["stock", companyId, item.id],
     queryFn: () => apiClient.get(`/stock/${item.id}/history`).then((r) => r.data.moves),
   });
   return (
     <Modal open onClose={onClose} title={item.name} description={`${item.onHand} ${item.unit} on hand, worth MVR ${item.value}.`}>
+      {can("record") && (
+        <div className="mb-4 flex items-end gap-2" data-testid="reorder">
+          <label className="flex-1">
+            <span className="block text-[13px] font-medium mb-1.5">Reorder when down to</span>
+            <input value={reorder} onChange={(e) => setReorder(e.target.value)} inputMode="decimal" placeholder={`how many ${item.unit}`} className={`${FIELD} tabular`} />
+          </label>
+          <Button type="button" variant="outline" onClick={saveReorder}>
+            Save
+          </Button>
+        </div>
+      )}
       {isLoading ? (
         <Skeleton className="h-24" />
       ) : !data?.length ? (

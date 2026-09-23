@@ -77,6 +77,8 @@ BEGIN
   END LOOP;
 END $$;
 GRANT SELECT, INSERT, UPDATE ON stock_items TO sentryfi_app;
+-- When what is on hand falls to this, it is time to order more (Needs you says so).
+ALTER TABLE stock_items ADD COLUMN IF NOT EXISTS reorder_at NUMERIC(18,4) CHECK (reorder_at >= 0);
 -- A movement is history: added, never changed.
 GRANT SELECT, INSERT ON stock_moves TO sentryfi_app;
 GRANT SELECT, INSERT, DELETE ON bill_stock_lines TO sentryfi_app;

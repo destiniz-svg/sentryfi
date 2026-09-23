@@ -197,3 +197,19 @@ describe("counts and stock already on hand", () => {
     expect(() => stock.toUnits("0")).toThrow(/above zero/);
   });
 });
+
+describe("reorder levels", () => {
+  it("flags an item at or below its level as low, and not one above it or without one", () =>
+    inRollback(async (client) => {
+      const { companyId, userId } = await aCompanyWith(client);
+      await assumeIdentity(client, { companyId, userId });
+      const add = async (name, reorder) =>
+        (await client.query("INSERT INTO stock_items (company_id, name, unit, created_by, reorder_at) VALUES ($1,$2,'bag',$3,$4) RETURNING id", [companyId, name, userId, reorder])).rows[0].id;
+      await add("Cement", "10");
+      await add("Sand", null);
+      const list = await stock.list(client, { companyId });
+      const by = Object.fromEntries(list.map((i) => [i.name, i]));
+      expect(by.Cement).toMatchObject({ low: true, reorderAt: "10" });
+      expect(by.Sand.low).toBe(false);
+    }));
+});

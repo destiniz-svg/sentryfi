@@ -266,6 +266,20 @@ async function collect(client, req) {
       });
     }
 
+    // 8. Stock at or below its reorder level: order more before it runs out.
+    if (req.can?.("read")) {
+      const low = (await require("../ledger/stock").list(client, { companyId: req.companyId })).filter((i) => i.low);
+      for (const i of low.slice(0, 5)) {
+        found.push({
+          kind: "waiting",
+          title: `${i.name}: ${i.onHand} ${i.unit} left`,
+          detail: `Reorder at ${i.reorderAt} ${i.unit}. Order more before it runs out.`,
+          does: "Order more",
+          href: "/orders?kind=purchase",
+        });
+      }
+    }
+
     found.sort((a, b) => SEVERITY[a.kind] - SEVERITY[b.kind]);
     return found;
 }
