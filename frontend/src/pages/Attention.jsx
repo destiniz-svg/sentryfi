@@ -5,6 +5,7 @@ import { apiClient } from "@/api/client";
 import { Card } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useCompany } from "@/context/CompanyContext";
+import { GettingStarted } from "@/components/setup/GettingStarted";
 
 /**
  * What needs you.
@@ -64,6 +65,8 @@ export default function Attention() {
         Everything waiting on a person, in the order it costs you. Nothing else in
         here will interrupt you.
       </p>
+
+      <GettingStarted className="mt-6" />
 
       <div className="mt-7">
         {isLoading ? (

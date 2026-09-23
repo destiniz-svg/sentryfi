@@ -64,6 +64,7 @@ export default function Figures() {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Figure
               label="Spent this month"
+              why="Every cost in the books dated this month, bills and cash alike."
               currency={f.currency}
               value={f.spentThisMonth}
               // A zero here right after posting a bill dated last month reads
@@ -75,10 +76,11 @@ export default function Figures() {
                   : undefined
               }
             />
-            <Figure label="Owed to suppliers" currency={f.currency} value={f.owedToSuppliers} />
-            <Figure label="Earned" currency={f.currency} value={f.earned} />
+            <Figure label="Owed to suppliers" why="Bills in the books and not yet paid: money already spent, only not handed over." currency={f.currency} value={f.owedToSuppliers} />
+            <Figure label="Earned" why="Everything invoiced since the books began, whether or not it has been paid yet." currency={f.currency} value={f.earned} />
             <Figure
               label="In bank and cash"
+              why="What the bank statements and the cash tins add up to today."
               currency={f.currency}
               value={f.inBankAndCash}
               // A zero here means nothing has been imported, not that the
@@ -187,7 +189,8 @@ export default function Figures() {
   );
 }
 
-function Figure({ label, currency, value, pending, note }) {
+/** A figure worth reading: its label, the amount, and one sentence on what it counts. */
+function Figure({ label, currency, value, pending, note, why }) {
   return (
     <Card padding="lg">
       <div className="text-[13px] font-medium text-[var(--ink-muted)]">{label}</div>
@@ -201,6 +204,7 @@ function Figure({ label, currency, value, pending, note }) {
           </span>
         </div>
       )}
+      {why && !pending && <p className="mt-2.5 text-[13px] leading-snug text-[var(--ink-muted)]">{why}</p>}
     </Card>
   );
 }

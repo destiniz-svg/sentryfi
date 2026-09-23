@@ -132,6 +132,16 @@ router.post(
   })
 );
 
+/** The first things a new company does, ticked off from its own books (ledger/setup.js). */
+router.get(
+  "/current/setup",
+  requireCompany,
+  requireCan("read"),
+  asyncHandler(async (req, res) => {
+    res.json(await asCompany(req, (client) => require("../ledger/setup").steps(client, { companyId: req.companyId })));
+  })
+);
+
 /** Who is in this company, what each may do, open invitations and the last changes. */
 router.get(
   "/current/people",
