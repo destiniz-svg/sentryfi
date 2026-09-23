@@ -330,7 +330,7 @@ function MoneyOut({ f }) {
         {avg > 0 && (
           <div className="absolute inset-x-0 pointer-events-none z-10" style={{ bottom: `${(avg / max) * 100}%`, top: "auto", height: 0 }}>
             <div className="border-t border-dashed border-[var(--ink-muted)]/50" />
-            <span className="absolute right-0 -top-[18px] text-[10px] text-[var(--ink-muted)] bg-[var(--surface)] pl-1">avg {short(avg / 100)}</span>
+            <span className="absolute left-0 -top-[18px] text-[10px] text-[var(--ink-muted)] bg-[var(--surface)] pr-1">avg {short(avg / 100)}</span>
           </div>
         )}
         <div
