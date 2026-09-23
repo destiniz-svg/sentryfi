@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
  */
 
 const TOPICS = ["What we sell", "Who we sell to", "Our seasons", "What worries us", "What we are planning"];
-const CARD = "rounded-[24px] bg-[var(--surface)] lift p-5 sm:p-6";
+const CARD = "min-w-0 rounded-[24px] bg-[var(--surface)] lift p-5 sm:p-6";
 
 function speak(lines, onEnd) {
   const s = window.speechSynthesis;
@@ -96,9 +96,9 @@ export default function Cfo() {
         }
       />
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start" data-testid="brief">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start [overflow-wrap:anywhere]" data-testid="brief">
         {/* ---- the one black card: cash, and the next thirty days */}
-        <section className="rounded-[24px] bg-[var(--ink-panel)] text-[var(--on-ink-panel)] p-6 lg:col-span-2">
+        <section className="min-w-0 rounded-[24px] bg-[var(--ink-panel)] text-[var(--on-ink-panel)] p-6 lg:col-span-2">
           <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
             <button type="button" disabled className="text-left disabled:cursor-default" data-testid="cfo-cash-now">
               <div className="text-[14px] opacity-70">Cash now</div>
@@ -527,7 +527,7 @@ function Health({ checks }) {
               {isOpen && (
                 <div className="pb-4 pl-[22px]">
                   <p className="text-[14px] text-[var(--ink-muted)] leading-snug">{c.explain}</p>
-                  <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-[12px] mt-3 rounded-xl bg-[var(--surface-2)] p-3" data-testid="basis">
+                  <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-[12px] mt-3 rounded-xl bg-[var(--surface-2)] p-3" data-testid="basis">
                     {Object.entries(c.basis).map(([k, v]) => (
                       <div key={k} className="contents">
                         <dt className="text-[var(--ink-muted)]">{k.replace(/([A-Z])/g, " $1").replace(/(d+)/, " $1").toLowerCase()}</dt>
