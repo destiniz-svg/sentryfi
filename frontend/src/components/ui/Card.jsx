@@ -43,7 +43,7 @@ export const CardHeader = ({ className, ...props }) => (
 );
 
 export const CardTitle = ({ className, ...props }) => (
-  <h3
+  <h2
     className={cn(
       "text-sm font-semibold text-[var(--ink)] tracking-tight",
       className

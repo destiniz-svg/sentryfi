@@ -128,7 +128,7 @@ function CashCard({ f }) {
           <span className="text-[14px] font-medium opacity-60 mr-1 align-[0.35em]">{unit}</span>
           <Money amount={f.inBankAndCash} className="text-inherit" />
         </div>
-        <div className="mt-4 flex items-center gap-1.5 text-[13px]" style={{ color: flat ? "inherit" : down ? "#ff9d8f" : "var(--accent)" }}>
+        <div className="mt-4 flex items-center gap-1.5 text-[13px]" style={{ color: flat ? "inherit" : down ? "var(--down-on-ink)" : "var(--accent)" }}>
           {!flat && (down ? <ArrowDownRight size={15} aria-hidden="true" /> : <ArrowUpRight size={15} aria-hidden="true" />)}
           <span className={flat ? "opacity-70" : ""}>{flat ? "Level over 30 days" : `${change.replace(/^[-−]/, "")} ${down ? "down" : "up"} in 30 days`}</span>
         </div>
@@ -304,7 +304,7 @@ function MoneyOut({ f }) {
         {avg > 0 && (
           <div className="absolute inset-x-0 pointer-events-none z-10" style={{ bottom: `${(avg / max) * 100}%`, top: "auto", height: 0 }}>
             <div className="border-t border-dashed border-[var(--ink-muted)]/50" />
-            <span className="absolute left-0 -top-[18px] text-[10px] text-[var(--ink-muted)] bg-[var(--surface)] pr-1">avg {short(avg / 100)}</span>
+            <span className="absolute left-0 -top-[18px] text-[11px] text-[var(--ink-muted)] bg-[var(--surface)] pr-1">avg {short(avg / 100)}</span>
           </div>
         )}
         <div

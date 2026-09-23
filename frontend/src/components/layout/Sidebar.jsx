@@ -12,15 +12,15 @@ import { useT } from "@/lib/i18n";
 /**
  * The desk's rail (DESIGN.md, "The desk register, rebuilt").
  *
- * Grouped under condensed labels, and each group folds away: the module list
+ * Grouped under plain labels, and each group folds away: the module list
  * outgrew one screen, so a person keeps open what they use and the rest is a
  * single line. The group holding the current page is always open. The
  * company's own setup (branding, history, settings) sits at the foot with the
- * person. 216px with a 2px ink rule on a wide screen; on a tablet it keeps its
+ * person. 216px with a hairline edge on a wide screen; on a tablet it keeps its
  * icons and drops the words, and every icon still carries its name.
  */
 
-const LABEL = "font-display text-[14px] font-bold uppercase tracking-[0.10em] whitespace-nowrap";
+const LABEL = "text-[15px] font-medium whitespace-nowrap";
 const KEY = "sentryfi.rail";
 
 function Item({ to, icon: Icon, label: english }) {
@@ -34,8 +34,8 @@ function Item({ to, icon: Icon, label: english }) {
       aria-label={label}
       className={({ isActive }) =>
         cn(
-          "flex items-center gap-3 h-10 px-0 lg:px-5 justify-center lg:justify-start",
-          isActive ? "bg-[var(--ink)] text-[var(--accent)]" : "text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+          "flex items-center gap-3 h-10 mx-2 lg:mx-3 px-0 lg:px-3 rounded-xl justify-center lg:justify-start transition-colors",
+          isActive ? "bg-[var(--ink)] text-[var(--bg)]" : "text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
         )
       }
     >
@@ -81,7 +81,7 @@ function Group({ s, first, open, onToggle, can, tax, multi }) {
         onClick={onToggle}
         aria-expanded={open}
         aria-controls={id}
-        className="hidden lg:flex w-full items-center justify-between h-8 px-5 font-display text-[12px] font-bold uppercase tracking-[0.12em] text-[var(--ink-muted)] hover:text-[var(--ink)]"
+        className="hidden lg:flex w-full items-center justify-between h-9 px-6 text-[13px] font-semibold text-[var(--ink-muted)] hover:text-[var(--ink)]"
       >
         {t(s.label)}
         <ChevronRight size={14} aria-hidden="true" className={cn("transition-transform duration-200", open && "rotate-90")} />
@@ -110,12 +110,12 @@ export function Sidebar() {
   const isOpen = (label) => label === here || !folded.has(label);
 
   return (
-    <aside className="hidden md:flex shrink-0 flex-col sticky top-0 h-screen w-[72px] lg:w-[216px] border-r-2 rtl:border-r-0 rtl:border-l-2 border-[var(--ink)] bg-[var(--surface)] pt-6 pb-3 overflow-y-auto">
+    <aside className="hidden md:flex shrink-0 flex-col sticky top-0 h-screen w-[72px] lg:w-[216px] border-r rtl:border-r-0 rtl:border-l border-[var(--border)] bg-[var(--surface)] pt-6 pb-3 overflow-y-auto">
       <div className="flex items-center gap-2 px-0 lg:px-5 justify-center lg:justify-start mb-5">
         <AILogo size={36} />
         <div className="hidden lg:block min-w-0">
           <div className="font-display text-[24px] font-semibold tracking-[-0.03em] leading-none">Sentryfi</div>
-          <div className="text-[12px] font-display font-bold uppercase tracking-[0.12em] text-[var(--ink-muted)] truncate mt-1">
+          <div className="text-[12px] text-[var(--ink-muted)] truncate mt-1">
             {company?.name}
           </div>
         </div>
@@ -136,7 +136,7 @@ export function Sidebar() {
             <div className="text-[14px] font-semibold truncate">{user?.name || "Account"}</div>
             {role && <div className="text-[12px] text-[var(--ink-muted)] truncate">{role}</div>}
           </div>
-          <button type="button" onClick={logout} title={t("Sign out")} aria-label={t("Sign out")} className="h-9 w-9 shrink-0 inline-flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]">
+          <button type="button" onClick={logout} title={t("Sign out")} aria-label={t("Sign out")} className="h-11 w-11 -mr-2 shrink-0 rounded-full inline-flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]">
             <LogOut size={18} aria-hidden="true" />
           </button>
         </div>

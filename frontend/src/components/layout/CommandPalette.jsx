@@ -215,7 +215,7 @@ export function CommandPalette({ open, onClose }) {
                 placeholder="Search bills, invoices, or jump to a page"
                 className="flex-1 bg-transparent outline-none text-sm text-[var(--ink)] placeholder:text-[var(--ink-muted)]"
               />
-              <kbd className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2 h-6 rounded-md bg-[var(--surface-2)] text-[var(--ink-muted)] border border-[var(--border)] font-medium">
+              <kbd className="hidden sm:inline-flex items-center gap-1 text-[11px] px-2 h-6 rounded-md bg-[var(--surface-2)] text-[var(--ink-muted)] border border-[var(--border)] font-medium">
                 Esc
               </kbd>
             </div>
@@ -230,7 +230,7 @@ export function CommandPalette({ open, onClose }) {
               {groups.map((g) =>
                 g.items.length ? (
                   <div key={g.key} className="mb-1">
-                    <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+                    <div className="px-3 pt-2 pb-1 text-[12px] text-[var(--ink-muted)] font-semibold">
                       {g.title}
                     </div>
                     <div className="flex flex-col gap-0.5">{g.items.map(renderItem)}</div>

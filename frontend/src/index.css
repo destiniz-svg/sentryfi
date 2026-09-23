@@ -41,7 +41,9 @@
   --surface-2: #faf9f6;
   --border: #e4e2da;
   --ink: #141413;
-  --ink-muted: #6b6a64;
+  --ink-muted: #5c5b55;
+  /* A fall in money, written on the black card (light and dark alike). */
+  --down-on-ink: #ff9d8f;
   --accent: #f2c300;
   --accent-strong: #806400;
   --accent-soft: #fff3c2;
@@ -668,6 +670,13 @@ a.underline:hover { color: var(--deep-strong); }
   }
 }
 @media (max-width: 767px) {
+  /* Read one-handed in the sun: nothing on a phone is set below 13px. */
+  .phone-soft .text-\[10px\],
+  .phone-soft .text-\[11px\],
+  .phone-soft .text-\[12px\],
+  .phone-soft .text-xs {
+    font-size: 13px;
+  }
   /* Every bordered card on a phone lifts instead: one rule, every screen. */
   .phone-soft .rounded-2xl.border:not(.border-dashed):not([class*="bg-[var(--ink"]) {
     border-color: transparent;

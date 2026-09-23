@@ -32,14 +32,10 @@ const TONE = {
   // The one yellow field, and it goes to the thing that costs money. Every
   // other row is ink on white, because a screen where everything is loud is a
   // screen where nothing is.
-  money_at_risk: {
-    band: "bg-[var(--accent)]",
-    label: "Costs money",
-    labelClass: "text-[var(--on-accent)]",
-  },
-  blocked: { band: "bg-[var(--ink)]", label: "Waiting on you", labelClass: "text-[var(--bg)]" },
-  ageing: { band: "bg-[var(--ink)]", label: "Getting old", labelClass: "text-[var(--bg)]" },
-  waiting: { band: "bg-[var(--border)]", label: "Ready", labelClass: "text-[var(--ink)]" },
+  money_at_risk: { pill: "bg-[var(--accent)] text-[var(--on-accent)]", dot: "bg-[var(--on-accent)]", label: "Costs money" },
+  blocked: { pill: "bg-[var(--surface-2)] text-[var(--ink)]", dot: "bg-[var(--ink)]", label: "Waiting on you" },
+  ageing: { pill: "bg-[var(--surface-2)] text-[var(--ink)]", dot: "bg-[var(--danger)]", label: "Getting old" },
+  waiting: { pill: "bg-[var(--surface-2)] text-[var(--ink-muted)]", dot: "bg-[var(--ink-muted)]", label: "Ready" },
 };
 
 export default function Attention() {
@@ -100,15 +96,10 @@ export default function Attention() {
                       to={item.href}
                       className="flex items-stretch gap-0 group focus-visible:outline-none"
                     >
-                      {/* The band carries the weight, so the row itself stays
-                          ink on white and the list reads as one thing. */}
-                      <span className={`w-1.5 shrink-0 ${tone.band}`} aria-hidden="true" />
-
                       <span className="flex-1 min-w-0 p-5">
                         <span className="flex items-center gap-2 flex-wrap">
-                          <span
-                            className={`inline-block text-[12px] font-semibold uppercase tracking-[0.1em] px-2 py-0.5 rounded-full ${tone.band} ${tone.labelClass}`}
-                          >
+                          <span className={`inline-flex items-center gap-1.5 text-[13px] font-medium px-2.5 py-0.5 rounded-full ${tone.pill}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} aria-hidden="true" />
                             {tone.label}
                           </span>
                         </span>

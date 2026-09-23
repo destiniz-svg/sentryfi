@@ -9,7 +9,7 @@ export function EmptyState({ icon: Icon, title, description, action, className }
           <Icon size={22} />
         </div>
       )}
-      <div className="font-display text-lg font-semibold tracking-tight">{title}</div>
+      <div className="text-[17px] font-semibold tracking-[-0.01em]">{title}</div>
       {description && (
         <p className="text-sm text-[var(--ink-muted)] mt-1 max-w-sm">{description}</p>
       )}
