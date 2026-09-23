@@ -175,7 +175,7 @@ function Figures({ f }) {
     { icon: Percent, value: f.gstOwed, label: "GST to set aside", to: "/tax" },
   ].filter((c) => c.value != null);
   return (
-    <div className="-mx-4 px-4 flex gap-3 overflow-x-auto snap-x scroll-px-4 no-bar pt-2 pb-6 -mt-2 -mb-6" role="list" aria-label="Figures">
+    <div className="-mx-4 px-4 flex gap-3 overflow-x-auto snap-x scroll-px-4 no-bar pt-2 pb-6 -mt-2 mb-0" role="list" aria-label="Figures">
       {cards.map((c) => (
         <Link key={c.label} to={c.to} role="listitem" className="relative snap-start shrink-0 w-[152px] rounded-[20px] bg-[var(--surface)] p-4 shadow-[0_1px_2px_rgba(20,20,19,.04),0_6px_14px_rgba(20,20,19,.05)] [[data-theme=dark]_&]:shadow-none [[data-theme=dark]_&]:ring-1 [[data-theme=dark]_&]:ring-[var(--border)]">
           <Chip icon={c.icon} />
