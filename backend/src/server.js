@@ -108,6 +108,7 @@ app.use("/api/shipments", require("./routes/shipments"));
 app.use("/api/projects", require("./routes/projects"));
 app.use("/api/orders", require("./routes/orders"));
 app.use("/api/recurring", require("./routes/recurring"));
+app.use("/api", require("./routes/claims"));
 app.use("/api/statements", statementsRouter);
 app.use("/api/tax", taxRouter);
 app.use("/api/gst", gstRouter);

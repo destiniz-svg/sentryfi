@@ -544,10 +544,10 @@ router.put(
   })
 );
 
-/** Puts a recorded bill into the books. */
+/** Puts a recorded bill into the books. An approver may, too: that is how a bill over someone's limit is approved. */
 router.post(
   "/:id/post",
-  requireCan("record"),
+  requireCan("record", "approve"),
   asyncHandler(async (req, res) => {
     const accounts = await asCompany(req, async (client) => {
       const { rows } = await client.query(

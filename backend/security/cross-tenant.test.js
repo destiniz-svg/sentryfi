@@ -672,6 +672,33 @@ describe("A's orders, from B", () => {
   });
 });
 
+describe("A's claims and payments, from B", () => {
+  let claimA;
+  beforeAll(async () => {
+    const r = await call(A, "POST", "/claims", { body: { lines: [{ spentOn: "2026-09-10", description: "SECRET-CLAIM-A", accountId: A.accounts["5100"], amount: "50" }] } });
+    expect(r.status).toBe(201);
+    claimA = r.json.id;
+  });
+
+  it("B cannot see, approve or reject A's claims, see A's approvals, or pay A's bills from anywhere", async () => {
+    noLeak(await call(B, "GET", "/claims"), "SECRET-CLAIM-A");
+    noLeak(await call(B, "GET", "/approvals"), "SECRET-CLAIM-A");
+    denied(await call(B, "POST", `/claims/${claimA}/approve`));
+    denied(await call(B, "POST", `/claims/${claimA}/reject`, { body: { why: "x" } }));
+    denied(await call(B, "POST", "/claims", { body: { lines: [{ spentOn: "2026-09-10", description: "x", accountId: A.accounts["5100"], amount: "1" }] } }));
+    noLeak(await call(B, "GET", "/payments"), "SECRET-SUPPLIER-A");
+    denied(await call(B, "POST", "/payments", { body: { fromAccountId: B.accounts["1100"], paidOn: "2026-09-20", items: [{ billId: A.billId, amount: "1" }] } }));
+    denied(await call(B, "POST", "/payments", { body: { fromAccountId: A.accounts["1100"], paidOn: "2026-09-20", items: [{ claimId: claimA, amount: "1" }] } }));
+    const mine = (await call(A, "GET", "/claims")).json.claims.find((c) => c.id === claimA);
+    expect(mine).toMatchObject({ status: "submitted", paid: "0.00" });
+  });
+
+  it("the routes mounted at /api guard only their own paths", async () => {
+    const r = await fetch(`${BASE}/health`);
+    expect(r.status).toBe(200);
+  });
+});
+
 describe("confirming an email address", () => {
   const jwt = req("jsonwebtoken");
   const secret = process.env.JWT_SECRET;
