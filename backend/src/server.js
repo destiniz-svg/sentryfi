@@ -35,15 +35,14 @@ const salesRouter = require("./routes/sales");
 
 const app = express();
 
-// Standard security headers. The content security policy is report-only for
-// now: a policy that is subtly wrong gets switched off in a panic the first
-// time it breaks a page, so it is watched in the browser console against the
-// real app before it is enforced (security review, 23 September 2026).
+// Standard security headers. The content security policy was watched in
+// report-only mode first, and enforced once every page, signed in and public,
+// on the desk and the phone, ran without a single report (23 September 2026).
 app.use(
   helmet({
     contentSecurityPolicy: {
       useDefaults: false,
-      reportOnly: true,
+      reportOnly: false,
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
