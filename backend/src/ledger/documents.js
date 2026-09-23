@@ -266,22 +266,24 @@ async function statementData(client, { companyId, id }) {
     [companyId, id, from]
   );
   const { rows: moves } = await client.query(
-    `SELECT issue_date::text AS on, 'Invoice ' || invoice_no AS what, gross_laari AS charge, 0 AS paid FROM sales_invoices
+    // On one day: what was invoiced, then what was credited against it, then what was paid.
+    `SELECT issue_date::text AS on, 1 AS turn, 'Invoice ' || invoice_no AS what, gross_laari AS charge, 0 AS paid FROM sales_invoices
       WHERE company_id = $1 AND counterparty_id = $2 AND status = 'posted' AND voided_at IS NULL AND issue_date >= $3
      UNION ALL
-     SELECT received_on::text, 'Payment received' || COALESCE(', ' || reference, ''), 0, amount_laari FROM receipts
-      WHERE company_id = $1 AND counterparty_id = $2 AND voided_at IS NULL AND received_on >= $3
-     UNION ALL
-     SELECT issue_date::text, 'Credit note ' || note_no, 0, gross_laari FROM credit_notes
+     SELECT issue_date::text, 2, 'Credit note ' || note_no, 0, gross_laari FROM credit_notes
       WHERE company_id = $1 AND counterparty_id = $2 AND issue_date >= $3
-     ORDER BY 1, 2`,
+     UNION ALL
+     SELECT received_on::text, 3, 'Payment received' || COALESCE(', ' || reference, ''), 0, amount_laari FROM receipts
+      WHERE company_id = $1 AND counterparty_id = $2 AND voided_at IS NULL AND received_on >= $3
+     ORDER BY 1, 2, 3`,
     [companyId, id, from]
   );
   let balance = BigInt(before[0].opening);
-  const lines = [{ code: null, on: from, description: "Brought forward", charge: "", paid: "", balance: f(balance) }];
+  const day = (iso) => new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+  const lines = [{ code: null, on: day(from), description: "Brought forward", charge: "", paid: "", balance: f(balance) }];
   for (const m of moves) {
     balance += BigInt(m.charge) - BigInt(m.paid);
-    lines.push({ code: null, on: m.on, description: m.what, charge: BigInt(m.charge) ? f(m.charge) : "", paid: BigInt(m.paid) ? f(m.paid) : "", balance: f(balance) });
+    lines.push({ code: null, on: day(m.on), description: m.what, charge: BigInt(m.charge) ? f(m.charge) : "", paid: BigInt(m.paid) ? f(m.paid) : "", balance: f(balance) });
   }
   return {
     kind: "statement",
@@ -296,7 +298,7 @@ async function statementData(client, { companyId, id }) {
     gstRatePercent: null,
     // Its own columns: a statement is a running account, not a list of things sold.
     columns: [
-      { key: "on", label: "Date" },
+      { key: "on", label: "Date", nowrap: true },
       { key: "description", label: "What", grow: true },
       { key: "charge", label: "Charged", num: true },
       { key: "paid", label: "Paid or credited", num: true },

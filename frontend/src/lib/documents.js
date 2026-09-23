@@ -350,7 +350,8 @@ export function compose({ data, brand, template, size, verifyUrl }) {
     inBase,
     priceNote: data.priceNote || null,
     receivedBy: Boolean(data.receivedBy),
-    words: priced && t.show.words && data.totals.gross ? amountInWords(data.totals.gross, currency) : null,
+    // A statement's balance is not a sum to be written out in words.
+    words: priced && t.show.words && data.kind !== "statement" && data.totals.gross ? amountInWords(data.totals.gross, currency) : null,
     notes: t.notes ? { label: label("notes"), text: t.notes } : null,
     terms: t.terms ? { label: label("terms"), text: t.terms } : null,
     payment: priced && ["invoice", "quote", "sales_order", "statement"].includes(data.kind) && t.show.payment && brand.paymentDetails ? { label: label("payment"), text: brand.paymentDetails } : null,
@@ -436,12 +437,12 @@ export const SAMPLES = {
   statement: {
     kind: "statement", number: "ST-20261031", status: "posted", issued: "2026-10-31", subject: "From 2025-10-31 to 2026-10-31", to: PARTY,
     gstTreatment: "none_unregistered", gstRatePercent: null, totalLabel: "Owed now",
-    columns: [{ key: "on", label: "Date" }, { key: "description", label: "What", grow: true }, { key: "charge", label: "Charged", num: true }, { key: "paid", label: "Paid or credited", num: true }, { key: "balance", label: "Balance", num: true }],
+    columns: [{ key: "on", label: "Date", nowrap: true }, { key: "description", label: "What", grow: true }, { key: "charge", label: "Charged", num: true }, { key: "paid", label: "Paid or credited", num: true }, { key: "balance", label: "Balance", num: true }],
     lines: [
-      { on: "2025-10-31", description: "Brought forward", charge: "", paid: "", balance: "12,400.00" },
-      { on: "2026-09-23", description: "Invoice INV-000142", charge: "104,112.00", paid: "", balance: "116,512.00" },
-      { on: "2026-09-28", description: "Credit note CN-0004", charge: "", paid: "6,480.00", balance: "110,032.00" },
-      { on: "2026-10-02", description: "Payment received, BML transfer 5521", charge: "", paid: "97,632.00", balance: "12,400.00" },
+      { on: "31 Oct 2025", description: "Brought forward", charge: "", paid: "", balance: "12,400.00" },
+      { on: "23 Sep 2026", description: "Invoice INV-000142", charge: "104,112.00", paid: "", balance: "116,512.00" },
+      { on: "28 Sep 2026", description: "Credit note CN-0004", charge: "", paid: "6,480.00", balance: "110,032.00" },
+      { on: "2 Oct 2026", description: "Payment received, BML transfer 5521", charge: "", paid: "97,632.00", balance: "12,400.00" },
     ],
     totals: { net: "12,400.00", tax: "0.00", gross: "12,400.00" },
   },

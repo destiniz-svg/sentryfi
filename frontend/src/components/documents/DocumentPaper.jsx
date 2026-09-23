@@ -216,7 +216,7 @@ function Lines({ m }) {
         {m.lines.map((l, i) => (
           <tr key={i}>
             {m.columns.map((c) => (
-              <td key={c.key} className={c.num ? "num" : undefined}>
+              <td key={c.key} className={c.num ? "num" : undefined} style={c.nowrap ? { whiteSpace: "nowrap" } : undefined}>
                 {l[c.key] ?? ""}
               </td>
             ))}
