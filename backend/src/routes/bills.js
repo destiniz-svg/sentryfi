@@ -567,8 +567,10 @@ router.post(
     // waits for somebody who approves to put it in the books.
     const over = await asCompany(req, async (client) => {
       const { rows } = await client.query(
-        `SELECT l.limit_laari, b.gross_laari FROM spending_limits l, bills b
-          WHERE l.company_id = $1 AND l.user_id = $2 AND b.company_id = $1 AND b.id = $3`,
+        `SELECT l.limit_laari, b.gross_laari FROM spending_limits l, bills b LEFT JOIN orders o ON o.id = b.order_id
+          WHERE l.company_id = $1 AND l.user_id = $2 AND b.company_id = $1 AND b.id = $3
+            -- A bill made from an approved order was approved when the order was.
+            AND (o.id IS NULL OR o.approved_at IS NULL)`,
         [req.companyId, req.user.id, req.params.id]
       );
       return rows[0] && BigInt(rows[0].gross_laari) > BigInt(rows[0].limit_laari) ? rows[0] : null;

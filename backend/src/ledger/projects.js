@@ -276,6 +276,21 @@ async function summary(client, { companyId, projectId }) {
     return { id: c.id, description: c.description, supplier: c.supplier, account: c.account_name, amount: formatLaari(BigInt(c.amount_laari)), billed: formatLaari(BigInt(c.billed)), open: formatLaari(open), closed: Boolean(c.closed_at) };
   });
 
+  // Approved purchase orders on the project commit it too, until billed.
+  const { committedOn } = require("./orders");
+  const { rows: chart } = await client.query("SELECT id, code, name FROM accounts WHERE company_id = $1 AND type = 'expense'", [companyId]);
+  const accountOf = Object.fromEntries(chart.map((a) => [a.id, a]));
+  const materials = chart.find((a) => a.code === "5100");
+  for (const o of await committedOn(client, { companyId, projectId })) {
+    const a = accountOf[o.accountId] || materials;
+    if (!a) continue;
+    row(a.id, a.code, a.name).committed += o.open;
+    commitmentsOut.push({
+      id: `${o.orderId}:${o.description}`, orderId: o.orderId, description: `${o.number}: ${o.description}`, supplier: o.supplier, account: a.name,
+      amount: formatLaari(o.amount), billed: formatLaari(o.billed), open: formatLaari(o.open), closed: false,
+    });
+  }
+
   const lines = [...byAccount.values()].sort((a, b) => a.code.localeCompare(b.code));
   const sum = (k) => lines.reduce((a, l) => a + l[k], 0n);
   // What each kind of cost will come to: its budget, unless what is spent and

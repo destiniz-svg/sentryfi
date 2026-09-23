@@ -206,6 +206,25 @@ router.get(
         });
       }
 
+      // Purchase orders waiting for someone who can approve them: nothing can
+      //    be received against them until then, and a supplier is waiting.
+      if (req.can("approve")) {
+        const { rows: waitingOrders } = await client.query(
+          `SELECT count(*)::int AS n, min(o.number) AS first FROM orders o
+            WHERE o.company_id = $1 AND o.kind = 'purchase' AND o.needs_approval AND o.approved_at IS NULL AND o.cancelled_at IS NULL`,
+          [req.companyId]
+        );
+        if (waitingOrders[0].n > 0) {
+          found.push({
+            kind: "waiting",
+            title: `${waitingOrders[0].n} purchase ${waitingOrders[0].n === 1 ? "order waits" : "orders wait"} for your approval`,
+            detail: `Nothing can be received against ${waitingOrders[0].n === 1 ? `${waitingOrders[0].first}` : "them"} until it is approved.`,
+            does: "Look at the orders",
+            href: "/orders",
+          });
+        }
+      }
+
       // A project whose spent and committed cost has gone past its budget:
       //    the margin is going, and the sooner someone knows the more of it
       //    can be saved.

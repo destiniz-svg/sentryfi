@@ -648,6 +648,30 @@ describe("A's projects, from B", () => {
   });
 });
 
+describe("A's orders, from B", () => {
+  let orderA;
+  let lineA;
+  beforeAll(async () => {
+    const r = await call(A, "POST", "/orders", { body: { kind: "purchase", partyName: "SECRET-VENDOR-A", lines: [{ description: "SECRET-GOODS-A", accountId: A.accounts["5100"], quantity: "1", unitPrice: "100" }] } });
+    expect(r.status).toBe(201);
+    orderA = r.json.id;
+    lineA = (await call(A, "GET", `/orders/${orderA}`)).json.lines[0].id;
+  });
+
+  it("B cannot see, approve, receive, bill, cancel, or order on A's accounts", async () => {
+    noLeak(await call(B, "GET", "/orders"), "SECRET-VENDOR-A", "SECRET-GOODS-A");
+    denied(await call(B, "GET", `/orders/${orderA}`));
+    denied(await call(B, "POST", `/orders/${orderA}/approve`));
+    denied(await call(B, "POST", `/orders/${orderA}/deliveries`, { body: { lines: [{ orderLineId: lineA, quantity: "1" }] } }));
+    denied(await call(B, "POST", `/orders/${orderA}/bill`, { body: {} }));
+    denied(await call(B, "POST", `/orders/${orderA}/cancel`));
+    denied(await call(B, "POST", "/orders", { body: { kind: "purchase", partyName: "x", lines: [{ description: "x", accountId: A.accounts["5100"], quantity: "1", unitPrice: "1" }] } }));
+    const own = (await call(B, "POST", "/orders", { body: { kind: "purchase", partyName: "B vendor", lines: [{ description: "x", accountId: B.accounts["5100"], quantity: "1", unitPrice: "1" }] } })).json.id;
+    denied(await call(B, "POST", `/orders/${own}/deliveries`, { body: { lines: [{ orderLineId: lineA, quantity: "1" }] } }));
+    expect((await call(A, "GET", `/orders/${orderA}`)).json).toMatchObject({ number: "PO-0001", status: "open", delivered: "0.00" });
+  });
+});
+
 describe("confirming an email address", () => {
   const jwt = req("jsonwebtoken");
   const secret = process.env.JWT_SECRET;
