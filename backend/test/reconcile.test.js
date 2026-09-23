@@ -203,3 +203,27 @@ describe("money in that pays an invoice", () => {
       expect(await outstanding(client, { companyId: s.companyId, invoiceId: invoice.id })).toBe(100_000n);
     }));
 });
+
+describe("money out that pays a bill", () => {
+  it("pays exactly that bill, so Payments no longer lists it; taken back, it is owed again", () =>
+    inRollback(async (client) => {
+      const s = await aStatement(client, [row("2026/01/12", "BLAZ100000000009", "STEEL TRADERS", "700.00", "", "9300.00")]);
+      const { postBill } = await import("../src/ledger/bills");
+      const { unpaid } = await import("../src/ledger/payments");
+      const { rows: sup } = await client.query("INSERT INTO counterparties (company_id, name, kind) VALUES ($1,'Steel Traders','{supplier}') RETURNING id", [s.companyId]);
+      const { rows: b } = await client.query(
+        "INSERT INTO bills (company_id, counterparty_id, issue_date, net_laari, tax_laari, gross_laari, gst_treatment, status) VALUES ($1,$2,'2026-01-05',70000,0,70000,'none_unregistered','draft') RETURNING id",
+        [s.companyId, sup[0].id]
+      );
+      await postBill(client, { ...s.base, billId: b[0].id, accounts: { expense: s.accounts.expense, payable: s.accounts.payable, taxReclaimable: s.accounts.taxReclaimable } });
+      const owedBefore = (await unpaid(client, { companyId: s.companyId })).filter((x) => x.id === b[0].id);
+      expect(owedBefore).toHaveLength(1);
+
+      const done = await rec.payBill(client, { ...s.base, lineId: s.lines[0].id, billId: b[0].id });
+      expect(done.paid).toBe("700.00");
+      expect((await unpaid(client, { companyId: s.companyId })).some((x) => x.id === b[0].id)).toBe(false);
+
+      await rec.undo(client, { ...s.base, lineId: s.lines[0].id });
+      expect((await unpaid(client, { companyId: s.companyId })).some((x) => x.id === b[0].id)).toBe(true);
+    }));
+});

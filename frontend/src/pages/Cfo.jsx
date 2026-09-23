@@ -487,7 +487,7 @@ function Ask({ ready }) {
   );
 }
 
-const LOOKED = { figures: "the four figures", health: "the checks", profile: "the profile", account_balance: "account balances", documents: "invoices and bills", monthly: "month by month", search_entries: "the journal" };
+const LOOKED = { scenario: "a what-if on cash", figures: "the four figures", health: "the checks", profile: "the profile", account_balance: "account balances", documents: "invoices and bills", monthly: "month by month", search_entries: "the journal" };
 const VERDICT = { act: ["Act on it", "var(--danger)"], watch: ["Watch", "var(--warning)"], good: ["Good", "var(--success)"] };
 
 /** The checks, grouped by what to do about them; each opens onto its reasons. */

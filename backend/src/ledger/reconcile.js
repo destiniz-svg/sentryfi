@@ -341,6 +341,23 @@ async function post(client, { companyId, userId, lineId, accountId, counterparty
   return { status: "posted", entryId: entry.id, entryNo: String(entry.entryNo), accountName: counter.name };
 }
 
+/**
+ * Money out that pays a supplier's bill: a payment run of one, from the line's
+ * account on the line's day (ledger/payments.js), so the bill is paid in
+ * Payments as well as in what is owed to the supplier. Never more than the
+ * bill still owes; a line that pays several bills is answered in Payments.
+ */
+async function payBill(client, { companyId, userId, lineId, billId }) {
+  const line = await lockLine(client, { companyId, lineId });
+  if (line.status !== "open" && line.status !== "set_aside") throw new Error("That line has been dealt with already.");
+  const { laari, moneyIn } = sideOf(line);
+  if (moneyIn || laari <= 0n) throw new Error("Only money going out can pay a bill.");
+  const paidOn = line.posted_on instanceof Date ? line.posted_on.toISOString().slice(0, 10) : String(line.posted_on).slice(0, 10);
+  const r = await require("./payments").pay(client, { companyId, userId, fromAccountId: line.account_id, paidOn, reference: line.bank_ref || "From the bank statement", items: [{ billId, amount: formatLaari(laari, { withGrouping: false }) }] });
+  await settle(client, { companyId, userId, lineId, status: "posted", entryId: r.entry.id });
+  return { status: "posted", entryId: r.entry.id, entryNo: String(r.entry.entryNo), paid: formatLaari(laari) };
+}
+
 /** Money in that pays an invoice. Goes through the same door as any receipt. */
 async function receiveAgainst(client, { companyId, userId, lineId, invoiceId }) {
   const line = await lockLine(client, { companyId, lineId });
@@ -399,6 +416,8 @@ async function undo(client, { companyId, userId, lineId }) {
         WHERE entry_id = $1 AND company_id = $2 AND voided_at IS NULL`,
       [line.entry_id, companyId]
     );
+    // A bill paid from this line is owed again.
+    await client.query("UPDATE payment_runs SET reversed_at = now() WHERE entry_id = $1 AND company_id = $2 AND reversed_at IS NULL", [line.entry_id, companyId]);
   }
   await settle(client, { companyId, userId, lineId, status: "open" });
   return { status: "open" };
@@ -466,4 +485,4 @@ async function autoMatch(client, { companyId, userId, accountId }) {
   return matched;
 }
 
-module.exports = { suggest, groups, linesOf, recent, setAsideGroup, link, post, receiveAgainst, setAside, undo, postGroup, autoMatch };
+module.exports = { payBill, suggest, groups, linesOf, recent, setAsideGroup, link, post, receiveAgainst, setAside, undo, postGroup, autoMatch };

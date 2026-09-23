@@ -318,6 +318,7 @@ router.post(
   answer(reconcile.post)
 );
 router.post("/lines/:id/receive", ask, lineBody(z.object({ invoiceId: uuid })), answer(reconcile.receiveAgainst));
+router.post("/lines/:id/pay-bill", ask, lineBody(z.object({ billId: uuid })), answer(reconcile.payBill));
 router.post("/lines/:id/set-aside", ask, lineBody(z.object({ note: z.string().trim().max(300).nullish() })), answer(reconcile.setAside));
 router.post("/lines/:id/undo", ask, lineBody(z.object({})), answer(reconcile.undo));
 

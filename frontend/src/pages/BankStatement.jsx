@@ -11,6 +11,7 @@ import { bankApi } from "@/api/bank";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 import { usePhone } from "@/lib/phone";
+import { apiClient } from "@/api/client";
 
 /**
  * What the bank shows that the books do not.
@@ -324,7 +325,6 @@ function Line({ line, accounts, refresh, pick }) {
     }
   }
 
-  const payable = accounts.find((a) => a.code === "2100");
 
   return (
     <li className="px-5 py-3.5">
@@ -364,11 +364,12 @@ function Line({ line, accounts, refresh, pick }) {
           <Button
             key={b.billId}
             variant="outline"
-            disabled={busy || !payable}
+            disabled={busy}
             onClick={() =>
+              // Paid as this bill, so Payments knows it is paid too (not only what is owed to the supplier).
               run(
-                () => bankApi.postLine(line.id, { accountId: payable.id, counterpartyId: b.counterpartyId }),
-                () => `Paid ${b.supplier}`
+                () => apiClient.post(`/bank/lines/${line.id}/pay-bill`, { billId: b.billId }).then((r) => r.data),
+                (r) => `Paid ${b.supplier}${b.billNo ? `'s bill ${b.billNo}` : ""} · MVR ${r.paid}`
               )
             }
           >

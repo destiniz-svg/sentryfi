@@ -77,6 +77,9 @@ END $$;
 GRANT SELECT, INSERT, UPDATE ON expense_claims TO sentryfi_app;
 GRANT SELECT, INSERT, DELETE ON expense_claim_lines TO sentryfi_app;
 GRANT SELECT, INSERT ON payment_runs, payment_items TO sentryfi_app;
+-- A run whose entry was taken back (a bank line's answer undone): its payments no longer count.
+ALTER TABLE payment_runs ADD COLUMN IF NOT EXISTS reversed_at TIMESTAMPTZ;
+GRANT UPDATE (reversed_at) ON payment_runs TO sentryfi_app;
 
 -- A claim's receipts: the same attachments, stored once by hash, never changed.
 ALTER TABLE attachments ADD COLUMN IF NOT EXISTS claim_id UUID REFERENCES expense_claims(id) ON DELETE CASCADE;
