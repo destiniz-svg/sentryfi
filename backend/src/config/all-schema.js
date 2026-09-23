@@ -36,10 +36,13 @@ const { DOCUMENTS_SQL } = require("./documents-schema");
 const { FIELD_SQL } = require("./field-schema");
 const { KEYS_SQL } = require("./keys-schema");
 const { SECURITY_SQL } = require("./security-schema");
+const { WALLS_SQL } = require("./walls-schema");
 
 const ALL_SQL = [
   SCHEMA_SQL, LEDGER_SQL, BILLS_SQL, ATTACHMENTS_SQL, COUNTERPARTY_SQL, CASH_SQL, SALES_SQL,
   STATEMENT_SQL, PERIOD_SQL, TAX_SQL, IMPORT_SQL, FX_SQL, PEOPLE_SQL, BACKUP_SQL, ASSETS_SQL, LOANS_SQL, DIMENSIONS_SQL, CURRENCY_SQL, ACCESS_SQL, STOCK_SQL, ADVISER_SQL, SHIPMENT_SQL, PROJECTS_SQL, ORDERS_SQL, RECURRING_SQL, CLAIMS_SQL, PORTAL_SQL, CFO_SQL, PUSH_SQL, DOCUMENTS_SQL, FIELD_SQL, KEYS_SQL,
+  // After every table exists: each company's rows point only at its own.
+  WALLS_SQL,
   // Last: it has the final word over grants made above.
   SECURITY_SQL,
 ];

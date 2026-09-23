@@ -1103,3 +1103,12 @@ describe("statements and receipts, from B", () => {
     noLeak(r, "SECRET-SUPPLIER-A");
   });
 });
+
+describe("the database itself", () => {
+  it("refuses a row that points at another company's row, even from the owner", async () => {
+    const walls = (await db.query("SELECT count(*)::int AS n FROM pg_constraint WHERE conname LIKE '%\_same\_company'")).rows[0].n;
+    expect(walls).toBeGreaterThan(50);
+    const theirs = (await db.query("SELECT id FROM counterparties WHERE company_id = $1 LIMIT 1", [B.companyId])).rows[0].id;
+    await expect(db.query("UPDATE sales_invoices SET counterparty_id = $1 WHERE id = $2", [theirs, A.invoiceId])).rejects.toMatchObject({ code: "23503" });
+  });
+});
