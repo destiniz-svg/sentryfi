@@ -116,7 +116,7 @@ export default function Project() {
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4">
-        <Card padding="lg" id="card-budget">
+        <Card padding="lg" id="card-budget" className="min-w-0">
           <div className="flex items-center justify-between gap-3">
             <CardTitle>Cost against budget</CardTitle>
             {record && (
@@ -171,7 +171,7 @@ export default function Project() {
           )}
         </Card>
 
-        <Card padding="lg" id="card-claims">
+        <Card padding="lg" id="card-claims" className="min-w-0">
           <div className="flex items-center justify-between gap-3">
             <CardTitle>Claims and certificates</CardTitle>
             {record && n(p.retentionHeld) > 0 && (
@@ -226,7 +226,7 @@ export default function Project() {
           </p>
         </Card>
 
-        <Card padding="lg" id="card-commitments">
+        <Card padding="lg" id="card-commitments" className="min-w-0">
           <div className="flex items-center justify-between gap-3">
             <CardTitle>Committed</CardTitle>
             {record && (
