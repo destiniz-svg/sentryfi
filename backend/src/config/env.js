@@ -36,6 +36,8 @@ module.exports = {
   resendApiKey: process.env.RESEND_API_KEY || "",
   resendApiUrl: process.env.RESEND_API_URL || "https://api.resend.com/emails",
   mailFrom: process.env.MAIL_FROM || "Sentryfi <hello@sentryfi.app>",
+  // hello@sentryfi.app has no inbox; replies go here.
+  mailReplyTo: process.env.MAIL_REPLY_TO || "sentryfi.app@gmail.com",
   publicUrl: (process.env.PUBLIC_URL || "https://sentryfi.app").replace(/\/$/, ""),
   isProd: process.env.NODE_ENV === "production",
 };

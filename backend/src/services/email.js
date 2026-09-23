@@ -26,7 +26,7 @@ async function send({ to, subject, lines, link }) {
   const r = await fetch(env.resendApiUrl, {
     method: "POST",
     headers: { Authorization: `Bearer ${env.resendApiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: env.mailFrom, to: [to], subject, text, html: html(lines, link) }),
+    body: JSON.stringify({ from: env.mailFrom, reply_to: env.mailReplyTo, to: [to], subject, text, html: html(lines, link) }),
   });
   if (!r.ok) throw new Error(`Resend answered ${r.status}: ${(await r.text()).slice(0, 200)}`);
 }
