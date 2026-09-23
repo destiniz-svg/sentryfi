@@ -155,7 +155,7 @@ describe("the CFO", () => {
       expect(r.sources.length).toBe(1);
       expect(r.sources[0].kind).toBe("invoice");
       expect(r.answer).toContain(r.sources[0].ref);
-      expect(asked).toEqual([7, 7]);
+      expect(asked).toEqual([8, 8]);
     }));
 
   it("answers from what it has read when it runs out of rounds, rather than giving up", () =>
@@ -169,5 +169,21 @@ describe("the CFO", () => {
       const r = await ask(client, { companyId: co.companyId, today: TODAY, company: "Test", question: "How much cash?" }, model);
       expect(r.answer).toBe("Cash is what the four figures say.");
       expect(r.looked.length).toBe(6);
+    }));
+});
+
+describe("what if", () => {
+  it("projects cash with and without a purchase, at the pace the books show", () =>
+    inRollback(async (client) => {
+      const co = await aBusiness(client);
+      const { run } = await import("../src/ledger/cfoAsk");
+      const ctx = { companyId: co.companyId, today: TODAY, seen: [] };
+      const r = await run(client, ctx, "scenario", { oneOffCost: "450,000", monthlyIncome: "60000", monthlyCost: "15000", months: 6 });
+      expect(r.monthByMonth).toHaveLength(6);
+      expect(r.change).toMatchObject({ oneOff: "450,000.00", income: "60,000.00", cost: "15,000.00" });
+      const n = (t) => Number(String(t).replace(/,/g, ""));
+      // With it: 450,000 out now, then 45,000 a month better than without.
+      expect(n(r.withIt.cashRightAfter)).toBeCloseTo(n(r.monthByMonth[0].withoutIt) - n(r.monthByMonth[0].withoutIt) + n(r.withIt.cashRightAfter), 2);
+      expect(n(r.monthByMonth[5].withIt) - n(r.monthByMonth[5].withoutIt)).toBeCloseTo(-450000 + 45000 * 6, 2);
     }));
 });

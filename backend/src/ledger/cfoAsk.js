@@ -17,6 +17,22 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const dateOr = (v, d) => (DATE.test(String(v || "")) ? String(v) : d);
 
 const TOOLS = [
+  {
+    name: "scenario",
+    description:
+      "A what-if: cash month by month for the months ahead at the pace of the last three months, with and without a change the owner describes (buying something, a new monthly cost or income, a loan). Money as digits. Use it for any 'what if', 'can we afford', or 'should I buy' question.",
+    parameters: {
+      type: "object",
+      properties: {
+        oneOffCost: { type: "string", description: "Paid once now, e.g. the price of a machine" },
+        monthlyCost: { type: "string", description: "A new cost every month, e.g. an operator's wage, fuel, insurance" },
+        monthlyIncome: { type: "string", description: "New money in every month, e.g. hire income from the machine" },
+        loanAmount: { type: "string", description: "Borrowed now to pay for it" },
+        loanRepayment: { type: "string", description: "Paid back every month on that loan" },
+        months: { type: "integer", description: "How far ahead, 3 to 24; 12 if not said" },
+      },
+    },
+  },
   { name: "figures", description: "Cash now, money due in and out over the next 30 days, and what makes each up.", parameters: { type: "object", properties: {} } },
   { name: "health", description: "The CFO's checks: runway, liquidity, days to get paid and to pay, margins, growth, customer concentration, currencies, debt cover, GST, slow stock, projects, and whether the books are up to date. Each with a verdict and the figures behind it.", parameters: { type: "object", properties: {} } },
   { name: "profile", description: "The last year: revenue, costs, what is sold, top customers and suppliers, where the money goes, busiest and quietest months, loans, and notes the owners wrote.", parameters: { type: "object", properties: {} } },
@@ -56,7 +72,8 @@ const SYSTEM = (today, company) =>
   `You are the CFO inside ${company}'s books, in the Maldives, money in MVR. Today is ${today}. ` +
   "Answer the question using only what your tools return: never invent a figure, name, date or entry. Call tools as often as you need. " +
   "Cite the entry numbers (as #123) and document numbers behind each figure you give. If the books cannot answer it, say what is missing. " +
-  "Answer in plain English, short, figures as MVR 1,234.56, no jargon, no hedging, no exclamation marks. You advise; you never change the books.";
+  "Answer in plain English, short, figures as MVR 1,234.56, no jargon, no hedging, no exclamation marks. You advise; you never change the books. " +
+  "For a what-if, use the scenario tool, say the pace it assumes, the lowest cash it reaches, and whether and when cash runs out; say plainly what you had to assume.";
 
 /** Runs one tool. Everything here only reads. */
 async function run(client, ctx, name, args = {}) {
@@ -123,6 +140,40 @@ async function run(client, ctx, name, args = {}) {
     cite(docs.filter((d) => d.number !== "(no number)").map((d) => ({ kind: invoices ? "invoice" : "bill", ref: d.number, label: `${d.party}, ${d.issued}, MVR ${d.total}` })));
     const total = rows.reduce((a, r) => a + big(r.owed), 0n);
     return { kind: args.kind, count: docs.length, stillOwedOnThese: f(total), documents: docs };
+  }
+  if (name === "scenario") {
+    // Cash now, and how cash has actually moved: the last three months of bank
+    // and tins, not profit (depreciation is not cash; a customer paying late is).
+    const { raw } = await cfo.figures(client, { companyId, today });
+    const { rows } = await client.query(
+      `SELECT COALESCE(SUM(l.debit_laari - l.credit_laari), 0) AS moved FROM journal_lines l
+         JOIN accounts a ON a.id = l.account_id JOIN journal_entries e ON e.id = l.entry_id
+        WHERE a.company_id = $1 AND a.type = 'asset' AND (a.code LIKE '11%' OR a.code LIKE '12%')
+          AND e.entry_date > ($2::date - interval '90 days') AND e.entry_date <= $2`,
+      [companyId, today]
+    );
+    const money = (v) => {
+      const t = String(v ?? "").replace(/,/g, "").trim();
+      return /^\d+(\.\d{1,2})?$/.test(t) ? require("./money").toLaari(t) : 0n;
+    };
+    const months = Math.min(24, Math.max(3, Number(args.months) || 12));
+    const pace = big(rows[0].moved) / 3n;
+    const change = { oneOff: money(args.oneOffCost), cost: money(args.monthlyCost), income: money(args.monthlyIncome), loan: money(args.loanAmount), repay: money(args.loanRepayment) };
+    const start = big(raw.cash);
+    const withIt = start - change.oneOff + change.loan;
+    const monthly = pace - change.cost + change.income - change.repay;
+    const path = (from, step) => Array.from({ length: months }, (_, i) => from + step * BigInt(i + 1));
+    const as = path(start, pace);
+    const w = path(withIt, monthly);
+    const low = (list, from) => [from, ...list].reduce((a, b) => (b < a ? b : a));
+    const out = (list) => { const i = list.findIndex((v) => v < 0n); return i < 0 ? null : i + 1; };
+    return {
+      basis: `Cash now ${f(start)}; over the last three months cash moved ${f(pace)} a month on average. Figures ahead assume that pace carries on.`,
+      change: Object.fromEntries(Object.entries(change).filter(([, v]) => v).map(([k, v]) => [k, f(v)])),
+      withoutIt: { afterMonths: months, cashThen: f(as[as.length - 1]), lowest: f(low(as, start)), runsOutInMonth: out(as) },
+      withIt: { cashRightAfter: f(withIt), monthlyMovement: f(monthly), afterMonths: months, cashThen: f(w[w.length - 1]), lowest: f(low(w, withIt)), runsOutInMonth: out([withIt, ...w]) === 1 && withIt < 0n ? 0 : out(w) },
+      monthByMonth: w.map((v, i) => ({ month: i + 1, withIt: f(v), withoutIt: f(as[i]) })),
+    };
   }
   if (name === "monthly") {
     const months = Math.min(24, Math.max(1, Number(args.months) || 12));

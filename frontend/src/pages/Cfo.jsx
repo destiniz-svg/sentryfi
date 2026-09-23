@@ -419,7 +419,7 @@ function Settings({ data }) {
   );
 }
 
-const SUGGESTED = ["Who owes us the most, and since when?", "Can we afford to pay all bills due this month?", "Why did costs go up last month?", "What should I worry about this week?"];
+const SUGGESTED = ["Who owes us the most, and since when?", "Can we afford to pay all bills due this month?", "What if I buy a second excavator for 450,000 and hire it out at 60,000 a month?", "What should I worry about this week?"];
 
 function Ask({ ready }) {
   const [question, setQuestion] = useState("");
