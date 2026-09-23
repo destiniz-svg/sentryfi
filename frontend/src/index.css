@@ -589,8 +589,25 @@ body {
 
 /* The review sheet on the phone board: square, full width, and it came from
    the bottom edge — which the grabber is there to say. */
+/* A sheet rises from the bottom edge: rounded where it meets the page, soft
+   shadow instead of a rule (the refined phone register). */
 .phone-sheet {
-  border-top: 2px solid var(--ink);
+  border-radius: 28px 28px 0 0;
+  box-shadow: 0 -12px 40px -12px rgb(0 0 0 / 0.18);
+}
+
+/* iPhone draws a date field at its own width, wider than a half-width column,
+   so it ran off the edge of the screen. Drawn as a plain field, it fits. */
+input[type="date"],
+input[type="time"],
+input[type="month"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  max-width: 100%;
+}
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
 }
 
 .phone-sheet-grabber {

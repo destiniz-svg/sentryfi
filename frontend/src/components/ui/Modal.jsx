@@ -164,7 +164,7 @@ export function Modal({
                   id={titleId}
                   className={
                     sheet
-                      ? "font-display text-[22px] font-bold uppercase tracking-[0.04em]"
+                      ? "font-display text-[22px] font-semibold tracking-[-0.01em]"
                       : "font-display text-lg font-semibold tracking-tight"
                   }
                 >
@@ -188,8 +188,8 @@ export function Modal({
                 onClick={onClose}
                 aria-label="Close"
                 className={cn(
-                  "h-11 w-11 -mr-2 -mt-2 shrink-0 flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]",
-                  !sheet && "rounded-full"
+                  "h-11 w-11 -mr-2 -mt-2 shrink-0 flex items-center justify-center rounded-full text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]",
+                  sheet && "bg-[var(--surface-2)]"
                 )}
               >
                 <X size={18} />

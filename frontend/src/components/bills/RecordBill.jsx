@@ -58,7 +58,7 @@ export function RecordBill({ open, onClose }) {
   const { record, post } = useBillMutations();
   const toast = useToast();
   const outbox = useOutbox();
-  // The phone board is square and the desk register is round. This is the one
+  // The phone gets larger fields and a bar that stays on screen; the desk a card. This is the one
   // screen both registers share, so it carries both and picks.
   const board = usePhone();
   const { offer } = useUndo();
@@ -530,7 +530,7 @@ export function RecordBill({ open, onClose }) {
             variant="outline"
             onClick={() => cameraInputRef.current?.click()}
             disabled={reading}
-            className={board ? "h-[52px] rounded-none border-2 border-[var(--ink)]" : "h-12"}
+            className={board ? "h-[52px] rounded-2xl" : "h-12"}
           >
             {reading ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
             {reading ? "Reading it…" : "Photograph it"}
@@ -540,7 +540,7 @@ export function RecordBill({ open, onClose }) {
             variant="outline"
             onClick={() => libraryInputRef.current?.click()}
             disabled={reading}
-            className={board ? "h-[52px] rounded-none border-2 border-[var(--ink)]" : "h-12"}
+            className={board ? "h-[52px] rounded-2xl" : "h-12"}
           >
             <Paperclip size={16} />
             Choose a file
@@ -552,7 +552,7 @@ export function RecordBill({ open, onClose }) {
             onClick={onSay}
             disabled={reading}
             className={
-              (board ? "h-[52px] rounded-none border-2 border-[var(--ink)]" : "h-12") +
+              (board ? "h-[52px] rounded-2xl" : "h-12") +
               (listening ? " on-yellow bg-[var(--accent)] text-[var(--on-accent)]" : "")
             }
           >
@@ -719,7 +719,7 @@ export function RecordBill({ open, onClose }) {
               <label
                 key={choice.value}
                 className={`flex items-start gap-3 p-3 cursor-pointer transition-colors ${
-                  board ? "border-2" : "rounded-[var(--radius-control)] border"
+                  board ? "rounded-2xl border" : "rounded-[var(--radius-control)] border"
                 } ${
                   form.gstTreatment !== choice.value
                     ? "border-[var(--border)] hover:bg-[var(--surface-2)]"
@@ -794,7 +794,7 @@ export function RecordBill({ open, onClose }) {
         <div
           className={
             board
-              ? "sticky bottom-0 -mx-5 mt-6 flex items-center gap-2 border-t-2 border-[var(--ink)] bg-[var(--surface)] px-5 py-3"
+              ? "sticky -bottom-6 -mx-5 -mb-6 mt-6 flex items-center gap-2 bg-[var(--surface)] px-5 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-[0_-10px_24px_-14px_rgb(0_0_0/0.25)]"
               : "flex items-center justify-end gap-2 mt-6"
           }
         >
@@ -802,7 +802,7 @@ export function RecordBill({ open, onClose }) {
             type="button"
             variant="outline"
             onClick={onClose}
-            className={board ? "rounded-none border-2 border-[var(--ink)] h-[52px]" : undefined}
+            className={board ? "rounded-2xl h-[52px]" : undefined}
           >
             Cancel
           </Button>
@@ -814,7 +814,7 @@ export function RecordBill({ open, onClose }) {
             disabled={record.isPending}
             className={
               board
-                ? `rounded-none h-[52px] flex-1${atRisk ? " border-2 border-[var(--ink)]" : ""}`
+                ? "rounded-2xl h-[52px] flex-1"
                 : undefined
             }
           >
@@ -833,10 +833,10 @@ const FIELD =
 const DESK_INPUT =
   `${FIELD} h-11 rounded-[var(--radius-control)] border border-[var(--border)] text-[15px] focus:border-[var(--ink)] focus:ring-[3px] focus:ring-[var(--ink)]/15`;
 
-// Square, taller and larger: a field on the board is aimed at with a thumb and
-// read at arm's length. The 2px edge is the board's own line weight.
+// Taller and larger on a phone: a field there is aimed at with a thumb and
+// read at arm's length. Rounded and soft-edged, like the rest of the phone.
 const BOARD_INPUT =
-  `${FIELD} h-[52px] border-2 border-[var(--ink)] text-[17px] focus:outline-3 focus:outline-[var(--ink)] focus:outline-offset-2`;
+  `${FIELD} h-[52px] min-w-0 rounded-2xl border border-[var(--border)] text-[17px] focus:border-[var(--ink)] focus:ring-[3px] focus:ring-[var(--ink)]/15`;
 
 function Field({ label, htmlFor, hint, children, read }) {
   return (

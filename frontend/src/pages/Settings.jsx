@@ -1,10 +1,10 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { Sun, Moon, Check } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useToast } from "@/context/UIContext";
@@ -251,68 +251,83 @@ function PasswordSection() {
   );
 }
 
+/** Settings in groups: a list down the side from tablet width, a grid of chips on a phone. */
+const GROUPS = [
+  { title: "Your company", items: [["company", "Company"], ["people", "People"], ["tax", "Tax"], ["tracking", "Tracking", "manage_settings"]] },
+  { title: "Connections", items: [["companies", "Companies"], ["assistant", "Assistant"], ["backups", "Backups", "platform"]] },
+  { title: "You", items: [["profile", "Account"], ["appearance", "Appearance"], ["password", "Password"]] },
+];
+const PANELS = {
+  company: () => <CompanySection />,
+  people: () => <PeopleSection />,
+  companies: () => <CompaniesSection />,
+  backups: () => <BackupsSection />,
+  tracking: () => <TrackingSection />,
+  tax: () => <TaxSection />,
+  assistant: () => (
+    <div className="space-y-4">
+      <AssistantKeys />
+      <Webhooks />
+    </div>
+  ),
+  profile: () => (
+    <div className="space-y-4">
+      <ProfileSection />
+      <DevicesSection />
+    </div>
+  ),
+  appearance: () => <AppearanceSection />,
+  password: () => <PasswordSection />,
+};
+
 export default function Settings() {
-  const [tab, setTab] = useState(() => new URLSearchParams(window.location.search).get("tab") || "company");
+  const [tab, setTabState] = useState(() => new URLSearchParams(window.location.search).get("tab") || "company");
   const { user } = useAuth();
   const { can } = useCompany();
+  const allowed = (need) => !need || (need === "platform" ? user?.platformAdmin : can(need));
+  const groups = GROUPS.map((g) => ({ ...g, items: g.items.filter(([, , need]) => allowed(need)) }));
+  const setTab = (t) => {
+    setTabState(t);
+    const u = new URL(window.location.href);
+    u.searchParams.set("tab", t);
+    window.history.replaceState(null, "", u);
+  };
+  const Panel = PANELS[tab] || PANELS.company;
 
   return (
     <div className="space-y-6">
       <PageHeader title="Settings" description="Your company profile, invoicing defaults, and account." />
-
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="company">Company</TabsTrigger>
-          <TabsTrigger value="people">People</TabsTrigger>
-          <TabsTrigger value="companies">Companies</TabsTrigger>
-          <TabsTrigger value="tax">Tax</TabsTrigger>
-          {can("manage_settings") && <TabsTrigger value="tracking">Tracking</TabsTrigger>}
-          {user?.platformAdmin && <TabsTrigger value="backups">Backups</TabsTrigger>}
-          <TabsTrigger value="assistant">Assistant</TabsTrigger>
-          <TabsTrigger value="profile">Account</TabsTrigger>
-          <TabsTrigger value="appearance">Appearance</TabsTrigger>
-          <TabsTrigger value="password">Password</TabsTrigger>
-        </TabsList>
-
-        <div className="mt-6">
-          <TabsContent value="company">
-            <CompanySection />
-          </TabsContent>
-          <TabsContent value="people">
-            <PeopleSection />
-          </TabsContent>
-          <TabsContent value="companies">
-            <CompaniesSection />
-          </TabsContent>
-          <TabsContent value="backups">
-            <BackupsSection />
-          </TabsContent>
-          <TabsContent value="tracking">
-            <TrackingSection />
-          </TabsContent>
-          <TabsContent value="tax">
-            <TaxSection />
-          </TabsContent>
-          <TabsContent value="assistant">
-            <div className="space-y-4">
-              <AssistantKeys />
-              <Webhooks />
+      <div className="md:grid md:grid-cols-[200px_minmax(0,1fr)] md:gap-8 md:items-start">
+        <nav aria-label="Settings" className="md:sticky md:top-4 mb-6 md:mb-0">
+          {groups.map((g) => (
+            <div key={g.title} className="mb-4 last:mb-0">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)] px-1 md:px-3 mb-1.5">{g.title}</div>
+              <div className="grid grid-cols-3 gap-1.5 md:grid-cols-1 md:gap-0.5">
+                {g.items.map(([key, label]) => {
+                  const on = tab === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      aria-current={on ? "page" : undefined}
+                      onClick={() => setTab(key)}
+                      className={`relative h-10 px-3 rounded-full md:rounded-xl text-[14px] font-medium text-center md:text-left transition-colors ${
+                        on ? "text-[var(--bg)]" : "text-[var(--ink-muted)] hover:text-[var(--ink)] bg-[var(--surface)] lift md:bg-transparent md:shadow-none md:hover:bg-[var(--surface-2)]"
+                      }`}
+                    >
+                      {on && <motion.span layoutId="settings-active" className="absolute inset-0 rounded-full md:rounded-xl bg-[var(--ink)]" transition={{ type: "spring", duration: 0.35, bounce: 0.15 }} />}
+                      <span className="relative">{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </TabsContent>
-          <TabsContent value="profile">
-            <div className="space-y-4">
-              <ProfileSection />
-              <DevicesSection />
-            </div>
-          </TabsContent>
-          <TabsContent value="appearance">
-            <AppearanceSection />
-          </TabsContent>
-          <TabsContent value="password">
-            <PasswordSection />
-          </TabsContent>
+          ))}
+        </nav>
+        <div className="min-w-0">
+          <Panel />
         </div>
-      </Tabs>
+      </div>
     </div>
   );
 }
