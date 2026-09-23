@@ -312,10 +312,10 @@ export default function Project() {
                     )}
                     {record && v.status === "proposed" && (
                       <span className="flex gap-1.5">
-                        <Button size="sm" variant="outline" onClick={() => run({ method: "post", url: `/projects/${id}/variations/${v.id}/decide`, body: { approved: true } }, () => [`VO-${v.number} approved`, "It is part of the contract now, and claims can include it."])}>
+                        <Button size="sm" variant="outline" onClick={() => run({ method: "post", url: `/projects/${id}/variations/${v.id}/decide`, body: { approved: true, on: today() } }, () => [`VO-${v.number} approved`, "It is part of the contract now, and claims can include it."])}>
                           Approved
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => run({ method: "post", url: `/projects/${id}/variations/${v.id}/decide`, body: { approved: false } }, () => [`VO-${v.number} rejected`, "The contract is unchanged."])}>
+                        <Button size="sm" variant="ghost" onClick={() => run({ method: "post", url: `/projects/${id}/variations/${v.id}/decide`, body: { approved: false, on: today() } }, () => [`VO-${v.number} rejected`, "The contract is unchanged."])}>
                           Rejected
                         </Button>
                       </span>
