@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useCompany } from "@/context/CompanyContext";
+import { PushSwitch } from "@/components/PushSwitch";
 
 /**
  * More, in the main app on a phone: everything that is not a daily place,
@@ -89,6 +90,12 @@ export default function More() {
           { name: "Sign out", run: async () => { await logout(); navigate("/login"); } },
         ]}
       />
+      <section aria-label="Notifications">
+        <h2 className="text-[12px] font-semibold uppercase tracking-wider text-[var(--ink-muted)] px-1 pt-2 pb-1.5">Notifications</h2>
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3.5">
+          <PushSwitch />
+        </div>
+      </section>
     </div>
   );
 }

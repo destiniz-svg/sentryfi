@@ -14,6 +14,8 @@ const DAY = 86400000;
 const plus = (iso, days) => new Date(Date.parse(iso + "T00:00:00Z") + days * DAY).toISOString().slice(0, 10);
 const ratio = (a, b) => (b > 0n ? Number((a * 100n) / b) / 100 : null);
 const pct = (a, b) => (b > 0n ? Number((a * 1000n) / b) / 10 : null);
+// Past a year the count of days says nothing more.
+const days = (n) => (n > 365 ? "Over a year" : `${n} days`);
 const signed = (n) => `${n > 0 ? "+" : ""}${n}%`;
 const unformat = (s) => big(String(s).replace(/[,.]/g, ""));
 const one = async (client, sql, params) => (await client.query(sql, params)).rows[0];
@@ -113,33 +115,33 @@ async function health(client, { companyId, today }) {
   const dio = cogs > 0n && stockValue > 0n ? Number((stockValue * 90n) / cogs) : null;
   if (dso !== null)
     add({
-      area: "Working capital", name: "Days to get paid", value: `${dso} days`,
+      area: "Working capital", name: "Days to get paid", value: days(dso),
       verdict: dso > 60 ? "act" : dso > 45 ? "watch" : "good",
       explain: `Customers take about ${dso} days to pay: MVR ${f(owedToUs)} owed against MVR ${f(revenue)} earned in 90 days. Past 60, chase sooner or ask for deposits.`,
       basis: { owedToUs: f(owedToUs), earned90: f(revenue) },
     });
   if (dpo !== null)
     add({
-      area: "Working capital", name: "Days taken to pay", value: `${dpo} days`,
+      area: "Working capital", name: "Days taken to pay", value: days(dpo),
       verdict: dpo > 75 ? "watch" : "good",
       explain: `You take about ${dpo} days to pay suppliers. Paying on their terms, not early, keeps cash; far past them costs goodwill and prices.`,
       basis: { owedByUs: f(owedByUs), billed90: f(bought) },
     });
   if (dio !== null)
     add({
-      area: "Working capital", name: "Days stock sits", value: `${dio} days`,
+      area: "Working capital", name: "Days stock sits", value: days(dio),
       verdict: dio > 120 ? "act" : dio > 75 ? "watch" : "good",
-      explain: `Stock of MVR ${f(stockValue)} is about ${dio} days of sales at cost. Money on a shelf is not in the bank.`,
+      explain: `Stock of MVR ${f(stockValue)} is ${dio > 365 ? "more than a year" : `about ${dio} days`} of sales at cost, at the pace of the last 90 days (MVR ${f(cogs)}). Money on a shelf is not in the bank.`,
       basis: { stock: f(stockValue), costOfSales90: f(cogs) },
     });
   if (dso !== null && dpo !== null) {
     const cycle = dso + (dio || 0) - dpo;
     add({
-      area: "Working capital", name: "Cash cycle", value: `${cycle} days`,
+      area: "Working capital", name: "Cash cycle", value: cycle < 0 ? `${cycle} days` : days(cycle),
       verdict: cycle > 60 ? "watch" : "good",
       explain:
         cycle > 0
-          ? `From paying for what you sell to being paid for it takes about ${cycle} days. That is how long each sale has to be financed.`
+          ? `From paying for what you sell to being paid for it takes ${cycle > 365 ? "more than a year" : `about ${cycle} days`}. That is how long each sale has to be financed.`
           : "Customers pay before you pay suppliers, so they are funding the business.",
       basis: { daysToGetPaid: dso, daysStockSits: dio || 0, daysTakenToPay: dpo },
     });
@@ -209,19 +211,20 @@ async function health(client, { companyId, today }) {
       basis: { customer: top.name, theirs: f(big(top.v)), all: f(big(top.total)) },
     });
   }
+  // What was bought in other currencies over the year: a guide to next year's exposure.
   const { rows: fx } = await client.query(
-    `SELECT trim(b.currency) AS cur, SUM(b.fc_gross) AS v,
-            (SELECT rate FROM exchange_rates r WHERE r.company_id = $1 AND r.currency = b.currency ORDER BY on_date DESC, created_at DESC LIMIT 1) AS rate
-       FROM bills b WHERE b.company_id = $1 AND b.status = 'posted' AND b.voided_at IS NULL AND b.fc_gross IS NOT NULL
+    `SELECT trim(b.currency) AS cur, SUM(b.fc_gross) AS v, SUM(b.gross_laari) AS mvr
+       FROM bills b WHERE b.company_id = $1 AND b.status = 'posted' AND b.voided_at IS NULL AND b.fc_gross IS NOT NULL AND b.issue_date BETWEEN $2 AND $3
       GROUP BY b.currency`,
-    [companyId]
+    [companyId, ...lastYear]
   );
   for (const r of fx) {
-    const inRufiyaa = r.rate ? big(Math.round(Number(r.v) * Number(r.rate))) : null;
+    const mvr = big(r.mvr);
     add({
-      area: "Risk", name: `Bills in ${r.cur}`, value: `${r.cur} ${f(big(r.v))}`, verdict: "watch",
-      explain: `${inRufiyaa !== null ? `About MVR ${f(inRufiyaa)} at the last rate you recorded. ` : ""}Every move in the rate changes what these cost in rufiyaa. Record rates as they change, and pay when the rate suits.`,
-      basis: { currency: r.cur, amount: f(big(r.v)), lastRate: r.rate ? String(Number(r.rate)) : null },
+      area: "Risk", name: `Bought in ${r.cur}, last year`, value: `${r.cur} ${f(big(r.v))}`,
+      verdict: "watch",
+      explain: `MVR ${f(mvr)} at the rates on the bills. If you buy as much again, every 1% the rate moves is about MVR ${f(mvr / 100n)} more or less. Record rates as they change, and pay when the rate suits.`,
+      basis: { currency: r.cur, amount: f(big(r.v)), inRufiyaa: f(mvr) },
     });
   }
 
@@ -247,11 +250,11 @@ async function health(client, { companyId, today }) {
     const owe = r.out.tax - r.inp.tax;
     const late = !r.filed && r.period.daysLeft !== null && r.period.daysLeft < 0;
     add({
-      area: "Tax", name: `GST for ${r.period.label}`, value: owe >= 0n ? `MVR ${f(owe)} to pay` : `MVR ${f(-owe)} to claim back`,
+      area: "Tax", name: `GST for ${r.period.label}`, value: owe === 0n ? "Nothing to pay" : owe > 0n ? `MVR ${f(owe)} to pay` : `MVR ${f(-owe)} to claim back`,
       verdict: r.filed ? "good" : late || owe > cash ? "act" : r.period.daysLeft !== null && r.period.daysLeft <= 14 ? "watch" : "good",
       explain: r.filed
         ? "Filed."
-        : `${owe >= 0n ? "Keep this aside: it is MIRA's money, not yours." : "It comes back when the return is filed."} ${late ? `The return was due ${-r.period.daysLeft} days ago.` : r.period.daysLeft !== null ? `The return is due in ${r.period.daysLeft} days.` : ""}`.trim(),
+        : `${owe > 0n ? "Keep this aside: it is MIRA's money, not yours." : owe < 0n ? "It comes back when the return is filed." : "Nothing to pay, but the return still has to be filed."} ${late ? `The return was due ${-r.period.daysLeft} days ago.` : r.period.daysLeft !== null ? `The return is due in ${r.period.daysLeft} days.` : ""}`.trim(),
       basis: { collected: f(r.out.tax), paid: f(r.inp.tax) },
     });
   }

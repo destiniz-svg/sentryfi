@@ -741,6 +741,45 @@ describe("the customer portal", () => {
   });
 });
 
+describe("notifications and push, from B", () => {
+  it("A hears that its customer opened their link; B hears nothing of it, and cannot mark it read", async () => {
+    const a = await call(A, "GET", "/notifications");
+    expect(a.status).toBe(200);
+    const mine = a.json.notifications.find((n) => n.title.includes("SECRET-CUSTOMER-A"));
+    expect(mine).toBeTruthy();
+    noLeak(await call(B, "GET", "/notifications"), "SECRET-CUSTOMER-A");
+    await call(B, "POST", "/notifications/read", { body: { ids: [mine.id] } });
+    const again = await call(A, "GET", "/notifications");
+    expect(again.json.notifications.find((n) => n.id === mine.id).read_at).toBeNull();
+  });
+
+  it("a device belongs to its person: B does not see A's", async () => {
+    const endpoint = "https://push.example.test/SECRET-DEVICE-A";
+    expect((await call(A, "POST", "/push/subscribe", { body: { subscription: { endpoint, keys: { p256dh: "p".repeat(40), auth: "a".repeat(16) } } } })).status).toBe(201);
+    expect((await call(A, "GET", "/push")).text).toContain("SECRET-DEVICE-A");
+    noLeak(await call(B, "GET", "/push"), "SECRET-DEVICE-A");
+    await call(B, "POST", "/push/unsubscribe", { body: { endpoint } });
+    expect((await call(A, "GET", "/push")).text).toContain("SECRET-DEVICE-A");
+    await call(A, "POST", "/push/unsubscribe", { body: { endpoint } });
+  });
+
+  it("the app role cannot read devices or the server's push key", async () => {
+    const c = await db.connect();
+    try {
+      await c.query("BEGIN");
+      await c.query("SET LOCAL ROLE sentryfi_app");
+      await expect(c.query("SELECT endpoint FROM push_subscriptions")).rejects.toThrow(/permission denied/);
+      await c.query("ROLLBACK");
+      await c.query("BEGIN");
+      await c.query("SET LOCAL ROLE sentryfi_app");
+      await expect(c.query("SELECT private_key FROM push_keys")).rejects.toThrow(/permission denied/);
+    } finally {
+      await c.query("ROLLBACK");
+      c.release();
+    }
+  });
+});
+
 describe("the CFO, from B", () => {
   it("B's brief, figures and profile are made from B's books alone", async () => {
     const r = await call(B, "GET", "/cfo");

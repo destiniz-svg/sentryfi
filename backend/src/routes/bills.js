@@ -576,6 +576,16 @@ router.post(
       return rows[0] && BigInt(rows[0].gross_laari) > BigInt(rows[0].limit_laari) ? rows[0] : null;
     });
     if (over) {
+      // Those who can approve hear of it now, not when they next look.
+      await asCompany(req, async (client) => {
+        const push = require("../services/push");
+        const { rows } = await client.query("SELECT b.bill_no, c.name FROM bills b LEFT JOIN counterparties c ON c.id = b.counterparty_id WHERE b.id = $1 AND b.company_id = $2", [req.params.id, req.companyId]);
+        await push.tell(client, {
+          companyId: req.companyId, userIds: (await push.membersWith(client, req.companyId, "approve")).filter((u) => u !== req.user.id),
+          kind: "waiting", title: `MVR ${formatLaari(BigInt(over.gross_laari))} from ${rows[0]?.name || "a supplier"} waits for your approval`,
+          body: `${rows[0]?.bill_no ? `Bill ${rows[0].bill_no} is` : "A bill is"} over the limit of whoever recorded it.`, href: "/approvals", dedupeKey: `bill-over:${req.params.id}`,
+        });
+      });
       throw ApiError.forbidden(
         `This bill is over your limit of MVR ${formatLaari(BigInt(over.limit_laari))}. Someone who approves has to put it in the books.`
       );

@@ -31,7 +31,7 @@ export default defineConfig({
       // halfway through typing a bill.
       registerType: "prompt",
       injectRegister: null,
-      includeAssets: ["favicon.svg", "icons.svg"],
+      includeAssets: ["favicon.svg", "icons.svg", "push-sw.js"],
       manifest: {
         name: "Sentryfi",
         short_name: "Sentryfi",
@@ -66,6 +66,8 @@ export default defineConfig({
           },
         ],
         cleanupOutdatedCaches: true,
+        // Push and taps on notifications: public/push-sw.js.
+        importScripts: ["push-sw.js"],
       },
       devOptions: { enabled: false },
     }),

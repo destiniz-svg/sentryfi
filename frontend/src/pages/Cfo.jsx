@@ -319,14 +319,19 @@ function Settings({ data }) {
   const qc = useQueryClient();
   const [hour, setHour] = useState(String(data.subscription?.send_hour ?? 7));
   const [email, setEmail] = useState(data.subscription ? data.subscription.email : false);
+  const [pushIt, setPushIt] = useState(data.subscription ? data.subscription.push !== false : true);
   return (
     <Card padding="lg">
-      <CardTitle>The brief by email</CardTitle>
-      <p className="text-[13px] text-[var(--ink-muted)] mt-1">Sent to you each morning at the hour you choose, Maldives time.</p>
+      <CardTitle>The brief each morning</CardTitle>
+      <p className="text-[13px] text-[var(--ink-muted)] mt-1">Sent to you at the hour you choose, Maldives time: as a notification on the devices you turned them on for, and by email if you like.</p>
       <div className="flex flex-wrap items-center gap-3 mt-3">
         <label className="flex items-center gap-2 text-[14px]">
-          <input id="cfo-email" type="checkbox" checked={email} onChange={(e) => setEmail(e.target.checked)} className="h-4 w-4" /> Email it to me at
+          <input id="cfo-push" type="checkbox" checked={pushIt} onChange={(e) => setPushIt(e.target.checked)} className="h-4 w-4" /> Notify me
         </label>
+        <label className="flex items-center gap-2 text-[14px]">
+          <input id="cfo-email" type="checkbox" checked={email} onChange={(e) => setEmail(e.target.checked)} className="h-4 w-4" /> Email it to me
+        </label>
+        <span className="text-[14px]">at</span>
         <select id="cfo-hour" aria-label="Hour" value={hour} onChange={(e) => setHour(e.target.value)} className={FIELD.replace("w-full", "w-28")}>
           {Array.from({ length: 24 }, (_, h) => (
             <option key={h} value={h}>
@@ -337,9 +342,9 @@ function Settings({ data }) {
         <Button
           variant="outline"
           onClick={async () => {
-            await apiClient.put("/cfo/subscription", { sendHour: Number(hour), email });
+            await apiClient.put("/cfo/subscription", { sendHour: Number(hour), email, push: pushIt });
             qc.invalidateQueries({ queryKey: ["cfo", companyId] });
-            toast.success(email ? `Emailed at ${String(hour).padStart(2, "0")}:00` : "Not emailed", email ? "Starting tomorrow morning." : "It is still here every morning.");
+            toast.success(email || pushIt ? `Sent at ${String(hour).padStart(2, "0")}:00` : "Not sent", email || pushIt ? "Starting tomorrow morning." : "It is still here every morning.");
           }}
         >
           Save

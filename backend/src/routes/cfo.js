@@ -28,7 +28,7 @@ router.get(
       profile: strip(await cfo.profile(client, ctx)),
       noticed: await cfo.noticed(client, ctx),
       market: await cfo.market(client, ctx),
-      subscription: (await client.query("SELECT send_hour, email FROM cfo_subscriptions WHERE company_id = $1 AND user_id = $2", [ctx.companyId, ctx.userId])).rows[0] || null,
+      subscription: (await client.query("SELECT send_hour, email, push FROM cfo_subscriptions WHERE company_id = $1 AND user_id = $2", [ctx.companyId, ctx.userId])).rows[0] || null,
       health: await cfo.health(client, ctx),
       written: Boolean(require("../config/env").geminiApiKey),
     }));
@@ -94,13 +94,13 @@ router.put(
   "/subscription",
   requireCan("read"),
   asyncHandler(async (req, res) => {
-    const p = z.object({ sendHour: z.coerce.number().int().min(0).max(23), email: z.boolean() }).safeParse(req.body ?? {});
+    const p = z.object({ sendHour: z.coerce.number().int().min(0).max(23), email: z.boolean(), push: z.boolean().default(true) }).safeParse(req.body ?? {});
     if (!p.success) throw ApiError.badRequest("An hour from 0 to 23, and whether to email it.");
     await on(req, (client, ctx) =>
       client.query(
-        `INSERT INTO cfo_subscriptions (company_id, user_id, send_hour, email) VALUES ($1,$2,$3,$4)
-         ON CONFLICT (company_id, user_id) DO UPDATE SET send_hour = EXCLUDED.send_hour, email = EXCLUDED.email`,
-        [ctx.companyId, ctx.userId, p.data.sendHour, p.data.email]
+        `INSERT INTO cfo_subscriptions (company_id, user_id, send_hour, email, push) VALUES ($1,$2,$3,$4,$5)
+         ON CONFLICT (company_id, user_id) DO UPDATE SET send_hour = EXCLUDED.send_hour, email = EXCLUDED.email, push = EXCLUDED.push`,
+        [ctx.companyId, ctx.userId, p.data.sendHour, p.data.email, p.data.push]
       )
     );
     res.json({ ok: true });

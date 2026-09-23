@@ -37,6 +37,11 @@ publicRouter.get(
     const view = await asCompany({ companyId: link.company_id, user: { id: link.created_by } }, async (client) => {
       const { rows: co } = await client.query("SELECT name, payment_details, tin, gst_number FROM companies WHERE id = $1", [link.company_id]);
       const { rows: party } = await client.query("SELECT name FROM counterparties WHERE id = $1 AND company_id = $2", [link.counterparty_id, link.company_id]);
+      // Whoever made the link hears that it was opened, once a day.
+      await require("../services/push").tell(client, {
+        companyId: link.company_id, userIds: [link.created_by], kind: "done", title: `${party[0]?.name || "A customer"} opened their invoices`,
+        body: "Through the link you gave them.", href: "/invoices", dedupeKey: `portal:${link.id}:${new Date().toISOString().slice(0, 10)}`,
+      });
       const { rows: invoices } = await client.query(
         `SELECT s.id, s.invoice_no, s.issue_date::text AS issued, s.due_date::text AS due, s.subject, s.net_laari, s.tax_laari, s.gross_laari,
                 COALESCE((SELECT SUM(a.amount_laari) FROM receipt_allocations a JOIN receipts r ON r.id = a.receipt_id AND r.voided_at IS NULL WHERE a.invoice_id = s.id), 0) AS paid,

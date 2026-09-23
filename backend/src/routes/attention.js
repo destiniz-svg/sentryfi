@@ -182,7 +182,8 @@ async function collect(client, req) {
     if (req.can("record")) {
       await client.query("SAVEPOINT recurring");
       try {
-        await require("../ledger/recurring").runDue(client, { companyId: req.companyId, userId: req.user.id });
+        const raised = await require("../ledger/recurring").runDue(client, { companyId: req.companyId, userId: req.user.id });
+        await require("./recurring").announce(client, req.companyId, raised);
         await client.query("RELEASE SAVEPOINT recurring");
       } catch (err) {
         await client.query("ROLLBACK TO SAVEPOINT recurring");

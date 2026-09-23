@@ -6,6 +6,7 @@ const { requireAuth } = require("../middleware/auth");
 const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
 const orders = require("../ledger/orders");
+const push = require("../services/push");
 const { formatLaari } = require("../ledger/money");
 
 /**
@@ -93,7 +94,15 @@ router.post(
     const b = parse(newBody, req.body);
     if (b.kind === "purchase" && !req.can("order") && !req.can("record")) throw ApiError.forbidden("Your role does not place orders.");
     if (b.kind !== "purchase" && !req.can("record")) throw ApiError.forbidden("Your role does not take sales orders or give quotes.");
-    const r = await on(req, async (client, ctx) => orders.create(client, { ...ctx, ...b, approveUpTo: await approveUpTo(client, req) }));
+    const r = await on(req, async (client, ctx) => {
+      const made = await orders.create(client, { ...ctx, ...b, approveUpTo: await approveUpTo(client, req) });
+      if (b.kind === "purchase" && !made.approved)
+        await push.tell(client, {
+          companyId: ctx.companyId, userIds: (await push.membersWith(client, ctx.companyId, "approve")).filter((u) => u !== ctx.userId),
+          kind: "waiting", title: `${made.number} for MVR ${formatLaari(made.total)} waits for your approval`, body: "Nothing can be received against it until it is approved.", href: `/orders/${made.id}`, dedupeKey: `order:${made.id}`,
+        });
+      return made;
+    });
     res.status(201).json({ id: r.id, number: r.number, total: formatLaari(r.total), approved: r.approved });
   })
 );
@@ -110,7 +119,12 @@ router.post(
   "/:id/approve",
   requireCan("approve"),
   refused(async (req, res) => {
-    await on(req, async (client, ctx) => orders.approve(client, { ...ctx, orderId: req.params.id, approveUpTo: await approveUpTo(client, req) }));
+    await on(req, async (client, ctx) => {
+      await orders.approve(client, { ...ctx, orderId: req.params.id, approveUpTo: await approveUpTo(client, req) });
+      const { rows } = await client.query("SELECT number, created_by FROM orders WHERE id = $1 AND company_id = $2", [req.params.id, ctx.companyId]);
+      if (rows[0] && rows[0].created_by !== ctx.userId)
+        await push.tell(client, { companyId: ctx.companyId, userIds: [rows[0].created_by], kind: "done", title: `${rows[0].number} was approved`, body: "It can go to the supplier, and be received against.", href: `/orders/${req.params.id}`, dedupeKey: `order-approved:${req.params.id}` });
+    });
     res.json({ ok: true });
   })
 );

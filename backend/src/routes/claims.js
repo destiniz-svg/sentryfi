@@ -6,6 +6,7 @@ const { requireAuth } = require("../middleware/auth");
 const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
 const claims = require("../ledger/claims");
+const push = require("../services/push");
 const payments = require("../ledger/payments");
 const orders = require("../ledger/orders");
 const { formatLaari, toLaari } = require("../ledger/money");
@@ -82,7 +83,15 @@ router.post(
       }),
       req.body
     );
-    const r = await on(req, (client, ctx) => claims.create(client, { ...ctx, ...b }));
+    const r = await on(req, async (client, ctx) => {
+      const made = await claims.create(client, { ...ctx, ...b });
+      const c = claims.show(await claims.load(client, { companyId: ctx.companyId, claimId: made.id }));
+      await push.tell(client, {
+        companyId: ctx.companyId, userIds: (await push.membersWith(client, ctx.companyId, "approve")).filter((u) => u !== ctx.userId),
+        kind: "waiting", title: `${c.claimant} claims MVR ${c.total}`, body: `Expense claim ${c.number} waits for approval.`, href: "/approvals", dedupeKey: `claim:${made.id}`,
+      });
+      return made;
+    });
     res.status(201).json(r);
   })
 );
@@ -91,7 +100,12 @@ router.post(
   "/claims/:id/approve",
   requireCan("approve"),
   refused(async (req, res) => {
-    const r = await on(req, async (client, ctx) => claims.approve(client, { ...ctx, claimId: req.params.id, approveUpTo: await approveUpTo(client, req) }));
+    const r = await on(req, async (client, ctx) => {
+      const done = await claims.approve(client, { ...ctx, claimId: req.params.id, approveUpTo: await approveUpTo(client, req) });
+      const { claim } = await claims.load(client, { companyId: ctx.companyId, claimId: req.params.id });
+      await push.tell(client, { companyId: ctx.companyId, userIds: [claim.claimant_id], kind: "done", title: `Your claim ${claim.number} was approved`, body: `MVR ${formatLaari(done.total)} is owed to you, to be paid in the next payment run.`, href: "/claims", dedupeKey: `claim-approved:${claim.id}` });
+      return done;
+    });
     res.json({ entryNo: String(r.entry.entryNo), total: formatLaari(r.total) });
   })
 );
@@ -101,7 +115,11 @@ router.post(
   requireCan("approve"),
   refused(async (req, res) => {
     const { why } = parse(z.object({ why: z.string().trim().max(300) }), req.body);
-    await on(req, (client, ctx) => claims.reject(client, { ...ctx, claimId: req.params.id, why }));
+    await on(req, async (client, ctx) => {
+      await claims.reject(client, { ...ctx, claimId: req.params.id, why });
+      const { claim } = await claims.load(client, { companyId: ctx.companyId, claimId: req.params.id });
+      await push.tell(client, { companyId: ctx.companyId, userIds: [claim.claimant_id], kind: "blocked", title: `Your claim ${claim.number} was sent back`, body: why, href: "/claims", dedupeKey: `claim-rejected:${claim.id}` });
+    });
     res.json({ ok: true });
   })
 );

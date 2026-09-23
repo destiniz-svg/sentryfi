@@ -79,6 +79,19 @@ router.post(
   })
 );
 
+/** Tells those who record that repeat billing raised invoices. */
+async function announce(client, companyId, raised) {
+  if (!raised.length) return;
+  const push = require("../services/push");
+  const numbers = raised.map((x) => x.invoiceNo).filter(Boolean);
+  await push.tell(client, {
+    companyId, userIds: await push.membersWith(client, companyId, "record"), kind: "done",
+    title: `Repeat billing raised ${raised.length} ${raised.length === 1 ? "invoice" : "invoices"}`,
+    body: `${numbers.slice(0, 5).join(", ")}${raised.some((x) => !x.posted) ? ". Drafts wait to be sent." : ", posted."}`,
+    href: "/invoices", dedupeKey: `recurring:${raised.map((x) => x.invoiceId).join(",").slice(0, 200)}`,
+  });
+}
+
 /**
  * The hourly job: every company with a schedule due. Run as whoever set the
  * schedule up. If the database hides schedules from this connection, the
@@ -92,8 +105,8 @@ function schedule() {
         "SELECT DISTINCT ON (company_id) company_id, created_by FROM recurring_invoices WHERE paused_at IS NULL AND next_on <= current_date"
       );
       for (const r of rows) {
-        await asCompany({ companyId: r.company_id, user: { id: r.created_by } }, (client) =>
-          recurring.runDue(client, { companyId: r.company_id, userId: r.created_by })
+        await asCompany({ companyId: r.company_id, user: { id: r.created_by } }, async (client) =>
+          announce(client, r.company_id, await recurring.runDue(client, { companyId: r.company_id, userId: r.created_by }))
         ).catch((err) => console.error(JSON.stringify({ at: "recurring", company: r.company_id, error: err.message })));
       }
     } catch (err) {
@@ -106,3 +119,4 @@ function schedule() {
 
 module.exports = router;
 module.exports.schedule = schedule;
+module.exports.announce = announce;
