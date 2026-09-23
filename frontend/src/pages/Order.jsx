@@ -53,7 +53,8 @@ export default function Order() {
   const st = ORDER_STATUS[o.status];
   const toMove = o.lines.some((l) => n(l.delivered) < n(l.quantity));
   const toBill = o.lines.some((l) => n(l.billed) < n(l.delivered));
-  const live = !["cancelled", "done", "awaiting_approval"].includes(o.status);
+  const quote = o.kind === "quote";
+  const live = !quote && !["cancelled", "done", "awaiting_approval"].includes(o.status);
 
   return (
     <div>
@@ -62,9 +63,31 @@ export default function Order() {
       </Link>
       <PageHeader
         title={`${o.number} · ${o.party}`}
-        description={`${buying ? "Ordered" : "Taken"} ${formatDate(o.orderedOn)} by ${o.orderer || "someone"}${o.approver && buying ? `, approved by ${o.approver}` : ""}${o.project ? `. For ${o.project}` : ""}.`}
+        description={quote ? `Quoted ${formatDate(o.orderedOn)}${o.validUntil ? `, good until ${formatDate(o.validUntil)}` : ""}.` : `${buying ? "Ordered" : "Taken"} ${formatDate(o.orderedOn)} by ${o.orderer || "someone"}${o.approver && buying ? `, approved by ${o.approver}` : ""}${o.project ? `. For ${o.project}` : ""}.`}
         actions={
           <>
+            {quote && ["quoted", "expired"].includes(o.status) && can("record") && (
+              <>
+                <Button variant="outline" disabled={act.isPending} onClick={() => run(`/orders/${id}/decline`, {}, () => ["Declined", "Kept, so you can see what was lost and why."])}>
+                  Declined
+                </Button>
+                <Button
+                  variant="accent"
+                  disabled={act.isPending}
+                  onClick={async () => {
+                    const r = await run(`/orders/${id}/accept`, {}, (x) => [`Accepted: ${x.number}`, "A sales order with the same lines, ready to deliver and invoice."]);
+                    if (r?.orderId) nav(`/orders/${r.orderId}`);
+                  }}
+                >
+                  Accepted
+                </Button>
+              </>
+            )}
+            {quote && o.becameOrderId && (
+              <Button variant="outline" onClick={() => nav(`/orders/${o.becameOrderId}`)}>
+                Its sales order
+              </Button>
+            )}
             {o.status === "awaiting_approval" && o.mayApprove && (
               <Button variant="accent" disabled={act.isPending} onClick={() => run(`/orders/${id}/approve`, {}, () => ["Approved", "Deliveries can be received against it now."])}>
                 Approve MVR {o.total}

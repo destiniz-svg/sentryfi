@@ -26,7 +26,7 @@ const n = (s) => Number(String(s ?? "").replace(/,/g, "")) || 0;
 export default function Orders() {
   const { companyId, can } = useCompany();
   const [params, setParams] = useSearchParams();
-  const kind = params.get("kind") === "sale" ? "sale" : "purchase";
+  const kind = ["sale", "quote"].includes(params.get("kind")) ? params.get("kind") : "purchase";
   const [adding, setAdding] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["orders", companyId, kind],
@@ -43,23 +43,25 @@ export default function Orders() {
         actions={
           mayAdd && (
             <Button variant="accent" onClick={() => setAdding(true)}>
-              <Plus size={16} /> {kind === "purchase" ? "Purchase order" : "Sales order"}
+              <Plus size={16} /> {{ purchase: "Purchase order", sale: "Sales order", quote: "Quote" }[kind]}
             </Button>
           )
         }
       />
-      <div className="max-w-xs mb-4">
-        <Segments label="Kind of order" value={kind} onChange={(k) => setParams({ kind: k })} options={[{ value: "purchase", label: "Buying" }, { value: "sale", label: "Selling" }]} />
+      <div className="max-w-sm mb-4">
+        <Segments label="Kind of order" value={kind} onChange={(k) => setParams({ kind: k })} options={[{ value: "purchase", label: "Buying" }, { value: "sale", label: "Selling" }, { value: "quote", label: "Quotes" }]} />
       </div>
       {isLoading ? (
         <Skeleton className="h-40 rounded-2xl" />
       ) : !data?.length ? (
         <Card padding="lg">
-          <p className="text-[16px] font-semibold">No {kind === "purchase" ? "purchase" : "sales"} orders yet</p>
+          <p className="text-[16px] font-semibold">{kind === "quote" ? "No quotes yet" : `No ${kind === "purchase" ? "purchase" : "sales"} orders yet`}</p>
           <p className="text-[14px] text-[var(--ink-muted)] mt-1.5 max-w-prose">
             {kind === "purchase"
               ? "Order from a supplier, record what arrives, and the bill is made from what arrived: one cost, however many deliveries it came in. An order over your limit waits for someone who can approve it."
-              : "Take an order from a customer, record what goes out, and the invoice is made from what went out."}
+              : kind === "quote"
+                ? "Give a customer a price. When they accept, it becomes a sales order with the same lines, ready to deliver and invoice."
+                : "Take an order from a customer, record what goes out, and the invoice is made from what went out."}
           </p>
         </Card>
       ) : (
@@ -76,7 +78,8 @@ export default function Orders() {
                     </div>
                     <div className="text-[13px] text-[var(--ink-muted)] truncate">
                       {formatDate(o.orderedOn)}
-                      {o.project ? ` · ${o.project}` : ""} · {got}% {kind === "purchase" ? "arrived" : "gone out"}
+                      {o.project ? ` · ${o.project}` : ""}
+                      {kind === "quote" ? (o.validUntil ? ` · good until ${formatDate(o.validUntil)}` : "") : ` · ${got}% ${kind === "purchase" ? "arrived" : "gone out"}`}
                     </div>
                   </div>
                   <div className="text-right">
@@ -103,7 +106,7 @@ function NewOrder({ kind, onClose }) {
   const qc = useQueryClient();
   const { companyId } = useCompany();
   const { data: o } = useQuery({ queryKey: ["orders", companyId, "options"], queryFn: () => apiClient.get("/orders/options").then((r) => r.data) });
-  const [f, setF] = useState({ partyName: "", projectId: "", expectedOn: "", note: "" });
+  const [f, setF] = useState({ partyName: "", projectId: "", expectedOn: "", note: "", validUntil: "" });
   const [lines, setLines] = useState([blankLine()]);
   const [err, setErr] = useState("");
   const save = useMutation({ mutationFn: (body) => apiClient.post("/orders", body).then((r) => r.data) });
@@ -120,6 +123,7 @@ function NewOrder({ kind, onClose }) {
         partyName: f.partyName,
         projectId: f.projectId || null,
         expectedOn: f.expectedOn || null,
+        validUntil: kind === "quote" ? f.validUntil || null : null,
         note: f.note || null,
         lines: lines
           .filter((l) => l.itemId || l.description.trim())
@@ -133,7 +137,7 @@ function NewOrder({ kind, onClose }) {
   }
 
   return (
-    <Modal open onClose={onClose} as="form" onSubmit={onSubmit} title={kind === "purchase" ? "Purchase order" : "Sales order"} description={kind === "purchase" ? "Prices are before tax." : "What the customer ordered, at your prices before tax."}>
+    <Modal open onClose={onClose} as="form" onSubmit={onSubmit} title={{ purchase: "Purchase order", sale: "Sales order", quote: "Quote" }[kind]} description={kind === "purchase" ? "Prices are before tax." : "What the customer ordered, at your prices before tax."}>
       {!o ? (
         <Loader2 size={18} className="animate-spin text-[var(--ink-muted)]" />
       ) : (
@@ -148,6 +152,12 @@ function NewOrder({ kind, onClose }) {
                 ))}
               </datalist>
             </label>
+            {kind === "quote" && (
+              <label className="block">
+                <span className="text-sm font-medium block mb-1.5">Good until</span>
+                <input id="quote-until" type="date" value={f.validUntil} onChange={(e) => setF({ ...f, validUntil: e.target.value })} className={FIELD} />
+              </label>
+            )}
             <label className="block">
               <span className="text-sm font-medium block mb-1.5">For a project (optional)</span>
               <select id="order-project" value={f.projectId} onChange={(e) => setF({ ...f, projectId: e.target.value })} className={FIELD}>
@@ -226,7 +236,7 @@ function NewOrder({ kind, onClose }) {
         </Button>
         <Button type="submit" variant="accent" disabled={save.isPending || !f.partyName.trim() || total <= 0}>
           {save.isPending && <Loader2 size={14} className="animate-spin" />}
-          Place the order
+          {kind === "quote" ? "Save the quote" : "Place the order"}
         </Button>
       </div>
     </Modal>

@@ -206,6 +206,19 @@ router.get(
         });
       }
 
+      // Repeat billing that has come due is raised now, whatever the hourly
+      //    job managed, so a missed hour never means a missed invoice.
+      if (req.can("record")) {
+        await client.query("SAVEPOINT recurring");
+        try {
+          await require("../ledger/recurring").runDue(client, { companyId: req.companyId, userId: req.user.id });
+          await client.query("RELEASE SAVEPOINT recurring");
+        } catch (err) {
+          await client.query("ROLLBACK TO SAVEPOINT recurring");
+          console.error(JSON.stringify({ at: "recurring-on-open", company: req.companyId, error: err.message }));
+        }
+      }
+
       // Purchase orders waiting for someone who can approve them: nothing can
       //    be received against them until then, and a supplier is waiting.
       if (req.can("approve")) {

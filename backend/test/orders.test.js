@@ -124,3 +124,31 @@ describe("a sales order", () => {
       expect((await orders.load(client, { companyId, orderId: o.id })).status).toBe("done");
     }));
 });
+
+describe("a quote", () => {
+  it("accepted, becomes a sales order with the same lines; declined, is kept and marked so", () =>
+    inRollback(async (client) => {
+      const co = await aBuyer(client);
+      const { companyId, userId } = co;
+      const q = await orders.create(client, {
+        companyId, userId, kind: "quote", partyName: "A prospect", validUntil: "2099-12-31",
+        lines: [{ itemId: co.cement, quantity: "30", unitPrice: "210" }, { description: "Delivery", quantity: "1", unitPrice: "500" }],
+      });
+      expect(q).toMatchObject({ number: "QT-0001", total: 680000n });
+      expect((await orders.load(client, { companyId, orderId: q.id })).status).toBe("quoted");
+      const line = (await orders.load(client, { companyId, orderId: q.id })).lines[0];
+      await expect(orders.deliver(client, { companyId, userId, orderId: q.id, lines: [{ orderLineId: line.id, quantity: "1" }] })).rejects.toThrow(/A quote is not delivered/);
+
+      const so = await orders.answerQuote(client, { companyId, userId, orderId: q.id, accepted: true });
+      expect(so.number).toBe("SO-0001");
+      const made = orders.show(await orders.load(client, { companyId, orderId: so.id }));
+      expect(made.lines.map((l) => [l.description, l.quantity, l.price])).toEqual([["Cement", "30", "210.00"], ["Delivery", "1", "500.00"]]);
+      expect(orders.show(await orders.load(client, { companyId, orderId: q.id }))).toMatchObject({ status: "accepted", becameOrderId: so.id });
+      await expect(orders.answerQuote(client, { companyId, userId, orderId: q.id, accepted: false })).rejects.toThrow(/answered already/);
+
+      const q2 = await orders.create(client, { companyId, userId, kind: "quote", partyName: "Another prospect", validUntil: "2020-01-01", lines: [{ description: "Survey", quantity: "1", unitPrice: "900" }] });
+      expect((await orders.load(client, { companyId, orderId: q2.id })).status).toBe("expired");
+      await orders.answerQuote(client, { companyId, userId, orderId: q2.id, accepted: false });
+      expect((await orders.load(client, { companyId, orderId: q2.id })).status).toBe("declined");
+    }));
+});

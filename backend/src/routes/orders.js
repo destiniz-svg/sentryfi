@@ -48,7 +48,7 @@ router.get(
   "/",
   canSee,
   asyncHandler(async (req, res) => {
-    const kind = ["purchase", "sale"].includes(req.query.kind) ? req.query.kind : null;
+    const kind = ["purchase", "sale", "quote"].includes(req.query.kind) ? req.query.kind : null;
     res.json({ orders: await on(req, (client, ctx) => orders.list(client, { ...ctx, kind })) });
   })
 );
@@ -73,7 +73,8 @@ router.get(
 );
 
 const newBody = z.object({
-  kind: z.enum(["purchase", "sale"]),
+  kind: z.enum(["purchase", "sale", "quote"]),
+  validUntil: dateText.nullish(),
   counterpartyId: z.string().uuid().nullish(),
   partyName: z.string().trim().max(160).nullish(),
   projectId: z.string().uuid().nullish(),
@@ -91,7 +92,7 @@ router.post(
   refused(async (req, res) => {
     const b = parse(newBody, req.body);
     if (b.kind === "purchase" && !req.can("order") && !req.can("record")) throw ApiError.forbidden("Your role does not place orders.");
-    if (b.kind === "sale" && !req.can("record")) throw ApiError.forbidden("Your role does not take sales orders.");
+    if (b.kind !== "purchase" && !req.can("record")) throw ApiError.forbidden("Your role does not take sales orders or give quotes.");
     const r = await on(req, async (client, ctx) => orders.create(client, { ...ctx, ...b, approveUpTo: await approveUpTo(client, req) }));
     res.status(201).json({ id: r.id, number: r.number, total: formatLaari(r.total), approved: r.approved });
   })
@@ -150,6 +151,17 @@ router.post(
     res.status(201).json({ invoiceId: r.invoice.id, invoiceNo: r.invoice.invoice_no, gross: formatLaari(BigInt(r.invoice.gross_laari)), differences: r.differences });
   })
 );
+
+for (const [how, accepted] of [["accept", true], ["decline", false]]) {
+  router.post(
+    `/:id/${how}`,
+    requireCan("record"),
+    refused(async (req, res) => {
+      const made = await on(req, (client, ctx) => orders.answerQuote(client, { ...ctx, orderId: req.params.id, accepted }));
+      res.json({ ok: true, orderId: made.id || null, number: made.number || null });
+    })
+  );
+}
 
 for (const how of ["cancel", "close"]) {
   router.post(

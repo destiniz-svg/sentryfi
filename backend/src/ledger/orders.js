@@ -19,7 +19,7 @@ const { splitTax } = require("./bills");
 const taxEngine = require("./tax");
 const { findOrCreate } = require("./counterparties");
 
-const PREFIX = { purchase: "PO", sale: "SO" };
+const PREFIX = { purchase: "PO", sale: "SO", quote: "QT" };
 const times = (unitLaari, units) => (unitLaari * units + 5000n) / 10000n; // units are ten-thousandths
 
 async function nextNumber(client, { companyId, kind }) {
@@ -35,7 +35,7 @@ async function nextNumber(client, { companyId, kind }) {
  * no limit, a laari amount for their spending limit, or -1n when they may not
  * approve at all.
  */
-async function create(client, { companyId, userId, kind, counterpartyId, partyName, projectId, orderedOn, expectedOn, note, lines, approveUpTo }) {
+async function create(client, { companyId, userId, kind, counterpartyId, partyName, projectId, orderedOn, expectedOn, validUntil, note, lines, approveUpTo }) {
   await assumeIdentity(client, { companyId, userId });
   if (!PREFIX[kind]) throw new Error("A purchase order or a sales order?");
   if (!lines?.length) throw new Error("An order needs at least one line.");
@@ -71,12 +71,12 @@ async function create(client, { companyId, userId, kind, counterpartyId, partyNa
     prepared.push({ position: i, description: String(l.description || description).trim() || "Goods", itemId: l.itemId || null, accountId: l.itemId ? null : l.accountId || null, units, unit, price });
   }
   const total = prepared.reduce((a, l) => a + times(l.price, l.units), 0n);
-  const selfApproved = kind === "sale" || approveUpTo === null || (approveUpTo !== undefined && approveUpTo >= 0n && total <= approveUpTo);
+  const selfApproved = kind !== "purchase" || approveUpTo === null || (approveUpTo !== undefined && approveUpTo >= 0n && total <= approveUpTo);
   const number = await nextNumber(client, { companyId, kind });
   const { rows } = await client.query(
-    `INSERT INTO orders (company_id, kind, number, counterparty_id, project_id, ordered_on, expected_on, note, needs_approval, approved_by, approved_at, created_by)
-     VALUES ($1,$2,$3,$4,$5,COALESCE($6::date, current_date),$7,$8,$9,$10,$11,$12) RETURNING id, number`,
-    [companyId, kind, number, party, projectId || null, orderedOn || null, expectedOn || null, String(note || "").trim(), !selfApproved, selfApproved ? userId : null, selfApproved ? new Date() : null, userId]
+    `INSERT INTO orders (company_id, kind, number, counterparty_id, project_id, ordered_on, expected_on, note, needs_approval, approved_by, approved_at, created_by, valid_until)
+     VALUES ($1,$2,$3,$4,$5,COALESCE($6::date, current_date),$7,$8,$9,$10,$11,$12,$13) RETURNING id, number`,
+    [companyId, kind, number, party, projectId || null, orderedOn || null, expectedOn || null, String(note || "").trim(), !selfApproved, selfApproved ? userId : null, selfApproved ? new Date() : null, userId, kind === "quote" ? validUntil || null : null]
   );
   for (const l of prepared) {
     await client.query(
@@ -117,7 +117,10 @@ async function load(client, { companyId, orderId }) {
   }));
   const all = (k) => out.every((l) => l[k] >= l.units);
   const any = (k) => out.some((l) => l[k] > 0n);
-  const status = o.cancelled_at
+  const expired = o.valid_until && new Date(o.valid_until) < new Date(new Date().toISOString().slice(0, 10));
+  const status = o.kind === "quote"
+    ? o.accepted_at ? "accepted" : o.declined_at ? "declined" : o.cancelled_at ? "cancelled" : expired ? "expired" : "quoted"
+    : o.cancelled_at
     ? "cancelled"
     : o.needs_approval && !o.approved_at
       ? "awaiting_approval"
@@ -143,6 +146,7 @@ async function approve(client, { companyId, userId, orderId, approveUpTo }) {
 async function deliver(client, { companyId, userId, orderId, deliveredOn, reference, note, lines }) {
   await assumeIdentity(client, { companyId, userId });
   const s = await load(client, { companyId, orderId });
+  if (s.order.kind === "quote") throw new Error("A quote is not delivered. Accept it, and deliver the sales order.");
   if (s.status === "cancelled" || s.status === "done") throw new Error("That order is finished.");
   if (s.status === "awaiting_approval") throw new Error("That order has not been approved yet. Nothing can be received against it.");
   const byId = new Map(s.lines.map((l) => [l.id, l]));
@@ -244,6 +248,25 @@ async function invoiceFromOrder(client, { companyId, userId, orderId, issueDate,
   return { invoice, differences };
 }
 
+/** A quote the customer accepted becomes a sales order with the same lines; one they declined is kept, marked so. */
+async function answerQuote(client, { companyId, userId, orderId, accepted }) {
+  await assumeIdentity(client, { companyId, userId });
+  const s = await load(client, { companyId, orderId });
+  if (s.order.kind !== "quote") throw new Error("Only a quote is accepted or declined.");
+  if (s.status !== "quoted" && s.status !== "expired") throw new Error("That quote has been answered already.");
+  if (!accepted) {
+    await client.query("UPDATE orders SET declined_at = now() WHERE id = $1", [orderId]);
+    return {};
+  }
+  const made = await create(client, {
+    companyId, userId, kind: "sale", counterpartyId: s.order.counterparty_id, projectId: s.order.project_id,
+    note: `From quote ${s.order.number}`,
+    lines: s.lines.map((l) => ({ description: l.description, itemId: l.item_id, accountId: l.account_id, quantity: stock.unitsText(l.units), unit: l.unit, unitPrice: formatLaari(l.price).replace(/,/g, "") })),
+  });
+  await client.query("UPDATE orders SET accepted_at = now(), became_order_id = $2 WHERE id = $1", [orderId, made.id]);
+  return made;
+}
+
 async function finish(client, { companyId, userId, orderId, how }) {
   await assumeIdentity(client, { companyId, userId });
   const s = await load(client, { companyId, orderId });
@@ -263,6 +286,8 @@ function show(s) {
     project: s.order.project,
     projectId: s.order.project_id,
     orderedOn: s.order.ordered_on,
+    validUntil: s.order.valid_until,
+    becameOrderId: s.order.became_order_id,
     expectedOn: s.order.expected_on,
     note: s.order.note,
     status: s.status,
@@ -306,4 +331,4 @@ async function committedOn(client, { companyId, projectId }) {
   return out;
 }
 
-module.exports = { create, load, approve, deliver, billFromOrder, invoiceFromOrder, finish, show, list, committedOn, nextNumber };
+module.exports = { answerQuote, create, load, approve, deliver, billFromOrder, invoiceFromOrder, finish, show, list, committedOn, nextNumber };

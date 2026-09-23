@@ -6,4 +6,8 @@ export const ORDER_STATUS = {
   delivered: { tone: "accent", buy: "Arrived, to bill", sell: "Gone out, to invoice" },
   done: { tone: "success", buy: "Done", sell: "Done" },
   cancelled: { tone: "neutral", buy: "Cancelled", sell: "Cancelled" },
+  quoted: { tone: "accent", buy: "Quoted", sell: "Quoted, waiting for an answer" },
+  accepted: { tone: "success", buy: "Accepted", sell: "Accepted" },
+  declined: { tone: "neutral", buy: "Declined", sell: "Declined" },
+  expired: { tone: "neutral", buy: "Expired", sell: "Past its date" },
 };

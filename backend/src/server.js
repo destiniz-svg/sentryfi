@@ -107,6 +107,7 @@ app.use("/api/stock", require("./routes/stock"));
 app.use("/api/shipments", require("./routes/shipments"));
 app.use("/api/projects", require("./routes/projects"));
 app.use("/api/orders", require("./routes/orders"));
+app.use("/api/recurring", require("./routes/recurring"));
 app.use("/api/statements", statementsRouter);
 app.use("/api/tax", taxRouter);
 app.use("/api/gst", gstRouter);
@@ -156,6 +157,7 @@ async function start() {
     app.listen(env.port, () => {
       console.log(`Server listening on http://localhost:${env.port} (${env.nodeEnv})`);
       require("./backup").schedule();
+      require("./routes/recurring").schedule();
     });
   } catch (err) {
     console.error("Failed to start server:", err.message);

@@ -89,6 +89,14 @@ BEGIN
   END LOOP;
 END $$;
 GRANT SELECT, INSERT, UPDATE ON orders TO sentryfi_app;
+
+-- Quotes: an order not yet agreed. Accepted, it becomes a sales order.
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_kind_check;
+ALTER TABLE orders ADD CONSTRAINT orders_kind_check CHECK (kind IN ('purchase','sale','quote'));
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS valid_until DATE;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMPTZ;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS declined_at TIMESTAMPTZ;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS became_order_id UUID REFERENCES orders(id);
 GRANT SELECT, INSERT ON order_lines, order_deliveries, order_delivery_lines, order_billed TO sentryfi_app;
 `;
 

@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { VoidDialog } from "@/components/ui/VoidDialog";
 import { RaiseInvoice } from "@/components/sales/RaiseInvoice";
+import { RepeatBilling } from "@/components/sales/RepeatBilling";
 import { ReceiveMoney, CreditInvoice } from "@/components/sales/SettleInvoice";
 import { useAged, useSales, useSalesMutations } from "@/hooks/useSales";
 import { useCompany } from "@/context/CompanyContext";
@@ -87,6 +88,7 @@ export default function Invoices() {
   const [receiving, setReceiving] = useState(null);
   const [crediting, setCrediting] = useState(null);
   const [posting, setPosting] = useState(null);
+  const [repeating, setRepeating] = useState(false);
 
   const mayRecord = can("record");
   const mayCredit = can("adjust") || can("record");
@@ -121,11 +123,16 @@ export default function Invoices() {
         title="Invoices"
         description="What customers owe you."
         actions={
-          mayRecord && (
-            <Button variant="accent" onClick={() => { setRaiseKey((k) => k + 1); setRaising(true); }}>
-              <Plus size={16} /> New invoice
+          <>
+            <Button variant="outline" onClick={() => setRepeating(true)}>
+              Repeat billing
             </Button>
-          )
+            {mayRecord && (
+              <Button variant="accent" onClick={() => { setRaiseKey((k) => k + 1); setRaising(true); }}>
+                <Plus size={16} /> New invoice
+              </Button>
+            )}
+          </>
         }
       />
 
@@ -318,6 +325,7 @@ export default function Invoices() {
         what={discarding ? `draft ${discarding.invoiceNo}` : "this draft"}
         amount={discarding ? discarding.gross : null}
       />
+      {repeating && <RepeatBilling onClose={() => setRepeating(false)} />}
     </div>
   );
 }
