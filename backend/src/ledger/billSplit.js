@@ -150,6 +150,8 @@ async function entryParts(client, { companyId, userId, bill, expenseAccountId })
            VALUES ($1,$2,$3,'bought',$4,$5,$6,$7,$8)`,
           [companyId, p.itemId, date, stock.unitsText(p.units), p.value.toString(), entryId, bill.id, userId]
         );
+        // Dated before sales already costed: those sales are re-costed.
+        await stock.recost(client, { companyId, userId, itemId: p.itemId, since: date, why: `bill ${bill.bill_no || "without a number"}` });
       });
     } else if (p.kind === "cost") {
       lines.push({ accountId: p.accountId, debit: p.value, ...tags, memo: p.description || null });

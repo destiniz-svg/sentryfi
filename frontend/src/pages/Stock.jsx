@@ -353,7 +353,7 @@ function Opening({ item, onClose, onDone }) {
   );
 }
 
-const KIND = { bought: "Bought", sold: "Sold", counted: "Counted", opening: "Already had", undone: "Bill reversed", landed: "Landing costs", returned: "Came back" };
+const KIND = { bought: "Bought", sold: "Sold", counted: "Counted", opening: "Already had", undone: "Bill reversed", landed: "Landing costs", returned: "Came back", recosted: "Re-costed" };
 
 function History({ item, onClose }) {
   const { companyId, can } = useCompany();
@@ -397,7 +397,7 @@ function History({ item, onClose }) {
             <li key={k} className="py-2.5 px-1 flex items-baseline gap-3">
               <div className="min-w-0 flex-1">
                 <div className="text-[14px]">
-                  {KIND[m.kind]} {m.quantity.replace("-", "")} {item.unit}
+                  {KIND[m.kind]}{m.quantity === "0" ? "" : ` ${m.quantity.replace("-", "")} ${item.unit}`}
                   {m.document ? ` · ${m.document}` : ""}
                 </div>
                 <div className="text-[12px] text-[var(--ink-muted)]">

@@ -11,10 +11,9 @@
  * means a delivery was never recorded, and the answer is to record it (or
  * count), not to let the value go strange.
  *
- * ponytail: cost is worked out in the order things are posted. A bill dated
- * before a sale but posted after it does not go back and change that sale's
- * cost; the average simply moves from then on. Recalculating history is a
- * later refinement if an accountant asks for it.
+ * Cost is worked out in the order things are posted. A bill dated before
+ * sales already costed re-costs them (recost below): one correction, dated
+ * the day it is found, so closed months are never reopened.
  */
 const { postEntry, assumeIdentity } = require("./post");
 const { toLaari, formatLaari } = require("./money");
@@ -180,6 +179,9 @@ async function returnable(client, { companyId, invoiceId }) {
 }
 
 /**
+ * ponytail: a sale re-costed later (recost) still returns at its first cost;
+ * the difference is small and the next count settles it.
+ *
  * Goods coming back on a credit note go back into stock at exactly what they
  * left at on that invoice (its share of it, for part), so the average is as if
  * they never went. Their share of the sale comes off the item's sales too.
@@ -215,6 +217,50 @@ async function returnCost(client, { companyId, userId, invoice, returned = [] })
     for (const m of moves) await recordMove(client, { companyId, userId, ...m, on, kind: "returned", entryId, invoiceId: invoice.id, note });
   };
   return { entryLines, record };
+}
+
+/**
+ * An item's history replayed in date order, as if everything had been posted
+ * on its own date: goods in at what they cost, goods out at the average then.
+ * The difference from what the books hold is posted between stock and cost of
+ * sales today. Earlier corrections are left out of the replay and counted in
+ * what is held, so running it twice changes nothing.
+ */
+async function recost(client, { companyId, userId, itemId, since, why }) {
+  const { rows: later } = await client.query(
+    "SELECT 1 FROM stock_moves WHERE company_id = $1 AND item_id = $2 AND kind = 'sold' AND moved_on > $3 LIMIT 1",
+    [companyId, itemId, since]
+  );
+  if (!later.length) return null;
+  const held = await holding(client, { companyId, itemId });
+  const { rows } = await client.query(
+    "SELECT kind, quantity, value_laari FROM stock_moves WHERE company_id = $1 AND item_id = $2 AND kind <> 'recosted' ORDER BY moved_on, created_at",
+    [companyId, itemId]
+  );
+  let units = 0n;
+  let value = 0n;
+  for (const m of rows) {
+    const q = fromDb(m.quantity);
+    if (q < 0n && (m.kind === "sold" || m.kind === "counted")) {
+      if (-q > units) return null; // the dates do not replay cleanly; leave it as posted
+      value -= costOut({ units, value, item: held.item }, -q);
+    } else value += BigInt(m.value_laari);
+    units += q;
+  }
+  const change = value - held.value;
+  if (change === 0n) return null;
+  const stockAcc = await account(client, companyId, ACCOUNTS.stock);
+  const cogsAcc = await account(client, companyId, ACCOUNTS.cogs);
+  const size = change < 0n ? -change : change;
+  const memo = `${held.item.name} re-costed after ${why}`;
+  const entry = await postEntry(client, {
+    companyId, userId, date: new Date(), source: "adjustment", narrative: memo,
+    lines: change < 0n
+      ? [{ accountId: cogsAcc, debit: size, memo }, { accountId: stockAcc, credit: size, memo }]
+      : [{ accountId: stockAcc, debit: size, memo }, { accountId: cogsAcc, credit: size, memo }],
+  });
+  await recordMove(client, { companyId, userId, itemId, on: new Date(), kind: "recosted", units: 0n, value: change, entryId: entry.id, note: memo });
+  return { change, entry };
 }
 
 // ------------------------------------------------------------------ counts and opening
@@ -280,7 +326,7 @@ async function list(client, { companyId }) {
             COALESCE(SUM(m.quantity), 0) AS on_hand,
             COALESCE(SUM(m.value_laari), 0) AS value,
             COALESCE(SUM(m.sale_net_laari) FILTER (WHERE m.kind IN ('sold','returned')), 0) AS sales,
-            COALESCE(-SUM(m.value_laari) FILTER (WHERE m.kind IN ('sold','returned')), 0) AS cost_of_sales,
+            COALESCE(-SUM(m.value_laari) FILTER (WHERE m.kind IN ('sold','returned','recosted')), 0) AS cost_of_sales,
             COALESCE(-SUM(m.quantity) FILTER (WHERE m.kind IN ('sold','returned')), 0) AS sold
        FROM stock_items i LEFT JOIN stock_moves m ON m.item_id = i.id AND m.company_id = i.company_id
       WHERE i.company_id = $1
@@ -336,4 +382,4 @@ async function history(client, { companyId, itemId }) {
   }));
 }
 
-module.exports = { ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, count, opening, list, history };
+module.exports = { ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history };

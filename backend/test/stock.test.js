@@ -32,15 +32,15 @@ async function aShop(client) {
   shop.item = async (name, unit = "bag") =>
     (await client.query("INSERT INTO stock_items (company_id, name, unit, created_by) VALUES ($1,$2,$3,$4) RETURNING id", [companyId, name, unit, userId])).rows[0].id;
   let billNo = 0;
-  shop.buy = async (lines, { net, fx } = {}) => {
+  shop.buy = async (lines, { net, fx, on = "2026-09-10" } = {}) => {
     billNo += 1;
     const n = BigInt(net ?? lines.reduce((s, l) => s + Math.round(Number(l.amount) * 100), 0));
     const { rows } = await client.query(
       `INSERT INTO bills (company_id, counterparty_id, bill_no, issue_date, net_laari, tax_laari, gross_laari, gst_treatment, status,
                           currency, fx_rate, fc_net, fc_tax, fc_gross)
-       VALUES ($1,$2,$3,'2026-09-10',$4,0,$4,'none_unregistered','draft',$5,$6,$7,$8,$7)
+       VALUES ($1,$2,$3,$9,$4,0,$4,'none_unregistered','draft',$5,$6,$7,$8,$7)
        RETURNING id`,
-      [companyId, shop.supplier, `B-${billNo}`, fx ? fx.base : n.toString(), fx ? "USD" : "MVR", fx ? fx.rate : null, fx ? n.toString() : null, fx ? "0" : null]
+      [companyId, shop.supplier, `B-${billNo}`, fx ? fx.base : n.toString(), fx ? "USD" : "MVR", fx ? fx.rate : null, fx ? n.toString() : null, fx ? "0" : null, on]
     );
     await stock.setBillStock(client, { companyId, userId, billId: rows[0].id, lines });
     const done = await postBill(client, {
@@ -225,7 +225,7 @@ describe("goods coming back on a credit note", () => {
       const { invoice } = await raise(client, { companyId, userId, counterpartyId: shop.customer, gstTreatment: "none_unregistered", issueDate: "2026-09-20", lines: [{ itemId: cement, quantity: 4, unitPrice: "200.00" }] });
       await post(client, { companyId, userId, invoiceId: invoice.id });
       // The average moves after the sale; the returned bags come back at 100, not the new average.
-      await shop.buy([{ itemId: cement, quantity: "10", amount: "1300.00" }]);
+      await shop.buy([{ itemId: cement, quantity: "10", amount: "1300.00" }], { on: "2026-09-21" });
 
       await creditNote(client, { companyId, userId, invoiceId: invoice.id, reason: "Three bags came back", amount: "600.00", issueDate: "2026-09-22", returned: [{ itemId: cement, quantity: "3" }] });
       const held = await shop.held(cement);
@@ -239,5 +239,23 @@ describe("goods coming back on a credit note", () => {
       await expect(creditNote(client, { companyId, userId, invoiceId: invoice.id, reason: "More", amount: "100.00", returned: [{ itemId: cement, quantity: "2" }] })).rejects.toThrow(/sold 1 bag of Cement still out/);
       await expect(creditNote(client, { companyId, userId, invoiceId: invoice.id, reason: "Sand", amount: "100.00", returned: [{ itemId: sand, quantity: "1" }] })).rejects.toThrow(/sold none of that item/);
       expect((await verifyChain(client, { companyId, userId })).ok).toBe(true);
+    }));
+});
+
+describe("a bill dated before sales already costed", () => {
+  it("re-costs those sales once, today, as if it had been posted on its own date", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const cement = await shop.item("Cement");
+      await shop.buy([{ itemId: cement, quantity: "10", amount: "1000.00" }]); // dated 10 Sep
+      await shop.sell([{ itemId: cement, quantity: 5, unitPrice: "200.00" }]); // 20 Sep, costed at 100
+      expect((await shop.held(cement)).costOfSales).toBe("500.00");
+      // Also dated 10 Sep, posted later: the sale should have cost the average of 115.
+      await shop.buy([{ itemId: cement, quantity: "10", amount: "1300.00" }]);
+      const held = await shop.held(cement);
+      expect([held.onHand, held.value, held.costOfSales]).toEqual(["15", "1,725.00", "575.00"]);
+      await shop.tied();
+      expect(await stock.recost(client, { companyId: shop.companyId, userId: shop.userId, itemId: cement, since: "2026-09-10", why: "again" })).toBeNull();
+      expect((await verifyChain(client, { companyId: shop.companyId, userId: shop.userId })).ok).toBe(true);
     }));
 });
