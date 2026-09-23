@@ -700,6 +700,13 @@ a.underline:hover { color: var(--deep-strong); }
 [dir="rtl"] body {
   font-family: "Noto Sans Thaana", var(--font-sans);
 }
+/* Each run of words takes its direction from its own first letter: Thaana
+   reads right to left, anything still in English reads left to right with
+   its full stop where it belongs. The layout stays mirrored; only the words
+   inside each box find their own way. */
+[dir="rtl"] body * {
+  unicode-bidi: plaintext;
+}
 [dir="rtl"] .tabular,
 [dir="rtl"] [class*="tabular"],
 [dir="rtl"] input[inputmode="decimal"],
