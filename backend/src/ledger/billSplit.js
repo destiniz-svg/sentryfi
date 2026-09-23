@@ -178,6 +178,11 @@ async function entryParts(client, { companyId, userId, bill, expenseAccountId })
       });
     }
   }
+  // A bill against a commitment is that commitment's kind of cost.
+  if (rest > 0n && bill.commitment_id) {
+    const { rows: c } = await client.query("SELECT account_id FROM project_commitments WHERE id = $1 AND company_id = $2", [bill.commitment_id, companyId]);
+    if (c[0]) expenseAccountId = c[0].account_id;
+  }
   if (rest > 0n) lines.push({ accountId: expenseAccountId, debit: rest, ...tags, memo: bill.bill_no ? `Bill ${bill.bill_no}` : null});
   return { lines, split: parts.length > 0, record: async (entryId) => { for (const f of after) await f(entryId); } };
 }

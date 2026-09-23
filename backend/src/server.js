@@ -105,6 +105,7 @@ app.use("/api/loans", require("./routes/loans"));
 app.use("/api/dimensions", require("./routes/dimensions"));
 app.use("/api/stock", require("./routes/stock"));
 app.use("/api/shipments", require("./routes/shipments"));
+app.use("/api/projects", require("./routes/projects"));
 app.use("/api/statements", statementsRouter);
 app.use("/api/tax", taxRouter);
 app.use("/api/gst", gstRouter);

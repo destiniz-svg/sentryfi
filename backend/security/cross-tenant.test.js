@@ -614,6 +614,40 @@ describe("A's shipments, from B", () => {
   });
 });
 
+describe("A's projects, from B", () => {
+  let projA;
+  let claimA;
+  let commitA;
+  beforeAll(async () => {
+    projA = (await call(A, "POST", "/projects", { body: { name: "SECRET-PROJECT-A" } })).json.id;
+    const cust = (await call(A, "POST", "/sales", { body: { customerName: "SECRET-CLIENT-A", gstTreatment: "none_unregistered", lines: [{ description: "x", amount: "1" }] } }));
+    const inv = await call(A, "GET", "/sales");
+    const customerId = (inv.json.invoices || inv.json.sales || []).map((x) => x.counterpartyId || x.counterparty_id).find(Boolean);
+    expect((await call(A, "PUT", `/projects/${projA}/contract`, { body: { counterpartyId: customerId, contract: "100000", retentionPct: 10 } })).status).toBe(200);
+    commitA = (await call(A, "POST", `/projects/${projA}/commitments`, { body: { description: "SECRET-ORDER-A", accountId: A.accounts["5100"], amount: "500" } })).json.id;
+    claimA = (await call(A, "POST", `/projects/${projA}/claims`, { body: { periodTo: "2026-09-30", claimedToDate: "1000" } })).json.id;
+    expect(cust.status).toBe(201);
+  });
+
+  it("B cannot see, change, claim, certify, release or read the entries of A's project", async () => {
+    noLeak(await call(B, "GET", "/projects"), "SECRET-PROJECT-A");
+    denied(await call(B, "GET", `/projects/${projA}`));
+    denied(await call(B, "PUT", `/projects/${projA}/contract`, { body: { contract: "1" } }));
+    denied(await call(B, "PUT", `/projects/${projA}/budget`, { body: { lines: [] } }));
+    denied(await call(B, "POST", `/projects/${projA}/commitments`, { body: { description: "x", accountId: B.accounts["5100"], amount: "1" } }));
+    denied(await call(B, "POST", `/projects/${projA}/claims`, { body: { periodTo: "2026-09-30", claimedToDate: "1" } }));
+    denied(await call(B, "POST", `/projects/${projA}/claims/${claimA}/certify`, { body: { certifiedToDate: "1000", on: "2026-09-30" } }));
+    denied(await call(B, "POST", `/projects/${projA}/retention`, { body: { amount: "1", on: "2026-09-30" } }));
+    const e = await call(B, "GET", `/projects/${projA}/entries?figure=spent`);
+    expect(e.json?.entries || []).toEqual([]);
+    const projB = (await call(B, "POST", "/projects", { body: { name: "B project" } })).json.id;
+    denied(await call(B, "PUT", `/projects/${projB}/commitments/${commitA}/bills/${A.billId}`));
+    denied(await call(B, "PUT", `/projects/${projB}/budget`, { body: { lines: [{ accountId: A.accounts["5100"], amount: "1" }] } }));
+    const mine = await call(A, "GET", `/projects/${projA}`);
+    expect(mine.json).toMatchObject({ name: "SECRET-PROJECT-A", contract: "100,000.00", certified: "0.00" });
+  });
+});
+
 describe("confirming an email address", () => {
   const jwt = req("jsonwebtoken");
   const secret = process.env.JWT_SECRET;

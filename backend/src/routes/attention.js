@@ -206,6 +206,20 @@ router.get(
         });
       }
 
+      // A project whose spent and committed cost has gone past its budget:
+      //    the margin is going, and the sooner someone knows the more of it
+      //    can be saved.
+      for (const p of await require("../ledger/projects").list(client, { companyId: req.companyId })) {
+        if (!p.overBudget.length) continue;
+        found.push({
+          kind: "money_at_risk",
+          title: `${p.name} is over budget on ${p.overBudget.join(" and ")}`,
+          detail: `Spent and committed go past the budget. Forecast margin: ${p.forecastMargin === null ? "no contract value yet" : `MVR ${p.forecastMargin}`}.`,
+          does: "Open the project",
+          href: `/projects/${p.id}`,
+        });
+      }
+
       // 0. The books are backed up and proven to restore, or somebody who can
       //    fix it is told. Silence from a backup job is how nobody notices it
       //    stopped months ago.
