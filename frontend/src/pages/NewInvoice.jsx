@@ -496,26 +496,19 @@ export default function NewInvoice() {
             <legend className="text-sm font-medium text-[var(--ink)] mb-2">
               Lines
             </legend>
-            <div className="hidden sm:grid grid-cols-[1fr_72px_72px_110px_110px_44px] gap-2 px-1 pb-1.5 text-[12px] uppercase tracking-wider font-semibold text-[var(--ink-muted)]">
-              <span>What</span>
-              <span className="text-right">Qty</span>
-              <span>Unit</span>
-              <span className="text-right">Rate</span>
-              <span className="text-right">Amount</span>
-              <span />
-            </div>
             <div className="space-y-2">
               {priced.map((line, i) => (
+                // Two rows at any width: what it is, then how many at what rate.
                 <div
                   key={i}
-                  className="grid grid-cols-[1fr_72px_72px] sm:grid-cols-[1fr_72px_72px_110px_110px_44px] gap-2 items-center"
+                  className="grid grid-cols-[64px_72px_minmax(0,1fr)_minmax(0,1fr)_40px] gap-2 items-center rounded-xl border border-[var(--border)] p-2"
                 >
                   {forSale.length > 0 && (
                     <select
                       aria-label={`Line ${i + 1}: from stock`}
                       value={line.itemId}
                       onChange={pickItem(i)}
-                      className={`${FIELD} col-span-3 sm:col-span-6 h-10 text-[14px]`}
+                      className={`${FIELD} col-span-5 h-10 text-[14px]`}
                     >
                       <option value="">Not from stock</option>
                       {forSale.map((it) => (
@@ -530,13 +523,14 @@ export default function NewInvoice() {
                     value={line.description}
                     onChange={setLine(i, "description")}
                     placeholder="Excavator rental, Komatsu PC 56-7"
-                    className={`${FIELD} col-span-3 sm:col-span-1`}
+                    className={`${FIELD} col-span-5`}
                   />
                   <input
                     aria-label={`Line ${i + 1}: quantity`}
                     value={line.quantity}
                     onChange={setLine(i, "quantity")}
                     inputMode="decimal"
+                    placeholder="Qty"
                     className={`${FIELD} tabular text-right px-3`}
                   />
                   <input
