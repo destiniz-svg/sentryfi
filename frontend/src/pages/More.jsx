@@ -56,6 +56,7 @@ export default function More() {
         title="The books"
         rows={[
           { name: "Statements", to: "/statements" },
+          { name: "Projects", to: "/projects" },
           { name: "Stock", to: "/stock" },
           { name: "Shipments", to: "/shipments" },
           { name: "Fixed assets", to: "/assets" },
