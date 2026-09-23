@@ -133,7 +133,7 @@ const api = (page, method, url, body) =>
     // Two bags come back on a credit note, at the 115.00 they left at.
     await page.goto(BASE + "/invoices", { waitUntil: "networkidle" });
     const creditBtn = page.getByRole("button", { name: "Credit note" });
-    await page.locator("div").filter({ hasText: `Check stock customer ${tag}` }).filter({ has: creditBtn }).last().getByRole("button", { name: "Credit note" }).click();
+    await page.locator("div").filter({ hasText: inv.json.invoice.invoice_no || inv.json.invoice.invoiceNo }).filter({ has: creditBtn }).last().getByRole("button", { name: "Credit note" }).click();
     await page.fill("#credit-amount", "300");
     await page.fill("#credit-reason", "Two bags came back");
     await page.getByLabel(`${name} coming back`).fill("2");
