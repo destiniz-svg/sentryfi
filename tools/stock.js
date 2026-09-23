@@ -61,10 +61,17 @@ const api = (page, method, url, body) =>
     if (/1,000\.00/.test(await row().innerText())) ok("ten already on hand at 100.00: worth 1,000.00");
     else bad(`after opening stock the row reads: ${(await row().innerText()).replace(/\s+/g, " ")}`);
 
-    const bill = await api(page, "POST", "/bills", { supplierName: supplier, amount: "1300.00", gstTreatment: "none_unregistered", issueDate: today() });
+    // Drafts a failed run left behind are voided, so they cannot be mistaken for this one.
+    for (const b of (await api(page, "GET", "/bills")).json.bills) {
+      if ((/^STK-/.test(b.bill_no || "") || /^Check stock supplier/.test(b.supplier_name || "")) && b.status !== "posted" && !b.voided_at) await api(page, "DELETE", `/bills/${b.id}`, { reason: "left by a failed stock check" });
+    }
+    const billNo = `STK-${tag}`;
+    const bill = await api(page, "POST", "/bills", { supplierName: supplier, billNo, amount: "1300.00", gstTreatment: "none_unregistered", issueDate: today() });
     if (bill.status !== 201) throw new Error(`the bill was not recorded: ${JSON.stringify(bill.json)}`);
+    // A close supplier name is filed under the one already known, so the row is found by its bill number.
     await page.goto(BASE + "/bills", { waitUntil: "networkidle" });
-    await page.getByRole("button", { name: `Stock on the bill from ${supplier}` }).click();
+    const billRow = page.locator("div.group", { hasText: billNo }).first();
+    await billRow.getByRole("button", { name: /^stock on the bill/i }).click();
     await page.getByLabel("Item").selectOption({ label: name });
     await page.getByLabel("How many").fill("10");
     await page.getByRole("button", { name: /all of it is this item/i }).click();
@@ -73,7 +80,6 @@ const api = (page, method, url, body) =>
     else bad(`the Stock dialog says: ${said}`);
     await page.getByRole("button", { name: /^save$/i }).click();
     await page.getByLabel("How many").waitFor({ state: "detached", timeout: 15000 });
-    const billRow = page.locator("div.group", { hasText: supplier }).first();
     await billRow.getByRole("button", { name: /put in the books/i }).click();
     await page.getByText(/Entry \d+ · MVR 1,300\.00/).waitFor({ timeout: 15000 });
     ok("the bill is in the books");
