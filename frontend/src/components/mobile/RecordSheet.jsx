@@ -21,7 +21,7 @@ export function RecordSheet({ open, onClose, onBill }) {
   const rows = [
     can("record") && { icon: Camera, name: "Photograph a bill", sub: "Read, checked by you, recorded", run: () => (onClose(), onBill()), first: true },
     can("record") && { icon: Mic, name: "Say it", sub: "In Dhivehi or English", run: () => (onClose(), onBill()) },
-    can("record") && { icon: FileText, name: "Raise an invoice", sub: "To a customer, with GST added", run: () => go("/invoices?new=1") },
+    can("record") && { icon: FileText, name: "Raise an invoice", sub: "To a customer, with GST added", run: () => go("/invoices/new") },
     (can("approve") || can("adjust")) && { icon: ArrowLeftRight, name: "Move money", sub: "Between banks, tins and currencies", run: () => go("/bank?move=1") },
     (can("approve") || can("adjust")) && { icon: Wallet, name: "Give cash to a tin", sub: "Held until the holder confirms", run: () => go("/bank") },
   ].filter(Boolean);

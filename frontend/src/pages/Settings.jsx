@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Sun, Moon, Check, Upload, Building2, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { Sun, Moon, Check } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -9,8 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useToast } from "@/context/UIContext";
 import { authApi } from "@/api/auth";
-import { useSettings, useUpdateSettings } from "@/hooks/useSettings";
-import { CURRENCIES, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { TaxSection } from "@/components/settings/TaxSection";
 import { CompaniesSection } from "@/components/settings/CompaniesSection";
 import { PeopleSection } from "@/components/settings/PeopleSection";
@@ -18,6 +17,7 @@ import { BackupsSection } from "@/components/settings/BackupsSection";
 import { TrackingSection } from "@/components/settings/TrackingSection";
 import { DevicesSection } from "@/components/settings/DevicesSection";
 import { useCompany } from "@/context/CompanyContext";
+import { Link } from "react-router-dom";
 
 function FieldLabel({ children, htmlFor }) {
   return (
@@ -30,162 +30,18 @@ function FieldLabel({ children, htmlFor }) {
   );
 }
 
+/** The company's look and details on paper now live in one place, with the paper beside them. */
 function CompanySection() {
-  const { data: settings } = useSettings();
-  const update = useUpdateSettings();
-  const toast = useToast();
-  const fileRef = useRef(null);
-  const [form, setForm] = useState(null);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (settings && !form) {
-      setForm({
-        company_name: settings.company_name || "",
-        email: settings.email || "",
-        phone: settings.phone || "",
-        address: settings.address || "",
-        logo_url: settings.logo_url || "",
-        currency: settings.currency || "MVR",
-        tax_rate: Number(settings.tax_rate) || 0,
-        invoice_prefix: settings.invoice_prefix || "INV-",
-      });
-    }
-  }, [settings, form]);
-
-  if (!form) {
-    return (
-      <div className="flex items-center py-16 justify-center text-[var(--ink-muted)]">
-        <Loader2 className="animate-spin" size={18} />
-      </div>
-    );
-  }
-
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-
-  function onLogoPick(e) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    if (file.size > 400_000) {
-      toast.error("Logo too large", "Please use an image under 400KB.");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => setForm((f) => ({ ...f, logo_url: reader.result }));
-    reader.readAsDataURL(file);
-  }
-
-  async function onSave(e) {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await update.mutateAsync({ ...form, tax_rate: Number(form.tax_rate) || 0 });
-      toast.success("Company settings saved");
-    } catch (err) {
-      toast.error("Couldn't save settings", err?.message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const selectClass =
-    "h-11 w-full rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-sm text-[var(--ink)] outline-none focus:border-[var(--ink)] focus:ring-[3px] focus:ring-[var(--ink)]";
-
   return (
-    <form onSubmit={onSave} className="space-y-5 max-w-2xl">
-      <Card padding="lg">
-        <CardHeader>
-          <div>
-            <CardTitle className="text-base">Company profile</CardTitle>
-            <CardDescription className="mt-1">
-              This appears on every invoice and PDF you send.
-            </CardDescription>
-          </div>
-        </CardHeader>
-
-        <div className="flex items-center gap-4 mb-5">
-          <div className="h-16 w-16 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] flex items-center justify-center overflow-hidden shrink-0">
-            {form.logo_url ? (
-              <img src={form.logo_url} alt="logo" className="h-full w-full object-contain" />
-            ) : (
-              <Building2 size={22} className="text-[var(--ink-muted)]" />
-            )}
-          </div>
-          <div>
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onLogoPick} />
-            <Button type="button" variant="outline" onClick={() => fileRef.current?.click()}>
-              <Upload size={14} /> Upload logo
-            </Button>
-            {form.logo_url && (
-              <button
-                type="button"
-                onClick={() => setForm((f) => ({ ...f, logo_url: "" }))}
-                className="ml-2 inline-flex items-center min-h-[44px] px-2 text-[13px] text-[var(--danger)] font-semibold"
-              >
-                Remove
-              </button>
-            )}
-            <p className="text-[13px] text-[var(--ink-muted)] mt-1.5">PNG or SVG, under 400KB.</p>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <FieldLabel htmlFor="set-company-name">Company name</FieldLabel>
-            <Input id="set-company-name" value={form.company_name} onChange={set("company_name")} placeholder="Your Company LLC" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <FieldLabel htmlFor="set-billing-email">Billing email</FieldLabel>
-              <Input id="set-billing-email" type="email" value={form.email} onChange={set("email")} placeholder="billing@you.com" />
-            </div>
-            <div>
-              <FieldLabel htmlFor="set-phone">Phone</FieldLabel>
-              <Input id="set-phone" value={form.phone} onChange={set("phone")} placeholder="+1 (555) 000-0000" />
-            </div>
-          </div>
-          <div>
-            <FieldLabel htmlFor="set-address">Address</FieldLabel>
-            <Input id="set-address" value={form.address} onChange={set("address")} placeholder="123 Main St, City, State" />
-          </div>
-        </div>
-      </Card>
-
-      <Card padding="lg">
-        <CardHeader>
-          <div>
-            <CardTitle className="text-base">Invoicing defaults</CardTitle>
-            <CardDescription className="mt-1">
-              Applied automatically to each new invoice.
-            </CardDescription>
-          </div>
-        </CardHeader>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <FieldLabel htmlFor="set-default-currency">Default currency</FieldLabel>
-            <select id="set-default-currency" className={selectClass} value={form.currency} onChange={set("currency")}>
-              {CURRENCIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.code}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <FieldLabel htmlFor="set-invoice-prefix">Invoice # prefix</FieldLabel>
-            <Input id="set-invoice-prefix" value={form.invoice_prefix} onChange={set("invoice_prefix")} placeholder="INV-" />
-          </div>
-        </div>
-      </Card>
-
-      <div className="flex justify-end">
-        <Button type="submit" variant="accent" disabled={saving}>
-          {saving && <Loader2 size={14} className="animate-spin" />}
-          Save company settings
-        </Button>
-      </div>
-    </form>
+    <Card padding="lg" className="max-w-2xl">
+      <CardTitle className="text-base">Company profile and branding</CardTitle>
+      <CardDescription className="mt-1">
+        Your logo, colour, address, stamp, signature and how to pay you are set in Branding and documents, with the invoice drawn beside them as you change them.
+      </CardDescription>
+      <Link to="/branding" className="inline-flex items-center h-10 px-4 mt-4 rounded-full bg-[var(--ink)] text-[var(--surface)] text-[14px] font-semibold">
+        Open Branding and documents
+      </Link>
+    </Card>
   );
 }
 

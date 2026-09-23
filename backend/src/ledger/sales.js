@@ -364,6 +364,9 @@ async function post(client, { companyId, userId, invoiceId }) {
     [entry.id, invoiceId, companyId]
   );
 
+  // What the customer was sent, kept as it was: a later template change never reaches it.
+  await require("./documents").keepCopy(client, { companyId, userId, kind: "invoice", documentId: invoiceId });
+
   return { entry, invoice };
 }
 

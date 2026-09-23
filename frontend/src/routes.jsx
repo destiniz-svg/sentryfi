@@ -72,6 +72,9 @@ const Orders = lazy(() => import("@/pages/Orders"));
 const Order = lazy(() => import("@/pages/Order"));
 const Claims = lazy(() => import("@/pages/Claims"));
 const Cfo = lazy(() => import("@/pages/Cfo"));
+const Branding = lazy(() => import("@/pages/Branding"));
+const NewInvoice = lazy(() => import("@/pages/NewInvoice"));
+const Document = lazy(() => import("@/pages/Document"));
 const Approvals = lazy(() => import("@/pages/Approvals"));
 const Payments = lazy(() => import("@/pages/Payments"));
 const Loans = lazy(() => import("@/pages/Loans"));
@@ -170,12 +173,15 @@ export const router = createBrowserRouter([
       { path: "orders/:id", element: <Order /> },
       { path: "claims", element: <Claims /> },
       { path: "cfo", element: <Cfo /> },
+      { path: "branding", element: <Branding /> },
+      { path: "documents/:kind/:id", element: <Document /> },
       { path: "approvals", element: <Approvals /> },
       { path: "payments", element: <Payments /> },
       { path: "loans", element: <Loans /> },
       { path: "figures", element: <Figures /> },
       // Still on the purchased product's tables. See config/readiness.js.
       { path: "invoices", element: <Invoices /> },
+      { path: "invoices/new", element: <NewInvoice /> },
       { path: "bank", element: <Bank /> },
       { path: "closing", element: <Closing /> },
       { path: "statements", element: <Statements /> },

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Plus, FileText, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -9,7 +9,6 @@ import { Money } from "@/components/ui/Money";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { VoidDialog } from "@/components/ui/VoidDialog";
-import { RaiseInvoice } from "@/components/sales/RaiseInvoice";
 import { RepeatBilling } from "@/components/sales/RepeatBilling";
 import { CustomerLinks } from "@/components/sales/CustomerLinks";
 import { ReceiveMoney, CreditInvoice } from "@/components/sales/SettleInvoice";
@@ -76,16 +75,11 @@ export default function Invoices() {
   const toast = useToast();
 
   const [tab, setTab] = useState("all");
-  const [raising, setRaising] = useState(false);
-  // A new key each time the editor opens, so it mounts fresh.
-  const [raiseKey, setRaiseKey] = useState(0);
-  const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
   useEffect(() => {
-    if (params.get("new") !== "1") return;
-    setRaiseKey((k) => k + 1);
-    setRaising(true);
-    setParams({}, { replace: true });
-  }, [params, setParams]);
+    if (params.get("new") === "1") navigate("/invoices/new", { replace: true });
+  }, [params, navigate]);
   const [receiving, setReceiving] = useState(null);
   const [crediting, setCrediting] = useState(null);
   const [posting, setPosting] = useState(null);
@@ -135,7 +129,7 @@ export default function Invoices() {
               Repeat billing
             </Button>
             {mayRecord && (
-              <Button variant="accent" onClick={() => { setRaiseKey((k) => k + 1); setRaising(true); }}>
+              <Button variant="accent" onClick={() => navigate("/invoices/new")}>
                 <Plus size={16} /> New invoice
               </Button>
             )}
@@ -217,7 +211,7 @@ export default function Invoices() {
           }
           action={
             mayRecord && (
-              <Button variant="outline" onClick={() => { setRaiseKey((k) => k + 1); setRaising(true); }}>
+              <Button variant="outline" onClick={() => navigate("/invoices/new")}>
                 <Plus size={16} /> New invoice
               </Button>
             )
@@ -258,7 +252,9 @@ export default function Invoices() {
                   </div>
                 </div>
 
-                <div className="text-sm tabular text-[var(--ink)]">{inv.invoiceNo}</div>
+                <Link to={`/documents/invoice/${inv.id}`} className="text-sm tabular text-[var(--ink)] underline decoration-[var(--border)] underline-offset-4 hover:decoration-[var(--ink)]">
+                  {inv.invoiceNo}
+                </Link>
 
                 <div className="text-sm tabular text-[var(--ink-muted)] hidden md:block">
                   {inv.dueDate ? formatDate(inv.dueDate) : "—"}
@@ -316,7 +312,6 @@ export default function Invoices() {
         </Card>
       )}
 
-      <RaiseInvoice key={raiseKey} open={raising} onClose={() => setRaising(false)} />
       <ReceiveMoney key={receiving?.id || "none"} invoice={receiving} onClose={() => setReceiving(null)} />
       <CreditInvoice key={crediting?.id || "none"} invoice={crediting} onClose={() => setCrediting(null)} />
 

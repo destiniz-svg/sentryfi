@@ -79,6 +79,7 @@ export default function More() {
           { name: "Cash tins", to: "/bank" },
           { name: "Loans", to: "/loans" },
           user?.platformAdmin && { name: "Backups", to: "/settings?tab=backups" },
+          { name: "Branding and documents", to: "/branding" },
           { name: "Settings", to: "/settings", side: company?.name },
         ]}
       />

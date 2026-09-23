@@ -741,6 +741,38 @@ describe("the customer portal", () => {
   });
 });
 
+describe("documents, from B", () => {
+  it("B cannot draw A's invoice, see A's brand, or change A's template", async () => {
+    const a = await call(A, "GET", `/documents/invoice/${A.invoiceId}`);
+    expect(a.status).toBe(200);
+    expect(a.text).toContain("SECRET-CUSTOMER-A");
+    expect(a.json.issuedCopy).toBeTruthy();
+    const b = await call(B, "GET", `/documents/invoice/${A.invoiceId}`);
+    expect(b.status).toBe(404);
+    noLeak(b, "SECRET-CUSTOMER-A", "555.55");
+    expect((await call(A, "PUT", "/documents/brand", { body: { tagline: "SECRET-BRAND-A" } })).status).toBe(200);
+    noLeak(await call(B, "GET", "/documents/brand"), "SECRET-BRAND-A");
+    expect((await call(B, "PUT", "/documents/templates/invoice", { body: { template: { title: "B-TITLE" } } })).status).toBe(200);
+    expect((await call(A, "GET", "/documents/templates/invoice")).text).not.toContain("B-TITLE");
+  });
+
+  it("an issued copy cannot be changed or removed, even by the app role in its own company", async () => {
+    const c = await db.connect();
+    try {
+      await c.query("BEGIN");
+      await c.query("SET LOCAL ROLE sentryfi_app");
+      await expect(c.query("UPDATE document_copies SET body = '{}'")).rejects.toThrow(/permission denied/);
+      await c.query("ROLLBACK");
+      await c.query("BEGIN");
+      await c.query("SET LOCAL ROLE sentryfi_app");
+      await expect(c.query("DELETE FROM document_copies")).rejects.toThrow(/permission denied/);
+    } finally {
+      await c.query("ROLLBACK");
+      c.release();
+    }
+  });
+});
+
 describe("notifications and push, from B", () => {
   it("A hears that its customer opened their link; B hears nothing of it, and cannot mark it read", async () => {
     const a = await call(A, "GET", "/notifications");

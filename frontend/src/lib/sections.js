@@ -1,4 +1,4 @@
-import { Banknote, Boxes, Sunrise, CheckCheck, ClipboardList, FileText, HardHat, Ship, Gauge, HandCoins, Landmark, LayoutGrid, Lock, Package, Percent, ReceiptText, Scale, Upload, Wallet } from "lucide-react";
+import { Palette, Banknote, Boxes, Sunrise, CheckCheck, ClipboardList, FileText, HardHat, Ship, Gauge, HandCoins, Landmark, LayoutGrid, Lock, Package, Percent, ReceiptText, Scale, Upload, Wallet } from "lucide-react";
 
 /**
  * The desk's places, grouped the way an owner thinks about them (DESIGN.md,
@@ -38,6 +38,7 @@ export const SECTIONS = [
       { to: "/statements", icon: Scale, label: "Statements" },
       { to: "/tax", icon: Percent, label: "GST return" },
       { to: "/import", icon: Upload, label: "Bring history in", can: "manage_settings" },
+      { to: "/branding", icon: Palette, label: "Branding and documents" },
     ],
   },
 ];
