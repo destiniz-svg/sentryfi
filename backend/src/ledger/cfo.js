@@ -155,6 +155,8 @@ async function profile(client, { companyId, today }) {
   const { rows: notes } = await client.query("SELECT topic, note, written_at FROM cfo_notes WHERE company_id = $1 ORDER BY topic", [companyId]);
   const monthsOfBooks = (await one(client, "SELECT count(DISTINCT to_char(entry_date, 'YYYY-MM'))::int AS n FROM journal_entries WHERE company_id = $1", [companyId])).n;
 
+  // Suppliers as a share of everything billed (bills carry stock and assets too, not only costs).
+  const billed = big((await one(client, "SELECT COALESCE(SUM(net_laari), 0) AS v FROM bills WHERE company_id = $1 AND status = 'posted' AND voided_at IS NULL AND issue_date BETWEEN $2 AND $3", [companyId, from, today])).v);
   const monthly = months.map((m) => ({ month: m.m, revenue: big(m.v) }));
   const sorted = [...monthly].filter((m) => m.revenue > 0n).sort((a, b) => (b.revenue > a.revenue ? 1 : -1));
   return {
@@ -164,10 +166,11 @@ async function profile(client, { companyId, today }) {
     revenue: f(revenue),
     costs: f(spent),
     profit: f(revenue - spent),
-    grossMarginPercent: cogs > 0n ? pct(revenue - cogs, revenue) : null,
+    // Only where goods sold are a real part of the business: for a firm that sells its work, it says nothing.
+    grossMarginPercent: cogs > 0n && cogs * 20n >= revenue ? pct(revenue - cogs, revenue) : null,
     sells: income.slice(0, 5).map((r) => ({ name: r.name, value: f(r.value), share: pct(r.value, revenue) })),
     customers: customers.map((c) => ({ name: c.name, value: f(c.value), share: pct(c.value, revenue) })),
-    suppliers: suppliers.map((s) => ({ name: s.name, value: f(s.value), share: pct(s.value, spent) })),
+    suppliers: suppliers.map((s) => ({ name: s.name, value: f(s.value), share: pct(s.value, billed) })),
     costStructure: costs.slice(0, 8).map((c) => ({ accountId: c.id, name: c.name, value: f(c.value), share: pct(c.value, spent) })),
     busiest: sorted[0] ? { month: sorted[0].month, revenue: f(sorted[0].revenue) } : null,
     quietest: sorted.length > 1 ? { month: sorted[sorted.length - 1].month, revenue: f(sorted[sorted.length - 1].revenue) } : null,
@@ -405,7 +408,7 @@ async function brief(client, { companyId, today = todayHere(), fresh = false }) 
     marketQuiet: moved.length
       ? null
       : mk.length
-        ? `The rates you record have not moved this week (${mk.map((m) => m.text).join(" ")}).`
+        ? `The rates you record have not moved this week: ${mk.map((m) => m.text.replace(/.$/, "")).join("; ")}.`
         : "No market note yet: Sentryfi reads the rates you record, and outside prices (fuel, freight, MMA rates) come when their sources are chosen.",
     learned: lesson(p, today),
   };

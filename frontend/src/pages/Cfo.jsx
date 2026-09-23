@@ -182,7 +182,7 @@ export default function Cfo() {
         </div>
       </Card>
 
-      <div className="grid lg:grid-cols-2 gap-4">
+      <div className="grid gap-4">
         <Profile p={p} />
         <Settings data={data} />
       </div>
@@ -242,7 +242,7 @@ function Profile({ p }) {
         From {formatDate(p.from)} to {formatDate(p.to)}, {p.monthsOfBooks} {p.monthsOfBooks === 1 ? "month" : "months"} of books. Revenue MVR {p.revenue}, costs MVR {p.costs}
         {p.grossMarginPercent !== null ? `, ${p.grossMarginPercent}% over cost on what is sold` : ""}.
       </p>
-      <div className="grid sm:grid-cols-2 gap-5 mt-4">
+      <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5 mt-4">
         <div>
           <h3 className="text-[13px] font-semibold mb-1">What it sells</h3>
           <Rows list={p.sells} empty="Nothing sold yet." />
