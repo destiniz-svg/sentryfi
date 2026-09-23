@@ -115,13 +115,18 @@ export default function Stock() {
                   <div className="text-[14px] md:text-right tabular">
                     {i.onHand} <span className="text-[var(--ink-muted)]">{i.unit}</span>
                   </div>
-                  <div className="text-[14px] text-right text-[var(--ink-muted)]">{i.averageCost ? <Money amount={i.averageCost} /> : "—"}</div>
+                  <div className="text-[14px] text-right text-[var(--ink-muted)]">
+                    <span className="md:hidden text-[12px] mr-1.5">average</span>
+                    {i.averageCost ? <Money amount={i.averageCost} /> : "—"}
+                  </div>
                   <div className="text-[15px] font-semibold md:text-right">
+                    <span className="md:hidden text-[12px] font-normal text-[var(--ink-muted)] mr-1.5">worth</span>
                     <Money amount={i.value} />
                   </div>
                   <div className="text-[14px] text-right">
                     {n(i.sales) > 0 ? (
                       <>
+                        <span className="md:hidden text-[12px] text-[var(--ink-muted)] mr-1.5">earned</span>
                         <Money amount={i.margin} />
                         <span className="block text-[12px] text-[var(--ink-muted)]">{i.marginPercent}% of sales</span>
                       </>
