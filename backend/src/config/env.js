@@ -42,6 +42,10 @@ module.exports = {
   // A full-access key: Resend's sending-only keys cannot read received mail.
   resendReceivingKey: process.env.RESEND_RECEIVING_KEY || "",
   resendWebhookSecret: process.env.RESEND_WEBHOOK_SECRET || "",
+  // The CFO's written summary (ledger/cfo.js): optional; without it the brief is
+  // still whole, just not written up. A small model is enough for this job.
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
+  cfoModel: process.env.CFO_MODEL || "claude-haiku-4-5-20251001",
   publicUrl: (process.env.PUBLIC_URL || "https://sentryfi.app").replace(/\/$/, ""),
   isProd: process.env.NODE_ENV === "production",
 };

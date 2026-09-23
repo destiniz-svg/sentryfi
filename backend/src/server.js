@@ -110,6 +110,7 @@ app.use("/api/orders", require("./routes/orders"));
 app.use("/api/recurring", require("./routes/recurring"));
 app.use("/api", require("./routes/claims"));
 app.use("/api/portal", require("./routes/portal").publicRouter);
+app.use("/api/cfo", require("./routes/cfo"));
 app.use("/api/portal-links", require("./routes/portal"));
 app.use("/api/statements", statementsRouter);
 app.use("/api/tax", taxRouter);
@@ -161,6 +162,7 @@ async function start() {
       console.log(`Server listening on http://localhost:${env.port} (${env.nodeEnv})`);
       require("./backup").schedule();
       require("./routes/recurring").schedule();
+      require("./routes/cfo").schedule();
     });
   } catch (err) {
     console.error("Failed to start server:", err.message);

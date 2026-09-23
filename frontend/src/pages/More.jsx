@@ -55,6 +55,7 @@ export default function More() {
       <Group
         title="The books"
         rows={[
+          can("read") && { name: "The CFO: the morning brief", to: "/cfo" },
           { name: "Statements", to: "/statements" },
           { name: "Projects", to: "/projects" },
           { name: "Orders", to: "/orders" },

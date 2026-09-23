@@ -71,6 +71,7 @@ const Project = lazy(() => import("@/pages/Project"));
 const Orders = lazy(() => import("@/pages/Orders"));
 const Order = lazy(() => import("@/pages/Order"));
 const Claims = lazy(() => import("@/pages/Claims"));
+const Cfo = lazy(() => import("@/pages/Cfo"));
 const Approvals = lazy(() => import("@/pages/Approvals"));
 const Payments = lazy(() => import("@/pages/Payments"));
 const Loans = lazy(() => import("@/pages/Loans"));
@@ -168,6 +169,7 @@ export const router = createBrowserRouter([
       { path: "orders", element: <Orders /> },
       { path: "orders/:id", element: <Order /> },
       { path: "claims", element: <Claims /> },
+      { path: "cfo", element: <Cfo /> },
       { path: "approvals", element: <Approvals /> },
       { path: "payments", element: <Payments /> },
       { path: "loans", element: <Loans /> },

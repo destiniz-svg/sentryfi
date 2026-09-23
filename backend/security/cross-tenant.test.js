@@ -741,6 +741,17 @@ describe("the customer portal", () => {
   });
 });
 
+describe("the CFO, from B", () => {
+  it("B's brief, figures and profile are made from B's books alone", async () => {
+    const r = await call(B, "GET", "/cfo");
+    expect(r.status).toBe(200);
+    noLeak(r, "SECRET-SUPPLIER-A", "SECRET-CUSTOMER-A", "SECRET-TIN-A");
+    const a = await call(A, "GET", "/cfo");
+    expect(a.status).toBe(200);
+    expect(a.text).toContain("SECRET-CUSTOMER-A");
+  });
+});
+
 describe("confirming an email address", () => {
   const jwt = req("jsonwebtoken");
   const secret = process.env.JWT_SECRET;
