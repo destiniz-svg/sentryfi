@@ -2,7 +2,7 @@
  * Stock, end to end, live, in the test company.
  *
  * Adds an item and ten already on hand at 100.00, records a bill and says on
- * the bill (through its Stock dialog) that it brought in ten more at 130.00,
+ * the bill (through What it was for) that it brought in ten more at 130.00,
  * puts it in the books, and reads an average cost of 115.00. Checks an invoice
  * line offers the item and fills in its name and price, sells five through the
  * API, and reads what they earned over cost. Counts one short. Screenshots the
@@ -71,15 +71,17 @@ const api = (page, method, url, body) =>
     // A close supplier name is filed under the one already known, so the row is found by its bill number.
     await page.goto(BASE + "/bills", { waitUntil: "networkidle" });
     const billRow = page.locator("div.group", { hasText: billNo }).first();
-    await billRow.getByRole("button", { name: /^stock on the bill/i }).click();
-    await page.getByLabel("Item").selectOption({ label: name });
-    await page.getByLabel("How many").fill("10");
-    await page.getByRole("button", { name: /all of it is this item/i }).click();
-    const said = await page.getByTestId("bill-stock-rest").innerText();
-    if (/whole bill is stock/i.test(said)) ok("the Stock dialog says the whole bill is stock");
-    else bad(`the Stock dialog says: ${said}`);
+    await billRow.getByRole("button", { name: /^what the bill from .* was for$/i }).click();
+    const card = page.getByTestId("split-line").first();
+    await card.waitFor({ timeout: 15000 });
+    await card.getByRole("tab", { name: "Stock" }).click();
+    await card.getByLabel("Line 1: item").selectOption({ label: name });
+    await card.getByLabel("Line 1: how many").fill("10");
+    const said = await page.getByTestId("split-rest").innerText();
+    if (/every laari is accounted for/i.test(said)) ok("What it was for: the whole bill is ten bags of it");
+    else bad(`the dialog says: ${said}`);
     await page.getByRole("button", { name: /^save$/i }).click();
-    await page.getByLabel("How many").waitFor({ state: "detached", timeout: 15000 });
+    await page.getByText("Saved, and remembered").waitFor({ timeout: 15000 });
     await billRow.getByRole("button", { name: /put in the books/i }).click();
     await page.getByText(/Entry \d+ · MVR 1,300\.00/).waitFor({ timeout: 15000 });
     ok("the bill is in the books");

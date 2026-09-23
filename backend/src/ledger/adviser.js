@@ -30,10 +30,10 @@ const STOP = new Set([...MONTHS, "kg", "pcs", "pc", "nos", "no", "ltr", "ltrs", 
 // Words that say what a charge is, and the starting chart's account for it.
 const COST_WORDS = [
   [/\b(diesel|petrol|fuel|lubricant|oil|engine oil|hydraulic)\b/, "5400", "fuel"],
-  [/\b(freight|shipping|transport|delivery|dhoni|boat hire|cargo|trucking|lorry|landing)\b/, "5500", "carrying things"],
+  [/\b(freight|shipping|transport|delivery|dhoni|boat hire|cargo|trucking|lorry|landing)\b/, "5500", "freight or delivery"],
   [/\b(labour|labor|wages|manpower|workers?|overtime)\b/, "5200", "labour"],
   [/\b(subcontract\w*|installation|contract work)\b/, "5300", "work done by others"],
-  [/\b(rent|electricity|water|internet|phone|stationery|cleaning|security|repairs?|maintenance|service charge)\b/, "5600", "running costs"],
+  [/\b(rent|electricity|water|internet|phone|stationery|cleaning|security|repairs?|maintenance|service charge)\b/, "5600", "a running cost"],
   [/\b(cement|sand|aggregate|steel|rebar|blocks?|timber|plywood|paint|tiles?|pipes?|cable|wire|nails|screws)\b/, "5100", "materials"],
 ];
 const ASSET_WORDS = [
@@ -105,7 +105,7 @@ async function advise(client, { companyId, counterpartyId, lines }) {
       const cat = CATEGORIES[asset[1]];
       out.push({
         ...base, kind: "asset", category: asset[1], lifeYears: cat.years, sure: false,
-        because: `A ${cat.name.toLowerCase().replace(/ and .*/, "")} this size is usually used for years, so it goes on the register and is spread over them.`,
+        because: `At this price it is usually used for years, so it goes on the register (${cat.name.toLowerCase()}) and its cost is spread over them.`,
       });
       continue;
     }

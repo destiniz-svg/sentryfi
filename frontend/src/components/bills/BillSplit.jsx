@@ -16,8 +16,9 @@ import { useToast } from "@/context/UIContext";
  * supplier goes in by itself next time.
  */
 
-const FIELD =
-  "w-full h-11 px-3 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[15px] text-[var(--ink)] outline-none focus:border-[var(--ink)]";
+const BOX =
+  "h-11 px-3 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[15px] text-[var(--ink)] outline-none focus:border-[var(--ink)]";
+const FIELD = `w-full ${BOX}`;
 const n = (s) => Number(String(s ?? "").replace(/,/g, "")) || 0;
 const two = (x) => x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const KINDS = [
@@ -105,14 +106,14 @@ export function BillSplit({ bill, onClose }) {
                   value={r.description}
                   onChange={(e) => set(i, { description: e.target.value })}
                   placeholder="What it is"
-                  className={`${FIELD} flex-1 min-w-0`}
+                  className={`${BOX} flex-1 min-w-0`}
                 />
                 <input
                   aria-label={`Line ${i + 1}: amount`}
                   value={r.amount}
                   onChange={(e) => set(i, { amount: e.target.value })}
                   inputMode="decimal"
-                  className={`${FIELD} w-28 tabular text-right`}
+                  className={`${BOX} w-28 shrink-0 tabular text-right`}
                 />
                 <button
                   type="button"
