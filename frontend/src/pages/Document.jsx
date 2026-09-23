@@ -124,7 +124,7 @@ function EmailInvoice({ id, number, to: first, onClose }) {
           <span className="block text-[13px] font-medium mb-1.5">A note (optional)</span>
           <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={600} className={FIELD.replace("h-11", "min-h-[84px] py-2.5")} placeholder="Thank you for the work this month." />
         </label>
-        <Button type="submit" disabled={busy || !to.trim()} className="w-full">
+        <Button type="submit" variant="accent" disabled={busy || !to.trim()} className="w-full">
           {busy ? <Loader2 size={14} className="animate-spin" /> : <Mail size={15} />} Send it
         </Button>
       </div>
