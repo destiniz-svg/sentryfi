@@ -38,6 +38,11 @@ setTimeout(() => {
     await page.goto(BASE + "/cash", { waitUntil: "networkidle" });
     await page.getByText(name).first().waitFor({ timeout: 15000 });
     ok(`a tin to work with: ${name}`);
+    // A phone that has used the app has its offline copy; this fresh browser waits for it.
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await page.reload({ waitUntil: "networkidle" });
+    await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller), null, { timeout: 30000 });
+    await page.getByText(name).first().waitFor({ timeout: 15000 });
 
     await context.setOffline(true);
     await page.getByRole("button", { name: /money out of the tin/i }).first().click();

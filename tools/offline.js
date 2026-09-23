@@ -76,7 +76,7 @@ ${BASE} — a bill through a lost connection
   const onDisk = await page.evaluate(
     () =>
       new Promise((resolve) => {
-        const req = indexedDB.open("sentryfi", 1);
+        const req = indexedDB.open("sentryfi");
         req.onerror = () => resolve(null);
         req.onsuccess = () => {
           const db = req.result;
