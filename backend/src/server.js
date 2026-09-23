@@ -82,6 +82,8 @@ app.use(express.urlencoded({ extended: true, limit: "12mb" }));
 app.use(cookieParser());
 // A write sent with its own key happens once, however often a weak signal resends it.
 app.use("/api", require("./middleware/idempotency").idempotency);
+// An assistant's key: where it may go and what it may write (middleware/apiKey.js).
+app.use("/api", require("./middleware/apiKey").keyGate);
 if (!env.isProd) app.use(morgan("dev"));
 
 app.use("/api/health", healthRouter);
@@ -114,6 +116,9 @@ app.use("/api", require("./routes/claims"));
 app.use("/api/portal", require("./routes/portal").publicRouter);
 app.use("/api/cfo", require("./routes/cfo"));
 app.use("/api/verify", require("./routes/documents").verify);
+app.use("/api/keys", require("./routes/keys"));
+app.use("/api/openapi.json", require("./routes/openapi"));
+app.use("/api/mcp", require("./routes/mcp"));
 app.use("/api/documents", require("./routes/documents"));
 app.use("/api/notifications", require("./routes/notifications"));
 app.use("/api/push", require("./routes/notifications").devices);

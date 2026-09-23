@@ -18,6 +18,7 @@ import { TrackingSection } from "@/components/settings/TrackingSection";
 import { DevicesSection } from "@/components/settings/DevicesSection";
 import { useCompany } from "@/context/CompanyContext";
 import { Link } from "react-router-dom";
+import { AssistantKeys } from "@/components/settings/AssistantKeys";
 
 function FieldLabel({ children, htmlFor }) {
   return (
@@ -249,6 +250,7 @@ export default function Settings() {
           <TabsTrigger value="tax">Tax</TabsTrigger>
           {can("manage_settings") && <TabsTrigger value="tracking">Tracking</TabsTrigger>}
           {user?.platformAdmin && <TabsTrigger value="backups">Backups</TabsTrigger>}
+          <TabsTrigger value="assistant">Assistant</TabsTrigger>
           <TabsTrigger value="profile">Account</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
           <TabsTrigger value="password">Password</TabsTrigger>
@@ -272,6 +274,9 @@ export default function Settings() {
           </TabsContent>
           <TabsContent value="tax">
             <TaxSection />
+          </TabsContent>
+          <TabsContent value="assistant">
+            <AssistantKeys />
           </TabsContent>
           <TabsContent value="profile">
             <div className="space-y-4">

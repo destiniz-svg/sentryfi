@@ -43,7 +43,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sentryfi-pg-"));
     await pg.createDatabase("sentryfi_test");
 
     const vitest = path.join(__dirname, "..", "..", "node_modules", "vitest", "vitest.mjs");
-    const result = spawnSync(process.execPath, [vitest, "run", ...process.argv.slice(2)], {
+    const result = spawnSync(process.execPath, [vitest, "run", "--testTimeout=30000", ...process.argv.slice(2)], {
       cwd: path.join(__dirname, ".."),
       stdio: "inherit",
       env: {

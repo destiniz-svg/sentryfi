@@ -927,7 +927,7 @@ describe("every company table is walled", () => {
     );
     // Tables the app role cannot reach at all need no policy: the platform's own.
     // Looked up before anyone is known, and out of the app role's reach entirely.
-    const platform = new Set(["password_resets", "backup_runs", "portal_links"]);
+    const platform = new Set(["password_resets", "backup_runs", "portal_links", "api_keys"]);
     const open = rows.filter((r) => !platform.has(r.t) && !(r.on && r.forced && r.policies > 0)).map((r) => r.t);
     expect(open).toEqual([]);
   });
@@ -962,5 +962,80 @@ describe("a send repeated by a weak signal", () => {
     const again = crypto.randomUUID();
     expect((await call(A, "POST", `/cash/${A.boxId}/spend`, { body: { amount: "0", what: "" }, headers: { "Idempotency-Key": again } })).status).toBe(400);
     expect((await call(A, "POST", `/cash/${A.boxId}/spend`, { body: { amount: "1", what: "fixed", accountId: A.accounts["5100"] }, headers: { "Idempotency-Key": again } })).status).toBe(201);
+  });
+});
+
+describe("an assistant's key", () => {
+  const as = (token, method, url, opts = {}) => call(null, method, url, { ...opts, company: opts.company ?? null, headers: { Authorization: `Bearer ${token}`, ...(opts.headers || {}) } });
+
+  it("reads A's books as A, and writes nothing when it is a read key", async () => {
+    const made = await call(A, "POST", "/keys", { body: { name: "Reader", scope: "read" } });
+    expect(made.status).toBe(201);
+    expect(made.json.token).toMatch(/^sfk_/);
+    A.readKey = made.json.token;
+    A.readKeyId = made.json.key.id;
+    const bills = await as(A.readKey, "GET", "/bills");
+    expect(bills.status).toBe(200);
+    expect(bills.text).toContain("SECRET-SUPPLIER-A");
+    expect((await as(A.readKey, "POST", "/bills", { body: { supplierName: "By a reader", amount: "1.00", gstTreatment: "none_unregistered" } })).status).toBe(403);
+  });
+
+  it("makes a draft in A's name when it is a draft key, and never puts it in the books", async () => {
+    const made = await call(A, "POST", "/keys", { body: { name: "Drafter", scope: "draft" } });
+    const key = made.json.token;
+    const bill = await as(key, "POST", "/bills", { body: { supplierName: "Drafted by a key", amount: "5.00", gstTreatment: "none_unregistered", issueDate: "2026-09-01" } });
+    expect(bill.status).toBe(201);
+    expect(bill.json.bill.received_by).toBe(A.user.id);
+    expect((await as(key, "POST", `/bills/${bill.json.bill.id}/post`)).status).toBe(403);
+    expect((await as(key, "POST", `/cash/${A.boxId}/spend`, { body: { amount: "1", what: "x", accountId: A.accounts["5100"] } })).status).toBe(403);
+    const log = await call(A, "GET", `/keys/${made.json.key.id}/log`);
+    expect(log.json.log.some((l) => l.path === "/api/bills" && l.status === 201)).toBe(true);
+  });
+
+  it("answers for its own company only", async () => {
+    denied(await as(A.readKey, "GET", "/bills", { company: B.companyId }));
+    noLeak(await as(A.readKey, "GET", "/bills", { company: B.companyId }), "Steva");
+  });
+
+  it("cannot reach keys, passwords, backups or settings", async () => {
+    expect((await as(A.readKey, "POST", "/keys", { body: { name: "Another", scope: "draft" } })).status).toBe(403);
+    expect((await as(A.readKey, "GET", "/keys")).status).toBe(403);
+    expect((await as(A.readKey, "POST", "/auth/password", { body: { current: "x", next: "y" } })).status).toBe(403);
+    expect((await as(A.readKey, "GET", "/backups")).status).toBe(403);
+    expect((await as(A.readKey, "GET", "/settings")).status).toBe(403);
+  });
+
+  it("is A's alone: B neither sees nor turns it off, and once A turns it off it stops", async () => {
+    noLeak(await call(B, "GET", "/keys"), "Reader", A.readKeyId);
+    denied(await call(B, "DELETE", `/keys/${A.readKeyId}`));
+    expect((await as(A.readKey, "GET", "/bills")).status).toBe(200);
+    expect((await call(A, "DELETE", `/keys/${A.readKeyId}`)).status).toBe(200);
+    expect((await as(A.readKey, "GET", "/bills")).status).toBe(401);
+  });
+});
+
+describe("the MCP server and the published interface", () => {
+  const rpc = (token, method, params, id = 1) =>
+    call(null, "POST", "/mcp", { company: null, body: { jsonrpc: "2.0", id, method, params }, headers: token ? { Authorization: `Bearer ${token}` } : {} });
+
+  it("answers only with a key, lists its tools, and holds each call to the key's limits", async () => {
+    expect((await rpc(null, "tools/list")).status).toBe(401);
+    const key = (await call(A, "POST", "/keys", { body: { name: "Assistant", scope: "read" } })).json.token;
+    const init = await rpc(key, "initialize", { protocolVersion: "2025-06-18" });
+    expect(init.json.result.serverInfo.name).toBe("sentryfi");
+    const tools = (await rpc(key, "tools/list")).json.result.tools.map((t) => t.name);
+    expect(tools).toEqual(expect.arrayContaining(["figures", "bills", "ask_cfo", "draft_bill"]));
+    const bills = (await rpc(key, "tools/call", { name: "bills", arguments: {} })).json.result;
+    expect(bills.isError).toBe(false);
+    expect(bills.content[0].text).toContain("SECRET-SUPPLIER-A");
+    const draft = (await rpc(key, "tools/call", { name: "draft_bill", arguments: { supplierName: "By a reader", amount: "1.00" } })).json.result;
+    expect(draft.isError).toBe(true);
+  });
+
+  it("publishes what the interface is, and opens nothing by doing so", async () => {
+    const r = await call(null, "GET", "/openapi.json", { company: null });
+    expect(r.status).toBe(200);
+    expect(r.json.openapi).toBe("3.1.0");
+    expect(r.json.paths["/bills"].post).toBeTruthy();
   });
 });

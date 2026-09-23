@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Banknote, Boxes, CheckCheck, ChevronRight, ClipboardList, DatabaseBackup, FileText, HandCoins, HardHat, Lock, LogOut, Moon, Package, Palette, Percent, Scale, Settings, Ship, Sunrise, Upload, User, Users, Wallet } from "lucide-react";
+import { Banknote, Bot, Boxes, CheckCheck, ChevronRight, ClipboardList, DatabaseBackup, FileText, HandCoins, HardHat, Lock, LogOut, Moon, Package, Palette, Percent, Scale, Settings, Ship, Sunrise, Upload, User, Users, Wallet } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useCompany } from "@/context/CompanyContext";
@@ -85,6 +85,7 @@ export default function More() {
           { name: "Loans", icon: HandCoins, to: "/loans" },
           user?.platformAdmin && { name: "Backups", icon: DatabaseBackup, to: "/settings?tab=backups" },
           { name: "Branding and documents", icon: Palette, to: "/branding" },
+          { name: "Your assistant", icon: Bot, to: "/settings?tab=assistant" },
           { name: "Settings", icon: Settings, to: "/settings", side: company?.name },
         ]}
       />

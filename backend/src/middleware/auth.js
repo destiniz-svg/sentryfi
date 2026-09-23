@@ -9,6 +9,16 @@ const mustVerify = (user) => Boolean(env.resendApiKey) && !user.email_verified_a
 /** A valid session, confirmed address or not. Only the few routes that help someone confirm it use this. */
 async function requireSession(req, res, next) {
   try {
+    // An assistant's key acts as the person who made it (middleware/apiKey.js).
+    const key = await require("./apiKey").keyOf(req);
+    if (key) {
+      const user = await User.findById(key.userId);
+      if (!user) throw ApiError.unauthorized("That key's person is no longer here.");
+      delete user.token_version;
+      req.user = user;
+      req.apiKey = key;
+      return next();
+    }
     const token = req.cookies?.[env.cookieName];
     if (!token) throw ApiError.unauthorized();
 

@@ -118,7 +118,10 @@ async function resolveCompany(client, { userId, asked }) {
 async function requireCompany(req, res, next) {
   try {
     if (!req.user) throw ApiError.unauthorized();
-    const asked = req.get(COMPANY_HEADER) || req.query.company || null;
+    const header = req.get(COMPANY_HEADER) || req.query.company || null;
+    // A key belongs to one company and answers for no other.
+    if (req.apiKey && header && header !== req.apiKey.companyId) throw ApiError.forbidden("This key is for another company.");
+    const asked = req.apiKey ? req.apiKey.companyId : header;
 
     const resolved = await withTransaction((client) =>
       resolveCompany(client, { userId: req.user.id, asked })
@@ -128,6 +131,10 @@ async function requireCompany(req, res, next) {
     req.company = resolved.company;
     req.roles = resolved.roles;
     req.can = (action) => rolesCan(resolved.roles, action);
+    if (req.apiKey) {
+      const allowed = require("./apiKey").KEY_CAN[req.apiKey.scope] || [];
+      req.can = (action) => allowed.includes(action) && rolesCan(resolved.roles, action);
+    }
 
     next();
   } catch (err) {
