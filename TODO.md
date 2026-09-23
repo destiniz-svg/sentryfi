@@ -92,8 +92,9 @@ The phases below say *what*; this says *when*. Set 23 September 2026. Each sprin
 - 8. Dimensions: project, branch, department and machine on bills, invoices and cash spends; sealed in the hash (v2; untagged entries keep their v1 seal); profit and loss filtered or split by any kind. Settings, Tracking. `tools/dimensions.js`.
 - 9. Multi-currency finished: invoices in another currency, paid in it with the realised exchange gain or loss on its own line, and month-end revaluation of everything held or owed in another currency (on Closing). Credit notes on foreign invoices refused until they carry their own rate. `tools/currency.js`.
 - 10. People finished: Face ID and fingerprint sign-in (passkeys), a bill limit per person, an administrator's reset link (only for someone in that company alone), and every other session ended on a password change. `tools/passkeys.js`.
-- 11. The security review: passed with fixes; see `docs/security-review-2026-09-23.md` and `npm run test:security` (51 checks). Open on purpose: email verification at sign-up, composite foreign keys, enforcing the content policy, rotating the demo password.
+- 11. The security review: passed with fixes; see `docs/security-review-2026-09-23.md` and `npm run test:security` (51 checks). Open on purpose: composite foreign keys, enforcing the content policy, rotating the demo password.
 - Found on the way: five forms filled in yesterday's date before 5am (UTC, not local); fixed.
+- Email, 23 Sep 2026 (after Sprint 2): Resend on sentryfi.app. Confirm the address at sign-up (closes the review's open item), Forgot password by email, alerts on password changes and new Face ID devices. One sender per kind: accounts@, security@, and support@, which receives mail and forwards it to sentryfi.app@gmail.com. `tools/email.js`; security suite 58 checks.
 
 ## The plan
 
