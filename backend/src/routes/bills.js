@@ -475,7 +475,8 @@ const splitBody = z.object({
   lines: z
     .array(
       z.object({
-        kind: z.enum(["stock", "cost", "asset"]),
+        kind: z.enum(["stock", "cost", "asset", "landed"]),
+        shipmentId: z.string().uuid().nullish(),
         description: z.string().max(300).default(""),
         amount: z.union([z.string().trim(), z.number()]).transform(String),
         itemId: z.string().uuid().nullish(),
@@ -505,15 +506,16 @@ router.get(
       const show = (l) => ({
         kind: l.kind, description: l.description, amount: formatLaari(l.amountLaari ?? l.amount), itemId: l.itemId || null,
         quantity: l.units !== undefined ? stockLedger.unitsText(l.units) : l.quantity || "", accountId: l.accountId || null,
-        category: l.category || null, lifeYears: l.lifeYears ?? null, sure: l.sure ?? true, because: l.because || null,
+        category: l.category || null, lifeYears: l.lifeYears ?? null, shipmentId: l.shipmentId || null, sure: l.sure ?? true, because: l.because || null,
       });
       // The choices a person can make, so recording a bill needs no other permission.
       const { rows: accounts } = await client.query("SELECT id, code, name FROM accounts WHERE company_id = $1 AND type = 'expense' AND archived_at IS NULL ORDER BY code", [req.companyId]);
       const { rows: items } = await client.query("SELECT id, name, unit FROM stock_items WHERE company_id = $1 AND archived_at IS NULL ORDER BY lower(name)", [req.companyId]);
-      const options = { accounts, items, categories: Object.entries(CATEGORIES).map(([key, c]) => ({ key, name: c.name, years: c.years })) };
+      const { rows: openShipments } = await client.query("SELECT id, reference FROM shipments WHERE company_id = $1 AND closed_at IS NULL ORDER BY created_at DESC", [req.companyId]);
+      const options = { accounts, items, shipments: openShipments, categories: Object.entries(CATEGORIES).map(([key, c]) => ({ key, name: c.name, years: c.years })) };
       const head = { currency: bill.fc_net !== null ? bill.currency.trim() : "MVR", net: formatLaari(printed), options, posted: bill.status === "posted" };
       if (parts.length) return { ...head, decided: true, lines: parts.map(show) };
-      const advice = await adviser.advise(client, { companyId: req.companyId, counterpartyId: bill.counterparty_id, lines: adviser.linesFor(bill, printed) });
+      const advice = await adviser.advise(client, { companyId: req.companyId, counterpartyId: bill.counterparty_id, shipmentId: bill.shipment_id, lines: adviser.linesFor(bill, printed) });
       return { ...head, decided: false, lines: advice.map(show) };
     });
     res.json(out);
@@ -647,6 +649,10 @@ router.post(
       });
       // Assets it put on the register come off, unless charged against since.
       await billSplit.undoAssets(client, { companyId: req.companyId, entryId: bill.entry_id }).catch((err) => {
+        throw ApiError.badRequest(err.message);
+      });
+      // Landing costs it put on a shipment come off, unless shared out already.
+      await require("../ledger/shipments").undoBillCosts(client, { companyId: req.companyId, billId: bill.id }).catch((err) => {
         throw ApiError.badRequest(err.message);
       });
       // Whatever stock it brought in goes back out, at what it came in at.

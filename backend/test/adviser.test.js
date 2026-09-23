@@ -45,7 +45,8 @@ async function aBuyer(client) {
 
 describe("reading a charge", () => {
   it("keeps the words that say what it is", () => {
-    expect(adviser.keyOf("Cement OPC 50kg x 10 bags")).toBe("cement opc bags");
+    expect(adviser.keyOf("Cement OPC 50kg x 10 bags")).toBe("cement opc 50kg bags");
+    expect(adviser.keyOf("DEFORMED BAR 10MM X 5.9M")).not.toBe(adviser.keyOf("DEFORMED BAR 16MM X 5.9M"));
     expect(adviser.keyOf("DIESEL 200 LTR @ 17.50")).toBe("diesel");
   });
 

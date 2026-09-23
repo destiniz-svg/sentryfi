@@ -19,25 +19,25 @@ const printedNetOf = (bill) => BigInt(bill.fc_net ?? bill.net_laari);
 /** The saved parts of a bill, in order, with their own-currency values. */
 async function load(client, { companyId, bill }) {
   const { rows: s } = await client.query(
-    `SELECT l.position, l.description, l.item_id, l.quantity, l.amount_laari, i.name, i.unit
+    `SELECT l.id, l.container_id, l.position, l.description, l.item_id, l.quantity, l.amount_laari, i.name, i.unit
        FROM bill_stock_lines l JOIN stock_items i ON i.id = l.item_id
       WHERE l.bill_id = $1 AND l.company_id = $2`,
     [bill.id, companyId]
   );
   const { rows: c } = await client.query(
-    `SELECT c.position, c.description, c.kind, c.account_id, c.asset_category, c.asset_life_years, c.amount_laari, a.name AS account_name
+    `SELECT c.position, c.description, c.kind, c.account_id, c.asset_category, c.asset_life_years, c.amount_laari, c.shipment_id, a.name AS account_name
        FROM bill_charges c LEFT JOIN accounts a ON a.id = c.account_id
       WHERE c.bill_id = $1 AND c.company_id = $2`,
     [bill.id, companyId]
   );
   const parts = [
     ...s.map((r) => ({
-      position: r.position, kind: "stock", description: r.description, itemId: r.item_id, name: r.name, unit: r.unit,
+      lineId: r.id, containerId: r.container_id, position: r.position, kind: "stock", description: r.description, itemId: r.item_id, name: r.name, unit: r.unit,
       units: stock.fromDb(r.quantity), amount: BigInt(r.amount_laari),
     })),
     ...c.map((r) => ({
       position: r.position, kind: r.kind, description: r.description, accountId: r.account_id, accountName: r.account_name,
-      category: r.asset_category, lifeYears: r.asset_life_years === null ? null : Number(r.asset_life_years), amount: BigInt(r.amount_laari),
+      category: r.asset_category, lifeYears: r.asset_life_years === null ? null : Number(r.asset_life_years), shipmentId: r.shipment_id, amount: BigInt(r.amount_laari),
     })),
   ].sort((a, b) => a.position - b.position);
 
@@ -79,7 +79,11 @@ async function save(client, { companyId, userId, billId, lines }) {
       if (!(years > 0 && years <= 100)) throw new Error("How many years will it be used for?");
       return { position: i, kind: "asset", description, category: l.category, lifeYears: years, amount };
     }
-    throw new Error("Each part is stock, a cost, or an asset.");
+    if (l.kind === "landed") {
+      if (!l.shipmentId) throw new Error("Which shipment did it help land?");
+      return { position: i, kind: "landed", description, shipmentId: l.shipmentId, amount };
+    }
+    throw new Error("Each part is stock, a cost, an asset, or a cost of landing a shipment.");
   });
 
   const printed = printedNetOf(bill);
@@ -100,6 +104,12 @@ async function save(client, { companyId, userId, billId, lines }) {
     if (found.length !== accountIds.length) throw new Error("A cost goes on one of this company's expense accounts.");
   }
 
+  const shipmentIds = [...new Set(prepared.filter((p) => p.kind === "landed").map((p) => p.shipmentId))];
+  if (shipmentIds.length) {
+    const { rows: found } = await client.query("SELECT id FROM shipments WHERE company_id = $1 AND id = ANY($2::uuid[])", [companyId, shipmentIds]);
+    if (found.length !== shipmentIds.length) throw new Error("That shipment is not in these books.");
+  }
+
   await client.query("DELETE FROM bill_stock_lines WHERE bill_id = $1 AND company_id = $2", [billId, companyId]);
   await client.query("DELETE FROM bill_charges WHERE bill_id = $1 AND company_id = $2", [billId, companyId]);
   for (const p of prepared) {
@@ -110,9 +120,9 @@ async function save(client, { companyId, userId, billId, lines }) {
       );
     } else {
       await client.query(
-        `INSERT INTO bill_charges (company_id, bill_id, kind, description, account_id, asset_category, asset_life_years, amount_laari, position)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [companyId, billId, p.kind, p.description, p.accountId || null, p.category || null, p.lifeYears ?? null, p.amount.toString(), p.position]
+        `INSERT INTO bill_charges (company_id, bill_id, kind, description, account_id, asset_category, asset_life_years, amount_laari, position, shipment_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [companyId, billId, p.kind, p.description, p.accountId || null, p.category || null, p.lifeYears ?? null, p.amount.toString(), p.position, p.shipmentId || null]
       );
     }
   }
@@ -143,6 +153,17 @@ async function entryParts(client, { companyId, userId, bill, expenseAccountId })
       });
     } else if (p.kind === "cost") {
       lines.push({ accountId: p.accountId, debit: p.value, ...tags, memo: p.description || null });
+    } else if (p.kind === "landed") {
+      const shipments = require("./shipments");
+      const acc = await shipments.account(client, companyId, shipments.WAITING);
+      lines.push({ accountId: acc, debit: p.value, ...tags, memo: p.description || "Landing cost" });
+      after.push(async (entryId) => {
+        await client.query(
+          `INSERT INTO shipment_costs (company_id, shipment_id, kind, description, value_laari, entry_id, bill_id, paid_on, created_by)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+          [companyId, p.shipmentId, shipments.kindOf(p.description), p.description, p.value.toString(), entryId, bill.id, date, userId]
+        );
+      });
     } else {
       const { categoryAccounts } = require("./assets");
       const { asset, worn } = await categoryAccounts(client, { companyId, category: p.category });

@@ -586,6 +586,34 @@ describe("what A's bills were for, from B", () => {
   });
 });
 
+describe("A's shipments, from B", () => {
+  let shipA;
+  let shipB;
+  beforeAll(async () => {
+    const a = await call(A, "POST", "/shipments", { body: { reference: "SECRET-BL-A", containers: [{ number: "AAAU0000001", cbm: "20" }] } });
+    expect(a.status).toBe(201);
+    shipA = a.json.id;
+    const b = await call(B, "POST", "/shipments", { body: { reference: "B-BL-1" } });
+    shipB = b.json.id;
+  });
+
+  it("B cannot see, change, pay into, share, or link to A's shipment", async () => {
+    noLeak(await call(B, "GET", "/shipments"), "SECRET-BL-A");
+    denied(await call(B, "GET", `/shipments/${shipA}`));
+    denied(await call(B, "PATCH", `/shipments/${shipA}`, { body: { closed: true } }));
+    denied(await call(B, "POST", `/shipments/${shipA}/containers`, { body: { number: "X1" } }));
+    denied(await call(B, "POST", `/shipments/${shipA}/costs`, { body: { kind: "duty", amount: "1", fromAccountId: B.accounts["1100"], on: "2026-09-01" } }));
+    denied(await call(B, "POST", `/shipments/${shipA}/allocate`, { body: { on: "2026-09-01" } }));
+    denied(await call(B, "PUT", `/shipments/${shipB}/bills/${A.billId}`, { body: { linked: true } }));
+    denied(await call(B, "PUT", `/shipments/${shipA}/bills/${A.billId}`, { body: { linked: true } }));
+    denied(await call(B, "POST", `/shipments/${shipB}/costs`, { body: { kind: "duty", amount: "1", fromAccountId: A.accounts["1100"], on: "2026-09-01" } }));
+    const bill = await call(B, "POST", "/bills", { body: { supplierName: "B agent", amount: "100", gstTreatment: "none_unregistered", issueDate: "2026-09-03" } });
+    denied(await call(B, "PUT", `/bills/${bill.json.bill.id}/split`, { body: { lines: [{ kind: "landed", amount: "50", shipmentId: shipA }] } }));
+    const mine = await call(A, "GET", `/shipments/${shipA}`);
+    expect(mine.json).toMatchObject({ reference: "SECRET-BL-A", closed: false, landed: "0.00" });
+  });
+});
+
 describe("confirming an email address", () => {
   const jwt = req("jsonwebtoken");
   const secret = process.env.JWT_SECRET;

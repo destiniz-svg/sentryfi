@@ -63,6 +63,8 @@ const PhoneOwed = lazy(() => import("@/pages/phone/Owed"));
 const More = lazy(() => import("@/pages/More"));
 const Assets = lazy(() => import("@/pages/Assets"));
 const Stock = lazy(() => import("@/pages/Stock"));
+const Shipments = lazy(() => import("@/pages/Shipments"));
+const Shipment = lazy(() => import("@/pages/Shipment"));
 const Loans = lazy(() => import("@/pages/Loans"));
 
 /**
@@ -150,6 +152,8 @@ export const router = createBrowserRouter([
       { path: "more", element: <More /> },
       { path: "assets", element: <Assets /> },
       { path: "stock", element: <Stock /> },
+      { path: "shipments", element: <Shipments /> },
+      { path: "shipments/:id", element: <Shipment /> },
       { path: "loans", element: <Loans /> },
       { path: "figures", element: <Figures /> },
       // Still on the purchased product's tables. See config/readiness.js.

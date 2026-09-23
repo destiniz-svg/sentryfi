@@ -26,7 +26,7 @@ const KINDS = [
   { value: "stock", label: "Stock" },
   { value: "asset", label: "Asset" },
 ];
-const blank = () => ({ kind: "cost", description: "", amount: "", itemId: "", quantity: "", accountId: "", category: "", lifeYears: "", sure: true, because: null });
+const blank = () => ({ kind: "cost", description: "", amount: "", itemId: "", quantity: "", accountId: "", category: "", lifeYears: "", shipmentId: "", sure: true, because: null });
 
 export function BillSplit({ bill, onClose }) {
   const { companyId } = useCompany();
@@ -42,7 +42,7 @@ export function BillSplit({ bill, onClose }) {
       .get(`/bills/${bill.id}/split`)
       .then((r) => {
         setData(r.data);
-        setRows(r.data.lines.map((l) => ({ ...blank(), ...l, itemId: l.itemId || "", accountId: l.accountId || "", category: l.category || "", lifeYears: l.lifeYears ?? "" })));
+        setRows(r.data.lines.map((l) => ({ ...blank(), ...l, itemId: l.itemId || "", accountId: l.accountId || "", category: l.category || "", lifeYears: l.lifeYears ?? "", shipmentId: l.shipmentId || "" })));
       })
       .catch((ex) => setErr(ex.message));
   }, [bill.id]);
@@ -52,6 +52,8 @@ export function BillSplit({ bill, onClose }) {
   const rest = data ? n(data.net) - covered : 0;
   const asking = rows.filter((r) => !r.sure).length;
   const o = data?.options;
+  // A shipment cost is a choice only while a shipment is open.
+  const kinds = o?.shipments?.length ? [...KINDS, { value: "landed", label: "Shipment" }] : KINDS;
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -69,6 +71,7 @@ export function BillSplit({ bill, onClose }) {
           accountId: r.kind === "cost" ? r.accountId || null : null,
           category: r.kind === "asset" ? r.category || null : null,
           lifeYears: r.kind === "asset" && r.lifeYears !== "" ? Number(r.lifeYears) : null,
+          shipmentId: r.kind === "landed" ? r.shipmentId || null : null,
         }));
       await apiClient.put(`/bills/${bill.id}/split`, { lines });
       qc.invalidateQueries({ queryKey: ["bills", companyId] });
@@ -124,7 +127,22 @@ export function BillSplit({ bill, onClose }) {
                   <X size={15} />
                 </button>
               </div>
-              <Segments label={`Line ${i + 1}: kind`} value={r.kind} onChange={(kind) => set(i, { kind })} options={KINDS} />
+              <Segments label={`Line ${i + 1}: kind`} value={r.kind} onChange={(kind) => set(i, { kind })} options={kinds} />
+              {r.kind === "landed" && (
+                <select
+                  aria-label={`Line ${i + 1}: shipment`}
+                  value={r.shipmentId}
+                  onChange={(e) => set(i, { shipmentId: e.target.value })}
+                  className={FIELD}
+                >
+                  <option value="">Which shipment did it help land?</option>
+                  {o.shipments.map((sh) => (
+                    <option key={sh.id} value={sh.id}>
+                      {sh.reference}
+                    </option>
+                  ))}
+                </select>
+              )}
               {r.kind === "cost" && (
                 <select aria-label={`Line ${i + 1}: kind of cost`} value={r.accountId} onChange={(e) => set(i, { accountId: e.target.value })} className={FIELD}>
                   <option value="">Which kind of cost?</option>

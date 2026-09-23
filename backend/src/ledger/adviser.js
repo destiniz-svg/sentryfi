@@ -13,13 +13,17 @@
  */
 const { CATEGORIES } = require("./assets");
 
-/** A charge's description reduced to the words that say what it is. */
+/**
+ * A charge's description reduced to the words that say what it is. Plain
+ * numbers go (quantities, dates, reference numbers); a size stays, because
+ * 10mm bar and 16mm bar are different things.
+ */
 function keyOf(description) {
   return String(description || "")
     .toLowerCase()
-    .replace(/[^a-zހ-޿\s]/g, " ")
+    .replace(/[^a-z0-9ހ-޿\s]/g, " ")
     .split(/\s+/)
-    .filter((w) => w.length > 1 && !STOP.has(w))
+    .filter((w) => w.length > 1 && !/^\d+$/.test(w) && !STOP.has(w))
     .slice(0, 8)
     .join(" ");
 }
@@ -45,7 +49,17 @@ const ASSET_WORDS = [
 // this; below it, it is simply a cost of the month.
 const ASSET_FLOOR = 1500000n; // MVR 15,000.00
 
-async function advise(client, { companyId, counterpartyId, lines }) {
+// Words that say a charge was part of landing goods from abroad.
+const LANDING_WORDS = /\b(customs|clearance|clearing|port|duty|form set|freight|shipping|demurrage|delivery order|handling|container|wharf|cnf)\b/;
+
+async function advise(client, { companyId, counterpartyId, lines, shipmentId }) {
+  // Which shipment a landing cost belongs to: the bill's own, or the only one
+  // open. With several open and none named, it has to be asked.
+  const { rows: openShipments } = await client.query("SELECT id, reference FROM shipments WHERE company_id = $1 AND closed_at IS NULL ORDER BY created_at DESC", [companyId]);
+  const knownShipment = shipmentId || (openShipments.length === 1 ? openShipments[0].id : null);
+  const likelyShipment = knownShipment || openShipments[0]?.id || null;
+  const shipmentRef = (id) => openShipments.find((x) => x.id === id)?.reference || "the shipment";
+
   const { rows: items } = await client.query(
     "SELECT id, name, unit FROM stock_items WHERE company_id = $1 AND archived_at IS NULL",
     [companyId]
@@ -70,7 +84,15 @@ async function advise(client, { companyId, counterpartyId, lines }) {
       [companyId, key, counterpartyId || null]
     );
     const rule = rules[0];
-    if (rule && (rule.kind !== "stock" || rule.item_id)) {
+    if (rule && rule.kind === "landed" && likelyShipment) {
+      out.push({
+        ...base, kind: "landed", shipmentId: likelyShipment,
+        sure: Boolean(rule.same_supplier) && Boolean(knownShipment),
+        because: `You said ${rule.supplier}'s ${rule.times === 1 ? "charge" : "charges"} for this went on landing a shipment; this one is put on ${shipmentRef(likelyShipment)}.`,
+      });
+      continue;
+    }
+    if (rule && rule.kind !== "landed" && (rule.kind !== "stock" || rule.item_id)) {
       const needsCount = rule.kind === "stock" && !quantity;
       out.push({
         ...base,
@@ -100,6 +122,10 @@ async function advise(client, { companyId, counterpartyId, lines }) {
 
     // 4: the words on it.
     const text = ` ${key} `;
+    if (likelyShipment && LANDING_WORDS.test(text)) {
+      out.push({ ...base, kind: "landed", shipmentId: likelyShipment, sure: false, because: `It reads like a cost of landing goods, so it goes into what ${shipmentRef(likelyShipment)} cost.` });
+      continue;
+    }
     const asset = ASSET_WORDS.find(([re]) => re.test(text));
     if (asset && amount >= ASSET_FLOOR) {
       const cat = CATEGORIES[asset[1]];
@@ -172,7 +198,7 @@ async function applyIfSure(client, { companyId, userId, billId }) {
   if (!bill || bill.status === "posted" || !bill.counterparty_id || bill.gst_treatment === "unknown") return false;
   const { parts } = await billSplit.load(client, { companyId, bill });
   if (parts.length) return false;
-  const advice = await advise(client, { companyId, counterpartyId: bill.counterparty_id, lines: linesFor(bill, billSplit.printedNetOf(bill)) });
+  const advice = await advise(client, { companyId, counterpartyId: bill.counterparty_id, shipmentId: bill.shipment_id, lines: linesFor(bill, billSplit.printedNetOf(bill)) });
   if (!advice.length || !advice.every((a) => a.sure)) return false;
   const lines = advice.map((a) => ({ ...a, amount: formatLaari(a.amountLaari).replace(/,/g, "") }));
   await billSplit.save(client, { companyId, userId, billId, lines });
