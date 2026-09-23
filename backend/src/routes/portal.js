@@ -35,7 +35,7 @@ publicRouter.get(
     if (!link) throw ApiError.notFound("This link has been turned off, or is not complete. Ask for a new one.");
     await pool.query("UPDATE portal_links SET last_seen_at = now() WHERE id = $1", [link.id]);
     const view = await asCompany({ companyId: link.company_id, user: { id: link.created_by } }, async (client) => {
-      const { rows: co } = await client.query("SELECT name, payment_details, tin, gst_number FROM companies WHERE id = $1", [link.company_id]);
+      const { rows: co } = await client.query("SELECT name, payment_details, tin, gst_number, trim(base_currency) AS currency FROM companies WHERE id = $1", [link.company_id]);
       const { rows: party } = await client.query("SELECT name FROM counterparties WHERE id = $1 AND company_id = $2", [link.counterparty_id, link.company_id]);
       // Whoever made the link hears that it was opened, once a day.
       await require("../services/push").tell(client, {
@@ -44,27 +44,32 @@ publicRouter.get(
       });
       const { rows: invoices } = await client.query(
         `SELECT s.id, s.invoice_no, s.issue_date::text AS issued, s.due_date::text AS due, s.subject, s.net_laari, s.tax_laari, s.gross_laari,
+                trim(s.currency) AS currency, s.fc_net, s.fc_tax, s.fc_gross,
                 COALESCE((SELECT SUM(a.amount_laari) FROM receipt_allocations a JOIN receipts r ON r.id = a.receipt_id AND r.voided_at IS NULL WHERE a.invoice_id = s.id), 0) AS paid,
                 COALESCE((SELECT SUM(n.gross_laari) FROM credit_notes n WHERE n.invoice_id = s.id), 0) AS credited
            FROM sales_invoices s
-          WHERE s.company_id = $1 AND s.counterparty_id = $2 AND s.status = 'posted' AND s.voided_at IS NULL AND s.fc_gross IS NULL
+          WHERE s.company_id = $1 AND s.counterparty_id = $2 AND s.status = 'posted' AND s.voided_at IS NULL
           ORDER BY s.issue_date DESC LIMIT 60`,
         [link.company_id, link.counterparty_id]
       );
       const out = [];
       for (const s of invoices) {
-        const { rows: lines } = await client.query("SELECT description, quantity, uom, unit_price_laari, net_laari FROM sales_invoice_lines WHERE invoice_id = $1 ORDER BY position", [s.id]);
+        const { rows: lines } = await client.query("SELECT description, quantity, uom, unit_price_laari, net_laari, fc_net FROM sales_invoice_lines WHERE invoice_id = $1 ORDER BY position", [s.id]);
         const owed = BigInt(s.gross_laari) - BigInt(s.paid) - BigInt(s.credited);
+        // An invoice in another currency shows in that currency, as it was sent;
+        // what is still owed is what the books hold, in the company's own.
+        const fc = s.fc_gross !== null && s.fc_gross !== undefined;
         out.push({
           id: s.id, number: s.invoice_no, issued: s.issued, due: s.due, subject: s.subject,
-          net: formatLaari(BigInt(s.net_laari)), tax: formatLaari(BigInt(s.tax_laari)), gross: formatLaari(BigInt(s.gross_laari)),
+          currency: fc ? s.currency : co[0]?.currency || "MVR",
+          net: formatLaari(BigInt(fc ? s.fc_net : s.net_laari)), tax: formatLaari(BigInt(fc ? s.fc_tax : s.tax_laari)), gross: formatLaari(BigInt(fc ? s.fc_gross : s.gross_laari)),
           owed: formatLaari(owed > 0n ? owed : 0n),
-          lines: lines.map((l) => ({ description: l.description, quantity: String(Number(l.quantity)), unit: l.uom, price: formatLaari(BigInt(l.unit_price_laari)), amount: formatLaari(BigInt(l.net_laari)) })),
+          lines: lines.map((l) => ({ description: l.description, quantity: String(Number(l.quantity)), unit: l.uom, price: fc ? null : formatLaari(BigInt(l.unit_price_laari)), amount: formatLaari(BigInt(fc ? l.fc_net ?? 0 : l.net_laari)) })),
         });
       }
       const total = out.reduce((a, i) => a + BigInt(i.owed.replace(/[,.]/g, "")), 0n);
       return {
-        company: { name: co[0]?.name, paymentDetails: co[0]?.payment_details || "", tin: co[0]?.gst_number || co[0]?.tin || null },
+        company: { name: co[0]?.name, paymentDetails: co[0]?.payment_details || "", tin: co[0]?.gst_number || co[0]?.tin || null, currency: co[0]?.currency || "MVR" },
         customer: party[0]?.name,
         owed: formatLaari(total),
         invoices: out,

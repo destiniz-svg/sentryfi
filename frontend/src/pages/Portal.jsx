@@ -52,7 +52,7 @@ export default function Portal() {
         <section className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5" data-testid="portal-owed">
           <div className="text-[13px] text-[var(--ink-muted)]">{owed ? "You owe" : "Nothing is owed"}</div>
           <div className="text-[32px] font-semibold tabular">
-            MVR <Money amount={data.owed} />
+            {data.company.currency || "MVR"} <Money amount={data.owed} />
           </div>
           {owed && data.company.paymentDetails && (
             <div className="mt-3 pt-3 border-t border-[var(--border)]">
@@ -82,8 +82,11 @@ export default function Portal() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <Money amount={i.gross} className="text-[15px] font-semibold" />
-                      <div className={`text-[12px] ${paid ? "text-[var(--success)]" : "text-[var(--ink-muted)]"}`}>{paid ? "Paid" : `MVR ${i.owed} to pay`}</div>
+                      <span className="text-[15px] font-semibold">
+                        {i.currency !== (data.company.currency || "MVR") && <span className="text-[12px] text-[var(--ink-muted)] mr-1">{i.currency}</span>}
+                        <Money amount={i.gross} />
+                      </span>
+                      <div className={`text-[12px] ${paid ? "text-[var(--success)]" : "text-[var(--ink-muted)]"}`}>{paid ? "Paid" : `${data.company.currency || "MVR"} ${i.owed} to pay`}</div>
                     </div>
                     <ChevronDown size={16} className={`print:hidden text-[var(--ink-muted)] transition-transform ${open === i.id ? "rotate-180" : ""}`} aria-hidden="true" />
                   </button>
