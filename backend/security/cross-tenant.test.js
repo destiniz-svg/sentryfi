@@ -597,6 +597,30 @@ describe("confirming an email address", () => {
   });
 });
 
+describe("mail arriving for sentryfi.app", () => {
+  const post = (body, headers = {}) =>
+    fetch(`${BASE}/inbound/email`, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body });
+  const sign = (body, { secret = "test-webhook-secret", ts = Math.floor(Date.now() / 1000) } = {}) => {
+    const id = "msg_" + Date.now();
+    const sig = require("node:crypto").createHmac("sha256", Buffer.from(secret)).update(`${id}.${ts}.${body}`).digest("base64");
+    return { "svix-id": id, "svix-timestamp": String(ts), "svix-signature": `v1,${sig}` };
+  };
+  const body = JSON.stringify({ type: "email.sent", data: {} });
+
+  it("is refused unless Resend signed it", async () => {
+    expect((await post(body)).status).toBe(401);
+    expect((await post(body, sign(body, { secret: "someone-else" }))).status).toBe(401);
+    expect((await post(body, sign(body, { ts: Math.floor(Date.now() / 1000) - 3600 }))).status).toBe(401);
+    expect((await post(body + " ", sign(body))).status).toBe(401);
+  });
+
+  it("is accepted when it is", async () => {
+    const r = await post(body, sign(body));
+    expect(r.status).toBe(200);
+    expect((await r.json()).ignored).toBe("email.sent");
+  });
+});
+
 describe("every company table is walled", () => {
   it("has row-level security switched on and forced, and a policy", async () => {
     const { rows } = await db.query(

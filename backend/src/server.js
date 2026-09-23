@@ -75,6 +75,8 @@ app.use(
     credentials: true,
   })
 );
+// Before the JSON parser: the webhook's signature is over the raw bytes.
+app.use("/api/inbound", require("./routes/inbound"));
 app.use(express.json({ limit: "12mb" }));
 app.use(express.urlencoded({ extended: true, limit: "12mb" }));
 app.use(cookieParser());

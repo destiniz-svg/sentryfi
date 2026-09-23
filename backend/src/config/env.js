@@ -35,9 +35,13 @@ module.exports = {
   // addresses are not asked to be confirmed (local work and tests).
   resendApiKey: process.env.RESEND_API_KEY || "",
   resendApiUrl: process.env.RESEND_API_URL || "https://api.resend.com/emails",
-  mailFrom: process.env.MAIL_FROM || "Sentryfi <hello@sentryfi.app>",
-  // hello@sentryfi.app has no inbox; replies go here.
-  mailReplyTo: process.env.MAIL_REPLY_TO || "sentryfi.app@gmail.com",
+  // Replies to anything Sentryfi sends go to support@, which Resend receives
+  // and routes/inbound.js forwards to the inbox the owner reads.
+  mailReplyTo: process.env.MAIL_REPLY_TO || "Sentryfi Support <support@sentryfi.app>",
+  supportForwardTo: process.env.SUPPORT_FORWARD_TO || "sentryfi.app@gmail.com",
+  // A full-access key: Resend's sending-only keys cannot read received mail.
+  resendReceivingKey: process.env.RESEND_RECEIVING_KEY || "",
+  resendWebhookSecret: process.env.RESEND_WEBHOOK_SECRET || "",
   publicUrl: (process.env.PUBLIC_URL || "https://sentryfi.app").replace(/\/$/, ""),
   isProd: process.env.NODE_ENV === "production",
 };

@@ -32,7 +32,8 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sentryfi-sec-"));
         BACKUP_KEY: "", BACKUP_BUCKET: "", BACKUP_ACCESS_KEY_ID: "", BACKUP_SECRET_ACCESS_KEY: "",
         GEMINI_API_KEY: "",
         // Email on, so addresses must be confirmed, but sent nowhere.
-        RESEND_API_KEY: "re_test_offline", RESEND_API_URL: "http://127.0.0.1:9/emails", ZOHO_CLIENT_ID: "", ZOHO_CLIENT_SECRET: "",
+        RESEND_API_KEY: "re_test_offline", RESEND_API_URL: "http://127.0.0.1:9/emails",
+        RESEND_WEBHOOK_SECRET: "whsec_" + Buffer.from("test-webhook-secret").toString("base64"), ZOHO_CLIENT_ID: "", ZOHO_CLIENT_SECRET: "",
       },
     });
     code = r.status ?? 1;
