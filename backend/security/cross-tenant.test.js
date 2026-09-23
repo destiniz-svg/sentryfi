@@ -1039,3 +1039,14 @@ describe("the MCP server and the published interface", () => {
     expect(r.json.paths["/bills"].post).toBeTruthy();
   });
 });
+
+describe("the practice view", () => {
+  it("shows each person only the companies they keep books for", async () => {
+    const a = await call(A, "GET", "/practice", { company: null });
+    expect(a.status).toBe(200);
+    expect(a.json.companies.map((c) => c.id)).toContain(A.companyId);
+    expect(a.json.companies.map((c) => c.id)).not.toContain(B.companyId);
+    const b = await call(B, "GET", "/practice", { company: null });
+    noLeak(b, A.companyId, "SECRET-SUPPLIER-A", "Altura");
+  });
+});

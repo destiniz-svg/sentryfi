@@ -68,9 +68,10 @@ function useFolded() {
   return [folded, toggle];
 }
 
-function Group({ s, first, open, onToggle, can, tax }) {
+function Group({ s, first, open, onToggle, can, tax, multi }) {
   const { t } = useT();
-  const items = s.items.filter((it) => !it.can || can(it.can));
+  // "All your companies" only for someone who keeps more than one set of books.
+  const items = s.items.filter((it) => (!it.can || can(it.can)) && (!it.multi || multi));
   if (!items.length) return null;
   const id = `rail-${s.label.replace(/\W+/g, "-").toLowerCase()}`;
   return (
@@ -99,7 +100,8 @@ function Group({ s, first, open, onToggle, can, tax }) {
 export function Sidebar() {
   const { t } = useT();
   const { user, logout } = useAuth();
-  const { company, roles, can } = useCompany();
+  const { company, companies, roles, can } = useCompany();
+  const multi = (companies || []).length > 1;
   const tax = company?.tax?.tax || "GST";
   const { pathname } = useLocation();
   const role = ROLE_TEXT[roles?.[0]]?.label;
@@ -121,13 +123,13 @@ export function Sidebar() {
 
       <nav aria-label="Sections" className="flex-1">
         {SECTIONS.filter((s) => !s.foot).map((s, i) => (
-          <Group key={s.label} s={s} first={i === 0} open={isOpen(s.label)} onToggle={() => toggle(s.label)} can={can} tax={tax} />
+          <Group key={s.label} s={s} first={i === 0} open={isOpen(s.label)} onToggle={() => toggle(s.label)} can={can} tax={tax} multi={multi} />
         ))}
       </nav>
 
       <div className="border-t border-[var(--border)] pt-2 mt-4">
         {SECTIONS.filter((s) => s.foot).map((s) => (
-          <Group key={s.label} s={s} first open={isOpen(s.label)} onToggle={() => toggle(s.label)} can={can} tax={tax} />
+          <Group key={s.label} s={s} first open={isOpen(s.label)} onToggle={() => toggle(s.label)} can={can} tax={tax} multi={multi} />
         ))}
         <div className="hidden lg:flex items-center gap-2 px-5 pt-3">
           <div className="min-w-0 flex-1">

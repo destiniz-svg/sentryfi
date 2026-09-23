@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Banknote, Bot, Languages, Boxes, CheckCheck, ChevronRight, ClipboardList, DatabaseBackup, FileText, HandCoins, HardHat, Lock, LogOut, Moon, Package, Palette, Percent, Scale, Settings, Ship, Sunrise, Upload, User, Users, Wallet } from "lucide-react";
+import { Banknote, Bot, Building2, Languages, Boxes, CheckCheck, ChevronRight, ClipboardList, DatabaseBackup, FileText, HandCoins, HardHat, Lock, LogOut, Moon, Package, Palette, Percent, Scale, Settings, Ship, Sunrise, Upload, User, Users, Wallet } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useCompany } from "@/context/CompanyContext";
@@ -54,7 +54,7 @@ function Group({ title, rows }) {
 export default function More() {
   const { user, logout } = useAuth();
   const { theme, toggle } = useTheme();
-  const { can, company } = useCompany();
+  const { can, company, companies } = useCompany();
   const navigate = useNavigate();
   const { lang, setLang } = useT();
 
@@ -82,6 +82,7 @@ export default function More() {
       <Group
         title="The company"
         rows={[
+          companies.length > 1 && { name: "All your companies", icon: Building2, to: "/practice" },
           { name: "Invoices", icon: FileText, to: "/invoices" },
           can("manage_people") && { name: "People", icon: Users, to: "/settings?tab=people" },
           { name: "Cash tins", icon: Wallet, to: "/bank" },

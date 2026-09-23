@@ -17,6 +17,7 @@ import Verify from "@/pages/Verify";
 import CheckEmail from "@/pages/CheckEmail";
 import Portal from "@/pages/Portal";
 const Genuine = lazy(() => import("@/pages/Genuine"));
+const Practice = lazy(() => import("@/pages/Practice"));
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
 import OpenBooks from "@/pages/OpenBooks";
@@ -176,6 +177,7 @@ export const router = createBrowserRouter([
       { path: "claims", element: <Claims /> },
       { path: "cfo", element: <Cfo /> },
       { path: "branding", element: <Branding /> },
+      { path: "practice", element: <Practice /> },
       { path: "documents/:kind/:id", element: <Document /> },
       { path: "approvals", element: <Approvals /> },
       { path: "payments", element: <Payments /> },
