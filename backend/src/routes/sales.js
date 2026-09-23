@@ -1,4 +1,5 @@
 const express = require("express");
+const { pool } = require("../config/db");
 const { z } = require("zod");
 const asyncHandler = require("../utils/asyncHandler");
 const ApiError = require("../utils/ApiError");
@@ -350,6 +351,54 @@ router.post(
       console.error(JSON.stringify({ at: "sales/from-words", error: err.message }));
       throw ApiError.badRequest("That could not be read into an invoice. Fill the form instead.");
     }
+  })
+);
+
+/**
+ * Emails an invoice to its customer: a private link to their page, where the
+ * invoice is drawn exactly as issued (and can be printed or saved as a PDF)
+ * beside what they owe. Sent from Sentryfi on the company's behalf; replies go
+ * to the company's own address. A new link each time; each can be turned off.
+ */
+router.post(
+  "/:id/email",
+  requireCan("record"),
+  asyncHandler(async (req, res) => {
+    if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) throw ApiError.notFound("No such invoice.");
+    const p = z.object({ to: z.string().trim().email("That is not an email address.").optional(), note: z.string().trim().max(600).optional() }).safeParse(req.body ?? {});
+    if (!p.success) throw ApiError.badRequest(p.error.issues[0].message);
+    const env = require("../config/env");
+    const found = await asCompany(req, async (client) => {
+      const { rows } = await client.query(
+        `SELECT s.invoice_no, s.status, s.voided_at, s.counterparty_id, s.gross_laari, s.fc_gross, trim(s.currency) AS currency, s.due_date::text AS due,
+                c.name AS customer, c.email, co.name AS company, co.brand ->> 'email' AS company_email, trim(co.base_currency) AS base
+           FROM sales_invoices s JOIN counterparties c ON c.id = s.counterparty_id JOIN companies co ON co.id = s.company_id
+          WHERE s.id = $1 AND s.company_id = $2`,
+        [req.params.id, req.companyId]
+      );
+      return rows[0] || null;
+    });
+    if (!found) throw ApiError.notFound("No such invoice.");
+    if (found.status !== "posted" || found.voided_at) throw ApiError.badRequest("Only an invoice in the books is sent. Put it in the books first.");
+    const to = p.data.to || found.email;
+    if (!to) throw ApiError.badRequest(`What is ${found.customer}'s email address?`);
+    const token = require("crypto").randomBytes(24).toString("base64url");
+    await pool.query("INSERT INTO portal_links (company_id, counterparty_id, token_hash, created_by) VALUES ($1,$2,$3,$4)", [
+      req.companyId, found.counterparty_id, require("crypto").createHash("sha256").update(token).digest("hex"), req.user.id,
+    ]);
+    const amount = found.fc_gross ? `${found.currency} ${formatLaari(BigInt(found.fc_gross))}` : `${found.base} ${formatLaari(BigInt(found.gross_laari))}`;
+    await require("../services/email").send({
+      to,
+      subject: `Invoice ${found.invoice_no} from ${found.company}`,
+      lines: [
+        `${found.company} has sent you invoice ${found.invoice_no} for ${amount}${found.due ? `, due ${found.due}` : ""}.`,
+        ...(p.data.note ? [p.data.note] : []),
+        "The link below shows it exactly as issued, beside everything else you have been invoiced and what is still to pay. You can print it or save it as a PDF there.",
+      ],
+      link: { label: "See the invoice", url: `${env.publicUrl}/portal/${token}` },
+      ...(found.company_email ? { replyTo: `${found.company} <${found.company_email}>` } : {}),
+    });
+    res.json({ ok: true, to });
   })
 );
 

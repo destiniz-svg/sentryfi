@@ -242,6 +242,7 @@ describe("A's invoices, from B", () => {
     denied(await call(B, "POST", `/sales/${A.draftInvoice}/post`));
     denied(await call(B, "POST", `/sales/${A.invoiceId}/credit`, { body: { reason: "cross tenant", amount: "1" } }));
     denied(await call(B, "DELETE", `/sales/${A.draftInvoice}`, { body: { reason: "cross tenant" } }));
+    denied(await call(B, "POST", `/sales/${A.invoiceId}/email`, { body: { to: "someone@example.com" } }));
     const pay = await call(B, "POST", "/sales/receipts", {
       body: { amount: "1", accountId: B.bankId, allocations: [{ invoiceId: A.invoiceId, amount: "1" }] },
     });
