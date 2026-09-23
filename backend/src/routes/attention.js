@@ -306,12 +306,12 @@ router.get(
   asyncHandler(async (req, res) => {
     const items = await asCompany(req, (client) => collect(client, req));
 
-    res.json({
+    res.json(require("../ledger/words").speak({
       items,
       // Said plainly rather than as a count, because "0 items" is not the same
       // sentence as "nothing is waiting on you".
       allClear: items.length === 0,
-    });
+    }, req.company));
   })
 );
 

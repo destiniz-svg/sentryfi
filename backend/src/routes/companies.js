@@ -31,9 +31,9 @@ const STARTING_ACCOUNTS = [
   ["1100", "Bank", "asset"],
   ["1200", "Cash boxes", "asset"],
   ["1300", "Money owed to us", "asset"],
-  ["1400", "GST we can claim", "asset"],
+  ["1400", "{tax} we can claim", "asset"],
   ["2100", "Suppliers we owe", "liability"],
-  ["2200", "GST we owe", "liability"],
+  ["2200", "{tax} we owe", "liability"],
   ["2300", "Money put in by directors", "liability"],
   ["3100", "Owner's stake", "equity"],
   ["4100", "Work invoiced", "income"],
@@ -79,6 +79,8 @@ const newCompany = z.object({
   gstNumber: z.string().trim().max(40).optional(),
   gstRegistered: z.boolean().optional(),
   baseCurrency: z.string().trim().length(3).optional(),
+  // Which country's tax pack the books keep to (ledger/tax.js): the Maldives by default.
+  country: z.enum(["MV", "AE", "GENERIC"]).optional(),
 });
 
 /**
@@ -97,13 +99,14 @@ router.post(
       throw ApiError.badRequest(parsed.error.issues[0].message);
     }
     const b = parsed.data;
+    const pack = require("../ledger/tax").packCalled(b.country || "MV");
 
     const company = await withTransaction(async (client) => {
       const { rows: companyRows } = await client.query(
-        `INSERT INTO companies (name, tin, gst_number, gst_registered, base_currency)
-         VALUES ($1,$2,$3,COALESCE($4,false),COALESCE($5,'MVR'))
+        `INSERT INTO companies (name, tin, gst_number, gst_registered, base_currency, tax_pack)
+         VALUES ($1,$2,$3,COALESCE($4,false),COALESCE($5,'MVR'),$6)
          RETURNING id, name, base_currency, gst_registered`,
-        [b.name, b.tin || null, b.gstNumber || null, b.gstRegistered ?? null, b.baseCurrency || null]
+        [b.name, b.tin || null, b.gstNumber || null, b.gstRegistered ?? null, b.baseCurrency || pack.currency || null, pack.code]
       );
       const created = companyRows[0];
 
@@ -121,7 +124,7 @@ router.post(
         await client.query(
           `INSERT INTO accounts (company_id, code, name, type)
            VALUES ($1,$2,$3,$4::account_t)`,
-          [created.id, code, name, type]
+          [created.id, code, name.replace("{tax}", pack.words.tax), type]
         );
       }
 

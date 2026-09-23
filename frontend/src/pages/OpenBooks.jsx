@@ -18,9 +18,17 @@ import AILogo from "@/components/layout/AILogo";
  * setting this up on a Friday evening may not have it to hand and should not
  * be stopped.
  */
+/** Where the books are kept: each is a tax pack on the server (ledger/tax.js). */
+const COUNTRIES = [
+  { code: "MV", label: "Maldives", tax: "GST", number: "1234567GST501", hint: "Every MIRA document asks for it.", currency: "MVR" },
+  { code: "AE", label: "United Arab Emirates", tax: "VAT", number: "100123456700003", hint: "Your TRN: every tax invoice and VAT return shows it.", currency: "AED" },
+  { code: "GENERIC", label: "Somewhere else", tax: "tax", number: "", hint: "Your tax registration number, if you have one.", currency: null },
+];
+
 export default function OpenBooks() {
   const { open, error: contextError } = useCompany();
-  const [form, setForm] = useState({ name: "", tin: "", gstRegistered: true });
+  const [form, setForm] = useState({ name: "", tin: "", gstRegistered: true, country: "MV" });
+  const where = COUNTRIES.find((c) => c.code === form.country);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
@@ -40,6 +48,7 @@ export default function OpenBooks() {
         name: form.name.trim(),
         tin: form.tin.trim() || undefined,
         gstRegistered: form.gstRegistered,
+        country: form.country,
       });
     } catch (ex) {
       setErr(ex.message || "Could not open the books");
@@ -62,6 +71,19 @@ export default function OpenBooks() {
         </p>
 
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
+          <fieldset>
+            <legend className="text-sm font-medium text-[var(--ink)] mb-1.5">Where is the company?</legend>
+            <div className="flex flex-wrap gap-2">
+              {COUNTRIES.map((c) => (
+                <button key={c.code} type="button" onClick={() => setForm((f) => ({ ...f, country: c.code }))} aria-pressed={form.country === c.code} className={`h-10 px-4 rounded-full text-[14px] font-medium ${form.country === c.code ? "bg-[var(--ink)] text-[var(--surface)]" : "bg-[var(--surface-2)] text-[var(--ink-muted)]"}`}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[13px] text-[var(--ink-muted)] mt-1.5">
+              {where.currency ? `Kept in ${where.currency}, with ${where.tax} as the law there has it.` : "Kept in the currency you choose, with the tax rate you give it."}
+            </p>
+          </fieldset>
           <div>
             <label
               htmlFor="company-name"
@@ -90,11 +112,11 @@ export default function OpenBooks() {
               id="company-tin"
               value={form.tin}
               onChange={set("tin")}
-              placeholder="1234567GST501"
+              placeholder={where.number}
               className="w-full h-12 px-4 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[15px] text-[var(--ink)] placeholder:text-[var(--ink-muted)] outline-none focus:border-[var(--ink)] focus:ring-[3px] focus:ring-[var(--ink)]/15 tabular"
             />
             <p className="text-[13px] text-[var(--ink-muted)] mt-1.5">
-              Every MIRA document asks for it. You can add it later in settings.
+              {where.hint} You can add it later in settings.
             </p>
           </div>
 
@@ -106,7 +128,7 @@ export default function OpenBooks() {
               className="mt-0.5 h-5 w-5 rounded-[4px] border-[var(--border)]"
             />
             <span className="text-sm text-[var(--ink)] leading-snug">
-              This company is registered for GST
+              This company is registered for {where.tax}
               <span className="block text-[13px] text-[var(--ink-muted)] mt-0.5">
                 It decides whether tax can be claimed back on what you buy.
               </span>

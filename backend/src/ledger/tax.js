@@ -56,6 +56,39 @@ const MV = {
   defaultRate: "general",
   treatments: ["exclusive", "inclusive", "none_unregistered", "exempt", "zero_rated", "unknown"],
   filing: { periods: ["month", "quarter"], dueDay: 28, authority: "MIRA" },
+  // The words the screens and the paper use, so nothing else writes "GST" or "MIRA".
+  words: { tax: "GST", taxId: "TIN", registration: "GST number", authority: "MIRA", portal: "MIRAconnect" },
+  // MIRA's Input and Output Tax Statements (gstReturn.js), and the rates the input one has columns for.
+  statements: true,
+  inputRateColumns: [600, 800, 1200, 1600],
+  form: "mira",
+};
+
+/**
+ * United Arab Emirates. Federal Decree-Law No. 8 of 2017 on VAT: 5% from
+ * 1 January 2018, zero-rated and exempt supplies, the TRN on every tax invoice,
+ * returns (VAT 201) by the 28th day after the tax period, usually a quarter,
+ * filed on EmaraTax. The second pack, and the proof that a country is data: a
+ * UAE company keeps its books and files with no ledger code of its own. To be
+ * confirmed by a UAE accountant before a first filing.
+ */
+const AE = {
+  code: "AE",
+  name: "United Arab Emirates",
+  currency: "AED",
+  rates: {
+    standard: {
+      label: "Standard VAT",
+      history: [{ from: "2018-01-01", bp: 500 }],
+    },
+  },
+  defaultRate: "standard",
+  treatments: ["exclusive", "inclusive", "none_unregistered", "exempt", "zero_rated", "unknown"],
+  filing: { periods: ["quarter", "month"], dueDay: 28, authority: "FTA" },
+  words: { tax: "VAT", taxId: "TRN", registration: "TRN", authority: "the FTA", portal: "EmaraTax" },
+  statements: false,
+  inputRateColumns: null,
+  form: "vat201",
 };
 
 /**
@@ -71,9 +104,16 @@ const GENERIC = {
   defaultRate: "standard",
   treatments: ["exclusive", "inclusive", "none_unregistered", "exempt", "zero_rated", "unknown"],
   filing: { periods: ["month", "quarter", "year"], dueDay: null, authority: null },
+  words: { tax: "Tax", taxId: "Tax number", registration: "Tax registration number", authority: "the tax office", portal: null },
+  statements: false,
+  inputRateColumns: null,
+  form: "generic",
 };
 
-const PACKS = { MV, GENERIC };
+const PACKS = { MV, AE, GENERIC };
+
+/** What the screens need to speak a pack's language. */
+const wordsOf = (pack) => ({ code: pack.code, name: pack.name, currency: pack.currency, ...pack.words, statements: pack.statements, form: pack.form, periods: pack.filing.periods });
 
 const isoDate = (d) => (d instanceof Date ? d.toISOString().slice(0, 10) : String(d || "").slice(0, 10));
 
@@ -159,11 +199,11 @@ async function overview(client, { companyId, on }) {
     [companyId]
   );
   return {
-    pack: { code: pack.code, name: pack.name, filing: pack.filing, treatments: pack.treatments },
+    pack: { code: pack.code, name: pack.name, filing: pack.filing, treatments: pack.treatments, words: pack.words },
     defaultRate: pack.defaultRate,
     rates,
     changes: own,
   };
 }
 
-module.exports = { PACKS, packFor, rateOn, rateForDocument, setRate, overview };
+module.exports = { PACKS, packFor, packCalled, wordsOf, rateOn, rateForDocument, setRate, overview };

@@ -32,7 +32,7 @@ router.get(
       health: await cfo.health(client, ctx),
       written: Boolean(require("../config/env").geminiApiKey),
     }));
-    res.json(out);
+    res.json(require("../ledger/words").speak(out, req.company));
   })
 );
 
@@ -40,7 +40,7 @@ router.post(
   "/brief",
   requireCan("read"),
   asyncHandler(async (req, res) => {
-    res.json({ brief: await on(req, (client, ctx) => cfo.brief(client, { ...ctx, fresh: true })) });
+    res.json(require("../ledger/words").speak({ brief: await on(req, (client, ctx) => cfo.brief(client, { ...ctx, fresh: true })) }, req.company));
   })
 );
 
@@ -56,7 +56,7 @@ router.post(
       const { rows } = await client.query("SELECT name FROM companies WHERE id = $1", [ctx.companyId]);
       return require("../ledger/cfoAsk").ask(client, { ...ctx, company: rows[0]?.name || "the company", question: p.data.question }, gemini.generate);
     });
-    res.json(out);
+    res.json(require("../ledger/words").speak(out, req.company));
   })
 );
 
@@ -67,7 +67,7 @@ router.get(
     if (!/^\d{4}-\d{2}-\d{2}$/.test(req.params.date)) throw ApiError.badRequest("A date is YYYY-MM-DD.");
     const row = await on(req, async (client, ctx) => (await client.query("SELECT body FROM cfo_briefs WHERE company_id = $1 AND for_date = $2", [ctx.companyId, req.params.date])).rows[0]);
     if (!row) throw ApiError.notFound("There is no brief for that day.");
-    res.json({ brief: row.body });
+    res.json(require("../ledger/words").speak({ brief: row.body }, req.company));
   })
 );
 

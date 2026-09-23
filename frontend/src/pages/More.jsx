@@ -72,7 +72,7 @@ export default function More() {
           { name: "Shipments", icon: Ship, to: "/shipments" },
           { name: "Fixed assets", icon: Package, to: "/assets" },
           { name: "Closing a month or year", icon: Lock, to: "/closing" },
-          { name: "GST return", icon: Percent, to: "/tax" },
+          { name: `${company?.tax?.tax || "GST"} return`, icon: Percent, to: "/tax" },
           can("manage_settings") && { name: "Bring history in", icon: Upload, to: "/import" },
         ]}
       />

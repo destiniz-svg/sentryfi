@@ -70,7 +70,7 @@ async function resolveCompany(client, { userId, asked }) {
 
   const { rows: memberships } = await client.query(
     `SELECT m.company_id, m.role::text AS role,
-            c.name, c.base_currency, c.gst_registered
+            c.name, c.base_currency, c.gst_registered, c.tax_pack
        FROM memberships m
        JOIN companies c ON c.id = m.company_id
       WHERE m.user_id = $1
@@ -109,6 +109,8 @@ async function resolveCompany(client, { userId, asked }) {
       name: chosen[0].name,
       baseCurrency: chosen[0].base_currency,
       gstRegistered: chosen[0].gst_registered,
+      // The country's words and form (ledger/tax.js), so no screen writes "GST" or "MIRA" itself.
+      tax: require("../ledger/tax").wordsOf(require("../ledger/tax").packCalled(chosen[0].tax_pack || "MV")),
     },
     // A person may hold more than one role in the same company.
     roles: chosen.map((m) => m.role),

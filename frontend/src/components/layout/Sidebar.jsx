@@ -65,7 +65,7 @@ function useFolded() {
   return [folded, toggle];
 }
 
-function Group({ s, first, open, onToggle, can }) {
+function Group({ s, first, open, onToggle, can, tax }) {
   const items = s.items.filter((it) => !it.can || can(it.can));
   if (!items.length) return null;
   const id = `rail-${s.label.replace(/\W+/g, "-").toLowerCase()}`;
@@ -85,7 +85,7 @@ function Group({ s, first, open, onToggle, can }) {
       {/* Folded on a wide rail only: the icon rail on a tablet is short enough to show everything. */}
       <div id={id} className={cn(!open && "lg:hidden")}>
         {items.map((it) => (
-          <Item key={it.to} {...it} />
+          <Item key={it.to} {...it} label={it.to === "/tax" ? `${tax} return` : it.label} />
         ))}
       </div>
     </div>
@@ -95,6 +95,7 @@ function Group({ s, first, open, onToggle, can }) {
 export function Sidebar() {
   const { user, logout } = useAuth();
   const { company, roles, can } = useCompany();
+  const tax = company?.tax?.tax || "GST";
   const { pathname } = useLocation();
   const role = ROLE_TEXT[roles?.[0]]?.label;
   const [folded, toggle] = useFolded();
@@ -115,13 +116,13 @@ export function Sidebar() {
 
       <nav aria-label="Sections" className="flex-1">
         {SECTIONS.filter((s) => !s.foot).map((s, i) => (
-          <Group key={s.label} s={s} first={i === 0} open={isOpen(s.label)} onToggle={() => toggle(s.label)} can={can} />
+          <Group key={s.label} s={s} first={i === 0} open={isOpen(s.label)} onToggle={() => toggle(s.label)} can={can} tax={tax} />
         ))}
       </nav>
 
       <div className="border-t border-[var(--border)] pt-2 mt-4">
         {SECTIONS.filter((s) => s.foot).map((s) => (
-          <Group key={s.label} s={s} first open={isOpen(s.label)} onToggle={() => toggle(s.label)} can={can} />
+          <Group key={s.label} s={s} first open={isOpen(s.label)} onToggle={() => toggle(s.label)} can={can} tax={tax} />
         ))}
         <div className="hidden lg:flex items-center gap-2 px-5 pt-3">
           <div className="min-w-0 flex-1">

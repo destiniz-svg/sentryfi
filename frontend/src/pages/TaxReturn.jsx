@@ -23,7 +23,9 @@ const niceDate = (iso) =>
   new Date(String(iso).slice(0, 10) + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
 export default function TaxReturn() {
-  const { companyId, can } = useCompany();
+  const { companyId, can, company } = useCompany();
+  // The country's words (backend ledger/tax.js): GST, MIRA and MIRAconnect here; VAT, the FTA and EmaraTax in the UAE.
+  const w = company?.tax || { tax: "GST", authority: "MIRA", portal: "MIRAconnect", statements: true };
   const toast = useToast();
   const queryClient = useQueryClient();
   const [key, setKey] = useState("current");
@@ -72,7 +74,7 @@ export default function TaxReturn() {
 
   return (
     <div>
-      <PageHeader title="GST return" description="What you owe so far, and everything the portal asks for." />
+      <PageHeader title={`${w.tax} return`} description={`What you owe so far, and everything ${w.portal || w.authority} asks for.`} />
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <select
@@ -114,7 +116,7 @@ export default function TaxReturn() {
           </dl>
           <p className="px-5 py-3 text-[13px] text-[var(--ink-muted)] border-t border-[var(--border)]">
             From {r.counts.invoices} {r.counts.invoices === 1 ? "invoice or credit note" : "invoices and credit notes"} and {r.counts.bills}{" "}
-            {r.counts.bills === 1 ? "bill" : "bills"} dated in the period, checked against the books. Key these into the return on MIRAconnect.
+            {r.counts.bills === 1 ? "bill" : "bills"} dated in the period, checked against the books. {w.portal ? `Key these into the return on ${w.portal}.` : "Key these into the return."}
           </p>
         </Card>
 
@@ -155,6 +157,7 @@ export default function TaxReturn() {
             </Card>
           )}
 
+          {w.statements && (
           <Card padding="lg">
             <div className="text-[15px] font-semibold mb-1">The two statements</div>
             <p className="text-[13px] text-[var(--ink-muted)] mb-3">
@@ -169,6 +172,7 @@ export default function TaxReturn() {
               </Button>
             </div>
           </Card>
+          )}
 
           {can("close") && p.over && !r.filed && (
             <Card padding="lg">
@@ -181,7 +185,7 @@ export default function TaxReturn() {
                   id="gst-reference"
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
-                  placeholder="MIRAconnect reference, if any"
+                  placeholder={`${w.portal || "Filing"} reference, if any`}
                   className="h-11 px-4 flex-1 min-w-[200px] rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[15px]"
                 />
                 <Button variant="accent" disabled={filed.isPending} onClick={markFiled}>

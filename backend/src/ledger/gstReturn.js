@@ -85,7 +85,7 @@ function recentKeys(kind, count = 12, today = new Date().toISOString().slice(0, 
 async function build(client, { companyId, key }) {
   const pack = await packFor(client, { companyId });
   const { rows: co } = await client.query(
-    "SELECT name, tin, gst_number, gst_period FROM companies WHERE id = $1",
+    "SELECT name, tin, gst_number, gst_period, trim(base_currency) AS currency FROM companies WHERE id = $1",
     [companyId]
   );
   const company = co[0];
@@ -157,12 +157,17 @@ async function build(client, { companyId, key }) {
   const ledger = { output: BigInt(led[0].output), input: BigInt(led[0].input) };
 
   // ---- what would make it wrong ------------------------------------------
+  // In the pack's own words: GST and MIRA in the Maldives, VAT and the FTA in the UAE.
+  const W = pack.words;
+  const cur = company.currency || pack.currency || "";
   const problems = [];
   if (!company.gst_number) {
     problems.push({
-      what: "No taxable activity number",
-      detail: "Both statements need it on every line. It is the GST number on your registration, like 1145053GST501. Set it in Settings, Tax.",
-      href: "/settings",
+      what: pack.statements ? "No taxable activity number" : `No ${W.registration}`,
+      detail: pack.statements
+        ? "Both statements need it on every line. It is the GST number on your registration, like 1145053GST501. Set it in Settings, Tax."
+        : `The return and every tax invoice need your ${W.registration}. Set it in Settings, Tax.`,
+      href: "/settings?tab=tax",
     });
   }
   // One item for all of them, naming the suppliers: a list that grows by one
@@ -171,14 +176,14 @@ async function build(client, { companyId, key }) {
   if (noTin.length) {
     const who = [...new Set(noTin.map((b) => b.supplier || "an unnamed supplier"))];
     problems.push({
-      what: noTin.length === 1 ? `${who[0]} has no TIN` : `${noTin.length} bills claim GST from suppliers with no TIN`,
+      what: noTin.length === 1 ? `${who[0]} has no ${W.taxId}` : `${noTin.length} bills claim ${W.tax} from suppliers with no ${W.taxId}`,
       detail:
-        `MVR ${formatLaari(sum(noTin, (b) => BigInt(b.tax_laari)))} of GST claimed from ${who.slice(0, 5).join(", ")}${who.length > 5 ? ` and ${who.length - 5} more` : ""}. ` +
-        "A claim needs the supplier's TIN on the statement. Add it, or the claim can be refused.",
+        `${cur} ${formatLaari(sum(noTin, (b) => BigInt(b.tax_laari)))} of ${W.tax} claimed from ${who.slice(0, 5).join(", ")}${who.length > 5 ? ` and ${who.length - 5} more` : ""}. ` +
+        `A claim needs the supplier's ${W.taxId}. Add it, or the claim can be refused.`,
       href: "/bills",
     });
   }
-  for (const b of bills.filter((r) => r.sign > 0 && !INPUT_RATE_COLUMNS.includes(r.gst_rate_bp))) {
+  for (const b of pack.inputRateColumns ? bills.filter((r) => r.sign > 0 && !pack.inputRateColumns.includes(r.gst_rate_bp)) : []) {
     problems.push({
       what: `Bill ${b.bill_no || ""} at ${b.gst_rate_bp / 100}%`,
       detail: "MIRA's Input Tax Statement has columns for 6, 8, 12 and 16% only. Check the rate on the paper.",
@@ -188,14 +193,14 @@ async function build(client, { companyId, key }) {
   if (ledger.output !== out.tax) {
     problems.push({
       what: "Output tax in the books does not match the invoices",
-      detail: `The books say MVR ${formatLaari(ledger.output)} owed for these dates; the invoices and credit notes say MVR ${formatLaari(out.tax)}. An entry against GST owed was made by hand or dated differently. Find it before filing.`,
+      detail: `The books say ${cur} ${formatLaari(ledger.output)} owed for these dates; the invoices and credit notes say ${cur} ${formatLaari(out.tax)}. An entry against ${W.tax} owed was made by hand or dated differently. Find it before filing.`,
       href: "/statements",
     });
   }
   if (ledger.input !== inp.tax) {
     problems.push({
       what: "Input tax in the books does not match the bills",
-      detail: `The books say MVR ${formatLaari(ledger.input)} claimable for these dates; the bills say MVR ${formatLaari(inp.tax)}. Find the difference before filing.`,
+      detail: `The books say ${cur} ${formatLaari(ledger.input)} claimable for these dates; the bills say ${cur} ${formatLaari(inp.tax)}. Find the difference before filing.`,
       href: "/statements",
     });
   }
@@ -215,7 +220,7 @@ async function build(client, { companyId, key }) {
   );
   const n = u[0];
   const unfinished = [
-    n.undecided && { what: `${n.undecided} ${n.undecided === 1 ? "bill says" : "bills say"} nothing about how GST was quoted`, href: "/bills" },
+    n.undecided && { what: `${n.undecided} ${n.undecided === 1 ? "bill says" : "bills say"} nothing about how ${W.tax} was quoted`, href: "/bills" },
     n.bills && { what: `${n.bills} ${n.bills === 1 ? "bill is" : "bills are"} recorded but not in the books`, href: "/bills" },
     n.invoices && { what: `${n.invoices} invoice ${n.invoices === 1 ? "draft" : "drafts"} dated in the period`, href: "/invoices" },
     n.bank && { what: `${n.bank} bank ${n.bank === 1 ? "line" : "lines"} in the period the books do not explain`, href: "/bank" },
@@ -234,7 +239,7 @@ async function build(client, { companyId, key }) {
   if (was && (BigInt(was.output_laari) !== out.tax || BigInt(was.input_laari) !== inp.tax)) {
     problems.push({
       what: "The books changed after this return was filed",
-      detail: `Filed with output tax MVR ${formatLaari(BigInt(was.output_laari))} and input tax MVR ${formatLaari(BigInt(was.input_laari))}; the books now say MVR ${formatLaari(out.tax)} and MVR ${formatLaari(inp.tax)}. That needs an amended return or a correction in a later period.`,
+      detail: `Filed with output tax ${cur} ${formatLaari(BigInt(was.output_laari))} and input tax ${cur} ${formatLaari(BigInt(was.input_laari))}; the books now say ${cur} ${formatLaari(out.tax)} and ${cur} ${formatLaari(inp.tax)}. That needs an amended return or a correction in a later period.`,
       href: "/closing",
     });
   }
@@ -292,9 +297,33 @@ function outputSheets(r) {
   ];
 }
 
-/** The figures a person keys into the return on MIRAconnect. */
+/** The figures a person keys into the return, in the form the pack's authority uses. */
 function figures(r) {
   const f = (v) => formatLaari(v);
+  const net = r.out.tax - r.inp.tax;
+  if (r.pack.form === "vat201") {
+    // The UAE's VAT 201, box by box. Every sale is put in the company's own emirate (box 1).
+    return [
+      { label: "Box 1: Standard-rated supplies, amount", amount: f(r.out.standard) },
+      { label: "Box 1: Standard-rated supplies, VAT", amount: f(r.out.tax) },
+      { label: "Box 4: Zero-rated supplies", amount: f(r.out.zeroRated) },
+      { label: "Box 5: Exempt supplies", amount: f(r.out.exempt) },
+      { label: "Box 9: Standard-rated expenses, amount", amount: f(r.inp.value) },
+      { label: "Box 9: Standard-rated expenses, recoverable VAT", amount: f(r.inp.tax) },
+      { label: "Box 12: Total value of due tax", amount: f(r.out.tax), strong: true },
+      { label: "Box 13: Total value of recoverable tax", amount: f(r.inp.tax), strong: true },
+      { label: net < 0n ? "Box 14: Payable tax for the period (repayable)" : "Box 14: Payable tax for the period", amount: f(net < 0n ? -net : net), strong: true, total: true },
+    ];
+  }
+  const t = r.pack.words.tax;
+  if (r.pack.form === "generic")
+    return [
+      { label: `Sales with ${t}, before ${t}`, amount: f(r.out.standard) },
+      { label: `${t} charged`, amount: f(r.out.tax), strong: true },
+      { label: `Purchases with ${t}, before ${t}`, amount: f(r.inp.value) },
+      { label: `${t} paid and claimable`, amount: f(r.inp.tax), strong: true },
+      { label: net < 0n ? "Refundable" : "Payable", amount: f(net < 0n ? -net : net), strong: true, total: true },
+    ];
   return [
     { label: "Standard-rated supplies, excluding GST", amount: f(r.out.standard) },
     { label: "Zero-rated supplies", amount: f(r.out.zeroRated) },

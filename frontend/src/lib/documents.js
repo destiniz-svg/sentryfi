@@ -260,8 +260,11 @@ export function compose({ data, brand, template, size, verifyUrl }) {
   const s = SIZES[size || t.size] || SIZES.a4;
   const both = t.language === "en-dv";
   const dv = (k) => t.dvLabels[k] || DV_LABELS[k];
+  // The country's words (backend ledger/tax.js): GST and TIN here, VAT and TRN in the UAE.
+  const w = brand.tax || { code: "MV", tax: "GST", taxId: "TIN" };
+  const WORDS = { ...LABELS, net: `Before ${w.tax}`, tax: w.tax };
   // Anything after the English (a rate, a currency) stays with it: Thaana runs right to left and would pull it across.
-  const label = (k, after = "") => (both && dv(k) ? `${t.labels[k] || LABELS[k]}${after} · ${dv(k)}` : `${t.labels[k] || LABELS[k]}${after}`);
+  const label = (k, after = "") => (both && dv(k) ? `${t.labels[k] || WORDS[k]}${after} · ${dv(k)}` : `${t.labels[k] || WORDS[k]}${after}`);
   const taxed = data.gstTreatment && !["exempt", "none_unregistered", "out_of_scope"].includes(data.gstTreatment);
   const taxInvoice = data.kind === "invoice" && brand.gstRegistered && taxed;
   const custom = (t.title || "").trim();
@@ -287,8 +290,8 @@ export function compose({ data, brand, template, size, verifyUrl }) {
   const inBase =
     data.currency && data.totals.taxInBase !== undefined
       ? [
-          `GST in MVR: ${data.totals.taxInBase}${data.fxRate ? ` at ${data.fxRate} MVR to 1 ${data.currency}` : ""}`,
-          `Total in MVR: ${data.totals.grossInBase}`,
+          `${w.tax} in ${brand.baseCurrency || "MVR"}: ${data.totals.taxInBase}${data.fxRate ? ` at ${data.fxRate} ${brand.baseCurrency || "MVR"} to 1 ${data.currency}` : ""}`,
+          `Total in ${brand.baseCurrency || "MVR"}: ${data.totals.grossInBase}`,
         ]
       : [];
   const meta = [
@@ -301,9 +304,10 @@ export function compose({ data, brand, template, size, verifyUrl }) {
     data.approvedBy && { label: "Approved by", value: data.approvedBy },
     data.project && { label: label("project"), value: data.project },
   ].filter(Boolean);
+  // In the UAE the TRN is the one number; elsewhere the tax number and the registration.
   const idLines = [
-    brand.tin && `TIN ${brand.tin}`,
-    brand.gstRegistered && brand.gstNumber && `GST ${brand.gstNumber}`,
+    w.code === "AE" ? (brand.gstNumber || brand.tin) && `TRN ${brand.gstNumber || brand.tin}` : brand.tin && `${w.taxId} ${brand.tin}`,
+    w.code !== "AE" && brand.gstRegistered && brand.gstNumber && `${w.tax} ${brand.gstNumber}`,
     brand.registrationNo && `Reg. ${brand.registrationNo}`,
   ].filter(Boolean);
   const gross = data.totals?.gross;
@@ -335,6 +339,7 @@ export function compose({ data, brand, template, size, verifyUrl }) {
       logo: t.show.logo ? brand.logo : null,
     },
     to: data.to,
+    taxId: w.taxId,
     toLabel: (t.labels.billTo || TO[data.kind] || LABELS.billTo) + (both ? ` · ${dv("billTo")}` : ""),
     meta,
     subject: data.subject ? { label: label("subject"), value: data.subject } : null,

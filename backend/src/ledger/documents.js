@@ -15,7 +15,7 @@ const f = (v) => (v === null || v === undefined ? null : formatLaari(BigInt(v)))
 /** The brand kit, with the facts the company already keeps filled in. */
 async function brandOf(client, { companyId }) {
   const { rows } = await client.query(
-    "SELECT name, registration_no, tin, gst_number, gst_registered, base_currency, payment_details, brand FROM companies WHERE id = $1",
+    "SELECT name, registration_no, tin, gst_number, gst_registered, base_currency, payment_details, brand, tax_pack FROM companies WHERE id = $1",
     [companyId]
   );
   const c = rows[0];
@@ -30,6 +30,8 @@ async function brandOf(client, { companyId }) {
     gstRegistered: c.gst_registered,
     baseCurrency: String(c.base_currency).trim(),
     paymentDetails: c.brand.paymentDetails ?? c.payment_details ?? "",
+    // The country's words for the paper: GST and TIN, or VAT and TRN (ledger/tax.js).
+    tax: require("./tax").wordsOf(require("./tax").packCalled(c.tax_pack || "MV")),
   };
 }
 
@@ -143,7 +145,7 @@ async function orderData(client, { companyId, id }) {
     gstRatePercent: ratePercent,
     lines: s.lines.map((l) => ({ code: null, description: l.description, quantity: require("./stock").unitsText(l.units), unit: l.unit, rate: f(l.price), amount: f(orders.times(l.price, l.units)) })),
     totals: { net: f(net), tax: f(tax), gross: f(net + tax) },
-    priceNote: kind === "purchase_order" ? "Prices before GST." : ratePercent !== null ? `GST at ${ratePercent}%, the rate today; the invoice charges the rate on its own date.` : null,
+    priceNote: kind === "purchase_order" ? `Prices before ${brand.tax.tax}.` : ratePercent !== null ? `${brand.tax.tax} at ${ratePercent}%, the rate today; the invoice charges the rate on its own date.` : null,
   };
 }
 

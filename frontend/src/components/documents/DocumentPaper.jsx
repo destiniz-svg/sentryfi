@@ -187,7 +187,7 @@ function Parties({ m }) {
           <p className="lbl">{m.toLabel}</p>
           <p style={{ fontWeight: 600, fontSize: "calc(var(--sd-fs)*1.1)" }}>{m.to.name}</p>
           {m.to.address && <p className="mute pre">{m.to.address}</p>}
-          {m.to.tin && <p className="mute">TIN {m.to.tin}</p>}
+          {m.to.tin && <p className="mute">{m.taxId || "TIN"} {m.to.tin}</p>}
         </div>
       )}
       {m.subject && (
