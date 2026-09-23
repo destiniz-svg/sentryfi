@@ -675,3 +675,12 @@ a.underline:hover { color: var(--deep-strong); }
     letter-spacing: -0.01em;
   }
 }
+
+/* A grid given no columns of its own on a phone gets one implicit column that
+   grows to its widest unbreakable content (a long supplier name, a run of
+   figures) and pushes the page past the screen. Hold it to the screen. */
+@media (max-width: 639px) {
+  .phone-soft .grid:not([class^="grid-cols-"]):not([class*=" grid-cols-"]) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -307,7 +307,7 @@ function Profile({ p }) {
         title="What it has learned about the business"
         note={`From ${formatDate(p.from)} to ${formatDate(p.to)}, ${p.monthsOfBooks} ${p.monthsOfBooks === 1 ? "month" : "months"} of books. Revenue MVR ${p.revenue}, costs MVR ${p.costs}${p.grossMarginPercent !== null ? `, ${p.grossMarginPercent}% over cost on what is sold` : ""}.`}
       />
-      <div className="grid md:grid-cols-2 gap-x-10 gap-y-7 mt-6">
+      <div className="grid grid-cols-[minmax(0,1fr)] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-10 gap-y-7 mt-6">
         {[
           ["What it sells", p.sells, "Nothing sold yet."],
           ["To whom", p.customers, "No customers yet."],
