@@ -54,7 +54,8 @@ const bad = (m) => {
     await page.goto(BASE + "/invoices/new", { waitUntil: "networkidle" });
     const paper = page.getByTestId("invoice-preview").getByTestId("paper");
     await paper.waitFor({ timeout: 15000 });
-    const who = `Documents check ${Date.now() % 100000}`;
+    // A name unlike any before it: a close one is filed under the existing customer, by design.
+    const who = `${Array.from({ length: 7 }, () => "bcdfghjklmnpqrstvwz"[Math.floor(Math.random() * 19)]).join("")} Holdings`.replace(/^./, (c) => c.toUpperCase());
     await page.getByLabel("Who is it to?").fill(who);
     await page.getByLabel("Line 1: what it is").fill("Crane hire");
     await page.getByLabel("Line 1: quantity").fill("3");
@@ -65,8 +66,8 @@ const bad = (m) => {
     await page.screenshot({ path: "shots/invoice-new-desk.png", fullPage: true });
     await page.getByTestId("save-invoice").click();
     await page.waitForURL(/\/documents\/invoice\//, { timeout: 20000 });
-    await page.getByTestId("paper").first().waitFor({ timeout: 15000 });
-    const drawn = await page.getByTestId("paper").first().innerText();
+    await page.getByTestId("paper").filter({ hasText: who }).first().waitFor({ timeout: 15000 }).catch(() => {});
+    const drawn = await page.getByTestId("paper").first().textContent();
     if (drawn.includes(who) && drawn.includes("Crane hire")) ok("saving opens the document, drawn the same way");
     else bad(`the saved document reads: ${drawn.slice(0, 300)}`);
     await page.screenshot({ path: "shots/invoice-document.png", fullPage: true });
@@ -79,6 +80,34 @@ const bad = (m) => {
     }, id);
     if (gone) ok("the check's draft is discarded");
     else bad("the check's draft could not be discarded");
+
+    // ---- an order's document, and a delivery note if it has one
+    const order = await page.evaluate(async () => {
+      const headers = { "X-Company-Id": localStorage.getItem("sentryfi.company") };
+      const list = (await fetch("/api/orders", { credentials: "include", headers }).then((r) => r.json())).orders || [];
+      return list.find((o) => o.kind === "sale" && o.delivered !== "0.00") || list[0] || null;
+    });
+    if (!order) bad("the test company has no orders to draw");
+    else {
+      await page.goto(`${BASE}/orders/${order.id}`, { waitUntil: "networkidle" });
+      await page.getByTestId("order-document").click();
+      await page.getByTestId("paper").first().waitFor({ timeout: 15000 });
+      const t = await page.getByTestId("paper").first().innerText();
+      if (t.includes(order.number) && t.includes(order.party)) ok(`order ${order.number} opens as its document`);
+      else bad(`order document reads ${t.slice(0, 200)}`);
+      await page.screenshot({ path: "shots/order-document.png", fullPage: true });
+      await page.goto(`${BASE}/orders/${order.id}`, { waitUntil: "networkidle" });
+      const dn = page.getByRole("link", { name: new RegExp(`${order.number}-D1`) });
+      if (await dn.count()) {
+        await dn.click();
+        await page.getByTestId("paper").first().waitFor({ timeout: 15000 });
+        const d = await page.getByTestId("paper").first().innerText();
+        if (/Received by|RECEIVED/i.test(d) && !/Before GST/.test(d)) ok("its delivery note shows quantities, no prices, and a line to sign");
+        else if (/Received from/i.test(d)) ok("its goods received note shows what arrived");
+        else bad(`delivery note reads ${d.slice(0, 200)}`);
+        await page.screenshot({ path: "shots/delivery-note.png", fullPage: true });
+      }
+    }
 
     // ---- on a phone
     const phone = await signIn(browser, { phone: true });
