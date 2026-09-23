@@ -90,3 +90,15 @@ describe("analytics", () => {
       expect([p.owed, p.overdue]).toEqual(["500.00", "500.00"]);
     }));
 });
+
+describe("the ranked lists", () => {
+  it("put the largest first", () =>
+    inRollback(async (client) => {
+      const co = await aBusiness(client);
+      await client.query("INSERT INTO accounts (company_id, code, name, type) VALUES ($1,'5500','Office','expense')", [co.companyId]);
+      await co.invoice(co.quick, "2026-08-03", "2026-08-17", "100");
+      await co.invoice(co.slow, "2026-08-04", "2026-08-18", "900");
+      const o = await analytics.overview(client, { companyId: co.companyId, from: "2026-08-01", to: "2026-08-31" });
+      expect(o.incomeBy.map((r) => r.name)).toEqual(["Pays late", "Pays on time"]);
+    }));
+});

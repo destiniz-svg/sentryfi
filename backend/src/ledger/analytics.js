@@ -81,14 +81,14 @@ async function overview(client, { companyId, from, to }) {
        FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id JOIN accounts a ON a.id = l.account_id
        LEFT JOIN counterparties c ON c.id = l.counterparty_id
       WHERE l.company_id = $1 AND a.type = 'income' AND e.entry_date BETWEEN $2::date AND $3::date
-      GROUP BY c.id, c.name HAVING SUM(l.credit_laari - l.debit_laari) <> 0 ORDER BY 3::bigint DESC`,
+      GROUP BY c.id, c.name HAVING SUM(l.credit_laari - l.debit_laari) <> 0 ORDER BY SUM(l.credit_laari - l.debit_laari) DESC`,
     [companyId, from, to]
   );
   const { rows: costsBy } = await client.query(
     `SELECT a.id, a.name, SUM(l.debit_laari - l.credit_laari)::text AS amount
        FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id JOIN accounts a ON a.id = l.account_id
       WHERE l.company_id = $1 AND a.type = 'expense' AND e.entry_date BETWEEN $2::date AND $3::date
-      GROUP BY a.id, a.name HAVING SUM(l.debit_laari - l.credit_laari) <> 0 ORDER BY 3::bigint DESC`,
+      GROUP BY a.id, a.name HAVING SUM(l.debit_laari - l.credit_laari) <> 0 ORDER BY SUM(l.debit_laari - l.credit_laari) DESC`,
     [companyId, from, to]
   );
   const { rows: costsBefore } = await client.query(
