@@ -246,8 +246,8 @@ function Heading({ icon, title, note }) {
     <div className="flex items-start gap-3">
       {icon && <Dot icon={icon} />}
       <div className="min-w-0">
-        <h2 className="text-[17px] font-semibold tracking-[-0.01em] leading-9">{title}</h2>
-        {note && <p className="text-[13px] text-[var(--ink-muted)] -mt-1 leading-snug">{note}</p>}
+        <h2 className="text-[17px] font-semibold tracking-[-0.01em] leading-snug pt-[7px]">{title}</h2>
+        {note && <p className="text-[13px] text-[var(--ink-muted)] mt-1 leading-snug">{note}</p>}
       </div>
     </div>
   );
