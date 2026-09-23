@@ -9,6 +9,7 @@ import { Money } from "@/components/ui/Money";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { apiClient } from "@/api/client";
 import { useCompany } from "@/context/CompanyContext";
+import { useSendOrKeep } from "@/context/OutboxContext";
 import { useToast } from "@/context/UIContext";
 import { formatDate, today } from "@/lib/utils";
 
@@ -248,7 +249,8 @@ function Count({ item, onClose, onDone }) {
   const [unitCost, setUnitCost] = useState("");
   const [note, setNote] = useState("");
   const [err, setErr] = useState("");
-  const go = useMutation({ mutationFn: (body) => apiClient.post(`/stock/${item.id}/count`, body).then((r) => r.data) });
+  // Counted in the store, often with no signal: kept on the phone until there is.
+  const go = useSendOrKeep((body) => ({ url: `/stock/${item.id}/count`, body, label: `Counted ${body.counted} ${item.unit} of ${item.name}` }));
   const noneOnHand = n(item.onHand) === 0;
 
   async function onSubmit(e) {
@@ -256,6 +258,10 @@ function Count({ item, onClose, onDone }) {
     setErr("");
     try {
       const r = await go.mutateAsync({ counted, on, unitCost: unitCost || null, note: note || null });
+      if (r.queued) {
+        toast.success("Kept on this phone", "The count goes into the books by itself when there is signal.");
+        return onClose();
+      }
       onDone();
       const d = n(r.difference);
       toast.success(`${item.name}: ${counted} ${item.unit}`, `${d < 0 ? `${-d} short` : `${d} more than the books said`}. Entry ${r.entryNo}.`);

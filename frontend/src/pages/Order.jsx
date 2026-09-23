@@ -11,6 +11,7 @@ import { Money } from "@/components/ui/Money";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { apiClient } from "@/api/client";
 import { useCompany } from "@/context/CompanyContext";
+import { useOutbox } from "@/context/OutboxContext";
 import { useToast } from "@/context/UIContext";
 import { formatDate, today } from "@/lib/utils";
 import { FIELD } from "@/lib/shipments";
@@ -209,6 +210,8 @@ export default function Order() {
 
 function Deliver({ o, onClose, run }) {
   const buying = o.kind === "purchase";
+  const { sendOrKeep } = useOutbox();
+  const toast = useToast();
   const left = (l) => Math.max(0, n(l.quantity) - n(l.delivered));
   const [qty, setQty] = useState(Object.fromEntries(o.lines.map((l) => [l.id, String(left(l))])));
   const [f, setF] = useState({ deliveredOn: today(), reference: "" });
@@ -217,7 +220,15 @@ function Deliver({ o, onClose, run }) {
     e.preventDefault();
     setBusy(true);
     const lines = Object.entries(qty).filter(([, v]) => n(v) > 0).map(([orderLineId, quantity]) => ({ orderLineId, quantity: String(quantity) }));
-    const r = await run(`/orders/${o.id}/deliveries`, { ...f, reference: f.reference || null, lines }, () => [buying ? "Recorded as arrived" : "Recorded as gone out", buying ? "Bill it when the supplier's invoice comes." : "Invoice it now or later."]);
+    // Recorded where the goods are, often with no signal: kept on the phone until there is.
+    const body = { ...f, reference: f.reference || null, lines };
+    if (!navigator.onLine) {
+      await sendOrKeep({ url: `/orders/${o.id}/deliveries`, body, label: `${buying ? "Arrived" : "Went out"} against ${o.number}` });
+      toast.success("Kept on this phone", "It is recorded against the order by itself when there is signal.");
+      setBusy(false);
+      return onClose();
+    }
+    const r = await run(`/orders/${o.id}/deliveries`, body, () => [buying ? "Recorded as arrived" : "Recorded as gone out", buying ? "Bill it when the supplier's invoice comes." : "Invoice it now or later."]);
     setBusy(false);
     if (r) onClose();
   }

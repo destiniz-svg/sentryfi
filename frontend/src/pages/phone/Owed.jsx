@@ -7,6 +7,7 @@ import { useOutbox } from "@/context/OutboxContext";
 import { PhoneShell } from "@/components/phone/PhoneShell";
 import { RecordBill } from "@/components/bills/RecordBill";
 import { laariText } from "@/components/mobile/parts";
+import { remembered } from "@/lib/kept";
 
 /**
  * Owed back: what the person holding a tin has paid out of their own pocket.
@@ -25,7 +26,7 @@ export default function PhoneOwed() {
   const [snapping, setSnapping] = useState(false);
   const { data: tins, isPending } = useQuery({
     queryKey: ["cash", companyId],
-    queryFn: () => apiClient.get("/cash").then((r) => r.data.boxes),
+    queryFn: remembered(`cash:${companyId}`, () => apiClient.get("/cash").then((r) => r.data.boxes)),
     enabled: Boolean(companyId),
   });
 

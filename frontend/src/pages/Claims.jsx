@@ -14,6 +14,7 @@ import { useToast } from "@/context/UIContext";
 import { today } from "@/lib/utils";
 import { FIELD } from "@/lib/shipments";
 import { CLAIM_STATUS } from "@/lib/orders";
+import { useOutbox } from "@/context/OutboxContext";
 
 /**
  * Expense claims: what someone spent for the business from their own pocket.
@@ -84,6 +85,7 @@ function NewClaim({ onClose }) {
   const { companyId } = useCompany();
   const qc = useQueryClient();
   const toast = useToast();
+  const { sendOrKeep } = useOutbox();
   const { data: o } = useQuery({ queryKey: ["claims", companyId, "options"], queryFn: () => apiClient.get("/claims/options").then((r) => r.data) });
   const [lines, setLines] = useState([blank()]);
   const [err, setErr] = useState("");
@@ -96,9 +98,13 @@ function NewClaim({ onClose }) {
     setErr("");
     setBusy(true);
     try {
-      const r = await apiClient.post("/claims", {
-        lines: lines.filter((l) => l.description.trim()).map((l) => ({ ...l, projectId: l.projectId || null, amount: String(l.amount).replace(/,/g, "") })),
-      });
+      const body = { lines: lines.filter((l) => l.description.trim()).map((l) => ({ ...l, projectId: l.projectId || null, amount: String(l.amount).replace(/,/g, "") })) };
+      const sent = await sendOrKeep({ url: "/claims", body, label: `A claim for MVR ${total.toLocaleString("en-US", { minimumFractionDigits: 2 })}` });
+      if (sent.queued) {
+        toast.success("Kept on this phone", "Your claim goes by itself when there is signal.");
+        return onClose();
+      }
+      const r = { data: sent.data };
       qc.invalidateQueries({ queryKey: ["claims", companyId] });
       qc.invalidateQueries({ queryKey: ["attention", companyId] });
       toast.success(`${r.data.number} sent`, "Someone who approves will look at it.");

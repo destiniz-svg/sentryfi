@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { setRequestCompany } from "@/api/client";
 import { companiesApi } from "@/api/companies";
 import { useAuth } from "@/context/AuthContext";
+import { remembered } from "@/lib/kept";
 
 /**
  * Which company the screens are looking at.
@@ -47,7 +48,7 @@ export function CompanyProvider({ children }) {
 
   const companiesQuery = useQuery({
     queryKey: ["companies", user?.id],
-    queryFn: companiesApi.mine,
+    queryFn: remembered(`companies:${user?.id}`, companiesApi.mine),
     enabled: Boolean(user),
     staleTime: 60_000,
   });
@@ -78,7 +79,7 @@ export function CompanyProvider({ children }) {
 
   const contextQuery = useQuery({
     queryKey: ["company-context", companyId],
-    queryFn: () => companiesApi.current(companyId),
+    queryFn: remembered(`company:${companyId}`, () => companiesApi.current(companyId)),
     enabled: Boolean(companyId),
     staleTime: 60_000,
   });

@@ -80,6 +80,8 @@ app.use("/api/inbound", require("./routes/inbound"));
 app.use(express.json({ limit: "12mb" }));
 app.use(express.urlencoded({ extended: true, limit: "12mb" }));
 app.use(cookieParser());
+// A write sent with its own key happens once, however often a weak signal resends it.
+app.use("/api", require("./middleware/idempotency").idempotency);
 if (!env.isProd) app.use(morgan("dev"));
 
 app.use("/api/health", healthRouter);

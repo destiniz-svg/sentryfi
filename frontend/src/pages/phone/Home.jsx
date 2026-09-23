@@ -6,6 +6,8 @@ import { useCompany } from "@/context/CompanyContext";
 import { useOutbox } from "@/context/OutboxContext";
 import { PhoneShell } from "@/components/phone/PhoneShell";
 import { RecordBill } from "@/components/bills/RecordBill";
+import { remembered } from "@/lib/kept";
+import { WaitingToSend } from "@/components/bills/WaitingToSend";
 
 /**
  * Home, on the board: the expense manager, for site staff and cash holders.
@@ -17,7 +19,7 @@ export default function SendHome() {
   const [snapping, setSnapping] = useState(false);
   const { data: tins } = useQuery({
     queryKey: ["cash", companyId],
-    queryFn: () => apiClient.get("/cash").then((r) => r.data.boxes),
+    queryFn: remembered(`cash:${companyId}`, () => apiClient.get("/cash").then((r) => r.data.boxes)),
     enabled: Boolean(companyId) && can("spend_cash"),
   });
   const waiting = (tins || []).filter((t) => t.yours).flatMap((t) => t.handed || []);
@@ -30,6 +32,7 @@ export default function SendHome() {
       sync={count > 0 ? `${count} waiting` : "Up to date"}
       onSnap={() => setSnapping(true)}
     >
+      <WaitingToSend className="mx-5 mt-4" />
       {waiting.length > 0 && (
         <Link
           to="/cash"

@@ -932,3 +932,35 @@ describe("every company table is walled", () => {
     expect(open).toEqual([]);
   });
 });
+
+describe("a send repeated by a weak signal", () => {
+  it("happens once, and the repeat gets the first answer back", async () => {
+    const key = crypto.randomUUID();
+    const body = { amount: "3", what: "sent twice", accountId: A.accounts["5100"] };
+    const first = await call(A, "POST", `/cash/${A.boxId}/spend`, { body, headers: { "Idempotency-Key": key } });
+    expect(first.status).toBe(201);
+    const again = await call(A, "POST", `/cash/${A.boxId}/spend`, { body, headers: { "Idempotency-Key": key } });
+    expect(again.status).toBe(201);
+    expect(again.headers.get("idempotent-replayed")).toBe("true");
+    expect(again.json).toEqual(first.json);
+    const h = await call(A, "GET", `/cash/${A.boxId}/history`);
+    expect(JSON.stringify(h.json).split("sent twice").length - 1).toBe(1);
+  });
+
+  it("is kept per person: B cannot replay A's answer with A's key", async () => {
+    const key = crypto.randomUUID();
+    await call(A, "POST", `/cash/${A.boxId}/spend`, { body: { amount: "1", what: "SECRET-KEYED", accountId: A.accounts["5100"] }, headers: { "Idempotency-Key": key } });
+    const r = await call(B, "POST", `/cash/${A.boxId}/spend`, { body: { amount: "1", what: "xx", accountId: B.accounts["5100"] }, headers: { "Idempotency-Key": key } });
+    denied(r);
+    noLeak(r, "SECRET-KEYED", A.boxId);
+  });
+
+  it("refuses a key used for something else, and frees a key whose send failed", async () => {
+    const key = crypto.randomUUID();
+    await call(A, "POST", `/cash/${A.boxId}/spend`, { body: { amount: "1", what: "keyed", accountId: A.accounts["5100"] }, headers: { "Idempotency-Key": key } });
+    expect((await call(A, "POST", `/cash/${A.boxId}/topup`, { body: { amount: "1" }, headers: { "Idempotency-Key": key } })).status).toBe(400);
+    const again = crypto.randomUUID();
+    expect((await call(A, "POST", `/cash/${A.boxId}/spend`, { body: { amount: "0", what: "" }, headers: { "Idempotency-Key": again } })).status).toBe(400);
+    expect((await call(A, "POST", `/cash/${A.boxId}/spend`, { body: { amount: "1", what: "fixed", accountId: A.accounts["5100"] }, headers: { "Idempotency-Key": again } })).status).toBe(201);
+  });
+});

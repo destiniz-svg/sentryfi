@@ -1,6 +1,10 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { authApi } from "@/api/auth";
+import { remembered, forgetKept } from "@/lib/kept";
+
+// Who is signed in, kept: opened with no signal, the app still knows.
+const whoAmI = remembered("me", () => authApi.me());
 
 const AuthContext = createContext(null);
 
@@ -11,7 +15,7 @@ export function AuthProvider({ children }) {
 
   const refresh = useCallback(async () => {
     try {
-      const { user } = await authApi.me();
+      const { user } = await whoAmI();
       setUser(user);
     } catch {
       setUser(null);
@@ -48,6 +52,7 @@ export function AuthProvider({ children }) {
     } finally {
       setUser(null);
       queryClient.clear();
+      forgetKept();
     }
   }, [queryClient]);
 

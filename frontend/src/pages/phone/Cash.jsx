@@ -8,6 +8,9 @@ import { PhoneShell } from "@/components/phone/PhoneShell";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { TagPicker } from "@/components/ui/TagPicker";
+import { remembered } from "@/lib/kept";
+import { useSendOrKeep } from "@/context/OutboxContext";
+import { WaitingToSend } from "@/components/bills/WaitingToSend";
 
 /**
  * The tin.
@@ -72,7 +75,7 @@ export default function PhoneCash() {
 
   const { data: boxes, isPending } = useQuery({
     queryKey: ["cash", companyId],
-    queryFn: cashApi.boxes,
+    queryFn: remembered(`cash:${companyId}`, cashApi.boxes),
     enabled: Boolean(companyId),
   });
 
@@ -110,6 +113,7 @@ export default function PhoneCash() {
       sync={box?.askedFor ? `${box.askedFor} asked for` : ""}
       onSnap={() => setDoing("spend")}
     >
+      <WaitingToSend className="mx-5 mt-4" />
       {isPending ? (
         <p className="px-5 pt-4 text-[15px]" style={{ color: "var(--ink-muted)" }}>
           Reading the books.
@@ -266,7 +270,7 @@ export default function PhoneCash() {
 function History({ boxId, companyId }) {
   const { data } = useQuery({
     queryKey: ["cashHistory", companyId, boxId],
-    queryFn: () => cashApi.history(boxId),
+    queryFn: remembered(`cashHistory:${boxId}`, () => cashApi.history(boxId)),
     enabled: Boolean(boxId),
   });
 
@@ -349,12 +353,16 @@ function Handed({ handed, onDone, toast }) {
   const [received, setReceived] = useState("");
   const [reason, setReason] = useState("");
   const [err, setErr] = useState("");
-  const send = useMutation({ mutationFn: (body) => cashApi.receive(handed.id, body) });
+  const send = useSendOrKeep((body) => ({ url: `/cash/topups/${handed.id}/receive`, body: body || {}, label: `Received MVR ${body?.received || handed.amount} into the tin` }));
 
   async function confirm(body) {
     setErr("");
     try {
       const r = await send.mutateAsync(body);
+      if (r.queued) {
+        toast.success("Kept on this phone", "Your confirmation is saved. It goes into the books by itself when there is signal.");
+        return onDone();
+      }
       toast.success(
         `${r.received} is in your tin`,
         r.received === r.given ? "Thank you." : `The office handed over ${r.given}; the difference is recorded.`
@@ -504,11 +512,11 @@ function SpendSheet({ open, box, onClose, onDone, toast }) {
 
   const { data: kinds } = useQuery({
     queryKey: ["cashKinds", companyId],
-    queryFn: cashApi.kinds,
+    queryFn: remembered(`cashKinds:${companyId}`, cashApi.kinds),
     enabled: open,
   });
 
-  const send = useMutation({ mutationFn: (payload) => cashApi.spend(box.id, payload) });
+  const send = useSendOrKeep((payload) => ({ url: `/cash/${box.id}/spend`, body: payload, label: `MVR ${group(payload.amount)} out of ${box.name || "the tin"}: ${payload.what}` }));
 
   const chosen = kindId || kinds?.[0]?.id || "";
   const clean = String(amount).replace(/,/g, "");
@@ -523,6 +531,13 @@ function SpendSheet({ open, box, onClose, onDone, toast }) {
 
     try {
       const result = await send.mutateAsync({ amount: clean, what: what.trim(), accountId: chosen, projectId: tags.projectId || null, dimensionIds: tags.dimensionIds.length ? tags.dimensionIds : null });
+      if (result.queued) {
+        toast.success("Kept on this phone", "The spend is saved. It goes into the books by itself when there is signal.");
+        setAmount("");
+        setWhat("");
+        onDone();
+        return onClose();
+      }
       toast.success(
         `Out of the tin · MVR ${result.amount}`,
         result.overdrawn
@@ -607,7 +622,7 @@ function CountSheet({ open, box, onClose, onDone, toast }) {
   const [err, setErr] = useState("");
   const [asked, setAsked] = useState(false);
 
-  const send = useMutation({ mutationFn: (payload) => cashApi.count(box.id, payload) });
+  const send = useSendOrKeep((payload) => ({ url: `/cash/${box.id}/count`, body: payload, label: `Counted MVR ${group(payload.counted)} in ${box.name || "the tin"}` }));
   const clean = String(counted).replace(/,/g, "");
 
   async function onSubmit(e) {
@@ -617,6 +632,14 @@ function CountSheet({ open, box, onClose, onDone, toast }) {
 
     try {
       const result = await send.mutateAsync({ counted: clean, reason: reason.trim() || null });
+      if (result.queued) {
+        toast.success("Kept on this phone", "The count is saved. It goes into the books by itself when there is signal.");
+        setCounted("");
+        setReason("");
+        setAsked(false);
+        onDone();
+        return onClose();
+      }
       toast.success(
         result.difference ? `${result.short ? "Short" : "Over"} by MVR ${result.difference}` : "It agrees",
         result.said
@@ -658,7 +681,7 @@ function CountSheet({ open, box, onClose, onDone, toast }) {
           />
         </label>
 
-        {asked && (
+        {(asked || !navigator.onLine) && (
           <label className="block">
             <span className="text-sm font-medium block mb-1.5">What happened to the difference?</span>
             <input
@@ -691,7 +714,7 @@ function AskSheet({ open, box, onClose, onDone, toast }) {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [err, setErr] = useState("");
-  const send = useMutation({ mutationFn: (payload) => cashApi.askFor(box.id, payload) });
+  const send = useSendOrKeep((payload) => ({ url: `/cash/${box.id}/topup`, body: payload, label: `Asked for MVR ${group(payload.amount)} for ${box.name || "the tin"}` }));
   const clean = String(amount).replace(/,/g, "");
 
   async function onSubmit(e) {
@@ -700,6 +723,13 @@ function AskSheet({ open, box, onClose, onDone, toast }) {
     if (!(Number(clean) > 0)) return setErr("How much is needed?");
     try {
       const result = await send.mutateAsync({ amount: clean, note: note.trim() || null });
+      if (result.queued) {
+        toast.success("Kept on this phone", "The request is saved. It goes into the books by itself when there is signal.");
+        setAmount("");
+        setNote("");
+        onDone();
+        return onClose();
+      }
       toast.success(`Asked for MVR ${result.asked}`, "It is not money until somebody gives it.");
       setAmount("");
       setNote("");

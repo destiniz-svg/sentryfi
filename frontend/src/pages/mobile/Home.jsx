@@ -6,6 +6,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { Money } from "@/components/ui/Money";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/mobile/parts";
+import { WaitingToSend } from "@/components/bills/WaitingToSend";
 
 /**
  * Home, in the main app on a phone (DESIGN.md, "The phone, refined").
@@ -46,6 +47,7 @@ export default function MobileHome() {
   return (
     <div className="space-y-6">
       <h1 className="sr-only">Home</h1>
+      <WaitingToSend className="" />
       {!f ? <Skeleton className="h-[176px] rounded-[24px]" /> : <CashCard f={f} />}
 
       {f && <Figures f={f} />}

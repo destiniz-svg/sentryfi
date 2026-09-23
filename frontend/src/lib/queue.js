@@ -24,7 +24,10 @@
 
 const DB = "sentryfi";
 const STORE = "outbox";
-const VERSION = 1;
+// 2 added "sends": any other write made in the field (a cash spend, a count,
+// cash received, a delivery), held the same way and sent with its own key.
+const SENDS = "sends";
+const VERSION = 2;
 
 function open() {
   return new Promise((resolve, reject) => {
@@ -34,17 +37,20 @@ function open() {
       if (!db.objectStoreNames.contains(STORE)) {
         db.createObjectStore(STORE, { keyPath: "ref" });
       }
+      if (!db.objectStoreNames.contains(SENDS)) {
+        db.createObjectStore(SENDS, { keyPath: "ref" });
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
 }
 
-async function run(mode, fn) {
+async function run(mode, fn, name = STORE) {
   const db = await open();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, mode);
-    const store = tx.objectStore(STORE);
+    const tx = db.transaction(name, mode);
+    const store = tx.objectStore(name);
     let result;
     Promise.resolve(fn(store))
       .then((r) => {
@@ -175,4 +181,69 @@ export async function send({ companyId, userId, record, attach, put }) {
   }
 
   return { sent, failed, skipped: false };
+}
+
+// ------------------------------------------------------------------ any other write
+
+/**
+ * A write made in the field with no signal: which company, whose, the request,
+ * and a plain line saying what it was ("MVR 300.00 out of the tin: sand").
+ * The ref is the request's Idempotency-Key, made before the first attempt, so
+ * however many times it is sent the server does it once.
+ */
+export async function holdSend({ ref, companyId, userId, method, url, body, label }) {
+  await run(
+    "readwrite",
+    (store) => request(store.put({ ref, companyId, userId, method, url, body, label, queuedAt: Date.now(), attempts: 0, lastError: null, refused: null })),
+    SENDS
+  );
+  return ref;
+}
+
+export async function waitingSends() {
+  try {
+    const all = await run("readonly", (store) => request(store.getAll()), SENDS);
+    return (all || []).sort((a, b) => a.queuedAt - b.queuedAt);
+  } catch {
+    return [];
+  }
+}
+
+export async function dropSend(ref) {
+  await run("readwrite", (store) => request(store.delete(ref)), SENDS);
+}
+
+async function markSend(ref, change) {
+  await run(
+    "readwrite",
+    async (store) => {
+      const item = await request(store.get(ref));
+      if (item) await request(store.put({ ...item, ...change, attempts: (item.attempts || 0) + 1 }));
+    },
+    SENDS
+  );
+}
+
+/**
+ * Sends what is waiting, oldest first, each with its own key. The server has
+ * it: dropped. No answer: kept, tried again later. Refused (the tin is closed,
+ * a count needs a reason): kept and marked, because trying again will not
+ * change the answer; a person reads why and decides.
+ */
+export async function sendAll({ companyId, userId, go }) {
+  if (!navigator.onLine) return { sent: 0, skipped: true };
+  let sent = 0;
+  for (const item of mine(await waitingSends(), { companyId, userId })) {
+    if (item.refused) continue;
+    try {
+      await go(item);
+      await dropSend(item.ref);
+      sent += 1;
+    } catch (err) {
+      if (!err?.status) await markSend(item.ref, { lastError: "No signal" });
+      else if (err.status === 409) await markSend(item.ref, { lastError: err.message });
+      else await markSend(item.ref, { refused: err.message || "Refused" });
+    }
+  }
+  return { sent, skipped: false };
 }
