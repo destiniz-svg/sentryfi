@@ -513,7 +513,8 @@ function SpendSheet({ open, box, onClose, onDone, toast }) {
   const { data: kinds } = useQuery({
     queryKey: ["cashKinds", companyId],
     queryFn: remembered(`cashKinds:${companyId}`, cashApi.kinds),
-    enabled: open,
+    // Loaded with the tin, not with the form, so it is on the phone before the signal goes.
+    enabled: Boolean(companyId),
   });
 
   const send = useSendOrKeep((payload) => ({ url: `/cash/${box.id}/spend`, body: payload, label: `MVR ${group(payload.amount)} out of ${box.name || "the tin"}: ${payload.what}` }));
@@ -528,6 +529,7 @@ function SpendSheet({ open, box, onClose, onDone, toast }) {
     setErr("");
     if (!(Number(clean) > 0)) return setErr("How much was spent?");
     if (!what.trim()) return setErr("What was it spent on?");
+    if (!chosen) return setErr("The kinds of spending have not reached this phone yet. Open the tin once with signal.");
 
     try {
       const result = await send.mutateAsync({ amount: clean, what: what.trim(), accountId: chosen, projectId: tags.projectId || null, dimensionIds: tags.dimensionIds.length ? tags.dimensionIds : null });
