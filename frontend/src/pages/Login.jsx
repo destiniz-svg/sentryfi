@@ -77,7 +77,7 @@ export default function Login() {
           Welcome back
         </h1>
         <p className="text-[var(--ink-muted)] mt-2 text-[15px]">
-          Sign in to Altura's books.
+          Sign in to your books.
         </p>
 
         <form onSubmit={onSubmit} className="mt-9 space-y-4">

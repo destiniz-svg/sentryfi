@@ -101,7 +101,7 @@ const nativeBits = [
   {
     title: "Three companies, one group",
     body:
-      "Altura, Steva Hotels and Steva Enterprises keep separate books, and a transfer between them mirrors on both sides instead of being typed twice.",
+      "A builder, its hotel and its trading arm keep separate books, and a transfer between them mirrors on both sides instead of being typed twice.",
   },
   {
     title: "Built for a construction job",
@@ -441,7 +441,7 @@ export default function Landing() {
               </span>
             </h2>
             <p className="mt-5 text-[17px] text-[#44474E] max-w-[48ch] mx-auto">
-              Built for Altura Pvt Ltd first, and for every Maldivian business that keeps its books
+              Built for every Maldivian business that keeps its books
               in a shoebox and a spreadsheet.
             </p>
             <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
@@ -470,7 +470,7 @@ export default function Landing() {
             <span className="text-[16px] font-semibold tracking-[-.02em]">Sentryfi</span>
           </div>
           <p className="text-[14px] text-[#6B7078]">
-            Altura Pvt Ltd &middot; Male&apos;, Maldives
+            Made in Male&apos;, Maldives
           </p>
           <Link to="/trust" className="text-[14px] text-[#6B7078] underline underline-offset-2 hover:text-[#16181D]">
             What happens to your books

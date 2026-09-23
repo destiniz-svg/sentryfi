@@ -41,7 +41,7 @@ export function AuthShell({ children, headline, subhead }) {
  */
 const ROWS = [
   { label: "Lily Enterprises", meta: "Cement, 20t · 15 Sep", amount: "−4,250.50" },
-  { label: "Steva Enterprises", meta: "Transfer in · 14 Sep", amount: "+80,000.00" },
+  { label: "Moonreef Hotels", meta: "Transfer in · 14 Sep", amount: "+80,000.00" },
   { label: "Maldive Gas", meta: "Bottled gas · 12 Sep", amount: "−1,120.00" },
 ];
 

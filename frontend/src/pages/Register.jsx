@@ -35,7 +35,7 @@ export default function Register() {
   return (
     <AuthShell
       headline={<>One place the books are kept.</>}
-      subhead="Bills, cash boxes, the bank and the tax return, in one set of books that add up. Built for Altura first."
+      subhead="Bills, cash boxes, the bank and the tax return, in one set of books that add up."
     >
       <motion.div
         initial={{ opacity: 0, y: 12 }}
@@ -50,8 +50,7 @@ export default function Register() {
           Get started
         </h1>
         <p className="text-[var(--ink-muted)] mt-2 text-[15px]">
-          Accounts are for people working on Altura's books. Nothing here
-          records real money yet.
+          Open your company's books, or join one you have been invited to.
         </p>
 
         <form onSubmit={onSubmit} className="mt-9 space-y-4">

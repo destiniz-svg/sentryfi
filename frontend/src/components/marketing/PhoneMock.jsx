@@ -8,7 +8,7 @@ import { motion, useReducedMotion } from "framer-motion";
  */
 
 const rows = [
-  ["18 Sep", "Steva Enterprises", "Money in · advance", "+250,000", true],
+  ["18 Sep", "Moonreef Hotels", "Money in · advance", "+250,000", true],
   ["17 Sep", "Road Development Corp.", "Excavator rental", "+42,000", true],
   ["16 Sep", "Fuel Supplies Maldives", "Diesel · site cash box", "−6,120", false],
 ];

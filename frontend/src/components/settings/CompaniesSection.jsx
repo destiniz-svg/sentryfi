@@ -85,7 +85,7 @@ export function CompaniesSection() {
         <form onSubmit={onOpen} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label className="block">
             <span className="text-sm font-medium block mb-1.5">Company name</span>
-            <Input id="new-company-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enricher Holdings Pvt Ltd" />
+            <Input id="new-company-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Moonreef Hotels Pvt Ltd" />
           </label>
           <label className="block">
             <span className="text-sm font-medium block mb-1.5">GST number, if registered</span>

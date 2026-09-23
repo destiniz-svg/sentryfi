@@ -46,7 +46,7 @@ export function PhoneShell({ heading, unit = "MVR", figure, position, sync, chil
 
 function PhoneHeader() {
   // The company this is, not the company the artboard was drawn for. The name
-  // was hard-coded from the design and read "Altura Pvt Ltd" in every set of
+  // was hard-coded from the design and read the design's sample name in every set of
   // books, which on a screen about whose money this is, is the one word that
   // has to be right.
   const { company } = useCompany();

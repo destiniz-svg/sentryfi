@@ -20,7 +20,7 @@ import { apiClient } from "@/api/client";
 /**
  * Raising an invoice.
  *
- * Shaped after Altura's own: a customer, their purchase order, a subject line
+ * Shaped after how Maldivian contractors invoice: a customer, their purchase order, a subject line
  * saying which period it covers, and lines priced by quantity and rate — an
  * excavator at 3,000 a day for thirty days. The number continues the company's
  * own run and can be changed, because an invoice number is printed on a
@@ -45,7 +45,7 @@ const TAX = [
   {
     value: "exclusive",
     label: "Added on top",
-    hint: "GST on top of the line totals. How Altura's invoices are written.",
+    hint: "GST on top of the line totals. How most invoices here are written.",
   },
   {
     value: "inclusive",
