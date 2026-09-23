@@ -240,7 +240,13 @@ export default function Invoices() {
               >
                 <div className="min-w-0 col-span-2 md:col-span-1">
                   <div className="text-sm font-semibold text-[var(--ink)] truncate">
-                    {inv.customer || "Nobody named yet"}
+                    {inv.customerId ? (
+                      <Link to={`/documents/statement/${inv.customerId}`} title={`${inv.customer}'s statement`} className="hover:underline underline-offset-2">
+                        {inv.customer}
+                      </Link>
+                    ) : (
+                      inv.customer || "Nobody named yet"
+                    )}
                   </div>
                   <div className="text-xs text-[var(--ink-muted)] truncate">
                     {inv.subject || (inv.purchaseOrder ? `PO ${inv.purchaseOrder}` : "")}

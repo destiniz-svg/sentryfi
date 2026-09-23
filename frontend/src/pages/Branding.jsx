@@ -47,7 +47,7 @@ const KIND_TABS = [
   ["wording", "Wording"],
 ];
 const GROUPS = [
-  { label: "Sales documents", kinds: ["quote", "sales_order", "invoice", "credit_note", "delivery_note"] },
+  { label: "Sales documents", kinds: ["quote", "sales_order", "invoice", "credit_note", "delivery_note", "receipt", "statement"] },
   { label: "Purchase documents", kinds: ["purchase_order", "goods_received"] },
 ];
 

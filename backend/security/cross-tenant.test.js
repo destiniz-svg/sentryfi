@@ -1093,3 +1093,11 @@ describe("receipts on claims, from B", () => {
     expect(listed.receipts.length).toBe(1);
   });
 });
+
+describe("statements and receipts, from B", () => {
+  it("are not drawn for A's customers", async () => {
+    const r = await call(B, "GET", `/documents/statement/${A.counterpartyId}`);
+    denied(r);
+    noLeak(r, "SECRET-SUPPLIER-A");
+  });
+});

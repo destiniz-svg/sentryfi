@@ -397,6 +397,15 @@ async function outstanding(client, { companyId, invoiceId }) {
  * money genuinely arrived and a books that cannot say so is wrong.
  */
 async function receive(client, args) {
+  // Money against invoices is from their customer: said on the receipt, so a
+  // statement or a portal asking "what has this customer paid" finds it.
+  if (!args.counterpartyId && args.allocations?.length) {
+    const { rows } = await client.query(
+      "SELECT DISTINCT counterparty_id FROM sales_invoices WHERE company_id = $1 AND id = ANY($2::uuid[])",
+      [args.companyId, args.allocations.map((a) => a.invoiceId)]
+    );
+    if (rows.length === 1 && rows[0].counterparty_id) args = { ...args, counterpartyId: rows[0].counterparty_id };
+  }
   const base = await fx.baseCurrency(client, { companyId: args.companyId });
   if (args.currency && String(args.currency).toUpperCase() !== base) return receiveForeign(client, args);
   return receiveOwn(client, args);

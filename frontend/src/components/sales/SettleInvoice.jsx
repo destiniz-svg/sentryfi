@@ -39,6 +39,7 @@ function show(l) {
 
 /** Money in, against one invoice. */
 export function ReceiveMoney({ invoice, onClose }) {
+  const navigate = useNavigate();
   const open = Boolean(invoice);
   const { companyId } = useCompany();
   const toast = useToast();
@@ -105,6 +106,8 @@ export function ReceiveMoney({ invoice, onClose }) {
         (asked === left ? "It is settled." : `${unit} ${show(left - asked)} is still owed on it.`) + moved
       );
       onClose();
+      // Its receipt, ready to print or send.
+      if (result.receiptId) navigate(`/documents/receipt/${result.receiptId}`);
     } catch (ex) {
       setErr(ex.message || "That could not be recorded.");
     }

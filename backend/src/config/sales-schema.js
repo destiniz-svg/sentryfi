@@ -203,6 +203,14 @@ $rls$;
 -- A receipt and a credit note are records of something that happened. Neither
 -- is deleted; both are reversed, like anything else that touched the books.
 REVOKE DELETE ON receipts, credit_notes, receipt_allocations FROM sentryfi_app;
+
+-- Receipts made against invoices before a receipt took its customer from them:
+-- given the customer now, where every invoice it paid is one customer's.
+UPDATE receipts r SET counterparty_id = x.cp
+  FROM (SELECT a.receipt_id, min(s.counterparty_id::text)::uuid AS cp
+          FROM receipt_allocations a JOIN sales_invoices s ON s.id = a.invoice_id
+         GROUP BY a.receipt_id HAVING count(DISTINCT s.counterparty_id) = 1) x
+ WHERE r.id = x.receipt_id AND r.counterparty_id IS NULL;
 `;
 
 module.exports = { SALES_SQL };

@@ -212,7 +212,103 @@ async function creditData(client, { companyId, id }) {
   };
 }
 
-const DATA = { invoice: invoiceData, quote: orderData, sales_order: orderData, purchase_order: orderData, delivery_note: deliveryData, goods_received: deliveryData, credit_note: creditData };
+/** A receipt: money received from a customer, and which invoices it paid. Numbered by its entry. */
+async function receiptData(client, { companyId, id }) {
+  const { rows } = await client.query(
+    `SELECT r.*, r.received_on::text AS on, e.entry_no, a.name AS into
+       FROM receipts r LEFT JOIN journal_entries e ON e.id = r.entry_id LEFT JOIN accounts a ON a.id = r.account_id
+      WHERE r.id = $1 AND r.company_id = $2`,
+    [id, companyId]
+  );
+  const r = rows[0];
+  if (!r) throw new Error("That receipt is not in these books.");
+  const { rows: against } = await client.query(
+    `SELECT s.invoice_no, s.issue_date::text AS on, x.amount_laari FROM receipt_allocations x JOIN sales_invoices s ON s.id = x.invoice_id
+      WHERE x.receipt_id = $1 ORDER BY s.issue_date, s.invoice_no`,
+    [id]
+  );
+  const onAccount = BigInt(r.amount_laari) - against.reduce((a, x) => a + BigInt(x.amount_laari), 0n);
+  const lines = against.map((x) => ({ code: null, description: `Invoice ${x.invoice_no}, ${x.on}`, quantity: null, unit: null, rate: null, amount: f(x.amount_laari) }));
+  if (onAccount > 0n) lines.push({ code: null, description: "Held on your account, against what you owe next", quantity: null, unit: null, rate: null, amount: f(onAccount) });
+  return {
+    kind: "receipt",
+    id,
+    number: r.entry_no ? `RC-${r.entry_no}` : `RC-${String(id).slice(0, 8).toUpperCase()}`,
+    status: r.voided_at ? "void" : "posted",
+    issued: r.on,
+    reference: r.reference,
+    subject: `Received with thanks${r.into ? `, into ${r.into}` : ""}`,
+    to: await partyOf(client, { companyId, id: r.counterparty_id }),
+    currency: null,
+    gstTreatment: "none_unregistered",
+    gstRatePercent: null,
+    columns: [{ key: "description", label: "Paid against", grow: true }, { key: "amount", label: "Amount", num: true }],
+    lines,
+    totals: { net: f(r.amount_laari), tax: "0.00", gross: f(r.amount_laari) },
+    totalLabel: "Received",
+  };
+}
+
+/**
+ * A customer's statement: everything invoiced, paid and credited over the
+ * last twelve months, oldest first, with the balance after each, and what is
+ * owed now. The document's id is the customer's.
+ */
+async function statementData(client, { companyId, id }) {
+  const party = await partyOf(client, { companyId, id });
+  if (!party.name) throw new Error("That customer is not in these books.");
+  const from = new Date(Date.now() - 365 * 86_400_000).toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
+  const { rows: before } = await client.query(
+    `SELECT COALESCE((SELECT SUM(gross_laari) FROM sales_invoices WHERE company_id = $1 AND counterparty_id = $2 AND status = 'posted' AND voided_at IS NULL AND issue_date < $3), 0)
+          - COALESCE((SELECT SUM(amount_laari) FROM receipts WHERE company_id = $1 AND counterparty_id = $2 AND voided_at IS NULL AND received_on < $3), 0)
+          - COALESCE((SELECT SUM(gross_laari) FROM credit_notes WHERE company_id = $1 AND counterparty_id = $2 AND issue_date < $3), 0) AS opening`,
+    [companyId, id, from]
+  );
+  const { rows: moves } = await client.query(
+    `SELECT issue_date::text AS on, 'Invoice ' || invoice_no AS what, gross_laari AS charge, 0 AS paid FROM sales_invoices
+      WHERE company_id = $1 AND counterparty_id = $2 AND status = 'posted' AND voided_at IS NULL AND issue_date >= $3
+     UNION ALL
+     SELECT received_on::text, 'Payment received' || COALESCE(', ' || reference, ''), 0, amount_laari FROM receipts
+      WHERE company_id = $1 AND counterparty_id = $2 AND voided_at IS NULL AND received_on >= $3
+     UNION ALL
+     SELECT issue_date::text, 'Credit note ' || note_no, 0, gross_laari FROM credit_notes
+      WHERE company_id = $1 AND counterparty_id = $2 AND issue_date >= $3
+     ORDER BY 1, 2`,
+    [companyId, id, from]
+  );
+  let balance = BigInt(before[0].opening);
+  const lines = [{ code: null, on: from, description: "Brought forward", charge: "", paid: "", balance: f(balance) }];
+  for (const m of moves) {
+    balance += BigInt(m.charge) - BigInt(m.paid);
+    lines.push({ code: null, on: m.on, description: m.what, charge: BigInt(m.charge) ? f(m.charge) : "", paid: BigInt(m.paid) ? f(m.paid) : "", balance: f(balance) });
+  }
+  return {
+    kind: "statement",
+    id,
+    number: `ST-${today.replace(/-/g, "")}`,
+    status: "posted",
+    issued: today,
+    subject: `From ${from} to ${today}`,
+    to: party,
+    currency: null,
+    gstTreatment: "none_unregistered",
+    gstRatePercent: null,
+    // Its own columns: a statement is a running account, not a list of things sold.
+    columns: [
+      { key: "on", label: "Date" },
+      { key: "description", label: "What", grow: true },
+      { key: "charge", label: "Charged", num: true },
+      { key: "paid", label: "Paid or credited", num: true },
+      { key: "balance", label: "Balance", num: true },
+    ],
+    lines,
+    totals: { net: f(balance), tax: "0.00", gross: f(balance) },
+    totalLabel: balance < 0n ? "In your favour" : "Owed now",
+  };
+}
+
+const DATA = { invoice: invoiceData, quote: orderData, sales_order: orderData, purchase_order: orderData, delivery_note: deliveryData, goods_received: deliveryData, credit_note: creditData, receipt: receiptData, statement: statementData };
 
 /** What to draw: the issued copy if there is one, else the document as it is now. */
 async function show(client, { companyId, kind, documentId }) {

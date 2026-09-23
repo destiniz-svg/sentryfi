@@ -57,7 +57,7 @@ export const KIND_LABEL = {
 
 /** Every label on the paper, renamable per template. */
 /** Who the paper is addressed to, by kind; renamable as the "Bill to" label. */
-const TO = { invoice: "Bill to", quote: "Prepared for", sales_order: "Customer", purchase_order: "Supplier", delivery_note: "Deliver to", goods_received: "Received from", credit_note: "Credit to" };
+const TO = { invoice: "Bill to", quote: "Prepared for", sales_order: "Customer", purchase_order: "Supplier", delivery_note: "Deliver to", goods_received: "Received from", credit_note: "Credit to", receipt: "Received from", statement: "Account of" };
 
 export const LABELS = {
   billTo: "Bill to",
@@ -273,7 +273,8 @@ export function compose({ data, brand, template, size, verifyUrl }) {
   const accent = brand.accent || "#16181d";
   const currency = data.currency || brand.baseCurrency || "MVR";
   const showTax = taxed || Number(String(data.totals?.tax || "0").replace(/,/g, "")) > 0;
-  const columns = [
+  // A document with its own columns (a statement is a running account) brings them.
+  const columns = data.columns || [
     t.columns.code && data.lines.some((l) => l.code) && { key: "code", label: label("code") },
     { key: "description", label: label("description"), grow: true },
     !priced && data.lines.some((l) => l.ordered) && { key: "ordered", label: "Ordered", num: true },
@@ -285,7 +286,7 @@ export function compose({ data, brand, template, size, verifyUrl }) {
   const totals = !priced ? [] : [
     showTax && { label: label("net"), value: data.totals.net },
     showTax && { label: label("tax", data.gstRatePercent !== null && data.gstRatePercent !== undefined ? ` ${data.gstRatePercent}%` : ""), value: data.totals.tax },
-    { label: label("total", ` ${currency}`), value: data.totals.gross, strong: true },
+    { label: data.totalLabel ? `${data.totalLabel} ${currency}` : label("total", ` ${currency}`), value: data.totals.gross, strong: true },
   ].filter(Boolean);
   const inBase =
     data.currency && data.totals.taxInBase !== undefined
@@ -352,7 +353,7 @@ export function compose({ data, brand, template, size, verifyUrl }) {
     words: priced && t.show.words && data.totals.gross ? amountInWords(data.totals.gross, currency) : null,
     notes: t.notes ? { label: label("notes"), text: t.notes } : null,
     terms: t.terms ? { label: label("terms"), text: t.terms } : null,
-    payment: priced && ["invoice", "quote", "sales_order"].includes(data.kind) && t.show.payment && brand.paymentDetails ? { label: label("payment"), text: brand.paymentDetails } : null,
+    payment: priced && ["invoice", "quote", "sales_order", "statement"].includes(data.kind) && t.show.payment && brand.paymentDetails ? { label: label("payment"), text: brand.paymentDetails } : null,
     signature: t.show.signature && (brand.signature || brand.signatory) ? { image: brand.signature, name: brand.signatory, title: brand.signatoryTitle } : null,
     stamp: t.show.stamp ? brand.stamp : null,
     footer: t.show.footer ? brand.footer : null,
@@ -424,6 +425,25 @@ export const SAMPLES = {
     kind: "goods_received", number: "PO-0027-D1", status: "issued", issued: "2026-10-04", orderNumber: "PO-0027", to: SUPPLIER, priced: false,
     lines: [{ description: "Deformed steel bar 12 mm", ordered: "180", quantity: "180", unit: "BAR" }, { description: "Binding wire, 25 kg roll", ordered: "6", quantity: "4", unit: "ROLL" }],
     totals: {},
+  },
+  receipt: {
+    kind: "receipt", number: "RC-1284", status: "posted", issued: "2026-10-02", reference: "BML transfer 5521", subject: "Received with thanks, into Bank", to: PARTY,
+    gstTreatment: "none_unregistered", gstRatePercent: null, totalLabel: "Received",
+    columns: [{ key: "description", label: "Paid against", grow: true }, { key: "amount", label: "Amount", num: true }],
+    lines: [{ description: "Invoice INV-000142, 2026-09-23", quantity: null, unit: null, rate: null, amount: "104,112.00" }],
+    totals: { net: "104,112.00", tax: "0.00", gross: "104,112.00" },
+  },
+  statement: {
+    kind: "statement", number: "ST-20261031", status: "posted", issued: "2026-10-31", subject: "From 2025-10-31 to 2026-10-31", to: PARTY,
+    gstTreatment: "none_unregistered", gstRatePercent: null, totalLabel: "Owed now",
+    columns: [{ key: "on", label: "Date" }, { key: "description", label: "What", grow: true }, { key: "charge", label: "Charged", num: true }, { key: "paid", label: "Paid or credited", num: true }, { key: "balance", label: "Balance", num: true }],
+    lines: [
+      { on: "2025-10-31", description: "Brought forward", charge: "", paid: "", balance: "12,400.00" },
+      { on: "2026-09-23", description: "Invoice INV-000142", charge: "104,112.00", paid: "", balance: "116,512.00" },
+      { on: "2026-09-28", description: "Credit note CN-0004", charge: "", paid: "6,480.00", balance: "110,032.00" },
+      { on: "2026-10-02", description: "Payment received, BML transfer 5521", charge: "", paid: "97,632.00", balance: "12,400.00" },
+    ],
+    totals: { net: "12,400.00", tax: "0.00", gross: "12,400.00" },
   },
   credit_note: {
     kind: "credit_note", number: "CN-0004", status: "posted", issued: "2026-09-28", againstInvoice: "INV-000142", subject: "Two days the excavator stood idle", to: PARTY,

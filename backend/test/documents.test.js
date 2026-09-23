@@ -95,3 +95,22 @@ describe("documents", () => {
       expect(credit.data.againstInvoice).toBeTruthy();
     }));
 });
+
+describe("receipts and statements", () => {
+  it("draw a receipt against its invoice, and a statement that ends at what is owed", () =>
+    inRollback(async (client) => {
+      const co = await anInvoice(client);
+      await post(client, { companyId: co.companyId, userId: co.userId, invoiceId: co.invoiceId });
+      const { receive } = await import("../src/ledger/sales");
+      const r = await receive(client, { companyId: co.companyId, userId: co.userId, amount: "40000", accountId: co.accounts.bank, receivedOn: "2026-09-25", reference: "Transfer 1", allocations: [{ invoiceId: co.invoiceId, amount: "40000" }] });
+      const rec = await documents.show(client, { companyId: co.companyId, kind: "receipt", documentId: r.receipt.id });
+      expect(rec.data.number).toMatch(/^RC-/);
+      expect(rec.data.totals.gross).toBe("40,000.00");
+      expect(rec.data.lines[0].description).toMatch(/^Invoice /);
+      const { rows } = await client.query("SELECT counterparty_id FROM sales_invoices WHERE id = $1", [co.invoiceId]);
+      const st = await documents.show(client, { companyId: co.companyId, kind: "statement", documentId: rows[0].counterparty_id });
+      expect(st.data.lines.map((l) => l.description)).toEqual(expect.arrayContaining([expect.stringMatching(/^Invoice /), expect.stringMatching(/^Payment received/)]));
+      expect(st.data.totals.gross).toBe("50,000.00");
+      expect(st.data.totalLabel).toBe("Owed now");
+    }));
+});
