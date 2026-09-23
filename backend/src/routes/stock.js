@@ -76,7 +76,8 @@ router.patch(
   "/:id",
   requireCan("record"),
   refused(async (req, res) => {
-    const parsed = itemBody.partial().extend({ archived: z.boolean().optional(), reorderAt: z.union([z.string().trim(), z.number()]).transform(String).nullish() }).safeParse(req.body ?? {});
+    // No defaults on a change: a field not sent stays as it is (unit used to fall back to "each").
+    const parsed = itemBody.extend({ unit: z.string().trim().min(1).max(20) }).partial().extend({ archived: z.boolean().optional(), reorderAt: z.union([z.string().trim(), z.number()]).transform(String).nullish() }).safeParse(req.body ?? {});
     if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
     const b = parsed.data;
     const done = await asCompany(req, async (client) => {
