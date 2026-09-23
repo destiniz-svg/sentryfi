@@ -242,7 +242,7 @@ function Profile({ p }) {
         From {formatDate(p.from)} to {formatDate(p.to)}, {p.monthsOfBooks} {p.monthsOfBooks === 1 ? "month" : "months"} of books. Revenue MVR {p.revenue}, costs MVR {p.costs}
         {p.grossMarginPercent !== null ? `, ${p.grossMarginPercent}% over cost on what is sold` : ""}.
       </p>
-      <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5 mt-4">
+      <div className="grid md:grid-cols-2 gap-x-10 gap-y-5 mt-4">
         <div>
           <h3 className="text-[13px] font-semibold mb-1">What it sells</h3>
           <Rows list={p.sells} empty="Nothing sold yet." />
@@ -325,7 +325,7 @@ function Settings({ data }) {
         <label className="flex items-center gap-2 text-[14px]">
           <input id="cfo-email" type="checkbox" checked={email} onChange={(e) => setEmail(e.target.checked)} className="h-4 w-4" /> Email it to me at
         </label>
-        <select id="cfo-hour" aria-label="Hour" value={hour} onChange={(e) => setHour(e.target.value)} className={`${FIELD} w-28`}>
+        <select id="cfo-hour" aria-label="Hour" value={hour} onChange={(e) => setHour(e.target.value)} className={FIELD.replace("w-full", "w-28")}>
           {Array.from({ length: 24 }, (_, h) => (
             <option key={h} value={h}>
               {String(h).padStart(2, "0")}:00
