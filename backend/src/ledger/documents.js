@@ -79,7 +79,8 @@ async function invoiceData(client, { companyId, id: invoiceId }) {
       quantity: String(Number(l.quantity)),
       unit: l.uom,
       // In another currency the line is in that currency: what the customer sees.
-      rate: foreign ? null : f(l.unit_price_laari),
+      // A line raised as an amount alone has no rate to print.
+      rate: foreign || BigInt(l.unit_price_laari) === 0n ? null : f(l.unit_price_laari),
       amount: foreign ? f(l.fc_net) : f(l.net_laari),
     })),
     totals: foreign

@@ -204,7 +204,8 @@ export function compose({ data, brand, template, size }) {
   const s = SIZES[size || t.size] || SIZES.a4;
   const both = t.language === "en-dv";
   const dv = (k) => t.dvLabels[k] || DV_LABELS[k];
-  const label = (k) => (both && dv(k) ? `${t.labels[k] || LABELS[k]} · ${dv(k)}` : t.labels[k] || LABELS[k]);
+  // Anything after the English (a rate, a currency) stays with it: Thaana runs right to left and would pull it across.
+  const label = (k, after = "") => (both && dv(k) ? `${t.labels[k] || LABELS[k]}${after} · ${dv(k)}` : `${t.labels[k] || LABELS[k]}${after}`);
   const taxed = data.gstTreatment && !["exempt", "none_unregistered", "out_of_scope"].includes(data.gstTreatment);
   const taxInvoice = data.kind === "invoice" && brand.gstRegistered && taxed;
   const custom = (t.title || "").trim();
@@ -219,13 +220,13 @@ export function compose({ data, brand, template, size }) {
     !priced && data.lines.some((l) => l.ordered) && { key: "ordered", label: "Ordered", num: true },
     (t.columns.quantity || !priced) && { key: "quantity", label: priced ? label("quantity") : data.kind === "goods_received" ? "Received" : "Delivered", num: true },
     t.columns.unit && data.lines.some((l) => l.unit) && { key: "unit", label: label("unit") },
-    priced && t.columns.rate && data.lines.some((l) => l.rate) && { key: "rate", label: label("rate"), num: true },
+    priced && t.columns.rate && data.lines.some((l) => l.rate && l.rate !== "0.00") && { key: "rate", label: label("rate"), num: true },
     priced && { key: "amount", label: label("amount"), num: true },
   ].filter(Boolean);
   const totals = !priced ? [] : [
     showTax && { label: label("net"), value: data.totals.net },
-    showTax && { label: `${label("tax")}${data.gstRatePercent !== null && data.gstRatePercent !== undefined ? ` ${data.gstRatePercent}%` : ""}`, value: data.totals.tax },
-    { label: `${label("total")} ${currency}`, value: data.totals.gross, strong: true },
+    showTax && { label: label("tax", data.gstRatePercent !== null && data.gstRatePercent !== undefined ? ` ${data.gstRatePercent}%` : ""), value: data.totals.tax },
+    { label: label("total", ` ${currency}`), value: data.totals.gross, strong: true },
   ].filter(Boolean);
   const inBase =
     data.currency && data.totals.taxInBase !== undefined
