@@ -109,6 +109,8 @@ app.use("/api/projects", require("./routes/projects"));
 app.use("/api/orders", require("./routes/orders"));
 app.use("/api/recurring", require("./routes/recurring"));
 app.use("/api", require("./routes/claims"));
+app.use("/api/portal", require("./routes/portal").publicRouter);
+app.use("/api/portal-links", require("./routes/portal"));
 app.use("/api/statements", statementsRouter);
 app.use("/api/tax", taxRouter);
 app.use("/api/gst", gstRouter);

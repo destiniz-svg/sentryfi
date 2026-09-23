@@ -15,6 +15,7 @@ import Reset from "@/pages/Reset";
 import Forgot from "@/pages/Forgot";
 import Verify from "@/pages/Verify";
 import CheckEmail from "@/pages/CheckEmail";
+import Portal from "@/pages/Portal";
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
 import OpenBooks from "@/pages/OpenBooks";
@@ -147,6 +148,7 @@ export const router = createBrowserRouter([
   { path: "/reset/:token", element: <Reset />, errorElement: <ErrorPage /> },
   { path: "/forgot", element: <Forgot />, errorElement: <ErrorPage /> },
   { path: "/verify/:token", element: <Verify />, errorElement: <ErrorPage /> },
+  { path: "/portal/:token", element: <Portal />, errorElement: <ErrorPage /> },
   {
     path: "/",
     element: <ProtectedShell />,

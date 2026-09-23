@@ -699,6 +699,48 @@ describe("A's claims and payments, from B", () => {
   });
 });
 
+describe("the customer portal", () => {
+  let token;
+  let customerA;
+  beforeAll(async () => {
+    customerA = (await db.query("SELECT counterparty_id FROM sales_invoices WHERE id = $1", [A.invoiceId])).rows[0].counterparty_id;
+    const r = await call(A, "POST", "/portal-links", { body: { counterpartyId: customerA } });
+    expect(r.status).toBe(201);
+    token = r.json.token;
+  });
+
+  it("a link shows that one customer's invoices, and nothing of anyone else's", async () => {
+    const r = await fetch(`${BASE}/portal/${token}`);
+    expect(r.status).toBe(200);
+    const text = await r.text();
+    expect(text).toContain("SECRET-CUSTOMER-A");
+    expect(text).not.toContain("SECRET-SUPPLIER-A");
+    expect(text).not.toContain(B.companyId);
+    expect(r.headers.get("cache-control")).toContain("no-store");
+    expect((await fetch(`${BASE}/portal/not-a-real-link-at-all`)).status).toBe(404);
+  });
+
+  it("B cannot make, see or turn off A's links", async () => {
+    denied(await call(B, "POST", "/portal-links", { body: { counterpartyId: customerA } }));
+    noLeak(await call(B, "GET", "/portal-links"), "SECRET-CUSTOMER-A");
+    const linkId = (await call(A, "GET", "/portal-links")).json.links[0].id;
+    denied(await call(B, "DELETE", `/portal-links/${linkId}`));
+    expect((await fetch(`${BASE}/portal/${token}`)).status).toBe(200);
+  });
+
+  it("the app role cannot read the links at all", async () => {
+    const c = await db.connect();
+    try {
+      await c.query("BEGIN");
+      await c.query("SET LOCAL ROLE sentryfi_app");
+      await expect(c.query("SELECT token_hash FROM portal_links")).rejects.toThrow(/permission denied/);
+    } finally {
+      await c.query("ROLLBACK");
+      c.release();
+    }
+  });
+});
+
 describe("confirming an email address", () => {
   const jwt = req("jsonwebtoken");
   const secret = process.env.JWT_SECRET;
@@ -792,7 +834,8 @@ describe("every company table is walled", () => {
                        WHERE k.table_schema = 'public' AND k.table_name = c.relname AND k.column_name = 'company_id')`
     );
     // Tables the app role cannot reach at all need no policy: the platform's own.
-    const platform = new Set(["password_resets", "backup_runs"]);
+    // Looked up before anyone is known, and out of the app role's reach entirely.
+    const platform = new Set(["password_resets", "backup_runs", "portal_links"]);
     const open = rows.filter((r) => !platform.has(r.t) && !(r.on && r.forced && r.policies > 0)).map((r) => r.t);
     expect(open).toEqual([]);
   });
