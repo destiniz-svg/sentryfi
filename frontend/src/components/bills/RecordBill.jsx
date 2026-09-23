@@ -54,7 +54,7 @@ const TAX_CHOICES = [
   },
 ];
 
-export function RecordBill({ open, onClose }) {
+export function RecordBill({ open, onClose, start }) {
   const { record, post } = useBillMutations();
   const toast = useToast();
   const outbox = useOutbox();
@@ -284,6 +284,16 @@ export function RecordBill({ open, onClose }) {
     recorder.start();
     setListening(recorder);
   }
+
+  // Opened from the Record sheet with a photograph already taken, or asked
+  // to listen: carry straight on, rather than asking the same question again.
+  const started = useRef(null);
+  useEffect(() => {
+    if (!open || !start || started.current === start) return;
+    started.current = start;
+    if (start.files?.length) onFiles({ target: { files: start.files, value: "" } });
+    else if (start.say) onSay();
+  });
 
   async function onFiles(e) {
     const picked = Array.from(e.target.files || []);

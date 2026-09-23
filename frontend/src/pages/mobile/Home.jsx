@@ -55,7 +55,9 @@ export default function MobileHome() {
       <WaitingToSend className="" />
       {!f ? <Skeleton className="h-[176px] rounded-[24px]" /> : <CashCard f={f} />}
 
-      <GettingStarted />
+      <NeedsYou items={items} pending={attention.isPending} />
+
+      <GettingStarted compact />
 
       {f && <Figures f={f} />}
 
@@ -84,34 +86,6 @@ export default function MobileHome() {
         </section>
       )}
 
-      <section aria-labelledby="needs-you">
-        <h2 id="needs-you" className="text-[17px] font-semibold tracking-[-0.01em] px-1 pb-3">
-          {t("Needs you")}
-        </h2>
-        {attention.isPending ? (
-          <Skeleton className="h-[88px] rounded-[20px]" />
-        ) : items.length === 0 ? (
-          <EmptyState title="Nothing is waiting on you" body="Bills, late customers and bank lines that need a person show up here, most costly first." />
-        ) : (
-          <div className="space-y-3">
-            {items.map((it, i) => (
-              <Link key={i} to={it.href} className="flex items-center gap-3 rounded-[20px] bg-[var(--surface)] lift px-4 py-4">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 text-[12px] text-[var(--ink-muted)]">
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: KIND[it.kind]?.dot || "var(--ink-muted)" }} aria-hidden="true" />
-                    {KIND[it.kind]?.label || "Ready"}
-                  </div>
-                  <div className="mt-1 text-[15px] font-semibold leading-snug">{it.title}</div>
-                  {it.detail && <div className="mt-0.5 text-[13px] text-[var(--ink-muted)] leading-snug">{it.detail}</div>}
-                </div>
-                <span className="h-8 w-8 shrink-0 rounded-full bg-[var(--surface-2)] inline-flex items-center justify-center text-[var(--ink-muted)]" aria-hidden="true">
-                  <ChevronRight size={16} />
-                </span>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
     </div>
   );
 }
@@ -386,6 +360,54 @@ function MoneyOut({ f }) {
         <p className="text-[12px] text-[var(--ink-muted)]">{kept.length < months.length ? "Dotted months are before these books began." : ""}</p>
         <Link to="/analytics" className="inline-flex items-center gap-0.5 text-[13px] font-medium shrink-0">Analytics <ChevronRight size={14} /></Link>
       </div>
+    </section>
+  );
+}
+
+/**
+ * What needs a person, straight under the cash: the three that cost most, and
+ * the rest a tap away. It is the only list on Home that costs money when ignored.
+ */
+function NeedsYou({ items, pending }) {
+  const { t } = useT();
+  const [all, setAll] = useState(false);
+  const shown = all ? items : items.slice(0, 3);
+  return (
+    <section aria-labelledby="needs-you">
+      <div className="flex items-baseline justify-between px-1 pb-3">
+        <h2 id="needs-you" className="text-[17px] font-semibold tracking-[-0.01em]">
+          {t("Needs you")}
+          {items.length > 0 && <span className="ml-1.5 text-[var(--ink-muted)] font-normal tabular">{items.length}</span>}
+        </h2>
+      </div>
+      {pending ? (
+        <Skeleton className="h-[88px] rounded-[20px]" />
+      ) : items.length === 0 ? (
+        <EmptyState title="Nothing is waiting on you" body="Bills, late customers and bank lines that need a person show up here, most costly first." />
+      ) : (
+        <div className="space-y-3">
+          {shown.map((it, i) => (
+            <Link key={i} to={it.href} className="flex items-center gap-3 rounded-[20px] bg-[var(--surface)] lift px-4 py-4">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 text-[13px] text-[var(--ink-muted)]">
+                  <span className="h-2 w-2 rounded-full" style={{ background: KIND[it.kind]?.dot || "var(--ink-muted)" }} aria-hidden="true" />
+                  {KIND[it.kind]?.label || "Ready"}
+                </div>
+                <div className="mt-1 text-[15px] font-semibold leading-snug">{it.title}</div>
+                {it.detail && <div className="mt-0.5 text-[13px] text-[var(--ink-muted)] leading-snug">{it.detail}</div>}
+              </div>
+              <span className="h-8 w-8 shrink-0 rounded-full bg-[var(--surface-2)] inline-flex items-center justify-center text-[var(--ink-muted)]" aria-hidden="true">
+                <ChevronRight size={16} />
+              </span>
+            </Link>
+          ))}
+          {items.length > 3 && (
+            <button type="button" onClick={() => setAll(!all)} aria-expanded={all} className="w-full h-11 rounded-full bg-[var(--surface)] lift text-[14px] font-medium">
+              {all ? "Show fewer" : `Show all ${items.length}`}
+            </button>
+          )}
+        </div>
+      )}
     </section>
   );
 }

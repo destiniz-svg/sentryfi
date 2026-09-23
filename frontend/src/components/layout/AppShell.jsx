@@ -93,8 +93,8 @@ export function AppShell() {
       </main>
       <CommandPalette open={paletteOpen} onClose={closePalette} />
       <TabBar onRecord={() => setRecordOpen(true)} />
-      <RecordSheet open={recordOpen} onClose={() => setRecordOpen(false)} onBill={() => setBillOpen(true)} />
-      <RecordBill open={billOpen} onClose={() => setBillOpen(false)} />
+      <RecordSheet open={recordOpen} onClose={() => setRecordOpen(false)} onBill={(start) => setBillOpen(start || true)} />
+      <RecordBill open={Boolean(billOpen)} start={typeof billOpen === "object" ? billOpen : null} onClose={() => setBillOpen(false)} />
     </div>
   );
 }

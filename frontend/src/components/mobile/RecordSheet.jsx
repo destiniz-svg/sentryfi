@@ -13,14 +13,16 @@ import { useCompany } from "@/context/CompanyContext";
 export function RecordSheet({ open, onClose, onBill }) {
   const navigate = useNavigate();
   const { can } = useCompany();
+  // The camera opens inside the tap itself: a phone only opens it from a
+  // person's own touch, so it cannot wait for the bill sheet to appear first.
   const go = (to) => {
     onClose();
     navigate(to);
   };
 
   const rows = [
-    can("record") && { icon: Camera, name: "Photograph a bill", sub: "Read, checked by you, recorded", run: () => (onClose(), onBill()), first: true },
-    can("record") && { icon: Mic, name: "Say it", sub: "In Dhivehi or English", run: () => (onClose(), onBill()) },
+    can("record") && { icon: Camera, name: "Photograph a bill", sub: "Read, checked by you, recorded", run: () => document.getElementById("record-camera")?.click(), first: true },
+    can("record") && { icon: Mic, name: "Say it", sub: "In Dhivehi or English", run: () => (onClose(), onBill({ say: true })) },
     can("record") && { icon: FileText, name: "Raise an invoice", sub: "To a customer, with GST added", run: () => go("/invoices/new") },
     (can("approve") || can("adjust")) && { icon: ArrowLeftRight, name: "Move money", sub: "Between banks, tins and currencies", run: () => go("/bank?move=1") },
     (can("approve") || can("adjust")) && { icon: Wallet, name: "Give cash to a tin", sub: "Held until the holder confirms", run: () => go("/bank") },
@@ -35,6 +37,21 @@ export function RecordSheet({ open, onClose, onBill }) {
       description="Nothing is in the books until you confirm."
       className="rounded-t-[22px] border-t-0 bg-[var(--bg)]"
     >
+      <input
+        id="record-camera"
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        data-testid="record-camera"
+        onChange={(e) => {
+          const files = Array.from(e.target.files || []);
+          e.target.value = "";
+          if (!files.length) return;
+          onClose();
+          onBill({ files });
+        }}
+      />
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
         {rows.map((r, i) => (
           <button

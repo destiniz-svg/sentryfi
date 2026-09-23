@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ListTree, Plus, Receipt, Ban, Loader2, Undo2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ListTree, Plus, Receipt, Ban, Loader2, Undo2, MoreHorizontal } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -146,7 +146,7 @@ export default function Bills() {
         />
       ) : (
         <Card padding="none" className="overflow-hidden">
-          <div className="hidden md:grid grid-cols-[1.4fr_1fr_1fr_auto_auto] gap-4 px-5 py-3 border-b border-[var(--border)] text-[12px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+          <div className="hidden md:grid grid-cols-[minmax(0,1.4fr)_120px_150px_minmax(0,1fr)_292px] gap-4 px-5 py-3 border-b border-[var(--border)] text-[12px] text-[var(--ink-muted)] font-medium">
             <span>Supplier</span>
             <span>Dated</span>
             <span className="text-right">Amount</span>
@@ -164,7 +164,7 @@ export default function Bills() {
               return (
                 <div
                   key={bill.id}
-                  className="group grid grid-cols-2 md:grid-cols-[1.4fr_1fr_1fr_auto_auto] gap-x-4 gap-y-1 px-5 py-4 items-center"
+                  className="group grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1.4fr)_120px_150px_minmax(0,1fr)_292px] gap-x-4 gap-y-1 px-5 py-4 items-center"
                 >
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-[var(--ink)] truncate">
@@ -197,13 +197,13 @@ export default function Bills() {
                       {isVoid ? "Void" : status.label}
                     </Badge>
                     {bill.gst_treatment === "unknown" && !isVoid && (
-                      <span className="block text-[11px] text-[var(--ink-muted)] mt-1 leading-snug">
+                      <span className="block text-[13px] text-[var(--ink-muted)] mt-1 leading-snug">
                         Say how its GST was quoted
                       </span>
                     )}
                   </div>
 
-                  <div className="justify-self-end flex items-center gap-1.5">
+                  <div className="order-4 md:order-none col-span-2 md:col-span-1 md:justify-self-end flex flex-wrap items-center gap-1.5 empty:hidden">
                     {canRecord && !isVoid && bill.status !== "posted" && (
                       <Button variant="ghost" onClick={() => setSplitting(bill)} aria-label={`What the bill from ${bill.supplier_name || "this supplier"} was for`}>
                         <ListTree size={14} /> What it was for
@@ -220,18 +220,11 @@ export default function Bills() {
                       </Button>
                     )}
                     {canRecord && !isVoid && inBooks && (
-                      <Button
-                        variant="outline"
-                        onClick={() => onReverse(bill)}
-                        disabled={reversing === bill.id}
-                      >
-                        {reversing === bill.id ? (
-                          <Loader2 size={13} className="animate-spin" />
-                        ) : (
-                          <Undo2 size={13} />
-                        )}
-                        Take it back out
-                      </Button>
+                      <RowMenu
+                        label={`More for the bill from ${bill.supplier_name || "this supplier"}`}
+                        busy={reversing === bill.id}
+                        items={[{ label: "Take it back out", icon: Undo2, onSelect: () => onReverse(bill) }]}
+                      />
                     )}
                     {canRecord && !isVoid && !inBooks && (
                       <button
@@ -261,6 +254,60 @@ export default function Bills() {
         what={voiding ? `the bill from ${voiding.supplier_name || "this supplier"}` : "this bill"}
         amount={voiding ? voiding.gross : null}
       />
+    </div>
+  );
+}
+
+/**
+ * A row's quieter actions, behind one button: kept within reach, never one
+ * slip of a thumb away. Escape or a tap elsewhere closes it.
+ */
+function RowMenu({ label, items, busy }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e) => !ref.current?.contains(e.target) && setOpen(false);
+    const key = (e) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", key);
+    };
+  }, [open]);
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-label={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        disabled={busy}
+        onClick={() => setOpen(!open)}
+        className="h-11 w-11 rounded-full flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)] disabled:opacity-50"
+      >
+        {busy ? <Loader2 size={15} className="animate-spin" /> : <MoreHorizontal size={18} />}
+      </button>
+      {open && (
+        <div role="menu" className="absolute right-0 bottom-full mb-1 md:bottom-auto md:top-full md:mt-1 md:mb-0 z-20 min-w-[200px] rounded-2xl bg-[var(--surface)] p-1.5 shadow-[0_12px_32px_-12px_rgb(0_0_0/0.3)] border border-[var(--border)]">
+          {items.map((it) => (
+            <button
+              key={it.label}
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                it.onSelect();
+              }}
+              className="w-full h-11 px-3 rounded-xl flex items-center gap-2.5 text-[14px] text-left hover:bg-[var(--surface-2)]"
+            >
+              {it.icon && <it.icon size={15} className="text-[var(--ink-muted)]" />}
+              {it.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

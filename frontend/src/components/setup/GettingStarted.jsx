@@ -17,7 +17,7 @@ import { useT } from "@/lib/i18n";
  */
 const HIDE = (companyId) => `sentryfi.setup.hidden.${companyId}`;
 
-export function GettingStarted({ className }) {
+export function GettingStarted({ className, compact }) {
   const { companyId, can } = useCompany();
   const [hidden, setHidden] = useState(() => {
     try {
@@ -44,6 +44,29 @@ export function GettingStarted({ className }) {
     setHidden(true);
   };
 
+  if (compact) {
+    return (
+      <section aria-labelledby="getting-started" className={cn("rounded-[20px] bg-[var(--surface)] lift pl-4 pr-1.5 py-1.5 flex items-center gap-3", className)} data-testid="getting-started">
+        <div className="relative h-9 w-9 shrink-0" aria-hidden="true">
+          <svg viewBox="0 0 36 36" className="h-9 w-9 -rotate-90">
+            <circle cx="18" cy="18" r="15" fill="none" stroke="var(--surface-2)" strokeWidth="4" />
+            <circle cx="18" cy="18" r="15" fill="none" stroke="var(--accent)" strokeWidth="4" strokeLinecap="round" strokeDasharray={`${(data.done / data.total) * 94.2} 94.2`} />
+          </svg>
+          <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold tabular">{data.done}</span>
+        </div>
+        <Link to={next?.href || "/settings"} className="min-w-0 flex-1 py-2">
+          <h2 id="getting-started" className="text-[13px] text-[var(--ink-muted)]">
+            {t("Getting your books going")} · {data.done} of {data.total}
+          </h2>
+          {next && <p className="text-[15px] font-semibold truncate">Next: {next.title}</p>}
+        </Link>
+        <button type="button" onClick={hide} aria-label="Put this away" title="Put this away" className="h-11 w-11 shrink-0 rounded-full inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-2)]">
+          <X size={16} aria-hidden="true" />
+        </button>
+      </section>
+    );
+  }
+
   return (
     <section aria-labelledby="getting-started" className={cn("rounded-[24px] bg-[var(--surface)] lift p-5 sm:p-6", className)} data-testid="getting-started">
       <div className="flex items-start justify-between gap-3">
@@ -55,7 +78,7 @@ export function GettingStarted({ className }) {
             {data.done} of {data.total} done. Each is ticked off from your books, not by hand.
           </p>
         </div>
-        <button type="button" onClick={hide} aria-label="Put this away" title="Put this away" className="h-8 w-8 shrink-0 rounded-full bg-[var(--surface-2)] inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)]">
+        <button type="button" onClick={hide} aria-label="Put this away" title="Put this away" className="h-11 w-11 -mr-2 -mt-2 shrink-0 rounded-full inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-2)]">
           <X size={15} aria-hidden="true" />
         </button>
       </div>
@@ -68,13 +91,13 @@ export function GettingStarted({ className }) {
           <p className="text-[12px] text-[var(--ink-muted)]">Next</p>
           <p className="text-[16px] font-semibold mt-0.5">{next.title}</p>
           <p className="text-[14px] text-[var(--ink-muted)] leading-snug mt-1">{next.why}</p>
-          <Link to={next.href} className="mt-3 inline-flex items-center gap-1.5 h-10 px-4 rounded-full bg-[var(--ink)] text-[var(--surface)] text-[14px] font-medium">
+          <Link to={next.href} className="mt-3 inline-flex items-center gap-1.5 h-11 px-4 rounded-full bg-[var(--ink)] text-[var(--surface)] text-[14px] font-medium">
             Do it now <ArrowRight size={15} aria-hidden="true" />
           </Link>
         </div>
       )}
 
-      <button type="button" onClick={() => setAll(!all)} aria-expanded={all} className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-medium text-[var(--ink-muted)] hover:text-[var(--ink)]">
+      <button type="button" onClick={() => setAll(!all)} aria-expanded={all} className="mt-2 -ml-2 inline-flex items-center gap-1.5 min-h-11 px-2 rounded-full text-[13px] font-medium text-[var(--ink-muted)] hover:text-[var(--ink)]">
         {all ? "Fewer" : `All ${data.total} steps`} <ChevronDown size={14} aria-hidden="true" className={cn("transition-transform", all && "rotate-180")} />
       </button>
       {all && (
