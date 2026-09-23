@@ -32,12 +32,12 @@ const bad = (m) => {
     await preview.locator("img.logo").waitFor({ timeout: 10000 });
     ok("a logo uploaded shows on the paper at once");
     // The logo's own colours come first, once they have been read from it.
-    await page.getByText(", from your logo first").waitFor({ timeout: 10000 });
+    await page.getByText("from your logo first").waitFor({ timeout: 10000 });
     const swatch = page.getByRole("button", { name: /^Colour #/ }).first();
     const colour = (await swatch.getAttribute("aria-label")).replace("Colour ", "");
     await swatch.click();
     // An invoice's design: the ready-made Band, in the logo's colour.
-    await page.getByTestId("kind-invoice").click();
+    await page.getByTestId("editing").selectOption("invoice");
     await page.getByTestId("design-modern").click();
     const band = await preview.locator(".band").evaluate((el) => getComputedStyle(el).backgroundColor);
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(colour.slice(i, i + 2), 16));
@@ -49,8 +49,9 @@ const bad = (m) => {
     ok("the Minimal design draws light, with a QR code to check it is genuine");
     // Changing a ready-made design keeps a copy of it; the ready-made stays.
     await page.getByRole("tab", { name: "What shows" }).click();
-    await page.getByLabel("Total in words").uncheck();
-    await page.getByTestId("kind-invoice").getByText("Minimal, yours").waitFor({ timeout: 5000 });
+    await page.getByRole("button", { name: "Total in words" }).click();
+    await page.getByRole("tab", { name: "Design" }).click();
+    await page.getByRole("button", { name: /^Minimal, yours/ }).first().waitFor({ timeout: 5000 });
     ok("a change to a ready-made design is kept as the company's own copy");
     await page.getByRole("tab", { name: "Design" }).click();
     // The check's copies go again, so the test company's library does not grow run by run.
@@ -67,7 +68,8 @@ const bad = (m) => {
     await preview.screenshot({ path: "shots/branding-receipt.png" });
 
     // ---- a signature drawn with a finger (not saved)
-    await page.getByRole("button", { name: /Signature and stamp/ }).click();
+    await page.getByTestId("editing").selectOption("brand");
+    await page.getByRole("tab", { name: "Signature" }).click();
     await page.getByTestId("draw-signature").click();
     const pad = page.getByLabel("Sign here");
     const box = await pad.boundingBox();
@@ -81,13 +83,13 @@ const bad = (m) => {
     ok("a signature drawn on the screen prints on the paper");
 
     // ---- an industry, and Dhivehi beside the English (not saved: the check leaves the kit as it was)
-    await page.getByRole("button", { name: /Start from your industry/ }).click();
+    await page.getByRole("tab", { name: "Industry" }).click();
     await page.getByTestId("preset-services").click();
     await preview.getByText(/^Hours/).first().waitFor({ timeout: 5000 });
     ok("a services preset relabels quantity as Hours on the paper");
-    await page.getByTestId("kind-invoice").click();
+    await page.getByTestId("editing").selectOption("invoice");
     await page.getByRole("tab", { name: "Wording" }).click();
-    await page.getByLabel("Language").selectOption("en-dv");
+    await page.getByRole("button", { name: "English and Dhivehi" }).click();
     const thaana = await preview.getByTestId("paper").innerText();
     if (/[ހ-޿]/.test(thaana) && thaana.includes("ތާރީޚު")) ok("English and Dhivehi prints the Thaana labels beside the English");
     else bad("no Thaana on the paper after choosing English and Dhivehi");
