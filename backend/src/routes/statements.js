@@ -88,4 +88,43 @@ router.get(
   })
 );
 
+/**
+ * The whole journal as a spreadsheet file (CSV): every entry and every line,
+ * with its date, what it was, the account and the amounts. The books leave in a
+ * form any accountant or other product can take in: nobody is held by their
+ * own records.
+ */
+router.get(
+  "/journal.csv",
+  requireCan("read"),
+  asyncHandler(async (req, res) => {
+    const { formatLaari } = require("../ledger/money");
+    const { rows } = await asCompany(req, (client) =>
+      client.query(
+        `SELECT e.entry_no, e.entry_date::text AS dated, e.narrative, e.source::text AS source,
+                a.code, a.name AS account, l.debit_laari, l.credit_laari, l.memo
+           FROM journal_lines l
+           JOIN journal_entries e ON e.id = l.entry_id
+           JOIN accounts a ON a.id = l.account_id
+          WHERE l.company_id = $1
+          ORDER BY e.entry_no, l.id`,
+        [req.companyId]
+      )
+    );
+    // A cell that starts with = + - or @ is a formula to a spreadsheet; a quote keeps it text.
+    const cell = (v) => {
+      let t = String(v ?? "");
+      if (/^[=+\-@]/.test(t)) t = "'" + t;
+      return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+    };
+    const money = (v) => (BigInt(v || 0) === 0n ? "" : formatLaari(BigInt(v), { withGrouping: false }));
+    const lines = [["Entry", "Date", "What it was", "Source", "Account code", "Account", "Debit", "Credit", "Line note"].join(",")];
+    for (const r of rows) lines.push([r.entry_no, r.dated, r.narrative, r.source, r.code, r.account, money(r.debit_laari), money(r.credit_laari), r.memo].map(cell).join(","));
+    res.set("Content-Type", "text/csv; charset=utf-8");
+    res.set("Content-Disposition", `attachment; filename="journal-${new Date().toISOString().slice(0, 10)}.csv"`);
+    // The byte-order mark tells a spreadsheet the file is UTF-8, so Thaana and ® survive.
+    res.send("﻿" + lines.join("\n"));
+  })
+);
+
 module.exports = router;

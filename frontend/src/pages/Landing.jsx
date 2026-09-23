@@ -472,6 +472,9 @@ export default function Landing() {
           <p className="text-[14px] text-[#6B7078]">
             Altura Pvt Ltd &middot; Male&apos;, Maldives
           </p>
+          <Link to="/trust" className="text-[14px] text-[#6B7078] underline underline-offset-2 hover:text-[#16181D]">
+            What happens to your books
+          </Link>
           <p className="ml-auto text-[13px] text-[#6B7078]">
             Figures shown on this page are illustrative.
           </p>

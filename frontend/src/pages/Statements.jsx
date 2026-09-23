@@ -68,9 +68,26 @@ export default function Statements() {
         title="Statements"
         description="From the journal, for the date you ask."
         actions={
-          <Link to="/import" className="inline-flex items-center min-h-[44px] text-[14px] underline underline-offset-2">
-            Bring history in
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link to="/import" className="inline-flex items-center min-h-[44px] text-[14px] underline underline-offset-2">
+              Bring history in
+            </Link>
+            {/* The whole journal, for an accountant or another product: nobody is held by their own records. */}
+            <Button
+              variant="outline"
+              data-testid="journal-csv"
+              onClick={async () => {
+                const r = await apiClient.get("/statements/journal.csv", { responseType: "blob" });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(r.data);
+                a.download = `journal-${today()}.csv`;
+                a.click();
+                URL.revokeObjectURL(a.href);
+              }}
+            >
+              <Download size={15} /> The whole journal
+            </Button>
+          </div>
         }
       />
 

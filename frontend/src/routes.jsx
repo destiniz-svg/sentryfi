@@ -18,6 +18,7 @@ import CheckEmail from "@/pages/CheckEmail";
 import Portal from "@/pages/Portal";
 const Genuine = lazy(() => import("@/pages/Genuine"));
 const Practice = lazy(() => import("@/pages/Practice"));
+const Trust = lazy(() => import("@/pages/Trust"));
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
 import OpenBooks from "@/pages/OpenBooks";
@@ -155,6 +156,7 @@ export const router = createBrowserRouter([
   { path: "/forgot", element: <Forgot />, errorElement: <ErrorPage /> },
   { path: "/verify/:token", element: <Verify />, errorElement: <ErrorPage /> },
   { path: "/portal/:token", element: <Portal />, errorElement: <ErrorPage /> },
+  { path: "/trust", element: <Suspense fallback={null}><Trust /></Suspense>, errorElement: <ErrorPage /> },
   { path: "/v/:sha", element: <Suspense fallback={null}><Genuine /></Suspense>, errorElement: <ErrorPage /> },
   {
     path: "/",

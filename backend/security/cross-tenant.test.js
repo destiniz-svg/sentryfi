@@ -1062,3 +1062,13 @@ describe("webhooks, from B", () => {
     expect((await call(null, "GET", "/webhooks", { company: null, headers: { Authorization: `Bearer ${key}` } })).status).toBe(403);
   });
 });
+
+describe("the journal download", () => {
+  it("gives each company its own journal and nobody else's", async () => {
+    const a = await call(A, "GET", "/statements/journal.csv");
+    expect(a.status).toBe(200);
+    expect(a.text).toContain("SECRET-SUPPLIER-A");
+    noLeak(await call(B, "GET", "/statements/journal.csv"), "SECRET-SUPPLIER-A");
+    denied(await call(B, "GET", "/statements/journal.csv", { company: A.companyId }));
+  });
+});
