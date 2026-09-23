@@ -503,6 +503,8 @@ An ink disc inside a yellow ring, always circular, always carrying a yellow came
 ### Navigation
 - **Phone:** floating tinted ink glass bar, 16px inset, 72px tall, five equal columns, 4px side padding. Items are 56px tall columns of a 22px stroke icon over an 11px 0.10em condensed label; active is yellow, inactive is white. The shutter occupies the centre column.
 - **Desktop:** 216px left rail with a 2px ink right border and 24px vertical padding; the lockup (36px mark, 24px Barlow 600 wordmark at -0.03em, company name in the 12px label) sits above 44px rail items in the 14px 0.10em label with 20px side padding; the current section (`aria-current="page"`) inverts to ink fill and yellow text. The signed-in person and role sit at the bottom.
+- **Rail groups (23 September 2026):** Needs you; Buying and selling; Money; Work and assets; The books; and Company (branding, history, settings) at the foot with the person. Each group's condensed label is a button that folds it, remembered per device; the group holding the current page never folds. Items are 40px. The module list outgrew one screen at 19 places, and a person keeps open what they use.
+- **Workspaces that edit something drawn (Branding and documents):** three panes at desk width, each scrolling on its own inside the viewport: what to change on the left, a short tabbed form in the middle, the drawing on the right. Below desk width, one select for what to change and an Edit / Paper switch. Nothing that is being edited scrolls away from what it changes.
 - **Top bar (phone):** company name in Barlow Condensed 700 18px uppercase at 0.04em with a 16px switcher chevron and the role tag; the 32px mark at the right; 56px top, 20px side, 12px bottom padding.
 
 ### Tags and Pills

@@ -123,7 +123,7 @@ function Workspace({ start, mayChange }) {
       return null;
     }
     const id = newId();
-    return { inUse: "copy:" + id, copies: [...l.copies, { id, name, from, settings }] };
+    return { inUse: "copy:" + id, copies: [...l.copies, { id, name: unique(l.copies, name), from, settings }] };
   }
 
   /** Change the kind's design in use. A ready-made one is copied first and left as it was. */
@@ -133,7 +133,7 @@ function Workspace({ start, mayChange }) {
       const label = DESIGNS[l.inUse]?.label || "Design";
       l = copyOf(kind, l.inUse, resolve(l), `${label}, yours`);
       if (!l) return;
-      toast.success(`Kept as your own: ${label}, yours`, `The ready-made ${label} stays as it was.`);
+      toast.success(`Kept as your own: ${l.copies.at(-1).name}`, `The ready-made ${label} stays as it was.`);
     }
     setLib(kind, { ...l, copies: l.copies.map((c) => ("copy:" + c.id === l.inUse ? { ...c, settings: fn(templateOfCopy(c)) } : c)) });
   }
@@ -255,7 +255,7 @@ function Workspace({ start, mayChange }) {
 
       <div className="lg:grid lg:grid-cols-[208px_minmax(340px,420px)_minmax(0,1fr)] lg:gap-5 lg:h-[calc(100dvh-216px)] lg:min-h-[600px]">
         {/* ---- what to change */}
-        <nav aria-label="What to change" className="hidden lg:block overflow-y-auto pr-1 -ml-1 pl-1">
+        <nav aria-label="Brand and documents" className="hidden lg:block overflow-y-auto pr-1 -ml-1 pl-1">
           <NavGroup label="Your brand" note="On every document">
             {BRAND.map((b) => (
               <NavItem key={b.id} icon={b.icon} active={section === b.id} onClick={() => setSection(b.id)} label={b.label} />
@@ -595,11 +595,11 @@ function Card({ model, name, hint, light, inUse, onPick, children, testid }) {
           <FittedPaper model={model} />
         </div>
       </button>
-      <div className="flex items-center gap-1 mt-2 min-h-8">
-        <button type="button" onClick={onPick} className="min-w-0 flex-1 text-left">
-          <span className="block text-[13px] font-medium truncate">{name}</span>
-          <span className="block text-[11px] text-[var(--ink-muted)] truncate">{inUse ? "In use" : light ? "Light" : " "}</span>
-        </button>
+      <button type="button" onClick={onPick} className="block w-full text-left mt-2 text-[13px] font-medium truncate" title={name}>
+        {name}
+      </button>
+      <div className="flex items-center gap-1 min-h-8 -mb-1">
+        <span className={cn("flex-1 text-[12px] truncate", inUse ? "text-[var(--ink)] font-medium" : "text-[var(--ink-muted)]")}>{inUse ? "In use" : light ? "Light" : ""}</span>
         {children}
       </div>
     </div>
@@ -644,6 +644,15 @@ function qrHint(qr, kind, brand) {
   if (qr === "pay") return brand.paymentDetails ? "Carries your payment details, so a phone can copy the account number." : "Add how to pay you under Payment and footer first.";
   if (qr === "website") return brand.website ? `Opens ${brand.website}.` : "Add your website under Company details first.";
   return undefined;
+}
+
+/** "Minimal, yours", then "Minimal, yours 2": two copies never share a name. */
+function unique(copies, name) {
+  const taken = new Set(copies.map((c) => c.name));
+  if (!taken.has(name)) return name;
+  let n = 2;
+  while (taken.has(`${name} ${n}`)) n += 1;
+  return `${name} ${n}`;
 }
 
 /** A copy's settings as a full template. */

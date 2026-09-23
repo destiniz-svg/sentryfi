@@ -36,30 +36,63 @@ const bad = (m) => {
     const swatch = page.getByRole("button", { name: /^Colour #/ }).first();
     const colour = (await swatch.getAttribute("aria-label")).replace("Colour ", "");
     await swatch.click();
-    await page.getByRole("button", { name: /^Modern/ }).click();
+    // An invoice's design: the ready-made Band, in the logo's colour.
+    await page.getByTestId("kind-invoice").click();
+    await page.getByTestId("design-modern").click();
     const band = await preview.locator(".band").evaluate((el) => getComputedStyle(el).backgroundColor);
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(colour.slice(i, i + 2), 16));
-    if (band === `rgb(${r}, ${g}, ${b})`) ok(`the logo's colour ${colour} and the modern layout reach the paper`);
+    if (band === `rgb(${r}, ${g}, ${b})`) ok(`the logo's colour ${colour} and the Band design reach the paper`);
     else bad(`band is ${band}, picked ${colour}`);
+    // The light designs, and a QR code on the paper.
+    await page.getByTestId("design-minimal").click();
+    await preview.locator(".sd.minimal .qr svg").waitFor({ timeout: 5000 });
+    ok("the Minimal design draws light, with a QR code to check it is genuine");
+    // Changing a ready-made design keeps a copy of it; the ready-made stays.
+    await page.getByRole("tab", { name: "What shows" }).click();
+    await page.getByLabel("Total in words").uncheck();
+    await page.getByTestId("kind-invoice").getByText("Minimal, yours").waitFor({ timeout: 5000 });
+    ok("a change to a ready-made design is kept as the company's own copy");
+    await page.getByRole("tab", { name: "Design" }).click();
+    // The check's copies go again, so the test company's library does not grow run by run.
+    const leftover = page.getByRole("button", { name: /^Delete Minimal, yours/ });
+    while (await leftover.count()) await leftover.first().click();
+    await page.getByTestId("design-modern").click();
     await page.getByTestId("save-brand").click();
     await page.getByText("Saved", { exact: true }).first().waitFor({ timeout: 10000 });
-    ok("the brand kit and template are saved");
-    await page.screenshot({ path: "shots/branding-desk.png", fullPage: true });
+    ok("the brand kit and templates are saved");
+    await page.screenshot({ path: "shots/branding-desk.png" });
     await page.getByRole("group", { name: "Preview size" }).getByRole("button", { name: "80 mm" }).click();
     await preview.locator(".sd.receipt").waitFor({ timeout: 5000 });
     ok("the 80 mm size draws as a receipt");
     await preview.screenshot({ path: "shots/branding-receipt.png" });
 
-    // ---- an industry, and Dhivehi beside the English (not saved: the check leaves the kit as it was)
+    // ---- a signature drawn with a finger (not saved)
+    await page.getByRole("button", { name: /Signature and stamp/ }).click();
+    await page.getByTestId("draw-signature").click();
+    const pad = page.getByLabel("Sign here");
+    const box = await pad.boundingBox();
+    await page.mouse.move(box.x + 40, box.y + 90);
+    await page.mouse.down();
+    for (let x = 40; x < 260; x += 12) await page.mouse.move(box.x + x, box.y + 90 - Math.sin(x / 18) * 30);
+    await page.mouse.up();
+    await page.getByRole("button", { name: "Use this signature" }).click();
     await page.getByRole("group", { name: "Preview size" }).getByRole("button", { name: "A4" }).click();
+    await preview.locator("img.sig").waitFor({ timeout: 5000 });
+    ok("a signature drawn on the screen prints on the paper");
+
+    // ---- an industry, and Dhivehi beside the English (not saved: the check leaves the kit as it was)
+    await page.getByRole("button", { name: /Start from your industry/ }).click();
     await page.getByTestId("preset-services").click();
     await preview.getByText(/^Hours/).first().waitFor({ timeout: 5000 });
     ok("a services preset relabels quantity as Hours on the paper");
+    await page.getByTestId("kind-invoice").click();
+    await page.getByRole("tab", { name: "Wording" }).click();
     await page.getByLabel("Language").selectOption("en-dv");
     const thaana = await preview.getByTestId("paper").innerText();
     if (/[ހ-޿]/.test(thaana) && thaana.includes("ތާރީޚު")) ok("English and Dhivehi prints the Thaana labels beside the English");
     else bad("no Thaana on the paper after choosing English and Dhivehi");
     await preview.screenshot({ path: "shots/branding-dhivehi.png" });
+    page.on("dialog", (d) => d.accept());
 
     // ---- the customer's link draws the issued invoice
     const posted = await page.evaluate(async () => {
@@ -112,14 +145,34 @@ const bad = (m) => {
     else bad(`the saved document reads: ${drawn.slice(0, 300)}`);
     await page.screenshot({ path: "shots/invoice-document.png", fullPage: true });
 
+    // Into the books: the issued copy is kept, and its QR code's page confirms it.
+    // Then credited in full, so the test books end where they started.
     const id = page.url().split("/").pop();
-    const gone = await page.evaluate(async (invoiceId) => {
+    const sha = await page.evaluate(async (invoiceId) => {
       const headers = { "X-Company-Id": localStorage.getItem("sentryfi.company"), "Content-Type": "application/json" };
-      const r = await fetch(`/api/sales/${invoiceId}`, { method: "DELETE", credentials: "include", headers, body: JSON.stringify({ reason: "documents check" }) });
-      return r.ok;
+      const p = await fetch(`/api/sales/${invoiceId}/post`, { method: "POST", credentials: "include", headers, body: "{}" });
+      if (!p.ok) return { error: (await p.json()).error?.message };
+      const d = await fetch(`/api/documents/invoice/${invoiceId}`, { credentials: "include", headers }).then((r) => r.json());
+      return { sha: d.issuedCopy?.sha256, number: d.data?.number };
     }, id);
-    if (gone) ok("the check's draft is discarded");
-    else bad("the check's draft could not be discarded");
+    if (!sha.sha) bad(`could not put the check's invoice in the books: ${sha.error || "no issued copy"}`);
+    else {
+      const guest = await (await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })).newPage();
+      await guest.goto(`${BASE}/v/${sha.sha}`, { waitUntil: "networkidle" });
+      const said = await guest.locator("main").innerText();
+      if (/Genuine/.test(said) && said.includes(sha.number)) ok(`the QR code's page confirms ${sha.number} is genuine`);
+      else bad(`the check page reads: ${said.slice(0, 200)}`);
+      await guest.screenshot({ path: "shots/genuine-phone.png", fullPage: true });
+      await guest.goto(`${BASE}/v/${"0".repeat(64)}`, { waitUntil: "networkidle" });
+      if (/No document matches/.test(await guest.locator("main").innerText())) ok("a code that matches nothing says so");
+      else bad("an unknown fingerprint was not refused");
+      const credited = await page.evaluate(async (invoiceId) => {
+        const headers = { "X-Company-Id": localStorage.getItem("sentryfi.company"), "Content-Type": "application/json" };
+        return (await fetch(`/api/sales/${invoiceId}/credit`, { method: "POST", credentials: "include", headers, body: JSON.stringify({ reason: "documents check" }) })).ok;
+      }, id);
+      if (credited) ok("the check's invoice is credited back in full");
+      else bad("the check's invoice could not be credited back");
+    }
 
     // ---- an order's document, and a delivery note if it has one
     const order = await page.evaluate(async () => {
