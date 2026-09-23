@@ -23,9 +23,12 @@ The gate in the plan before real figures from any company other than Altura: pro
 
 Also fixed along the way: two date checks on bank rates that never matched, and refused origins now answer 403 instead of a server error.
 
+## Closed since
+
+- **Sign-up email check** (closed the same day). Email goes through Resend (`RESEND_API_KEY` on Railway). A new account can do nothing until it taps the link in its confirm-your-address email. Forgot password emails a one-hour link, and using it also confirms the address, so a real owner takes back an address someone else registered: their password replaces the squatter's and the squatter is signed out. Password changes and new Face ID devices send an alert. Five more checks in the suite (56).
+
 ## Still open, on purpose
 
-- **Sign-up has no email check.** Someone can still register an address before its owner does. They can no longer get into anyone's books that way, but the real owner would be locked out of that address. Needs an email service; add a verification link when there is one.
 - **Two-column foreign keys.** Ownership is checked in code (finding 5). A lasting database-level guarantee would add `UNIQUE (company_id, id)` on parent tables and composite foreign keys. It's a large schema change, so do it before a second country pack.
 - **The per-address limit is held in memory** in one process. Move it to the database if Sentryfi ever runs on more than one.
 - **Enforce the content security policy** (see 10).
