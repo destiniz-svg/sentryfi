@@ -103,6 +103,7 @@ export default function Cfo() {
             <button type="button" disabled className="text-left disabled:cursor-default" data-testid="cfo-cash-now">
               <div className="text-[14px] opacity-70">Cash now</div>
               <div className="mt-2 text-[32px] font-semibold leading-none tracking-[-0.02em] tabular whitespace-nowrap">
+                <span className="text-[14px] font-medium opacity-60 mr-1 align-[0.35em]">{fig.currency || "MVR"}</span>
                 <Money amount={fig.cash} className="text-inherit" />
               </div>
             </button>
@@ -128,7 +129,8 @@ export default function Cfo() {
               ))}
             </div>
           </div>
-          <p className="mt-5 text-[14px] leading-snug opacity-75" data-testid="brief-headline">
+          {/* The figures above, as one sentence: for a screen reader and for reading aloud, not repeated on screen. */}
+          <p className="sr-only" data-testid="brief-headline">
             {b.headline}
           </p>
         </section>
