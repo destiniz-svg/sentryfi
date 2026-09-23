@@ -48,7 +48,7 @@ async function call(who, method, url, { body, company, raw, headers = {} } = {})
   return { status: res.status, json, text, headers: res.headers };
 }
 
-async function signUp(who, name, email) {
+async function signUp(who, name, email, { confirm = true } = {}) {
   const res = await fetch(`${BASE}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -57,6 +57,8 @@ async function signUp(who, name, email) {
   expect(res.status).toBe(201);
   who.cookie = res.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
   who.user = (await res.json()).user;
+  // As if they had tapped the link in the confirm-your-address email.
+  if (confirm) await db.query("UPDATE users SET email_verified_at = now() WHERE id = $1", [who.user.id]);
   return who;
 }
 
@@ -534,6 +536,64 @@ describe("reset links, limits and passkeys", () => {
       body: JSON.stringify({ response: { id: "not-a-real-credential", rawId: "x", type: "public-key", response: {} } }),
     });
     expect(unknown.status).toBe(401);
+  });
+});
+
+describe("confirming an email address", () => {
+  const jwt = req("jsonwebtoken");
+  const secret = process.env.JWT_SECRET;
+  const N = {};
+
+  it("a new account can do nothing until its address is confirmed", async () => {
+    await signUp(N, "Newcomer", `new.${Date.now()}@n.test`, { confirm: false });
+    expect(N.user.mustVerify).toBe(true);
+    const me = await call(N, "GET", "/auth/me", { company: null });
+    expect(me.status).toBe(200);
+    expect(me.json.user.mustVerify).toBe(true);
+    expect((await call(N, "GET", "/companies", { company: null })).status).toBe(403);
+    expect((await call(N, "POST", "/companies", { body: { name: "Squat" }, company: null })).status).toBe(403);
+    expect((await call(N, "POST", "/auth/verify/resend", { company: null })).status).toBe(200);
+  });
+
+  it("a confirm link is not a session, and a link for another address does nothing", async () => {
+    const token = jwt.sign({ sub: N.user.id, email: N.user.email }, `${secret}:verify-email`, { expiresIn: "3d" });
+    const asCookie = await call({ cookie: `sentryfi_token=${token}` }, "GET", "/auth/me", { company: null });
+    expect(asCookie.status).toBe(401);
+    const other = jwt.sign({ sub: N.user.id, email: "someone@else.test" }, `${secret}:verify-email`);
+    expect((await call(null, "POST", "/auth/verify", { body: { token: other } })).status).toBe(400);
+    const forged = jwt.sign({ sub: N.user.id, email: N.user.email }, secret);
+    expect((await call(null, "POST", "/auth/verify", { body: { token: forged } })).status).toBe(400);
+  });
+
+  it("the right link opens the account", async () => {
+    const token = jwt.sign({ sub: N.user.id, email: N.user.email }, `${secret}:verify-email`, { expiresIn: "3d" });
+    expect((await call(null, "POST", "/auth/verify", { body: { token } })).status).toBe(200);
+    expect((await call(N, "GET", "/companies", { company: null })).status).toBe(200);
+  });
+
+  it("forgot password answers the same whether or not the address has an account", async () => {
+    const known = await call(null, "POST", "/auth/forgot", { body: { email: N.user.email } });
+    const unknown = await call(null, "POST", "/auth/forgot", { body: { email: "nobody.at.all@x.test" } });
+    expect(known.status).toBe(200);
+    expect(unknown.status).toBe(200);
+    expect(known.text).toBe(unknown.text);
+    const { rows } = await db.query("SELECT emailed, company_id FROM password_resets WHERE user_id = $1", [N.user.id]);
+    expect(rows).toEqual([{ emailed: true, company_id: null }]);
+  });
+
+  it("an emailed reset link confirms the address and takes it back from a squatter", async () => {
+    const S = {};
+    await signUp(S, "Squatter", `owner.${Date.now()}@o.test`, { confirm: false });
+    const token = "a-reset-link-the-real-owner-got-by-email";
+    const hash = require("node:crypto").createHash("sha256").update(token).digest("hex");
+    await db.query("INSERT INTO password_resets (user_id, token_hash, emailed) VALUES ($1, $2, true)", [S.user.id, hash]);
+    const r = await fetch(`${BASE}/auth/reset/${token}`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: "the real owner now" }),
+    });
+    expect(r.status).toBe(200);
+    const owner = { cookie: r.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ") };
+    expect((await call(owner, "GET", "/companies", { company: null })).status).toBe(200);
+    expect((await call(S, "GET", "/auth/me", { company: null })).status).toBe(401); // the squatter is signed out
   });
 });
 

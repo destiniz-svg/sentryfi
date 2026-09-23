@@ -117,6 +117,7 @@ router.post(
       `INSERT INTO passkeys (user_id, credential_id, public_key, counter, transports, name) VALUES ($1,$2,$3,$4,$5,$6)`,
       [req.user.id, credential.id, Buffer.from(credential.publicKey), credential.counter, credential.transports || null, name]
     );
+    require("../services/email").sendAlert(req.user, `Face ID or fingerprint sign-in was added, for ${name}`);
     res.status(201).json({ ok: true, name });
   })
 );

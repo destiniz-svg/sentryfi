@@ -127,10 +127,10 @@ export default function Login() {
             )}
           </div>
 
-          <p className="text-[13px] leading-relaxed text-[var(--ink-muted)]">
-            There is no shared demo account: this app keeps real books, so
-            everyone signs in as themselves. Forgotten your password? An
-            administrator can reset it for you.
+          <p className="text-[14px]">
+            <Link to="/forgot" className="text-[var(--accent-strong)] font-semibold hover:underline">
+              Forgot your password?
+            </Link>
           </p>
         </form>
 

@@ -35,6 +35,21 @@ CREATE TABLE IF NOT EXISTS password_resets (
 );
 REVOKE ALL ON password_resets FROM sentryfi_app;
 
+-- A link Sentryfi emailed to the person themselves (Forgot password) has no
+-- company and no issuer, and using it proves they hold the mailbox.
+ALTER TABLE password_resets ALTER COLUMN company_id DROP NOT NULL;
+ALTER TABLE password_resets ALTER COLUMN issued_by DROP NOT NULL;
+ALTER TABLE password_resets ADD COLUMN IF NOT EXISTS emailed BOOLEAN NOT NULL DEFAULT false;
+
+-- When the person proved they hold their email address. Everyone who signed
+-- up before addresses were checked counts as confirmed, once.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'email_verified_at') THEN
+    ALTER TABLE users ADD COLUMN email_verified_at TIMESTAMPTZ;
+    UPDATE users SET email_verified_at = now();
+  END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS spending_limits (
   company_id   UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

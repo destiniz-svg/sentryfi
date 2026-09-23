@@ -52,7 +52,7 @@ export default function Reset() {
           <p className="mt-3 text-[var(--ink-muted)]">Reading the link…</p>
         ) : error ? (
           <p className="mt-3" role="alert">
-            {error.message || "That link has been used or has run out. Ask your administrator for a new one."}
+            {error.message || "That link has been used or has run out. Ask for a new one."}
           </p>
         ) : (
           <form onSubmit={onSubmit} className="mt-4 space-y-3">

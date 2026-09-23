@@ -30,6 +30,12 @@ module.exports = {
   // api-console.zoho.com, with the redirect below registered on it.
   zohoClientId: process.env.ZOHO_CLIENT_ID || "",
   zohoClientSecret: process.env.ZOHO_CLIENT_SECRET || "",
+  // Resend, for the few emails Sentryfi sends: confirming an address, a
+  // forgotten password, and security alerts. Without a key nothing is sent and
+  // addresses are not asked to be confirmed (local work and tests).
+  resendApiKey: process.env.RESEND_API_KEY || "",
+  resendApiUrl: process.env.RESEND_API_URL || "https://api.resend.com/emails",
+  mailFrom: process.env.MAIL_FROM || "Sentryfi <hello@sentryfi.app>",
   publicUrl: (process.env.PUBLIC_URL || "https://sentryfi.app").replace(/\/$/, ""),
   isProd: process.env.NODE_ENV === "production",
 };

@@ -7,7 +7,8 @@ const asyncHandler = require("../utils/asyncHandler");
 const ApiError = require("../utils/ApiError");
 const { signToken, cookieOptions } = require("../utils/jwt");
 const { validate } = require("../middleware/validate");
-const { requireAuth } = require("../middleware/auth");
+const { requireAuth, requireSession, mustVerify } = require("../middleware/auth");
+const { sendLater, sendVerification, sendAlert, verifySecret } = require("../services/email");
 const { authLimiter } = require("../middleware/rateLimit");
 const User = require("../models/User");
 const Settings = require("../models/Settings");
@@ -82,8 +83,9 @@ router.post(
       });
     }
 
+    sendVerification(user);
     issueSession(res, user);
-    res.status(201).json({ user });
+    res.status(201).json({ user: { ...user, mustVerify: mustVerify(user) } });
   })
 );
 
@@ -119,6 +121,7 @@ router.post(
       created_at: record.created_at,
       updated_at: record.updated_at,
       token_version: record.token_version,
+      mustVerify: mustVerify(record),
     };
     issueSession(res, user);
     delete user.token_version;
@@ -127,14 +130,15 @@ router.post(
 );
 
 /**
- * A reset link an administrator handed over (routes/companies.js). Opening it
- * says whose it is; using it sets the password, ends every other session and
- * signs the person in. Single use, 24 hours, and only its hash is kept.
+ * A reset link, either handed over by an administrator (routes/companies.js)
+ * or emailed by "Forgot password" below. Opening it says whose it is; using it
+ * sets the password, ends every other session and signs the person in. Single
+ * use, and only its hash is kept. An emailed one also confirms the address.
  */
 const resetHash = (token) => require("crypto").createHash("sha256").update(String(token || "")).digest("hex");
 const openReset = (token) =>
   require("../config/db").queryOne(
-    `SELECT r.id, r.user_id, u.name FROM password_resets r JOIN users u ON u.id = r.user_id
+    `SELECT r.id, r.user_id, r.emailed, u.name, u.email FROM password_resets r JOIN users u ON u.id = r.user_id
       WHERE r.token_hash = $1 AND r.used_at IS NULL AND r.expires_at > now()`,
     [resetHash(token)]
   );
@@ -161,16 +165,86 @@ router.post(
     const used = await query("UPDATE password_resets SET used_at = now() WHERE id = $1 AND used_at IS NULL", [found.id]);
     if (!used.rowCount) throw ApiError.notFound("That link has just been used.");
     await User.updatePassword(found.user_id, await User.hashPassword(password));
+    if (found.emailed) await User.markVerified(found.user_id);
     const v = await User.bumpTokenVersion(found.user_id);
+    sendAlert(found, "Your password was changed");
     issueSession(res, { id: found.user_id, token_version: v });
     res.json({ ok: true });
+  })
+);
+
+/**
+ * Forgot password: emails a link good for an hour. The answer is the same
+ * whether or not the address has an account, and an address gets at most
+ * three links an hour.
+ */
+router.post(
+  "/forgot",
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const user = email ? await User.findByEmail(email) : null;
+    if (user) {
+      const { query, queryOne } = require("../config/db");
+      const recent = await queryOne(
+        "SELECT count(*)::int AS n FROM password_resets WHERE user_id = $1 AND emailed AND created_at > now() - interval '1 hour'",
+        [user.id]
+      );
+      if (recent.n < 3) {
+        const token = require("crypto").randomBytes(32).toString("base64url");
+        await query("INSERT INTO password_resets (user_id, token_hash, emailed, expires_at) VALUES ($1, $2, true, now() + interval '1 hour')", [
+          user.id,
+          resetHash(token),
+        ]);
+        sendLater({
+          to: user.email,
+          subject: "Set a new Sentryfi password",
+          lines: [
+            `Hello ${user.name},`,
+            "Someone asked to set a new password for your Sentryfi account. If it was you, tap the button. The link works once, for an hour.",
+            "If it was not you, ignore this email. Your password stays as it is.",
+          ],
+          link: { label: "Set a new password", url: `${env.publicUrl}/reset/${token}` },
+        });
+      }
+    }
+    res.json({ ok: true });
+  })
+);
+
+/** The link in the confirm-your-address email. */
+router.post(
+  "/verify",
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const bad = () => ApiError.badRequest("That link has run out or is not complete. Sign in and ask for a new one.");
+    let claim;
+    try {
+      claim = require("jsonwebtoken").verify(String(req.body?.token || ""), verifySecret());
+    } catch {
+      throw bad();
+    }
+    const user = await User.findById(claim.sub);
+    if (!user || user.email !== claim.email) throw bad();
+    await User.markVerified(user.id);
+    res.json({ ok: true });
+  })
+);
+
+router.post(
+  "/verify/resend",
+  authLimiter,
+  requireSession,
+  asyncHandler(async (req, res) => {
+    if (!req.user.email_verified_at) sendVerification(req.user);
+    res.json({ ok: true, email: req.user.email });
   })
 );
 
 /** Ends every session this person has, on every device, this one included. */
 router.post(
   "/logout-everywhere",
-  requireAuth,
+  requireSession,
   asyncHandler(async (req, res) => {
     await User.bumpTokenVersion(req.user.id);
     res.clearCookie(env.cookieName, { ...cookieOptions, maxAge: 0 });
@@ -185,9 +259,9 @@ router.post("/logout", (req, res) => {
 
 router.get(
   "/me",
-  requireAuth,
+  requireSession,
   asyncHandler(async (req, res) => {
-    res.json({ user: { ...req.user, platformAdmin: isPlatformAdmin(req.user) } });
+    res.json({ user: { ...req.user, platformAdmin: isPlatformAdmin(req.user), mustVerify: mustVerify(req.user) } });
   })
 );
 
@@ -221,6 +295,7 @@ router.patch(
     // Every other session ends; this one carries on with a fresh one.
     const v = await User.bumpTokenVersion(req.user.id);
     issueSession(res, { id: req.user.id, token_version: v });
+    sendAlert(req.user, "Your password was changed");
     res.json({ ok: true, otherSessionsEnded: true });
   })
 );

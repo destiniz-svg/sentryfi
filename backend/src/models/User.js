@@ -1,7 +1,7 @@
 const bcrypt = require("bcrypt");
 const { query, queryOne } = require("../config/db");
 
-const PUBLIC_COLS = "id, email, name, created_at, updated_at, token_version";
+const PUBLIC_COLS = "id, email, name, created_at, updated_at, token_version, email_verified_at";
 
 function hashPassword(plain) {
   return bcrypt.hash(plain, 12);
@@ -46,6 +46,10 @@ async function bumpTokenVersion(id) {
   return row?.token_version;
 }
 
+async function markVerified(id) {
+  await query("UPDATE users SET email_verified_at = coalesce(email_verified_at, now()) WHERE id = $1", [id]);
+}
+
 async function updatePassword(id, passwordHash) {
   await query(
     `UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1`,
@@ -55,6 +59,7 @@ async function updatePassword(id, passwordHash) {
 
 module.exports = {
   bumpTokenVersion,
+  markVerified,
   PUBLIC_COLS,
   hashPassword,
   comparePassword,

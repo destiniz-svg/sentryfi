@@ -52,6 +52,7 @@ router.post(
     // The session carries the person's current version, like any sign-in.
     const who = await require("../models/User").findById(joined.user.id);
     res.cookie(env.cookieName, signToken({ sub: joined.user.id, v: who?.token_version || 0 }), cookieOptions);
+    if (who && !who.email_verified_at) require("../services/email").sendVerification(who);
     res.status(201).json(joined);
   })
 );

@@ -12,6 +12,9 @@ import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import Join from "@/pages/Join";
 import Reset from "@/pages/Reset";
+import Forgot from "@/pages/Forgot";
+import Verify from "@/pages/Verify";
+import CheckEmail from "@/pages/CheckEmail";
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
 import OpenBooks from "@/pages/OpenBooks";
@@ -105,6 +108,7 @@ function ProtectedShell() {
     );
   }
   if (!user) return <Navigate to="/login" replace />;
+  if (user.mustVerify) return <CheckEmail />;
 
   // Belonging to no company is the ordinary first-run state, not an error.
   // Everything is kept per company, so there is genuinely nothing to show
@@ -131,6 +135,8 @@ export const router = createBrowserRouter([
   { path: "/register", element: <Register />, errorElement: <ErrorPage /> },
   { path: "/join/:token", element: <Join />, errorElement: <ErrorPage /> },
   { path: "/reset/:token", element: <Reset />, errorElement: <ErrorPage /> },
+  { path: "/forgot", element: <Forgot />, errorElement: <ErrorPage /> },
+  { path: "/verify/:token", element: <Verify />, errorElement: <ErrorPage /> },
   {
     path: "/",
     element: <ProtectedShell />,
