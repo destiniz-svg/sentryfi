@@ -192,7 +192,7 @@ export default function Import() {
       const r = await bring.mutateAsync(mapping);
       queryClient.invalidateQueries();
       toast.success(
-        `${r.posted} ${r.posted === 1 ? "transaction" : "transactions"} brought in`,
+        r.posted || !r.records ? `${r.posted} ${r.posted === 1 ? "transaction" : "transactions"} brought in` : "The rest of the backup is in",
         [
           r.unbalanced ? `${r.unbalanced} did not balance and were left out.` : "Every one balanced.",
           r.records ? `${r.records.contactsMade + r.records.contactsFilled} contacts made or filled in, ${r.records.quotes} quotes, ${r.records.purchaseOrders} purchase orders.` : "",
@@ -403,13 +403,16 @@ export default function Import() {
                 See the trial balance
               </Link>
             )}
-            <Button variant={p.toPost ? "accent" : "outline"} disabled={!p.toPost || bring.isPending} onClick={onBring}>
+            {/* A backup whose books are already in can still bring the rest: contacts, quotes, orders. */}
+            <Button variant={p.toPost || source?.kind === "backup" ? "accent" : "outline"} disabled={(!p.toPost && source?.kind !== "backup") || bring.isPending} onClick={onBring}>
               {bring.isPending ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
               {progress
                 ? `${progress.done.toLocaleString("en-US")} of ${progress.of.toLocaleString("en-US")} in`
                 : p.toPost
                   ? `Bring in ${p.toPost.toLocaleString("en-US")} ${p.toPost === 1 ? "transaction" : "transactions"}`
-                  : "Nothing new to bring in"}
+                  : source?.kind === "backup"
+                    ? "Bring in contacts, quotes and orders"
+                    : "Nothing new to bring in"}
             </Button>
           </div>
         </div>
