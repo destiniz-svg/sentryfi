@@ -248,9 +248,12 @@ router.get(
           ORDER BY CASE type WHEN 'expense' THEN 0 WHEN 'income' THEN 1 WHEN 'liability' THEN 2 WHEN 'asset' THEN 3 ELSE 4 END, code`,
         [req.companyId, req.params.accountId]
       );
-      return { groups, counts, accounts };
+      // The statement is in the account's own currency, so its sums are said in it.
+      const { rows: cur } = await client.query("SELECT COALESCE(trim(a.currency), trim(c.base_currency)) AS cur FROM accounts a JOIN companies c ON c.id = a.company_id WHERE a.id = $1 AND a.company_id = $2", [req.params.accountId, req.companyId]);
+      return { groups, counts, accounts, currency: cur[0]?.cur || "MVR" };
     });
     res.json({
+      currency: data.currency,
       groups: data.groups,
       counts: Object.fromEntries(data.counts.map((c) => [c.status, c.n])),
       accounts: data.accounts,

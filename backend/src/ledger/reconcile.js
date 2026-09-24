@@ -1,5 +1,6 @@
 const { postEntry, reverseEntry } = require("./post");
 const { formatLaari } = require("./money");
+const fx = require("./fx");
 const { findOrCreate } = require("./counterparties");
 const sales = require("./sales");
 
@@ -40,10 +41,16 @@ const sideOf = (l) =>
 const key = (who) => String(who || "").trim().toLowerCase();
 
 /** One line, locked for the rest of the transaction so two people cannot answer it twice. */
+// A journal line's amount in its bank account's own currency: the foreign
+// amount on an account kept in another currency, rufiyaa otherwise. A
+// statement for a dollar account is in dollars, so it is matched in dollars.
+const OWN = "(CASE WHEN ac.currency IS NOT NULL AND ac.currency <> co.base_currency AND jl.currency = ac.currency THEN jl.amount_fc ELSE jl.debit_laari + jl.credit_laari END)";
+
 async function lockLine(client, { companyId, lineId }) {
   const { rows } = await client.query(
-    `SELECT s.*, a.name AS bank_name
-       FROM bank_statement_lines s JOIN accounts a ON a.id = s.account_id
+    `SELECT s.*, s.posted_on::text AS posted_text, a.name AS bank_name, trim(a.currency) AS currency,
+            (a.currency IS NOT NULL AND a.currency <> co.base_currency) AS foreign
+       FROM bank_statement_lines s JOIN accounts a ON a.id = s.account_id JOIN companies co ON co.id = s.company_id
       WHERE s.id = $1 AND s.company_id = $2
         FOR UPDATE OF s`,
     [lineId, companyId]
@@ -69,9 +76,11 @@ async function suggest(client, { companyId, lines }) {
     `SELECT s.id AS line_id, je.id AS entry_id, je.entry_no, je.entry_date, je.narrative,
             (s.posted_on - je.entry_date) AS days
        FROM bank_statement_lines s
+       JOIN accounts ac ON ac.id = s.account_id
+       JOIN companies co ON co.id = s.company_id
        JOIN journal_lines jl ON jl.company_id = s.company_id AND jl.account_id = s.account_id
-        AND ((s.credit_laari > 0 AND jl.debit_laari = s.credit_laari)
-          OR (s.debit_laari  > 0 AND jl.credit_laari = s.debit_laari))
+        AND ((s.credit_laari > 0 AND jl.debit_laari > 0 AND ${OWN} = s.credit_laari)
+          OR (s.debit_laari  > 0 AND jl.credit_laari > 0 AND ${OWN} = s.debit_laari))
        JOIN journal_entries je ON je.id = jl.entry_id
       WHERE s.id = ANY($1::uuid[]) AND s.company_id = $2
         AND abs(s.posted_on - je.entry_date) <= 4
@@ -286,8 +295,10 @@ async function link(client, { companyId, userId, lineId, entryId, note }) {
   const { rows } = await client.query(
     `SELECT je.id FROM journal_entries je
        JOIN journal_lines jl ON jl.entry_id = je.id AND jl.account_id = $3
+       JOIN accounts ac ON ac.id = jl.account_id
+       JOIN companies co ON co.id = je.company_id
       WHERE je.id = $1 AND je.company_id = $2
-        AND ${moneyIn ? "jl.debit_laari" : "jl.credit_laari"} = $4
+        AND ${moneyIn ? "jl.debit_laari" : "jl.credit_laari"} > 0 AND ${OWN} = $4
         AND je.reverses_id IS NULL
         AND NOT EXISTS (SELECT 1 FROM journal_entries r WHERE r.reverses_id = je.id)
         AND NOT EXISTS (SELECT 1 FROM bank_statement_lines x WHERE x.entry_id = je.id AND x.account_id = $3)`,
@@ -324,6 +335,19 @@ async function post(client, { companyId, userId, lineId, accountId, counterparty
     party = made.party.id;
   }
 
+  // A line on an account in another currency is in that currency: it goes
+  // into the books at the rate recorded for its day, and keeps its own amount.
+  // Supplier and customer balances keep it too, so what is owed in dollars moves.
+  let base = laari;
+  let fc;
+  if (line.foreign) {
+    const on = line.posted_text;
+    const r = await fx.rateOn(client, { companyId, currency: line.currency, on });
+    if (!r) throw new Error(`There is no ${line.currency} rate on or before ${on}. Record one first (Bank and cash, Move money).`);
+    base = fx.toBase(laari, r.rate);
+    fc = { currency: line.currency, amount: laari, rate: r.rate };
+  }
+
   const said = String(note || "").trim();
   const what = [line.who, said || line.remark].filter(Boolean).join(" - ") || line.kind;
   const entry = await postEntry(client, {
@@ -335,12 +359,12 @@ async function post(client, { companyId, userId, lineId, accountId, counterparty
     narrative: `${moneyIn ? "Received" : "Paid"}: ${what}`,
     lines: moneyIn
       ? [
-          { accountId: line.account_id, debit: laari, memo: line.bank_ref || line.kind },
-          { accountId: counter.id, credit: laari, counterpartyId: party, memo: said || line.kind },
+          { accountId: line.account_id, debit: base, memo: line.bank_ref || line.kind, fc },
+          { accountId: counter.id, credit: base, counterpartyId: party, memo: said || line.kind, ...(control ? { fc } : {}) },
         ]
       : [
-          { accountId: counter.id, debit: laari, counterpartyId: party, memo: said || line.kind },
-          { accountId: line.account_id, credit: laari, memo: line.bank_ref || line.kind },
+          { accountId: counter.id, debit: base, counterpartyId: party, memo: said || line.kind, ...(control ? { fc } : {}) },
+          { accountId: line.account_id, credit: base, memo: line.bank_ref || line.kind, fc },
         ],
   });
   await settle(client, { companyId, userId, lineId, status: "posted", entryId: entry.id, note: said || null });
@@ -358,7 +382,8 @@ async function payBill(client, { companyId, userId, lineId, billId }) {
   if (line.status !== "open" && line.status !== "set_aside") throw new Error("That line has been dealt with already.");
   const { laari, moneyIn } = sideOf(line);
   if (moneyIn || laari <= 0n) throw new Error("Only money going out can pay a bill.");
-  const paidOn = line.posted_on instanceof Date ? line.posted_on.toISOString().slice(0, 10) : String(line.posted_on).slice(0, 10);
+  if (line.foreign) throw new Error(`A ${line.currency} line pays a bill through Payments, not from here yet. Say what it was instead.`);
+  const paidOn = line.posted_text;
   // What left the bank is what the supplier got. For a non-resident supplier
   // that is the bill less the tax kept back, so the bill settles by more.
   let settles = laari;
@@ -385,6 +410,7 @@ async function receiveAgainst(client, { companyId, userId, lineId, invoiceId }) 
   if (line.status !== "open" && line.status !== "set_aside") throw new Error("That line has been dealt with already.");
   const { laari, moneyIn } = sideOf(line);
   if (!moneyIn || laari <= 0n) throw new Error("Only money coming in can pay an invoice.");
+  if (line.foreign) throw new Error(`A ${line.currency} line settles an invoice through Money in, not from here yet. Say what it was instead.`);
 
   const { rows } = await client.query(
     `SELECT counterparty_id FROM sales_invoices WHERE id = $1 AND company_id = $2`,

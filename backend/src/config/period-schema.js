@@ -104,6 +104,30 @@ CREATE TRIGGER journal_entries_refuse_closed_period
   BEFORE INSERT ON journal_entries
   FOR EACH ROW EXECUTE FUNCTION refuse_closed_period();
 
+-- Each bank account's reconciliation at a month end, kept when the month is
+-- closed: the bank's closing balance, the books', and what was unexplained.
+CREATE TABLE IF NOT EXISTS bank_reconciliations (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id    UUID NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
+  account_id    UUID NOT NULL REFERENCES accounts(id),
+  through       DATE NOT NULL,
+  statement_on  DATE NOT NULL,
+  bank_laari    BIGINT NOT NULL,
+  books_laari   BIGINT NOT NULL,
+  open_lines    INTEGER NOT NULL,
+  open_laari    BIGINT NOT NULL,
+  by_user       UUID REFERENCES users(id),
+  at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS bank_reconciliations_idx ON bank_reconciliations(company_id, through DESC);
+ALTER TABLE bank_reconciliations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bank_reconciliations FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS company_isolation ON bank_reconciliations;
+CREATE POLICY company_isolation ON bank_reconciliations
+  USING (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid)
+  WITH CHECK (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid);
+GRANT SELECT, INSERT ON bank_reconciliations TO sentryfi_app;
+
 -- A line joining an entry dated in a closed month is refused the same way: the
 -- rule is about the month an amount lands in, and a balancing pair of lines
 -- added to an old entry would land there too. A deliberate adjustment keeps

@@ -11,6 +11,8 @@ import { inRollback, aCompanyWith, closePool } from "./setup";
 import { assumeIdentity, postEntry } from "../src/ledger/post";
 import { openBox } from "../src/ledger/cash";
 import { places, openBank, transfer, importStatement } from "../src/ledger/bank";
+import { recordRate } from "../src/ledger/fx";
+import * as rec from "../src/ledger/reconcile";
 
 afterAll(closePool);
 
@@ -39,11 +41,20 @@ const balanceOf = async (client, companyId, id) =>
   (await places(client, { companyId })).find((p) => p.id === id).balance;
 
 describe("bank accounts and transfers", () => {
-  it("will not read a statement into a dollar account as rufiyaa", () =>
+  it("reads a dollar statement in dollars, and posts each line at its day's rate", () =>
     inRollback(async (client) => {
-      const { companyId, userId } = await aBusiness(client);
-      const usd = await openBank(client, { companyId, name: "BML USD current", currency: "USD" });
-      await expect(importStatement(client, { companyId, userId, accountId: usd.id, text: "anything" })).rejects.toThrow(/USD account cannot be read yet/);
+      const { companyId, userId, accounts } = await aBusiness(client);
+      const usd = await openBank(client, { companyId, name: "Wise USD", currency: "USD" });
+      await recordRate(client, { companyId, userId, currency: "USD", on: "2026-09-01", rate: "15.42" });
+      const text = ["TransferWise ID,Date,Amount,Currency,Description,Running Balance", "T-1,02-09-2026,-1250.00,USD,Design fee,3750.00", "T-2,01-08-2026,-10.00,USD,Card fee,5000.00"].join(String.fromCharCode(10));
+      await importStatement(client, { companyId, userId, accountId: usd.id, text });
+      const { rows } = await client.query("SELECT id, debit_laari::text AS d FROM bank_statement_lines WHERE account_id = $1 ORDER BY posted_on DESC", [usd.id]);
+      expect(rows[0].d).toBe("125000"); // kept in cents, as the statement says
+      const done = await rec.post(client, { companyId, userId, lineId: rows[0].id, accountId: accounts.expense, note: "Design" });
+      const { rows: lines } = await client.query("SELECT credit_laari::text AS c, trim(currency) AS cur, amount_fc::text AS fc FROM journal_lines WHERE entry_id = $1 AND account_id = $2", [done.entryId, usd.id]);
+      expect(lines[0]).toEqual({ c: "1927500", cur: "USD", fc: "125000" }); // USD 1,250.00 at 15.42
+      // Before any rate was recorded, it asks for one rather than guessing.
+      await expect(rec.post(client, { companyId, userId, lineId: rows[1].id, accountId: accounts.expense })).rejects.toThrow(/no USD rate/);
     }));
 
   it("opens a second bank account under 11xx, at nothing", () =>

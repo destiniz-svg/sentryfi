@@ -82,4 +82,30 @@ router.put(
   })
 );
 
+// ---- the year as the income tax return reads it
+const incomeTax = require("../ledger/incomeTax");
+
+router.get(
+  "/income",
+  requireCan("read"),
+  asyncHandler(async (req, res) => {
+    const y = /^d{4}$/.test(String(req.query.year || "")) ? Number(req.query.year) : Number(require("../ledger/today").today().slice(0, 4)) - 1;
+    res.json(await asCompany(req, (client) => incomeTax.year(client, { companyId: req.companyId, year: y })));
+  })
+);
+
+router.put(
+  "/income/lines/:code",
+  requireCan("manage_settings"),
+  validate(z.object({ line: z.string().trim().max(40).nullable() })),
+  asyncHandler(async (req, res) => {
+    try {
+      await asCompany(req, (client) => incomeTax.setLine(client, { companyId: req.companyId, code: req.params.code, line: req.body.line }));
+      res.json({ ok: true });
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
 module.exports = router;

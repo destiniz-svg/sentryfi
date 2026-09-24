@@ -14,7 +14,7 @@ import { openBox } from "../src/ledger/cash";
 import { transfer, importStatement, places, openBank } from "../src/ledger/bank";
 import { raise, post as postInvoice, receive, outstanding } from "../src/ledger/sales";
 import * as rec from "../src/ledger/reconcile";
-import { doubtsFor } from "../src/ledger/periods";
+import { doubtsFor, close, overview } from "../src/ledger/periods";
 
 afterAll(closePool);
 
@@ -88,6 +88,14 @@ describe("what the books already know", () => {
       ]);
       const d = await doubtsFor(client, { companyId: s.companyId, through: "2026-01-31" });
       expect(d.unbalanced).toEqual([expect.objectContaining({ bank: "9,950.00", books: "10,000.00" })]);
+    }));
+
+  it("keeps the month's bank reconciliation when the month is closed", () =>
+    inRollback(async (client) => {
+      const s = await aStatement(client, [row("2026/01/03", "BLAZ100000000001", "FUEL", "100", "", "9900.00")]);
+      await close(client, { ...s.base, through: "2026-01-31" });
+      const o = await overview(client, s.base);
+      expect(o.reconciliations).toEqual([expect.objectContaining({ through: "2026-01-31", statementOn: "2026-01-03", bank: "9,900.00", books: "10,000.00", difference: "-100.00", agrees: false, openLines: 1, open: "-100.00" })]);
     }));
 
   it("will not undo a posting that the other bank's statement also answers with", () =>

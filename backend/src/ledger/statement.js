@@ -140,8 +140,122 @@ function rowHash(r) {
   return crypto.createHash("sha256").update(parts.map((p) => String(p ?? "")).join("\u001f")).digest("hex");
 }
 
-function parse(text, layout = BML) {
+// ---- any bank whose export starts with a row of headings (MIB, Wise, most others)
+
+const HEADINGS = {
+  postedOn: /^(date|transaction date|posting date|posted on|txn date|booking date|created on)$/,
+  valueOn: /^value date$/,
+  who: /^(description|narrative|details|particulars|payee|merchant|counterparty|payer ?\/? ?payee|name)$/,
+  remark: /^(remarks?|memo|note|payment reference)$/,
+  bankRef: /^(reference|ref|ref no\.?|reference number|transaction id|transferwise id|id|cheque no\.?)$/,
+  debit: /^(debit|debits|withdrawal|withdrawals|paid out|money out|dr|debit amount)$/,
+  credit: /^(credit|credits|deposit|deposits|paid in|money in|cr|credit amount)$/,
+  amount: /^(amount|transaction amount|amount \(.*\))$/,
+  balance: /^(balance|running balance|closing balance|available balance)$/,
+};
+const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+
+/** Which column is which, from a heading row; null when the row is not headings. */
+function headings(cells) {
+  const names = cells.map((c) => unwrap(c).trim().toLowerCase());
+  const at = {};
+  for (const [k, re] of Object.entries(HEADINGS)) {
+    const i = names.findIndex((n, j) => re.test(n) && !Object.values(at).includes(j));
+    if (i >= 0) at[k] = i;
+  }
+  const sided = at.debit !== undefined && at.credit !== undefined;
+  return at.postedOn !== undefined && (sided || at.amount !== undefined) ? at : null;
+}
+
+/**
+ * A date as most banks write it: 2026-01-04, 2026/01/04, 04/01/2026,
+ * 04-01-2026, 04 Jan 2026 or 04-Jan-2026. Day first where the year is last,
+ * as the Maldives and Wise write it; never month first by guessing.
+ */
+function anyDate(s) {
+  const t = String(s || "").trim().replace(/\s+\d{1,2}:\d{2}(:\d{2})?.*$/, "");
+  let m = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/.exec(t);
+  if (m) return isoDate(+m[1], +m[2], +m[3]);
+  m = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/.exec(t);
+  if (m) return isoDate(+m[3], +m[2], +m[1]);
+  m = /^(\d{1,2})[-\s]([A-Za-z]{3})[A-Za-z]*[-\s,]+(\d{4})$/.exec(t);
+  if (m && MONTHS[m[2].toLowerCase()]) return isoDate(+m[3], MONTHS[m[2].toLowerCase()], +m[1]);
+  return null;
+}
+
+/** An amount that may carry a sign, brackets, a currency or thousands commas. */
+function signedAmount(s) {
+  let t = String(s ?? "").replace(/[,\s]/g, "").replace(/^[A-Za-z]{3}/, "").replace(/[A-Za-z]{3}$/, "").trim();
+  if (!t) return null;
+  let negative = false;
+  if (/^\(.*\)$/.test(t)) { negative = true; t = t.slice(1, -1); }
+  if (t.startsWith("-")) { negative = true; t = t.slice(1); } else if (t.startsWith("+")) t = t.slice(1);
+  if (!/^\d+(\.\d{1,2})?$/.test(t)) return undefined;
+  const v = toLaari(t);
+  return negative ? -v : v;
+}
+
+function parseByHeadings(all, at) {
+  const rows = [];
+  const skipped = [];
+  all.slice(1).forEach((cells, index) => {
+    const rowNo = index + 2;
+    if (cells.every((c) => !unwrap(c).trim())) return;
+    const c = (k) => (at[k] === undefined ? "" : unwrap(cells[at[k]] ?? "").trim());
+    const postedOn = anyDate(c("postedOn"));
+    if (!postedOn) return skipped.push({ rowNo, why: `the date "${c("postedOn")}" is not a date` });
+    let debit, credit;
+    if (at.debit !== undefined && at.credit !== undefined) {
+      const d = signedAmount(c("debit")), cr = signedAmount(c("credit"));
+      if (d === undefined || cr === undefined) return skipped.push({ rowNo, why: "an amount is not a number" });
+      debit = d === null ? 0n : d < 0n ? -d : d;
+      credit = cr === null ? 0n : cr < 0n ? -cr : cr;
+    } else {
+      const a = signedAmount(c("amount"));
+      if (a === undefined || a === null) return skipped.push({ rowNo, why: "the amount is not a number" });
+      debit = a < 0n ? -a : 0n;
+      credit = a > 0n ? a : 0n;
+    }
+    const balance = signedAmount(c("balance"));
+    const flags = [];
+    if (debit === 0n && credit === 0n) flags.push("no amount on either side");
+    if (debit > 0n && credit > 0n) flags.push("both a debit and a credit");
+    if (balance === undefined) flags.push("the running balance is not a number");
+    const who = c("who") || null;
+    const row = {
+      rowNo,
+      postedOn,
+      valueOn: anyDate(c("valueOn")) || postedOn,
+      kind: credit > 0n ? "Money in" : "Money out",
+      bankRef: c("bankRef") || null,
+      internalRef: null,
+      happenedAt: null,
+      remark: c("remark") || null,
+      who,
+      channel: null,
+      debitLaari: debit,
+      creditLaari: credit,
+      balanceLaari: balance ?? null,
+      flag: flags.join("; ") || null,
+    };
+    row.hash = rowHash(row);
+    rows.push(row);
+  });
+  return { rows, skipped, layout: "headings", ...checkBalances(rows) };
+}
+
+/**
+ * A statement file. With no layout named, a first row of headings is read as
+ * headings (any bank); otherwise it is the Bank of Maldives' export.
+ */
+function parse(text, layout) {
   const body = String(text || "").replace(/^﻿/, "");
+  if (!layout) {
+    const all = tokenise(body);
+    const at = all.length ? headings(all[0]) : null;
+    if (at) return parseByHeadings(all, at);
+    layout = BML;
+  }
   const rows = [];
   const skipped = [];
 
@@ -240,4 +354,4 @@ function checkBalances(rows) {
   return { balance: { ...best, newestFirst: best === backward && backward.breaks < forward.breaks } };
 }
 
-module.exports = { parse, tokenise, unwrap, stamp, amount, BML };
+module.exports = { parse, tokenise, unwrap, stamp, amount, anyDate, signedAmount, BML };

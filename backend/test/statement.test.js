@@ -156,3 +156,32 @@ describe("keeping the statement", () => {
       ).rejects.toThrow(/permission denied/);
     }));
 });
+
+describe("any bank with a row of headings", () => {
+  const { parse: read } = require("../src/ledger/statement");
+  it("reads a Wise export: one signed amount, dates day first", () => {
+    const text = [
+      "TransferWise ID,Date,Amount,Currency,Description,Payment Reference,Running Balance",
+      'TRANSFER-1,02-09-2026,-1250.00,USD,"Sent money to Overseas Studio",INV 77,3750.00',
+      "TRANSFER-2,05-09-2026,500.5,USD,Received money from A Client,,4250.50",
+    ].join("\n");
+    const r = read(text);
+    expect(r.skipped).toEqual([]);
+    expect(r.rows.map((x) => [x.postedOn, x.debitLaari, x.creditLaari, x.balanceLaari, x.bankRef, x.who])).toEqual([
+      ["2026-09-02", 125000n, 0n, 375000n, "TRANSFER-1", "Sent money to Overseas Studio"],
+      ["2026-09-05", 0n, 50050n, 425050n, "TRANSFER-2", "Received money from A Client"],
+    ]);
+  });
+
+  it("reads a debit and credit layout with written months, and names a row it cannot read", () => {
+    const text = [
+      "Date,Description,Reference,Debit,Credit,Balance",
+      "03-Sep-2026,Fuel,FT0001,\"1,200.00\",,98800.00",
+      "04 Sep 2026,Deposit,FT0002,,300,99100.00",
+      "not a date,Oops,FT0003,1,,99099.00",
+    ].join("\n");
+    const r = read(text);
+    expect(r.rows.map((x) => [x.postedOn, x.debitLaari, x.creditLaari])).toEqual([["2026-09-03", 120000n, 0n], ["2026-09-04", 0n, 30000n]]);
+    expect(r.skipped).toEqual([{ rowNo: 4, why: 'the date "not a date" is not a date' }]);
+  });
+});

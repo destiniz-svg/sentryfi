@@ -140,11 +140,9 @@ async function importStatement(client, { companyId, userId, accountId, text, lay
     [accountId, companyId]
   );
   if (!found.length) throw new Error("That is not a bank account of this company.");
-  // ponytail: a statement is read as rufiyaa, so a dollar account's lines would
-  // go into the books as rufiyaa. Refused until statements carry a rate.
-  if (found[0].foreign) {
-    throw new Error(`Statements for a ${found[0].currency} account cannot be read yet. Record its money with Move money, bills and receipts.`);
-  }
+  // A statement for an account in another currency is in that currency: its
+  // lines are kept in it, and each goes into the books at its day's rate when
+  // it is answered (ledger/reconcile.js).
 
   const parsed = statement.parse(text, layout);
   if (!parsed.rows.length) {

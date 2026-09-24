@@ -107,6 +107,7 @@ export default function Closing() {
       {can("close") && <CloseNext candidates={data.candidates} />}
       {can("close") && <CloseYear />}
 
+      <Reconciliations list={data.reconciliations || []} />
       <History history={data.history} adjustments={data.adjustments} />
 
       {reopening && <Reopen locked={locked} onClose={() => setReopening(false)} />}
@@ -351,6 +352,33 @@ function CloseNext({ candidates }) {
           {err}
         </p>
       )}
+    </Card>
+  );
+}
+
+/** Each bank account at each month closed: the bank's balance against the books', as it stood. */
+function Reconciliations({ list }) {
+  if (!list.length) return null;
+  return (
+    <Card padding="none" className="overflow-hidden mb-4" data-testid="reconciliations">
+      <div className="px-5 py-3 border-b border-[var(--border)] text-[12px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+        Bank reconciliations, kept at each close
+      </div>
+      <ul className="divide-y divide-[var(--border)]">
+        {list.map((r, i) => (
+          <li key={i} className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1.2fr)_repeat(3,minmax(0,1fr))] gap-x-4 gap-y-1 px-5 py-3.5 items-baseline text-[14px]">
+            <div className="min-w-0">
+              <div className="font-medium truncate">{r.account}</div>
+              <div className="text-[12px] text-[var(--ink-muted)]">Month to {niceDate(r.through)} · statement to {niceDate(r.statementOn)}</div>
+            </div>
+            <div className="text-right sm:text-left">
+              <Badge tone={r.agrees ? "success" : "danger"}>{r.agrees ? "Agrees" : `${r.difference} apart`}</Badge>
+            </div>
+            <div className="tabular text-[13px] text-[var(--ink-muted)]">Bank {r.bank}</div>
+            <div className="tabular text-[13px] text-[var(--ink-muted)]">Books {r.books}{r.openLines > 0 ? ` · ${r.openLines} unexplained` : ""}</div>
+          </li>
+        ))}
+      </ul>
     </Card>
   );
 }

@@ -201,6 +201,7 @@ export default function TaxReturn() {
       </div>
 
       <Withholding />
+      <IncomeTaxYear />
     </div>
   );
 }
@@ -361,6 +362,120 @@ function Withholding() {
           <p className="text-[12px] text-[var(--ink-muted)] mt-4">Rates and kinds of payment as MIRA lists them; your accountant confirms them before the first return.</p>
         </Card>
       </div>
+    </section>
+  );
+}
+
+/**
+ * The year as the income tax return reads it: the books' profit regrouped onto
+ * the return's lines, depreciation added back, and an estimate a person can
+ * take to the accountant. Each account can be moved to another line.
+ */
+function IncomeTaxYear() {
+  const { companyId, can, company } = useCompany();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const thisYear = new Date().getFullYear();
+  const [year, setYear] = useState(thisYear - 1);
+  const [open, setOpen] = useState(null);
+  const { data: y } = useQuery({
+    queryKey: ["incomeTax", companyId, year],
+    queryFn: () => apiClient.get("/tax/income", { params: { year } }).then((r) => r.data),
+    enabled: Boolean(companyId),
+  });
+  if ((company?.tax?.code || "MV") !== "MV" || !y) return null;
+  const manage = can("manage_settings");
+
+  async function move(code, line) {
+    try {
+      await apiClient.put(`/tax/income/lines/${encodeURIComponent(code)}`, { line: line || null });
+      qc.invalidateQueries({ queryKey: ["incomeTax", companyId] });
+    } catch (ex) {
+      toast.error("Not moved", ex.message);
+    }
+  }
+
+  return (
+    <section className="mt-8" aria-labelledby="it-title">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 id="it-title" className="text-[20px] font-semibold tracking-[-0.01em]">Income tax, the year's view</h2>
+          <p className="text-[14px] text-[var(--ink-muted)] mt-1 max-w-[75ch]">
+            The year's profit as the income tax return groups it. Depreciation is added back because the tax allows capital allowances instead; take this to your accountant to finish.
+          </p>
+        </div>
+        <select aria-label="Year" value={year} onChange={(e) => setYear(Number(e.target.value))} className={SELECT}>
+          {[thisYear, thisYear - 1, thisYear - 2, thisYear - 3].map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
+      </div>
+      <Card padding="none" className="mt-4 overflow-hidden max-w-[900px]">
+        <ul className="divide-y divide-[var(--border)]">
+          {y.lines.map((l) => (
+            <li key={l.key}>
+              <button type="button" onClick={() => setOpen(open === l.key ? null : l.key)} aria-expanded={open === l.key} className="w-full flex items-baseline justify-between gap-3 px-5 py-3.5 text-left">
+                <span className={l.back ? "text-[15px] text-[var(--ink-muted)]" : "text-[15px] font-medium"}>
+                  {l.label}
+                  <span className="ml-2 text-[12px] text-[var(--ink-muted)]">
+                    {l.accounts.length} {l.accounts.length === 1 ? "account" : "accounts"}
+                  </span>
+                </span>
+                <span className="tabular text-[15px]">
+                  <Money amount={l.amount} />
+                </span>
+              </button>
+              {open === l.key && (
+                <ul className="px-5 pb-4 space-y-2">
+                  {l.accounts.map((a) => (
+                    <li key={a.code} className="flex flex-wrap items-center gap-2 text-[13px]">
+                      <span className="tabular text-[var(--ink-muted)] w-12">{a.code}</span>
+                      <span className="flex-1 min-w-[8rem]">{a.name}</span>
+                      <span className="tabular">
+                        <Money amount={a.amount} />
+                      </span>
+                      {manage && (
+                        <select aria-label={`Line for ${a.name}`} value={l.key} onChange={(e) => move(a.code, e.target.value)} className="h-9 px-2 max-w-full rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[13px]">
+                          {y.choices.map((c) => (
+                            <option key={c.key} value={c.key}>
+                              {c.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          ))}
+        </ul>
+        <div className="px-5 py-4 border-t border-[var(--border)] grid gap-1.5 text-[15px]">
+          <div className="flex justify-between gap-3 text-[var(--ink-muted)]">
+            <span>Profit in the books</span>
+            <span className="tabular">
+              <Money amount={y.bookProfit} />
+            </span>
+          </div>
+          <div className="flex justify-between gap-3 font-semibold">
+            <span>Taxable profit, before capital allowances</span>
+            <span className="tabular" data-testid="taxable-profit">
+              <Money amount={y.taxableProfit} />
+            </span>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span>Tax at {y.ratePct}%, an estimate</span>
+            <span className="tabular">
+              <Money amount={y.estimate} />
+            </span>
+          </div>
+        </div>
+      </Card>
+      <p className="text-[12px] text-[var(--ink-muted)] mt-2 max-w-[75ch]">
+        An estimate, not a return: the lines, the capital allowances and the rate are your accountant's to confirm.
+      </p>
     </section>
   );
 }

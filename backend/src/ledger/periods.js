@@ -47,8 +47,19 @@ async function doubtsFor(client, { companyId, through }) {
   // balance before it is the balance after this one), so the order the bank
   // printed them in does not matter. Accounts in another currency are left
   // out: their statements are not read as ours (ledger/bank.js).
+  const banks = await bankRecs(client, { companyId, through });
+  const unbalanced = banks
+    .filter((b) => b.bank !== b.books)
+    .map((b) => ({ account: b.name, on: b.on, bank: formatLaari(BigInt(b.bank)), books: formatLaari(BigInt(b.books)), difference: formatLaari(BigInt(b.bank) - BigInt(b.books)) }));
+  return { bills: rows[0].bills, invoices: rows[0].invoices, bankLines: rows[0].bank_lines, unbalanced };
+}
+
+/** Each bank account with a statement: the bank's closing balance, the books', and what is still unexplained. */
+async function bankRecs(client, { companyId, through }) {
   const { rows: banks } = await client.query(
-    `SELECT a.name, s.posted_on::text AS on, s.balance_laari::text AS bank,
+    `SELECT a.id, a.name, s.posted_on::text AS on, s.balance_laari::text AS bank,
+            (SELECT count(*) FROM bank_statement_lines o WHERE o.account_id = a.id AND o.status IN ('open','set_aside') AND o.posted_on <= $2::date AND o.debit_laari + o.credit_laari > 0)::int AS open_lines,
+            (SELECT COALESCE(SUM(o.credit_laari - o.debit_laari), 0) FROM bank_statement_lines o WHERE o.account_id = a.id AND o.status IN ('open','set_aside') AND o.posted_on <= $2::date)::text AS open_laari,
             (SELECT COALESCE(SUM(l.debit_laari - l.credit_laari), 0) FROM journal_lines l
                JOIN journal_entries e ON e.id = l.entry_id
               WHERE l.account_id = a.id AND e.entry_date <= s.posted_on)::text AS books
@@ -66,10 +77,7 @@ async function doubtsFor(client, { companyId, through }) {
       ORDER BY a.code`,
     [companyId, through]
   );
-  const unbalanced = banks
-    .filter((b) => b.bank !== b.books)
-    .map((b) => ({ account: b.name, on: b.on, bank: formatLaari(BigInt(b.bank)), books: formatLaari(BigInt(b.books)), difference: formatLaari(BigInt(b.bank) - BigInt(b.books)) }));
-  return { bills: rows[0].bills, invoices: rows[0].invoices, bankLines: rows[0].bank_lines, unbalanced };
+  return banks;
 }
 
 /** The month ends that could be closed next: after the lock, and already over. */
@@ -110,7 +118,19 @@ async function overview(client, { companyId }) {
       WHERE a.company_id = $1 ORDER BY a.at DESC LIMIT 20`,
     [companyId]
   );
-  return { lockedThrough: locked, history, adjustments, candidates: await candidates(client, { companyId }) };
+  const { rows: recs } = await client.query(
+    `SELECT r.through::text AS through, r.statement_on::text AS statement_on, a.name AS account, r.bank_laari, r.books_laari, r.open_lines, r.open_laari
+       FROM bank_reconciliations r JOIN accounts a ON a.id = r.account_id
+      WHERE r.company_id = $1 ORDER BY r.through DESC, a.code LIMIT 48`,
+    [companyId]
+  );
+  const reconciliations = recs.map((r) => ({
+    through: r.through, statementOn: r.statement_on, account: r.account,
+    bank: formatLaari(BigInt(r.bank_laari)), books: formatLaari(BigInt(r.books_laari)),
+    difference: formatLaari(BigInt(r.bank_laari) - BigInt(r.books_laari)), agrees: r.bank_laari === r.books_laari,
+    openLines: r.open_lines, open: formatLaari(BigInt(r.open_laari)),
+  }));
+  return { lockedThrough: locked, history, adjustments, reconciliations, candidates: await candidates(client, { companyId }) };
 }
 
 /** Close the books through the end of a month that is over. */
@@ -132,6 +152,14 @@ async function close(client, { companyId, userId, through }) {
     `INSERT INTO period_locks (company_id, action, locked_through, by_user) VALUES ($1,'close',$2,$3)`,
     [companyId, through, userId]
   );
+  // The month's bank reconciliation, kept as it stood when it was closed.
+  for (const b of await bankRecs(client, { companyId, through })) {
+    await client.query(
+      `INSERT INTO bank_reconciliations (company_id, account_id, through, statement_on, bank_laari, books_laari, open_lines, open_laari, by_user)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [companyId, b.id, through, b.on, b.bank, b.books, b.open_lines, b.open_laari, userId]
+    );
+  }
   return { lockedThrough: through, doubts };
 }
 

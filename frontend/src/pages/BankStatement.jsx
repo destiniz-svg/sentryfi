@@ -119,11 +119,11 @@ export default function BankStatement() {
           )}
         </Card>
       ) : phone ? (
-        <OneAtATime groups={data.groups} accounts={data.accounts} accountId={accountId} left={waiting} startedWith={startedWith || waiting} />
+        <OneAtATime groups={data.groups} accounts={data.accounts} accountId={accountId} cur={data.currency} left={waiting} startedWith={startedWith || waiting} />
       ) : (
         <div className="space-y-3">
           {data.groups.map((g) => (
-            <Question key={`${g.key}|${g.moneyIn}`} group={g} accounts={data.accounts} accountId={accountId} />
+            <Question key={`${g.key}|${g.moneyIn}`} group={g} accounts={data.accounts} accountId={accountId} cur={data.currency} />
           ))}
           {waiting > data.groups.reduce((s, g) => s + g.count, 0) && (
             <p className="text-[13px] text-[var(--ink-muted)] px-1">
@@ -159,7 +159,7 @@ function Picker({ accounts, value, onChange, id }) {
  * On a phone: one question on the screen, biggest money first, with a bar
  * that fills as the lines are answered. Answering one brings the next.
  */
-function OneAtATime({ groups, accounts, accountId, left, startedWith }) {
+function OneAtATime({ groups, accounts, accountId, cur, left, startedWith }) {
   const done = Math.max(0, startedWith - left);
   const share = startedWith ? done / startedWith : 0;
   const g = groups[0];
@@ -172,13 +172,13 @@ function OneAtATime({ groups, accounts, accountId, left, startedWith }) {
         <span>{done ? `${n(done)} answered` : "Biggest money first"}</span>
         <span>{n(left)} {left === 1 ? "line" : "lines"} left</span>
       </div>
-      <Question key={`${g.key}|${g.moneyIn}`} group={g} accounts={accounts} accountId={accountId} phone />
+      <Question key={`${g.key}|${g.moneyIn}`} group={g} accounts={accounts} accountId={accountId} cur={cur} phone />
     </div>
   );
 }
 
 /** One payee, one direction: the unit a person actually thinks in. */
-function Question({ group, accounts, accountId, phone = false }) {
+function Question({ group, accounts, accountId, cur = "MVR", phone = false }) {
   const { companyId } = useCompany();
   const toast = useToast();
   const refresh = useRefresh(accountId);
@@ -205,7 +205,7 @@ function Question({ group, accounts, accountId, phone = false }) {
     try {
       const r = await post.mutateAsync({ who, moneyIn: group.moneyIn, accountId: pick });
       refresh();
-      toast.success(`${n(r.posted)} posted to ${chosen.name}`, `MVR ${r.total} ${group.moneyIn ? "in from" : "out to"} ${label}. Every one can be taken back from Answered.`);
+      toast.success(`${n(r.posted)} posted to ${chosen.name}`, `${cur} ${r.total} ${group.moneyIn ? "in from" : "out to"} ${label}. Every one can be taken back from Answered.`);
     } catch (ex) {
       setErr(ex.message || "That could not be posted.");
     }
@@ -244,7 +244,7 @@ function Question({ group, accounts, accountId, phone = false }) {
               </div>
             )}
           </div>
-          <div className="tabular text-[20px] font-semibold tracking-[-.01em]">MVR {group.total}</div>
+          <div className="tabular text-[20px] font-semibold tracking-[-.01em]">{cur} {group.total}</div>
         </div>
 
         {phone ? (
@@ -252,7 +252,7 @@ function Question({ group, accounts, accountId, phone = false }) {
             <Picker accounts={accounts} value={pick} onChange={setPick} id={`pick-${group.key}-${group.moneyIn}`} />
             <Button variant={pick ? "accent" : "outline"} size="lg" className="w-full whitespace-normal h-auto min-h-[52px] py-2" disabled={!pick || busy} onClick={onPost}>
               {post.isPending && <Loader2 size={14} className="animate-spin" />}
-              {pick ? `${chosen.id === group.rule?.accountId ? "Same as last time: " : ""}${chosen.name} · MVR ${group.total}` : "Pick what it was"}
+              {pick ? `${chosen.id === group.rule?.accountId ? "Same as last time: " : ""}${chosen.name} · ${cur} ${group.total}` : "Pick what it was"}
             </Button>
             <Button variant="outline" size="lg" className="w-full" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
               {open ? "Hide the lines" : `Look at the ${n(group.count)} ${group.count === 1 ? "line" : "lines"}`}
@@ -266,7 +266,7 @@ function Question({ group, accounts, accountId, phone = false }) {
             <Picker accounts={accounts} value={pick} onChange={setPick} id={`pick-${group.key}-${group.moneyIn}`} />
             <Button variant={pick ? "accent" : "outline"} disabled={!pick || busy} onClick={onPost}>
               {post.isPending && <Loader2 size={14} className="animate-spin" />}
-              {pick ? `Post ${n(group.count)} to ${chosen.name} · MVR ${group.total}` : "Pick what it was"}
+              {pick ? `Post ${n(group.count)} to ${chosen.name} · ${cur} ${group.total}` : "Pick what it was"}
             </Button>
             <Button variant="outline" disabled={busy} onClick={onAside}>
               Leave for later
