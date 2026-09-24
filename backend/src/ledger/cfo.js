@@ -66,7 +66,7 @@ async function figures(client, { companyId, today }) {
 
   const { rows: bills } = await client.query(
     `SELECT b.id, b.bill_no, c.name, COALESCE(b.due_date, b.issue_date + 30)::text AS due,
-            b.gross_laari - COALESCE((SELECT SUM(p.amount_laari) FROM payment_items p WHERE p.bill_id = b.id), 0) AS owed
+            b.gross_laari - COALESCE((SELECT SUM(p.amount_laari) FROM payment_items p JOIN payment_runs pr ON pr.id = p.run_id AND pr.reversed_at IS NULL WHERE p.bill_id = b.id), 0) AS owed
        FROM bills b JOIN counterparties c ON c.id = b.counterparty_id
       WHERE b.company_id = $1 AND b.status = 'posted' AND b.voided_at IS NULL AND b.fc_gross IS NULL AND COALESCE(b.due_date, b.issue_date + 30) <= $2`,
     [companyId, until]

@@ -138,7 +138,7 @@ describe("closing and reopening", () => {
     inRollback(async (client) => {
       const b = await aBusiness(client);
       const done = await periods.close(client, { ...b.base, through: "2026-08-31" });
-      expect(done.doubts).toEqual({ bills: 0, invoices: 0, bankLines: 0 });
+      expect(done.doubts).toEqual({ bills: 0, invoices: 0, bankLines: 0, unbalanced: [] });
     }));
 
   it("offers the months that could be closed next", () =>

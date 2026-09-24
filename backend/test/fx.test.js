@@ -8,7 +8,8 @@
 
 import { describe, it, expect, afterAll } from "vitest";
 import { inRollback, aCompanyWith, closePool } from "./setup";
-import { assumeIdentity, postEntry } from "../src/ledger/post";
+import { assumeIdentity, postEntry, reverseEntry } from "../src/ledger/post";
+import { exposures } from "../src/ledger/revalue";
 import { postBill } from "../src/ledger/bills";
 import { places, openBank, transfer } from "../src/ledger/bank";
 import { toBase, rateBetween, rateOn, recordRate } from "../src/ledger/fx";
@@ -77,6 +78,11 @@ describe("a bill in dollars", () => {
       expect((await rateOn(client, { companyId, currency: "USD", on: "2026-09-30" })).rate).toBe("15.5");
       expect(await rateOn(client, { companyId, currency: "USD", on: "2026-09-10" })).toBe(null);
       expect(await read()).toEqual(lines);
+
+      // Reversed, it is owed in dollars no more: nothing left to revalue.
+      await reverseEntry(client, { companyId, userId, entryId: done.entry.id, reason: "entered twice", date: "2026-09-12" });
+      const left = await exposures(client, { companyId, on: "2026-09-30" });
+      expect(left.every((x) => x.fc === 0n && x.carried === 0n)).toBe(true);
     }));
 });
 

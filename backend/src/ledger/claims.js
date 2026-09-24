@@ -50,7 +50,7 @@ async function load(client, { companyId, claimId }) {
   const { rows } = await client.query(
     `SELECT c.*, u.name AS claimant, a.name AS approver,
             (SELECT COALESCE(SUM(amount_laari), 0) FROM expense_claim_lines l WHERE l.claim_id = c.id) AS total,
-            (SELECT COALESCE(SUM(amount_laari), 0) FROM payment_items p WHERE p.claim_id = c.id) AS paid
+            (SELECT COALESCE(SUM(p.amount_laari), 0) FROM payment_items p JOIN payment_runs pr ON pr.id = p.run_id AND pr.reversed_at IS NULL WHERE p.claim_id = c.id) AS paid
        FROM expense_claims c JOIN users u ON u.id = c.claimant_id LEFT JOIN users a ON a.id = c.approved_by
       WHERE c.id = $1 AND c.company_id = $2`,
     [claimId, companyId]

@@ -5,7 +5,7 @@ const { requireAuth } = require("../middleware/auth");
 const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
 const { formatLaari } = require("../ledger/money");
-const { cashTrend } = require("../ledger/trend");
+const { cashTrend, runway } = require("../ledger/trend");
 
 const router = express.Router();
 router.use(requireAuth, requireCompany);
@@ -131,6 +131,19 @@ router.get(
         [req.companyId]
       );
 
+      // How cash itself moved in each of the last three whole months, once the
+      // books had begun: the burn runway is measured by. Opening balances are
+      // not a month's movement, and the month still running is not whole.
+      const { rows: burn } = await client.query(
+        `SELECT SUM(l.debit_laari - l.credit_laari)::text AS amount
+           FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id JOIN accounts a ON a.id = l.account_id
+          WHERE ${CASH} AND e.source NOT IN ('opening_balance', 'import')
+            AND e.entry_date >= date_trunc('month', CURRENT_DATE) - INTERVAL '3 months'
+            AND e.entry_date <  date_trunc('month', CURRENT_DATE)
+          GROUP BY date_trunc('month', e.entry_date)`,
+        [req.companyId]
+      );
+
       // The two headline balances that are one account each, read from that
       // account rather than from a whole type. "Owed to suppliers" used to be
       // every liability — which, once invoices post, would have counted the
@@ -168,7 +181,7 @@ router.get(
         [req.companyId]
       );
 
-      return { spend, byAccount, byType, byCode, cash: cash[0]?.amount, recent, entries: counted[0].n, places, before: before[0].amount, moves };
+      return { spend, byAccount, byType, byCode, cash: cash[0]?.amount, recent, entries: counted[0].n, places, before: before[0].amount, moves, burn };
     });
 
     const ym = new Date().toISOString().slice(0, 7);
@@ -183,17 +196,20 @@ router.get(
       .sort((a, b) => (a.ym < b.ym ? 1 : -1))[0];
 
     const trend = cashTrend(data.before, data.moves, new Date());
-    // Runway: what cash covers at the pace of the last three months' spending.
-    // Said only when there is spending to measure it by.
-    const recentSpend = data.spend.filter((r) => !r.before_books).slice(-3).map((r) => BigInt(r.amount));
-    const monthly = recentSpend.length ? recentSpend.reduce((a, b) => a + b, 0n) / BigInt(recentSpend.length) : 0n;
-    const runwayMonths = monthly > 0n && BigInt(data.cash || 0) > 0n ? Number((BigInt(data.cash) * 10n) / monthly) / 10 : null;
+    // Runway: what cash covers at the pace cash fell over the last three whole
+    // months the books were kept, as an average over those months. Months
+    // before the books began are not months when nothing moved.
+    const whole = data.spend.slice(-4, -1).filter((r) => !r.before_books).length;
+    const moved = data.burn.map((r) => r.amount);
+    while (moved.length < whole) moved.push("0");
+    const { months: runwayMonths, growing: cashGrowing } = runway(data.cash, moved);
 
     res.json({
       cashTrend: trend.map((v) => Number(v)),
       cashChange30: money(trend.length ? (trend[trend.length - 1] - trend[0]).toString() : "0"),
       cashPlaces: data.places.map((p) => ({ name: p.name, amount: money(p.amount) })),
       runwayMonths,
+      cashGrowing,
       currency: req.company?.baseCurrency || "MVR",
       entries: data.entries,
       spentThisMonth: money(thisMonth?.amount),

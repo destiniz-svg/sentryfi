@@ -135,7 +135,7 @@ function CloseYear() {
   const close = useMutation({ mutationFn: () => apiClient.post("/periods/year-end", { year }).then((r) => r.data) });
   if (!s || s.closed) return null;
 
-  const unfinished = s.doubts.bills + s.doubts.invoices + s.doubts.bankLines;
+  const unfinished = s.doubts.bills + s.doubts.invoices + s.doubts.bankLines + (s.doubts.unbalanced?.length || 0);
   async function onClose() {
     setErr("");
     try {
@@ -296,6 +296,10 @@ function CloseNext({ candidates }) {
         d.bills > 0 && { text: `${d.bills} ${d.bills === 1 ? "bill" : "bills"} recorded but not yet in the books`, to: "/bills" },
         d.invoices > 0 && { text: `${d.invoices} invoice ${d.invoices === 1 ? "draft" : "drafts"} not yet in the books`, to: "/invoices" },
         d.bankLines > 0 && { text: `${d.bankLines} bank ${d.bankLines === 1 ? "line" : "lines"} the books do not explain`, to: "/bank" },
+        ...(d.unbalanced || []).map((b) => ({
+          text: `${b.account}: the bank says ${b.bank} on ${b.on}, the books say ${b.books} (${b.difference} apart)`,
+          to: "/bank",
+        })),
       ].filter(Boolean)
     : [];
 

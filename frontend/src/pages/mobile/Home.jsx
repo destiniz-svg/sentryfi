@@ -145,6 +145,12 @@ function CashCard({ f }) {
           <div className="mt-1.5 text-[11px] opacity-60">of {CUSHION} months to keep</div>
         </div>
       )}
+      {runway == null && f.cashGrowing && (
+        <div className="shrink-0 text-right">
+          <div className="text-[13px] opacity-70">{t("It lasts")}</div>
+          <div className="mt-2 text-[17px] font-semibold leading-tight">More comes in<br />than goes out</div>
+        </div>
+      )}
     </div>
   );
 }

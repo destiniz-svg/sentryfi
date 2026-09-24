@@ -75,7 +75,7 @@ async function suggest(client, { companyId, lines }) {
         AND abs(s.posted_on - je.entry_date) <= 4
         AND je.reverses_id IS NULL
         AND NOT EXISTS (SELECT 1 FROM journal_entries r WHERE r.reverses_id = je.id)
-        AND NOT EXISTS (SELECT 1 FROM bank_statement_lines x WHERE x.entry_id = je.id)
+        AND NOT EXISTS (SELECT 1 FROM bank_statement_lines x WHERE x.entry_id = je.id AND x.account_id = s.account_id)
       ORDER BY s.id, abs(s.posted_on - je.entry_date), je.entry_no`,
     [ids, companyId]
   );
@@ -98,7 +98,7 @@ async function suggest(client, { companyId, lines }) {
       WHERE s.id = ANY($1::uuid[]) AND s.company_id = $2
         AND length(coalesce(s.bank_ref, '')) >= 8 AND s.credit_laari > 0
         AND NOT EXISTS (SELECT 1 FROM journal_entries x WHERE x.reverses_id = je.id)
-        AND NOT EXISTS (SELECT 1 FROM bank_statement_lines x WHERE x.entry_id = je.id)`,
+        AND NOT EXISTS (SELECT 1 FROM bank_statement_lines x WHERE x.entry_id = je.id AND x.account_id = s.account_id)`,
     [ids, companyId]
   );
   for (const r of exact) {
@@ -284,7 +284,7 @@ async function link(client, { companyId, userId, lineId, entryId, note }) {
        JOIN journal_lines jl ON jl.entry_id = je.id AND jl.account_id = $3
       WHERE je.id = $1 AND je.company_id = $2
         AND ${moneyIn ? "jl.debit_laari" : "jl.credit_laari"} = $4
-        AND NOT EXISTS (SELECT 1 FROM bank_statement_lines x WHERE x.entry_id = je.id)`,
+        AND NOT EXISTS (SELECT 1 FROM bank_statement_lines x WHERE x.entry_id = je.id AND x.account_id = $3)`,
     [entryId, companyId, line.account_id, laari.toString()]
   );
   if (!rows.length) throw new Error("That entry is not for this amount on this account, or it already answers another line.");

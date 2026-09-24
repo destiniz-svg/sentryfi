@@ -1,5 +1,5 @@
 const { formatLaari } = require("./money");
-const { packFor } = require("./tax");
+const { packFor, rateOn } = require("./tax");
 
 /**
  * The GST return, ready before the deadline.
@@ -117,6 +117,36 @@ async function build(client, { companyId, key }) {
     [companyId, p.from, p.to]
   );
 
+  // GST paid at Customs on an import (shipments.payDirect), and any reversal of
+  // it. Not a bill, so the query above cannot see it, but it is input tax all
+  // the same: on the statement it is a line from Customs, the shipment's
+  // reference its document. Found by the line's own words, which the journal
+  // keeps unchanged, so imports posted before this was read are found too.
+  const { rows: customs } = await client.query(
+    `SELECT e.id, e.entry_date::text AS dated, split_part(l.memo, ': GST paid at Customs', 1) AS ref,
+            SUM(l.debit_laari - l.credit_laari) AS tax
+       FROM journal_lines l
+       JOIN journal_entries e ON e.id = l.entry_id
+       JOIN accounts a ON a.id = l.account_id AND a.code = '1400'
+      WHERE l.company_id = $1 AND e.source <> 'bill' AND e.entry_date BETWEEN $2 AND $3
+        AND l.memo LIKE '%: GST paid at Customs'
+      GROUP BY e.id, e.entry_date, l.memo
+      ORDER BY e.entry_date`,
+    [companyId, p.from, p.to]
+  );
+  for (const c of customs) {
+    const tax = BigInt(c.tax);
+    if (tax === 0n) continue;
+    const { bp } = await rateOn(client, { companyId, on: c.dated });
+    const abs = tax < 0n ? -tax : tax;
+    bills.push({
+      id: null, customs: true, bill_no: c.ref, dated: c.dated, sign: tax < 0n ? -1 : 1,
+      tax_laari: abs.toString(), net_laari: ((abs * 10000n + BigInt(bp) / 2n) / BigInt(bp)).toString(),
+      gst_rate_bp: bp, treatment: "exclusive", supplier: "Maldives Customs Service", tin: null, capital: false,
+    });
+  }
+  bills.sort((a, b) => (a.dated < b.dated ? -1 : a.dated > b.dated ? 1 : 0));
+
   // What went out: posted invoices in the period, and credit notes against them.
   const { rows: invoices } = await client.query(
     `SELECT s.invoice_no AS no, s.issue_date::text AS dated, s.net_laari, s.tax_laari,
@@ -172,7 +202,7 @@ async function build(client, { companyId, key }) {
   }
   // One item for all of them, naming the suppliers: a list that grows by one
   // line per bill buries everything under it.
-  const noTin = bills.filter((r) => r.sign > 0 && !r.tin);
+  const noTin = bills.filter((r) => r.sign > 0 && !r.tin && !r.customs);
   if (noTin.length) {
     const who = [...new Set(noTin.map((b) => b.supplier || "an unnamed supplier"))];
     problems.push({

@@ -121,7 +121,7 @@ export default function Bank() {
                           </Link>
                         )}
                       </div>
-                      {p.kind === "bank" && mayMove && (
+                      {p.kind === "bank" && !p.foreign && mayMove && (
                         <Button variant="outline" onClick={() => setBringing(p)}>
                           <Upload size={15} /> Statement
                         </Button>

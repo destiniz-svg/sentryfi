@@ -10,7 +10,7 @@ import { describe, it, expect, afterAll } from "vitest";
 import { inRollback, aCompanyWith, closePool } from "./setup";
 import { assumeIdentity, postEntry } from "../src/ledger/post";
 import { openBox } from "../src/ledger/cash";
-import { places, openBank, transfer } from "../src/ledger/bank";
+import { places, openBank, transfer, importStatement } from "../src/ledger/bank";
 
 afterAll(closePool);
 
@@ -39,6 +39,13 @@ const balanceOf = async (client, companyId, id) =>
   (await places(client, { companyId })).find((p) => p.id === id).balance;
 
 describe("bank accounts and transfers", () => {
+  it("will not read a statement into a dollar account as rufiyaa", () =>
+    inRollback(async (client) => {
+      const { companyId, userId } = await aBusiness(client);
+      const usd = await openBank(client, { companyId, name: "BML USD current", currency: "USD" });
+      await expect(importStatement(client, { companyId, userId, accountId: usd.id, text: "anything" })).rejects.toThrow(/USD account cannot be read yet/);
+    }));
+
   it("opens a second bank account under 11xx, at nothing", () =>
     inRollback(async (client) => {
       const { companyId, second } = await aBusiness(client);

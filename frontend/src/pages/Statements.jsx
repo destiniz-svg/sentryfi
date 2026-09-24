@@ -270,6 +270,9 @@ function ProfitAndLoss({ p }) {
               ["", "Income", ""],
               ...p.income.map((r) => [r.code, r.name, r.amount]),
               ["", "Total income", p.totalIncome],
+              ...(p.costOfSales.length
+                ? [["", "Cost of sales", ""], ...p.costOfSales.map((r) => [r.code, r.name, r.amount]), ["", "Gross profit", p.grossProfit]]
+                : []),
               ["", "Expenses", ""],
               ...p.expenses.map((r) => [r.code, r.name, r.amount]),
               ["", "Total expenses", p.totalExpenses],
@@ -282,10 +285,27 @@ function ProfitAndLoss({ p }) {
       </div>
       {q && <Heads cols={cols} now={p.to.slice(0, 4)} then={q.to.slice(0, 4)} />}
       <Section title="Income" rows={p.income} total={p.totalIncome} totalLabel="Total income" cols={cols} prior={q?.income} priorTotal={q?.totalIncome} />
+      {(p.costOfSales.length > 0 || q?.costOfSales?.length > 0) && (
+        <>
+          <Section title="Cost of sales" rows={p.costOfSales} total={p.totalCostOfSales} totalLabel="Total cost of sales" cols={cols} prior={q?.costOfSales} priorTotal={q?.totalCostOfSales} />
+          <div className={`${ROW} ${cols} font-semibold`}>
+            <span className="hidden sm:block" />
+            <span>
+              Gross profit
+              {p.grossMargin != null && <span className="ml-2 font-normal text-[var(--ink-muted)]">{p.grossMargin}% of income</span>}
+            </span>
+            <span className="text-right" data-testid="gross-profit"><Money amount={p.grossProfit} /></span>
+            {q && <PriorCell v={q.grossProfit} />}
+          </div>
+        </>
+      )}
       <Section title="Expenses" rows={p.expenses} total={p.totalExpenses} totalLabel="Total expenses" cols={cols} prior={q?.expenses} priorTotal={q?.totalExpenses} />
       <div className={`${ROW} ${cols} text-[16px] font-semibold`}>
         <span className="hidden sm:block" />
-        <span>{p.loss ? "Loss" : "Profit"}</span>
+        <span>
+          {p.loss ? "Loss" : "Profit"}
+          {p.netMargin != null && <span className="ml-2 text-[13px] font-normal text-[var(--ink-muted)]">{p.netMargin}% of income</span>}
+        </span>
         <span className={`tabular text-right ${p.loss ? "text-[var(--danger)]" : ""}`} data-testid="profit">
           {p.profit}
         </span>

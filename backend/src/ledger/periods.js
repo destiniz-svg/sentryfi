@@ -1,4 +1,5 @@
 const { postEntry } = require("./post");
+const { formatLaari } = require("./money");
 
 /**
  * Closing the books, reopening them, and adjusting into a month that is closed.
@@ -34,11 +35,33 @@ async function doubtsFor(client, { companyId, through }) {
        (SELECT count(*) FROM sales_invoices
          WHERE company_id = $1 AND status = 'draft' AND voided_at IS NULL AND issue_date <= $2::date)::int AS invoices,
        (SELECT count(*) FROM bank_statement_lines
-         WHERE company_id = $1 AND status = 'open' AND debit_laari + credit_laari > 0
+         WHERE company_id = $1 AND status IN ('open','set_aside') AND debit_laari + credit_laari > 0
            AND posted_on <= $2::date)::int AS bank_lines`,
     [companyId, through]
   );
-  return { bills: rows[0].bills, invoices: rows[0].invoices, bankLines: rows[0].bank_lines };
+  // The reconciliation itself: for each bank account with a statement, what
+  // the bank said it held on the statement's last day in the period, against
+  // what the books say it held that day. Every line answered and still a
+  // difference means something in the books never happened at the bank.
+  // ponytail: the day's last line is taken by the time the bank printed on it;
+  // a statement without times on one busy day could pick an earlier line.
+  const { rows: banks } = await client.query(
+    `SELECT a.name, s.posted_on::text AS on, s.balance_laari::text AS bank,
+            (SELECT COALESCE(SUM(l.debit_laari - l.credit_laari), 0) FROM journal_lines l
+               JOIN journal_entries e ON e.id = l.entry_id
+              WHERE l.account_id = a.id AND e.entry_date <= s.posted_on)::text AS books
+       FROM accounts a
+       JOIN LATERAL (SELECT posted_on, balance_laari FROM bank_statement_lines
+                      WHERE account_id = a.id AND posted_on <= $2::date AND balance_laari IS NOT NULL
+                      ORDER BY posted_on DESC, happened_at DESC NULLS LAST, balance_laari LIMIT 1) s ON true
+      WHERE a.company_id = $1
+      ORDER BY a.code`,
+    [companyId, through]
+  );
+  const unbalanced = banks
+    .filter((b) => b.bank !== b.books)
+    .map((b) => ({ account: b.name, on: b.on, bank: formatLaari(BigInt(b.bank)), books: formatLaari(BigInt(b.books)), difference: formatLaari(BigInt(b.bank) - BigInt(b.books)) }));
+  return { bills: rows[0].bills, invoices: rows[0].invoices, bankLines: rows[0].bank_lines, unbalanced };
 }
 
 /** The month ends that could be closed next: after the lock, and already over. */

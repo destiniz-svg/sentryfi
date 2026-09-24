@@ -67,18 +67,33 @@ async function trialBalance(client, { companyId, asAt }) {
   return { asAt, rows, debit, credit, difference: debit - credit };
 }
 
+// What the goods sold cost (ledger/stock.js posts it here). Above the line,
+// so what was made on the goods themselves reads before the running costs.
+const COST_OF_SALES = ["5050"];
+
+/** A share of income, to one decimal, or null when there was no income. */
+const marginOf = (part, income) => (income > 0n ? Number((part * 1000n) / income) / 10 : null);
+
 /** What was earned and spent between two dates, and what was left. */
 async function profitAndLoss(client, { companyId, from, to, dimensionId = null, projectId = null }) {
   const all = await totals(client, { companyId, asAt: to, from, dimensionId, projectId });
   const income = all
     .filter((r) => r.type === "income" && net(r) !== 0n)
     .map((r) => ({ code: r.code, name: r.name, amount: -net(r) }));
-  const expenses = all
+  const costs = all
     .filter((r) => r.type === "expense" && net(r) !== 0n)
     .map((r) => ({ code: r.code, name: r.name, amount: net(r) }));
+  const costOfSales = costs.filter((r) => COST_OF_SALES.includes(r.code));
+  const expenses = costs.filter((r) => !COST_OF_SALES.includes(r.code));
   const totalIncome = income.reduce((s, r) => s + r.amount, 0n);
+  const totalCostOfSales = costOfSales.reduce((s, r) => s + r.amount, 0n);
   const totalExpenses = expenses.reduce((s, r) => s + r.amount, 0n);
-  return { from, to, income, expenses, totalIncome, totalExpenses, profit: totalIncome - totalExpenses };
+  const grossProfit = totalIncome - totalCostOfSales;
+  const profit = grossProfit - totalExpenses;
+  return {
+    from, to, income, costOfSales, expenses, totalIncome, totalCostOfSales, grossProfit, totalExpenses, profit,
+    grossMargin: marginOf(grossProfit, totalIncome), netMargin: marginOf(profit, totalIncome),
+  };
 }
 
 /**
@@ -179,6 +194,11 @@ const wire = {
     income: amounts(p.income),
     expenses: amounts(p.expenses),
     totalIncome: money(p.totalIncome),
+    costOfSales: amounts(p.costOfSales),
+    totalCostOfSales: money(p.totalCostOfSales),
+    grossProfit: money(p.grossProfit),
+    grossMargin: p.grossMargin,
+    netMargin: p.netMargin,
     totalExpenses: money(p.totalExpenses),
     profit: money(p.profit),
     loss: p.profit < 0n,

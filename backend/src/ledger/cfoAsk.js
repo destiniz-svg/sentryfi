@@ -126,7 +126,7 @@ async function run(client, ctx, name, args = {}) {
     const owed = invoices
       ? `d.gross_laari - COALESCE((SELECT SUM(a.amount_laari) FROM receipt_allocations a JOIN receipts r ON r.id = a.receipt_id AND r.voided_at IS NULL WHERE a.invoice_id = d.id), 0)
                         - COALESCE((SELECT SUM(n.gross_laari) FROM credit_notes n WHERE n.invoice_id = d.id), 0)`
-      : "d.gross_laari - COALESCE((SELECT SUM(p.amount_laari) FROM payment_items p WHERE p.bill_id = d.id), 0)";
+      : "d.gross_laari - COALESCE((SELECT SUM(p.amount_laari) FROM payment_items p JOIN payment_runs pr ON pr.id = p.run_id AND pr.reversed_at IS NULL WHERE p.bill_id = d.id), 0)";
     const { rows } = await client.query(
       `SELECT * FROM (
          SELECT d.${invoices ? "invoice_no" : "bill_no"} AS number, c.name AS party, d.issue_date::text AS issued, d.due_date::text AS due,

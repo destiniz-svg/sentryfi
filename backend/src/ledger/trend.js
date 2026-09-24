@@ -14,4 +14,18 @@ function cashTrend(before, moves, today) {
   return out;
 }
 
-module.exports = { cashTrend };
+/**
+ * How many months the cash lasts: cash over the average net fall in cash of
+ * the whole months given (money in counted against money out, and nothing
+ * that is not cash, like depreciation). One decimal. Null when there is
+ * nothing to measure by or cash is not falling; then `growing` says which.
+ */
+function runway(cash, monthlyChange) {
+  const c = BigInt(cash || 0);
+  if (!monthlyChange.length || c <= 0n) return { months: null, growing: false };
+  const avg = monthlyChange.reduce((a, b) => a + BigInt(b), 0n) / BigInt(monthlyChange.length);
+  if (avg >= 0n) return { months: null, growing: true };
+  return { months: Number((c * 10n) / -avg) / 10, growing: false };
+}
+
+module.exports = { cashTrend, runway };

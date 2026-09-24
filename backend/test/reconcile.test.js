@@ -11,9 +11,10 @@ import { describe, it, expect, afterAll } from "vitest";
 import { inRollback, aCompanyWith, closePool } from "./setup";
 import { assumeIdentity, postEntry } from "../src/ledger/post";
 import { openBox } from "../src/ledger/cash";
-import { transfer, importStatement, places } from "../src/ledger/bank";
+import { transfer, importStatement, places, openBank } from "../src/ledger/bank";
 import { raise, post as postInvoice, receive, outstanding } from "../src/ledger/sales";
 import * as rec from "../src/ledger/reconcile";
+import { doubtsFor } from "../src/ledger/periods";
 
 afterAll(closePool);
 
@@ -63,6 +64,30 @@ describe("what the books already know", () => {
       await rec.link(client, { ...s.base, lineId: s.lines[0].id, entryId: t.entry.id });
       expect(await entryCount(client, s.companyId)).toBe(before);
       expect((await client.query("SELECT status FROM bank_statement_lines WHERE id = $1", [s.lines[0].id])).rows[0].status).toBe("matched");
+    }));
+
+  it("lets each side of a move between our own banks answer its own statement", () =>
+    inRollback(async (client) => {
+      const s = await aStatement(client, [row("2026/01/03", "BLAZ100000000001", "TO SAVINGS", "100", "", "9900.00")]);
+      const savings = await openBank(client, { companyId: s.companyId, name: "BML Savings" });
+      const t = await transfer(client, { ...s.base, fromId: s.accounts.bank, toId: savings.id, amount: "100", on: "2026-01-03" });
+      await rec.link(client, { ...s.base, lineId: s.lines[0].id, entryId: t.entry.id });
+      await importStatement(client, { ...s.base, accountId: savings.id, text: row("2026/01/03", "BLAZ100000000009", "FROM CURRENT", "", "100", "100.00") });
+      const { rows: other } = await client.query("SELECT * FROM bank_statement_lines WHERE account_id = $1", [savings.id]);
+      const ideas = await rec.suggest(client, { companyId: s.companyId, lines: other });
+      expect(ideas.get(other[0].id).entries.map((e) => e.entryId)).toEqual([t.entry.id]);
+      await rec.link(client, { ...s.base, lineId: other[0].id, entryId: t.entry.id });
+    }));
+
+  it("says at month end when the bank's closing balance and the books disagree", () =>
+    inRollback(async (client) => {
+      const s = await aStatement(client, [row("2026/01/03", "BLAZ100000000001", "FUEL", "100", "", "9900.00")]);
+      const before = await doubtsFor(client, { companyId: s.companyId, through: "2026-01-31" });
+      expect(before.unbalanced).toEqual([expect.objectContaining({ bank: "9,900.00", books: "10,000.00", difference: "-100.00" })]);
+      await rec.setAside(client, { ...s.base, lineId: s.lines[0].id, note: "ask the bank" });
+      expect((await doubtsFor(client, { companyId: s.companyId, through: "2026-01-31" })).bankLines).toBe(1);
+      await rec.post(client, { ...s.base, lineId: s.lines[0].id, accountId: s.accounts.expense, note: "Fuel" });
+      expect((await doubtsFor(client, { companyId: s.companyId, through: "2026-01-31" })).unbalanced).toEqual([]);
     }));
 
   it("will not let one entry answer two lines", () =>

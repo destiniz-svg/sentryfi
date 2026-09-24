@@ -133,10 +133,17 @@ async function transfer(client, { companyId, userId, fromId, toId, amount, amoun
  */
 async function importStatement(client, { companyId, userId, accountId, text, layout }) {
   const { rows: found } = await client.query(
-    `SELECT id FROM accounts WHERE id = $1 AND company_id = $2 AND code LIKE '11%' AND archived_at IS NULL`,
+    `SELECT a.id, trim(a.currency) AS currency, a.currency <> c.base_currency AS foreign
+       FROM accounts a JOIN companies c ON c.id = a.company_id
+      WHERE a.id = $1 AND a.company_id = $2 AND a.code LIKE '11%' AND a.archived_at IS NULL`,
     [accountId, companyId]
   );
   if (!found.length) throw new Error("That is not a bank account of this company.");
+  // ponytail: a statement is read as rufiyaa, so a dollar account's lines would
+  // go into the books as rufiyaa. Refused until statements carry a rate.
+  if (found[0].foreign) {
+    throw new Error(`Statements for a ${found[0].currency} account cannot be read yet. Record its money with Move money, bills and receipts.`);
+  }
 
   const parsed = statement.parse(text, layout);
   if (!parsed.rows.length) {

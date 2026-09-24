@@ -67,6 +67,16 @@ describe("a worked example", () => {
       expect(january.profit).toBe(0n);
     }));
 
+  it("puts the cost of goods sold above gross profit, with both margins", () =>
+    inRollback(async (client) => {
+      const b = await fill(client);
+      const { rows } = await client.query("INSERT INTO accounts (company_id, code, name, type) VALUES ($1,'5050','Cost of goods sold','expense') RETURNING id", [b.companyId]);
+      await b.put("2026-02-01", [{ accountId: rows[0].id, debit: "300.00" }, { accountId: b.by["1100"], credit: "300.00" }]);
+      const p = await profitAndLoss(client, { ...b.base, from: "2026-02-01", to: "2026-02-28" });
+      expect(p).toMatchObject({ totalIncome: 100_000n, totalCostOfSales: 30_000n, grossProfit: 70_000n, totalExpenses: 50_000n, profit: 20_000n, grossMargin: 70, netMargin: 20 });
+      expect(p.expenses.map((r) => r.code)).not.toContain("5050");
+    }));
+
   it("balances the balance sheet, and gives last month's answer when asked for last month", () =>
     inRollback(async (client) => {
       const b = await fill(client);

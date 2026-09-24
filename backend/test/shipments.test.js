@@ -19,6 +19,8 @@ import * as billSplit from "../src/ledger/billSplit";
 import * as shipments from "../src/ledger/shipments";
 import * as stock from "../src/ledger/stock";
 import * as adviser from "../src/ledger/adviser";
+import * as gst from "../src/ledger/gstReturn";
+import { reverseEntry } from "../src/ledger/post";
 
 afterAll(closePool);
 
@@ -168,5 +170,20 @@ describe("landing costs", () => {
         lines: [{ description: "Form set", amountLaari: 5000n }, { description: "Customs process", amountLaari: 20000n }],
       });
       expect(a.map((x) => [x.kind, x.shipmentId])).toEqual([["landed", co.shipmentId], ["landed", co.shipmentId]]);
+    }));
+
+  it("puts GST paid at Customs on the GST return, and takes it off when reversed", () =>
+    inRollback(async (client) => {
+      const co = await anImporter(client);
+      const june = await gst.build(client, { companyId: co.companyId, key: "2026-06" });
+      const line = june.bills.find((b) => b.customs);
+      expect(line).toMatchObject({ bill_no: "BL-TEST-1", tax_laari: "100000", net_laari: "1250000", gst_rate_bp: 800, sign: 1 });
+      expect(june.inp.tax).toBe(june.ledger.input);
+      expect(june.problems.map((p) => p.what).join()).not.toMatch(/Input tax|TIN/);
+      const { rows } = await client.query("SELECT entry_id FROM journal_lines WHERE company_id = $1 AND memo LIKE '%GST paid at Customs'", [co.companyId]);
+      await reverseEntry(client, { companyId: co.companyId, userId: co.userId, entryId: rows[0].entry_id, reason: "wrong shipment", date: "2026-07-02" });
+      const july = await gst.build(client, { companyId: co.companyId, key: "2026-07" });
+      expect(july.bills.find((b) => b.customs)).toMatchObject({ sign: -1, tax_laari: "100000" });
+      expect(july.inp.tax).toBe(july.ledger.input);
     }));
 });

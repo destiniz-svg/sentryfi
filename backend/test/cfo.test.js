@@ -13,6 +13,7 @@ import { postBill } from "../src/ledger/bills";
 import { raise, post } from "../src/ledger/sales";
 import * as cfo from "../src/ledger/cfo";
 import { ask } from "../src/ledger/cfoAsk";
+import { pay } from "../src/ledger/payments";
 
 afterAll(closePool);
 
@@ -62,6 +63,16 @@ describe("the CFO", () => {
       expect([f.cash, f.expectedIn, f.committedOut, f.forecast]).toEqual(["100,000.00", "25,000.00", "3,000.00", "122,000.00"]);
       expect(f.inParts.map((p) => p.amount)).toEqual(["20,000.00", "5,000.00"]);
       expect(f.short).toBe(false);
+    }));
+
+  it("counts a bill as owed again once its payment is taken back", () =>
+    inRollback(async (client) => {
+      const co = await aBusiness(client);
+      const billId = await co.bill("2026-09-01", 300000, "2026-09-28");
+      const r = await pay(client, { companyId: co.companyId, userId: co.userId, fromAccountId: co.accounts.bank, paidOn: "2026-09-10", reference: "T1", items: [{ billId, amount: "3000" }] });
+      expect((await cfo.figures(client, { companyId: co.companyId, today: TODAY })).committedOut).toBe("0.00");
+      await client.query("UPDATE payment_runs SET reversed_at = now() WHERE entry_id = $1", [r.entry.id]);
+      expect((await cfo.figures(client, { companyId: co.companyId, today: TODAY })).committedOut).toBe("3,000.00");
     }));
 
   it("notices a cost running hot, a bill far above the usual, and a customer sixty days late", () =>
