@@ -68,4 +68,35 @@ const uploadVoice = (field = "file") => (req, res, next) => {
   });
 };
 
-module.exports = { uploadReceipt, uploadVoice };
+/**
+ * A supporting document on a quote, invoice, order, project or person: the
+ * paper people actually send, which is often a drawing, a spreadsheet of
+ * quantities or a signed Word contract, not only a photograph.
+ */
+const ACCEPTED_DOCUMENTS = new Set([
+  ...ACCEPTED,
+  "text/csv",
+  "text/plain",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
+const documentUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_BYTES, files: 1 },
+  fileFilter: (req, file, cb) => {
+    if (!ACCEPTED_DOCUMENTS.has(file.mimetype)) return cb(ApiError.badRequest("Attach a PDF, a photo, an Excel or Word file, or a CSV."));
+    cb(null, true);
+  },
+});
+const uploadDocument = (field = "file") => (req, res, next) => {
+  documentUpload.single(field)(req, res, (err) => {
+    if (err instanceof multer.MulterError) return next(ApiError.badRequest(err.code === "LIMIT_FILE_SIZE" ? "That file is over 10MB." : err.message));
+    if (err) return next(err);
+    if (!req.file) return next(ApiError.badRequest("No file came with it."));
+    next();
+  });
+};
+
+module.exports = { uploadReceipt, uploadVoice, uploadDocument };

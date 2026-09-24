@@ -198,6 +198,7 @@ publicRouter.get(
           return { payslip: await require("../ledger/payroll").payslip(client, { companyId: link.company_id, runId: p.run_id, employeeId: p.employee_id }) };
         }
         const shown = await documents.show(client, { companyId: link.company_id, kind: link.kind, documentId: link.document_id });
+        shown.files = await require("./attachments").sharedFiles(client, { companyId: link.company_id, kind: link.kind, documentId: link.document_id });
         if (link.kind === "purchase_order") {
           const { rows: o } = await client.query("SELECT supplier_confirmed_at, supplier_confirmed_by, supplier_expected_on::text AS expected, supplier_note FROM orders WHERE id = $1", [link.document_id]);
           shown.confirmation = o[0]?.supplier_confirmed_at ? { at: o[0].supplier_confirmed_at, by: o[0].supplier_confirmed_by, expected: o[0].expected, note: o[0].supplier_note } : null;
@@ -214,6 +215,22 @@ publicRouter.get(
     }
     res.set("Cache-Control", "no-store");
     res.json({ kind: link.kind, ...doc });
+  })
+);
+
+/** A paper shown with the linked document. */
+publicRouter.get(
+  "/:token/files/:fileId",
+  looking,
+  asyncHandler(async (req, res) => {
+    const { rows } = await pool.query("SELECT company_id, kind, document_id, created_by FROM document_links WHERE token_hash = $1 AND revoked_at IS NULL", [hash(req.params.token)]);
+    const link = rows[0];
+    if (!link) throw ApiError.notFound("This link has been turned off.");
+    const file = await asCompany({ companyId: link.company_id, user: { id: link.created_by } }, (client) =>
+      require("./attachments").sharedFile(client, { companyId: link.company_id, kind: link.kind, documentId: link.document_id, attachmentId: req.params.fileId })
+    );
+    if (!file) throw ApiError.notFound("No such file.");
+    require("./attachments").sendFile(res, file);
   })
 );
 

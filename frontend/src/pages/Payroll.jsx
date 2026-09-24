@@ -13,6 +13,7 @@ import { apiClient } from "@/api/client";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 import { formatDate, today } from "@/lib/utils";
+import { Attachments } from "@/components/documents/Attachments";
 
 /**
  * Payroll: the month in hand, the runs, and the people paid.
@@ -506,6 +507,7 @@ function PersonForm({ person, data, onClose, onDone }) {
             </select>
           </Field>
         </fieldset>
+        {person && <Attachments kind="employee" id={person.id} title="Papers: contract, ID, work permit" compact />}
         {rules.serviceCharge && (
           <label className="flex items-center gap-2.5 text-[14px]">
             <input type="checkbox" checked={f.serviceCharge} onChange={(e) => put({ serviceCharge: e.target.checked })} className="h-4 w-4" />

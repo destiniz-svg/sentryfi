@@ -23,6 +23,24 @@ CREATE TABLE IF NOT EXISTS document_links (
 CREATE INDEX IF NOT EXISTS document_links_doc_idx ON document_links(company_id, kind, document_id);
 REVOKE ALL ON document_links FROM sentryfi_app;
 
+-- Supporting papers on more than bills: proformas and retainers, credit notes,
+-- shipments, projects, and the people on the payroll (their contract, ID,
+-- work permit). Quotes and orders use order_id, invoices sales_invoice_id.
+ALTER TABLE attachments ADD COLUMN IF NOT EXISTS advance_request_id UUID REFERENCES advance_requests(id) ON DELETE CASCADE;
+ALTER TABLE attachments ADD COLUMN IF NOT EXISTS credit_note_id UUID REFERENCES credit_notes(id) ON DELETE CASCADE;
+ALTER TABLE attachments ADD COLUMN IF NOT EXISTS shipment_id UUID REFERENCES shipments(id) ON DELETE CASCADE;
+ALTER TABLE attachments ADD COLUMN IF NOT EXISTS project_id UUID REFERENCES projects(id) ON DELETE CASCADE;
+ALTER TABLE attachments ADD COLUMN IF NOT EXISTS employee_id UUID REFERENCES employees(id) ON DELETE CASCADE;
+-- Shown to the other side with the document (on their page, or its link).
+ALTER TABLE attachments ADD COLUMN IF NOT EXISTS shared BOOLEAN NOT NULL DEFAULT false;
+-- Taken off the document by mistake or as out of date: out of sight, never out of the archive.
+ALTER TABLE attachments ADD COLUMN IF NOT EXISTS hidden_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS attachments_order_idx ON attachments(order_id) WHERE order_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS attachments_request_idx ON attachments(advance_request_id) WHERE advance_request_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS attachments_employee_idx ON attachments(employee_id) WHERE employee_id IS NOT NULL;
+-- Only these two may change; the file and what it is filed against never do.
+GRANT UPDATE (shared, hidden_at) ON attachments TO sentryfi_app;
+
 -- A supplier's yes to a purchase order, from its link: who, when, and when it will come.
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS supplier_confirmed_at TIMESTAMPTZ;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS supplier_confirmed_by TEXT;

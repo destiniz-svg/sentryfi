@@ -8,6 +8,7 @@ import { formatDate } from "@/lib/utils";
 import { FittedPaper } from "@/components/documents/DocumentPaper";
 import { PrintCopy } from "@/components/documents/PrintCopy";
 import { Questions } from "@/components/documents/Questions";
+import { SharedFiles } from "@/components/documents/Attachments";
 import { compose, templateWith } from "@/lib/documents";
 
 /**
@@ -262,6 +263,7 @@ function Paper({ token, kind, id }) {
       <div className="rounded-xl bg-[var(--surface-2)] p-2 sm:p-3">
         <FittedPaper model={model} />
       </div>
+      <SharedFiles files={data.files} base={`/portal/${token}/files/${kind}/${id}`} />
       <button type="button" onClick={() => setPrinting(true)} className="mt-3 h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--surface)] inline-flex items-center gap-2 text-[14px]">
         <Printer size={15} /> Print or save as a PDF
       </button>

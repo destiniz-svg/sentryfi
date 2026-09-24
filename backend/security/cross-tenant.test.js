@@ -1312,3 +1312,57 @@ describe("payslips, confirmations and customer emails by link", () => {
     expect(a?.monthly_statements ?? false).toBe(false);
   });
 });
+
+describe("attachments on documents, projects and people", () => {
+  const png = Buffer.from("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da6360000002000154a24f5d0000000049454e44ae426082", "hex");
+  const attach = async (who, kind, id, name, company) => {
+    const fd = new FormData();
+    fd.append("file", new Blob([png], { type: "image/png" }), name);
+    const r = await fetch(`${BASE}/attachments/doc/${kind}/${id}`, { method: "POST", headers: { ...(who.cookie ? { cookie: who.cookie } : {}), "X-Company-Id": company || who.companyId }, body: fd });
+    return { status: r.status, json: await r.json().catch(() => null) };
+  };
+
+  it("A's papers are out of B's reach, and a person's are payroll's", async () => {
+    const onInvoice = await attach(A, "invoice", A.invoiceId, "SECRET-TIMESHEET-A.png");
+    expect(onInvoice.status).toBe(201);
+    A.fileId = onInvoice.json.attachment.id;
+    const onPerson = await attach(A, "employee", A.employeeId, "SECRET-CONTRACT-A.png");
+    expect(onPerson.status).toBe(201);
+    A.personFile = onPerson.json.attachment.id;
+
+    denied(await attach(B, "invoice", A.invoiceId, "probe.png"));
+    denied(await attach(B, "invoice", A.invoiceId, "probe.png", A.companyId));
+    const list = await call(B, "GET", `/attachments/doc/invoice/${A.invoiceId}`);
+    noLeak(list, "SECRET-TIMESHEET-A");
+    denied(await call(B, "GET", `/attachments/${A.fileId}/file`));
+    denied(await call(B, "PATCH", `/attachments/${A.fileId}`, { body: { shared: true } }));
+    expect((await db.query("SELECT shared FROM attachments WHERE id = $1", [A.fileId])).rows[0].shared).toBe(false);
+
+    // Inside A, a viewer reads the books but not a person's papers.
+    await db.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1, $2, 'viewer')", [A.companyId, B.user.id]);
+    try {
+      denied(await call(B, "GET", `/attachments/doc/employee/${A.employeeId}`, { company: A.companyId }));
+      denied(await call(B, "GET", `/attachments/${A.personFile}/file`, { company: A.companyId }));
+    } finally {
+      await db.query("DELETE FROM memberships WHERE company_id = $1 AND user_id = $2", [A.companyId, B.user.id]);
+    }
+    // A paper on a person can never be shown to anyone outside.
+    denied(await call(A, "PATCH", `/attachments/${A.personFile}`, { body: { shared: true } }));
+  });
+
+  it("the customer's page serves a paper only while it is shared, and only with its own document", async () => {
+    const guest = { cookie: null };
+    const url = `/portal/${A.portal}/files/invoice/${A.invoiceId}/${A.fileId}`;
+    denied(await call(guest, "GET", url));
+    expect((await call(A, "PATCH", `/attachments/${A.fileId}`, { body: { shared: true } })).status).toBe(200);
+    expect((await call(guest, "GET", url)).status).toBe(200);
+    // Another customer's document, or the same file under another document, is refused.
+    denied(await call(guest, "GET", `/portal/${A.portal}/files/quote/${A.otherQuote}/${A.fileId}`));
+    const made = await call(A, "POST", `/share/statement/${A.customerId}`, { body: { how: "link" } });
+    const token = made.json.url.split("/d/")[1];
+    denied(await call(guest, "GET", `/shared/${token}/files/${A.fileId}`));
+    // Taken off: gone from every outside page.
+    await call(A, "PATCH", `/attachments/${A.fileId}`, { body: { hidden: true } });
+    denied(await call(guest, "GET", url));
+  });
+});

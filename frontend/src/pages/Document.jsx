@@ -13,6 +13,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { compose, SIZES, KIND_LABEL, templateWith } from "@/lib/documents";
 import { formatDate } from "@/lib/utils";
 import { FIELD } from "@/lib/shipments";
+import { Attachments } from "@/components/documents/Attachments";
 
 /**
  * One document, as it is sent: the issued copy once it has gone into the
@@ -23,6 +24,8 @@ import { FIELD } from "@/lib/shipments";
 
 const BACK = { invoice: "/invoices", credit_note: "/invoices", quote: "/orders?kind=quote", sales_order: "/orders?kind=sale", purchase_order: "/orders?kind=purchase", delivery_note: "/orders?kind=sale", goods_received: "/orders?kind=purchase", receipt: "/invoices", statement: "/invoices", proforma: "/advances", retainer: "/advances" };
 const QUESTIONED = ["invoice", "quote", "proforma", "retainer"];
+// Documents that carry papers of their own (drawings, timesheets, specs).
+const ATTACHABLE = ["invoice", "quote", "sales_order", "purchase_order", "proforma", "retainer", "credit_note"];
 // Every document with someone to send it to.
 const SENT = ["invoice", "quote", "proforma", "retainer", "sales_order", "delivery_note", "goods_received", "credit_note", "receipt", "statement", "purchase_order"];
 
@@ -102,6 +105,7 @@ export default function Document() {
         <FittedPaper model={model} />
       </div>
       <PrintCopy model={model} />
+      {ATTACHABLE.includes(kind) && <Attachments kind={kind} id={id} />}
       {QUESTIONED.includes(kind) && <DocumentQuestions kind={kind} id={id} />}
       {emailing && <ShareDocument kind={kind} id={id} number={data.data.number} to={data.data.to} onClose={() => setEmailing(false)} />}
     </div>

@@ -14,6 +14,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 import { formatDate, today } from "@/lib/utils";
 import { FIELD } from "@/lib/shipments";
+import { Attachments } from "@/components/documents/Attachments";
 
 /**
  * One project: spent, committed, claimed, certified and retained, each open
@@ -404,6 +405,7 @@ export default function Project() {
       {open === "claim" && <ClaimDialog p={p} onClose={() => setOpen(null)} run={run} />}
       {open === "certify" && waiting && <CertifyDialog p={p} claim={waiting} onClose={() => setOpen(null)} run={run} />}
       {open === "release" && <ReleaseDialog p={p} onClose={() => setOpen(null)} run={run} />}
+      <Attachments kind="project" id={id} title="Papers: contract, drawings, bill of quantities" />
       {looking && <Entries projectId={id} look={looking} onClose={() => setLooking(null)} />}
     </div>
   );

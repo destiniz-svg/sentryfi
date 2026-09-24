@@ -159,11 +159,34 @@ publicRouter.get(
       } catch {
         return null;
       }
-      return require("../ledger/documents").show(client, { companyId: link.company_id, kind, documentId: req.params.id });
+      const shown = await require("../ledger/documents").show(client, { companyId: link.company_id, kind, documentId: req.params.id });
+      shown.files = await require("./attachments").sharedFiles(client, { companyId: link.company_id, kind, documentId: req.params.id });
+      return shown;
     });
     if (!doc) throw ApiError.notFound("No such document.");
     res.set("Cache-Control", "no-store");
     res.json(doc);
+  })
+);
+
+// A paper the company shows with one of this customer's documents.
+publicRouter.get(
+  "/:token/files/:kind/:id/:fileId",
+  looking,
+  asyncHandler(async (req, res) => {
+    const kind = PORTAL_KINDS[req.params.kind];
+    if (!kind || !/^[0-9a-f-]{36}$/i.test(req.params.id)) throw ApiError.notFound("No such file.");
+    const link = await linkOf(req.params.token);
+    const file = await asLink(link, async (client) => {
+      try {
+        if ((await require("../ledger/questions").ownerOf(client, { companyId: link.company_id, kind, documentId: req.params.id })) !== link.counterparty_id) return null;
+      } catch {
+        return null;
+      }
+      return require("./attachments").sharedFile(client, { companyId: link.company_id, kind, documentId: req.params.id, attachmentId: req.params.fileId });
+    });
+    if (!file) throw ApiError.notFound("No such file.");
+    require("./attachments").sendFile(res, file);
   })
 );
 

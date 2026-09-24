@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Loader2, Printer } from "lucide-react";
 import { PayslipView } from "@/pages/Payslip";
+import { SharedFiles } from "@/components/documents/Attachments";
 import { apiClient } from "@/api/client";
 import { FittedPaper } from "@/components/documents/DocumentPaper";
 import { PrintCopy } from "@/components/documents/PrintCopy";
@@ -67,6 +68,7 @@ export default function Shared() {
         <div className="rounded-2xl bg-[var(--surface-2)] p-2 sm:p-4" data-testid="shared-paper">
           <FittedPaper model={model} />
         </div>
+        <SharedFiles files={data.files} base={`/shared/${token}/files`} />
         {data.kind === "purchase_order" && <Confirm token={token} done={data.confirmation} />}
         <p className="mt-6 text-[12px] text-[var(--ink-muted)]">Sent by {data.brand?.legalName || data.brand?.name} from Sentryfi. This link is for you; please do not share it.</p>
       </div>
