@@ -570,6 +570,20 @@ One ease-out moment per screen change on `cubic-bezier(0.2, 0.8, 0.2, 1)`:
 - Band count: 900ms cubic ease-out (`1 - (1 - t)^3`) in script, re-counting the total to the new figure.
 The undo countdown ticks once per second for ten seconds. Hover transitions are not built.
 
+## The website: The Level Book (24 September 2026)
+
+The public page at `/` (`frontend/src/pages/Landing.jsx`) was rebuilt from a generic SaaS page (yellow washes, rounded icon cards, three-card rows) into the Site Board's own world, with one governing object: a surveyor's level book. A level book only closes when two sums agree, and so do these books; that is the page's one idea. Chosen by the owner from a direction round (seed 639ea017) over a patent-drawing alternate and the category standard.
+
+- **The staff.** A levelling staff, 18px wide, runs down the left edge on desktop (a 6px horizontal staff under the header on phones). Yellow with E-graduations alternating ink and red by the half metre. It fills as the page is read, and a crosshair tag at its head names the section. It is chrome, like the shutter, and exempt from the One Yellow Field Rule.
+- **The hero ledger.** A bill booking itself onto the 2px rule: what it was for rises onto the rule, "Paid from" falls onto it with a true minus in money-out red, then an ink check line reads "Check 3,240.00 = 3,240.00 ✓ Balanced", the word in yellow on ink. Four tabs show the four ways GST arrives (on top, inside, none, in dollars). The bill beside it is a flat document on receipt paper with a hairline border, not a fake photograph: no tilt, no shadow.
+- **Readings.** Each part of the product is a reading (1.0 to 6.0) with its real screen in a pinned frame that wipes downward on change: phone screens in a device outline, desk screens whole at 16:10.
+- **The filing strip.** Twelve months, lit ink up to now, the current month yellow. Hazard chevrons sit only on the next due 28th, with its countdown; past ones read "28th filed".
+- **The close.** The page ends on its own check line (ink band), then one yellow band with the tagline and the primary action.
+- **Type on the website.** Display headings are Barlow Condensed 700 uppercase at `clamp(40px, 5.4vw, 76px)`, the hero at up to 96px. Body copy steps up to 18px (the app's ramp stops at 17px) because a marketing page is read at arm's length rather than scanned.
+- **Buttons on the website.** Square, 56px, Barlow Condensed uppercase: ink with yellow text for the primary, 2px ink outline for the secondary.
+
+**Where the screens come from.** Every image in `frontend/public/site/` is a screenshot of the demo company, Coralmark Builders Pvt Ltd, whose names and figures are made up, captured read-only from sentryfi.app on 24 September 2026 by `tools/site-screens.js` (phones at 390×844, 2x; desks at 1440×900, 1.5x): `phone-home.png` (/dashboard), `phone-money.png` (/money), `desk-match.png` (a bank statement's waiting lines), `desk-cfo.png` (/cfo), `desk-tax.png` (/tax), `desk-bank.png` (/bank). Re-run the script after a screen changes. Real companies' books never appear on the website. The four bills in the hero are illustrations and are labelled so.
+
 ## Do's and Don'ts
 
 ### Do:
