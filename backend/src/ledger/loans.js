@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const { postEntry } = require("./post");
 const { toLaari, formatLaari } = require("./money");
+const { today: localToday } = require("./today");
 
 /**
  * Money borrowed, and money a director owes the business.
@@ -281,7 +282,7 @@ async function repay(client, { companyId, userId, loanId, on, amount, fromAccoun
 
 async function list(client, { companyId }) {
   const { rows } = await client.query("SELECT id FROM loans WHERE company_id = $1 ORDER BY created_at", [companyId]);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
   const out = [];
   for (const { id } of rows) {
     const l = await loadLoan(client, { companyId, loanId: id });

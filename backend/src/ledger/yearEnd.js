@@ -1,6 +1,7 @@
 const assets = require("./assets");
 const periods = require("./periods");
 const statements = require("./statements");
+const { today: localToday } = require("./today");
 
 /**
  * Closing a year.
@@ -30,7 +31,7 @@ async function status(client, { companyId, year }) {
     year,
     through,
     closed: Boolean(locked && locked >= through),
-    over: through < new Date().toISOString().slice(0, 10),
+    over: through < localToday(),
     doubts,
     depreciationToCharge: pending.total,
     depreciationMonths: pending.pending.length,

@@ -23,10 +23,11 @@ const f = formatLaari;
 const DAY = 86400000;
 const plus = (iso, days) => new Date(Date.parse(iso + "T00:00:00Z") + days * DAY).toISOString().slice(0, 10);
 /** Today where the company is (the Maldives, UTC+5). */
-const todayHere = () => new Date(Date.now() + 5 * 3600000).toISOString().slice(0, 10);
+const todayHere = () => localToday();
 const big = (v) => BigInt(v ?? 0);
 // Dates in words, as the rest of the app writes them: 4 Aug 2026, August 2026.
 const onDay = (v) => require("./gstReturn").niceDate(String(v instanceof Date ? v.toISOString() : v).slice(0, 10));
+const { today: localToday } = require("./today");
 const monthOf = (ym) => new Date(String(ym).slice(0, 7) + "-01T00:00:00Z").toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
 
 async function one(client, sql, params) {

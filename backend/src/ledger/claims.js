@@ -8,6 +8,7 @@
 const { postEntry, assumeIdentity } = require("./post");
 const { toLaari, formatLaari } = require("./money");
 const stock = require("./stock");
+const { today: localToday } = require("./today");
 
 const OWED_TO_STAFF = ["2400", "Owed to staff", "liability"];
 
@@ -86,7 +87,7 @@ async function approve(client, { companyId, userId, claimId, approveUpTo, on }) 
   const owed = await stock.account(client, companyId, OWED_TO_STAFF);
   const memo = `${claim.number}: ${claim.claimant}`;
   const entry = await postEntry(client, {
-    companyId, userId, date: on || new Date().toISOString().slice(0, 10), source: "adjustment",
+    companyId, userId, date: on || localToday(), source: "adjustment",
     narrative: `Expense claim ${claim.number}, ${claim.claimant}`,
     lines: [
       ...lines.map((l) => ({ accountId: l.account_id, debit: BigInt(l.amount_laari), projectId: l.project_id, memo: `${l.description} (${claim.claimant})` })),

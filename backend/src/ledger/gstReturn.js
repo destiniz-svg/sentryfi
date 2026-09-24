@@ -1,5 +1,6 @@
 const { formatLaari } = require("./money");
 const { packFor, rateOn } = require("./tax");
+const { today: localToday } = require("./today");
 
 /**
  * The GST return, ready before the deadline.
@@ -33,7 +34,7 @@ const niceDate = (iso) =>
  * A period from its key: "2026-08" is August, "2026-Q3" is July to September.
  * Due by the pack's day of the month after the period ends.
  */
-function period(key, { dueDay = 28, today = new Date().toISOString().slice(0, 10) } = {}) {
+function period(key, { dueDay = 28, today = localToday() } = {}) {
   const m = /^(\d{4})-(?:(\d{2})|Q([1-4]))$/.exec(String(key || ""));
   if (!m) throw new Error("A period is a month (2026-08) or a quarter (2026-Q3).");
   const y = +m[1];
@@ -53,7 +54,7 @@ function period(key, { dueDay = 28, today = new Date().toISOString().slice(0, 10
 }
 
 /** The period most recently ended: the one whose return is due next. */
-function currentKey(kind, today = new Date().toISOString().slice(0, 10)) {
+function currentKey(kind, today = localToday()) {
   const [y, mo] = today.split("-").map(Number);
   if (kind === "quarter") {
     const q = Math.floor((mo - 1) / 3); // the quarter before this one
@@ -63,13 +64,13 @@ function currentKey(kind, today = new Date().toISOString().slice(0, 10)) {
 }
 
 /** The period still running, whose return is not due yet. */
-function runningKey(kind, today = new Date().toISOString().slice(0, 10)) {
+function runningKey(kind, today = localToday()) {
   const [y, mo] = today.split("-").map(Number);
   return kind === "quarter" ? `${y}-Q${Math.floor((mo - 1) / 3) + 1}` : `${y}-${pad(mo)}`;
 }
 
 /** The recent periods, newest first, for a picker. */
-function recentKeys(kind, count = 12, today = new Date().toISOString().slice(0, 10)) {
+function recentKeys(kind, count = 12, today = localToday()) {
   const keys = [];
   let key = currentKey(kind, today);
   for (let i = 0; i < count; i += 1) {

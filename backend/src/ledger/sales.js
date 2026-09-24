@@ -35,6 +35,7 @@ async function accountByCode(client, { companyId, code }) {
 // invoice as for a bill: one function, so the two cannot drift.
 const { splitTax } = require("./bills");
 const stock = require("./stock");
+const { today: localToday } = require("./today");
 
 /** A laari amount times a quantity held to four decimal places, half up. */
 function timesQuantity(unitLaari, quantity) {
@@ -685,7 +686,7 @@ async function creditNote(client, {
   const entry = await postEntry(client, {
     companyId,
     userId,
-    date: issueDate || new Date(),
+    date: issueDate || localToday(),
     source: "adjustment",
     narrative: `${number}: ${said} (against ${invoice.invoice_no})`,
     lines,
@@ -763,7 +764,7 @@ async function aged(client, { companyId, asOf }) {
         AND s.voided_at IS NULL
         AND s.gross_laari - COALESCE(settled.paid, 0) - COALESCE(credited.credited, 0) > 0
       ORDER BY days_over DESC, s.issue_date`,
-    [companyId, asOf || new Date()]
+    [companyId, asOf || localToday()]
   );
 
   const buckets = { current: 0n, thirty: 0n, sixty: 0n, ninety: 0n, older: 0n };

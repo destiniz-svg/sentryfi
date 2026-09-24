@@ -10,6 +10,7 @@ const bank = require("../ledger/bank");
 const reconcile = require("../ledger/reconcile");
 const fx = require("../ledger/fx");
 const revalue = require("../ledger/revalue");
+const { today: localToday } = require("../ledger/today");
 
 /** Bank accounts and tins, and money moving between them. Every balance is read from the journal. */
 
@@ -185,7 +186,7 @@ router.get(
   "/revalue",
   requireCan("read"),
   asyncHandler(async (req, res) => {
-    const through = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.through || "")) ? req.query.through : new Date().toISOString().slice(0, 10);
+    const through = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.through || "")) ? req.query.through : localToday();
     const p = await asCompany(req, (client) => revalue.preview(client, { companyId: req.companyId, through }));
     res.json({ on: p.on, missing: p.missing, items: p.items.map(wireItem) });
   })

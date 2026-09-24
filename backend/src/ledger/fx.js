@@ -1,3 +1,4 @@
+const { today: localToday } = require("./today");
 /**
  * Converting between currencies, exactly.
  *
@@ -45,7 +46,7 @@ async function rateOn(client, { companyId, currency, on }) {
     `SELECT rate::text AS rate, on_date::text AS on FROM exchange_rates
       WHERE company_id = $1 AND currency = $2 AND on_date <= $3::date
       ORDER BY on_date DESC, created_at DESC LIMIT 1`,
-    [companyId, String(currency).toUpperCase(), on || new Date().toISOString().slice(0, 10)]
+    [companyId, String(currency).toUpperCase(), on || localToday()]
   );
   return rows[0] ? { rate: rows[0].rate.replace(/0+$/, "").replace(/\.$/, ""), on: rows[0].on } : null;
 }

@@ -14,6 +14,7 @@ const { assumeIdentity } = require("./post");
 const { toLaari, formatLaari } = require("./money");
 const { niceDate } = require("./gstReturn");
 const sales = require("./sales");
+const { today: localToday } = require("./today");
 
 const EVERY = { week: "every week", month: "every month", quarter: "every three months", year: "every year" };
 
@@ -55,7 +56,7 @@ async function create(client, { companyId, userId, counterpartyId, name, lines, 
 /** Raises every invoice whose date has come, and moves each schedule on. */
 async function runDue(client, { companyId, userId, today }) {
   await assumeIdentity(client, { companyId, userId });
-  const on = today || new Date().toISOString().slice(0, 10);
+  const on = today || localToday();
   const { rows } = await client.query(
     `SELECT *, next_on::text AS next_text, ends_on::text AS ends_text FROM recurring_invoices WHERE company_id = $1 AND paused_at IS NULL AND next_on <= $2 AND (ends_on IS NULL OR next_on <= ends_on)
      ORDER BY next_on FOR UPDATE SKIP LOCKED`,

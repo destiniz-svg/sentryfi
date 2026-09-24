@@ -9,6 +9,7 @@
 const crypto = require("crypto");
 const { formatLaari } = require("./money");
 const { niceDate } = require("./gstReturn");
+const { today: localToday } = require("./today");
 
 const KINDS = ["invoice", "quote", "sales_order", "purchase_order", "delivery_note", "goods_received", "credit_note", "receipt", "statement"];
 const f = (v) => (v === null || v === undefined ? null : formatLaari(BigInt(v)));
@@ -259,7 +260,7 @@ async function statementData(client, { companyId, id }) {
   const party = await partyOf(client, { companyId, id });
   if (!party.name) throw new Error("That customer is not in these books.");
   const from = new Date(Date.now() - 365 * 86_400_000).toISOString().slice(0, 10);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
   const { rows: before } = await client.query(
     `SELECT COALESCE((SELECT SUM(gross_laari) FROM sales_invoices WHERE company_id = $1 AND counterparty_id = $2 AND status = 'posted' AND voided_at IS NULL AND issue_date < $3), 0)
           - COALESCE((SELECT SUM(amount_laari) FROM receipts WHERE company_id = $1 AND counterparty_id = $2 AND voided_at IS NULL AND received_on < $3), 0)

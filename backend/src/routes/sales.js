@@ -10,6 +10,7 @@ const { formatLaari } = require("../ledger/money");
 const { findOrCreate } = require("../ledger/counterparties");
 const stock = require("../ledger/stock");
 const sales = require("../ledger/sales");
+const { today: localToday } = require("../ledger/today");
 
 /**
  * Invoices, receipts and credit notes.
@@ -313,7 +314,7 @@ router.post(
     const text = String(req.body?.text || "").trim().slice(0, 1000);
     if (text.length < 5) throw ApiError.badRequest("Say what the invoice is for.");
     if (!process.env.GEMINI_API_KEY) throw ApiError.badRequest("Filling from a sentence needs a Gemini key on the server.");
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localToday();
     try {
       const out = await require("../services/geminiService").generate({
         contents: [{ role: "user", parts: [{ text }] }],

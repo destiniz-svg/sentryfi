@@ -18,6 +18,7 @@ const sales = require("./sales");
 const { splitTax } = require("./bills");
 const taxEngine = require("./tax");
 const { findOrCreate } = require("./counterparties");
+const { today: localToday } = require("./today");
 
 const PREFIX = { purchase: "PO", sale: "SO", quote: "QT" };
 const times = (unitLaari, units) => (unitLaari * units + 5000n) / 10000n; // units are ten-thousandths
@@ -117,7 +118,7 @@ async function load(client, { companyId, orderId }) {
   }));
   const all = (k) => out.every((l) => l[k] >= l.units);
   const any = (k) => out.some((l) => l[k] > 0n);
-  const expired = o.valid_until && new Date(o.valid_until) < new Date(new Date().toISOString().slice(0, 10));
+  const expired = o.valid_until && new Date(o.valid_until) < new Date(localToday());
   const status = o.kind === "quote"
     ? o.accepted_at ? "accepted" : o.declined_at ? "declined" : o.cancelled_at ? "cancelled" : expired ? "expired" : "quoted"
     : o.cancelled_at

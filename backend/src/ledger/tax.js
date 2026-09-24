@@ -1,3 +1,4 @@
+const { today: localToday } = require("./today");
 /**
  * The tax engine.
  *
@@ -136,7 +137,7 @@ async function rateOn(client, { companyId, on, rate }) {
   const pack = await packFor(client, { companyId });
   const code = rate || pack.defaultRate;
   if (!pack.rates[code]) throw new Error(`${pack.name} has no rate called ${code}.`);
-  const day = isoDate(on || new Date());
+  const day = isoDate(on || localToday());
 
   const { rows } = await client.query(
     `SELECT rate_bp, effective_from::text AS from FROM tax_rates

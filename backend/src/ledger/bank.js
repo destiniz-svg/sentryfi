@@ -4,6 +4,7 @@ const { openAssetAccount } = require("./cash");
 const statement = require("./statement");
 const reconcile = require("./reconcile");
 const fx = require("./fx");
+const { today: localToday } = require("./today");
 
 /**
  * Where the money sits, and moving it between places.
@@ -107,7 +108,7 @@ async function transfer(client, { companyId, userId, fromId, toId, amount, amoun
   const entry = await postEntry(client, {
     companyId,
     userId,
-    date: on || new Date(),
+    date: on || localToday(),
     source: "transfer",
     sourceId: clientRef || null,
     narrative: `Moved ${formatLaari(laari)} from ${from.name} to ${to.name}${said ? ` - ${said}` : ""}`,
@@ -120,7 +121,7 @@ async function transfer(client, { companyId, userId, fromId, toId, amount, amoun
   if (fc) {
     await fx.recordRate(client, {
       companyId, userId, currency: fc.currency, rate: fc.rate, source: "Transfer",
-      on: on || new Date().toISOString().slice(0, 10),
+      on: on || localToday(),
     });
   }
   return { entry, from, to, amount: laari, fc, alreadyHad: false };

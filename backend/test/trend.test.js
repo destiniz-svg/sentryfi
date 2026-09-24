@@ -37,3 +37,14 @@ describe("runway", () => {
     expect(runway("100", ["0", "0"])).toEqual({ months: null, growing: false }); // nothing moved: not growing
   });
 });
+
+describe("today", () => {
+  it("is Malé's date, not the server's: 01:00 in Malé on the 1st is still the 30th in UTC", async () => {
+    const { vi } = await import("vitest");
+    const { today } = await import("../src/ledger/today");
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-30T20:00:00Z"));
+    expect(today()).toBe("2026-10-01");
+    vi.useRealTimers();
+  });
+});

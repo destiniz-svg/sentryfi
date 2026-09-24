@@ -6,6 +6,7 @@ const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
 const { formatLaari } = require("../ledger/money");
 const { cashTrend, runway, cashMoves } = require("../ledger/trend");
+const { today: localToday } = require("../ledger/today");
 
 const router = express.Router();
 router.use(requireAuth, requireCompany);
@@ -132,7 +133,7 @@ router.get(
       );
 
       // Today where the company is (the Maldives, UTC+5), as the CFO reads it.
-      const burn = await cashMoves(client, { companyId: req.companyId, today: new Date(Date.now() + 5 * 3600000).toISOString().slice(0, 10) });
+      const burn = await cashMoves(client, { companyId: req.companyId, today: localToday() });
 
       // The two headline balances that are one account each, read from that
       // account rather than from a whole type. "Owed to suppliers" used to be
@@ -174,7 +175,7 @@ router.get(
       return { spend, byAccount, byType, byCode, cash: cash[0]?.amount, recent, entries: counted[0].n, places, before: before[0].amount, moves, burn };
     });
 
-    const ym = new Date().toISOString().slice(0, 7);
+    const ym = localToday().slice(0, 7);
     const thisMonth = data.spend.find((r) => r.ym === ym);
 
     // A bill dated last month is spend in last month, and a headline of zero

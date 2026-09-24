@@ -9,6 +9,7 @@ const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
 const { pool } = require("../config/db");
 const { formatLaari } = require("../ledger/money");
+const { today: localToday } = require("../ledger/today");
 
 /**
  * The customer portal. /api/portal/:token is public: whoever holds the link
@@ -40,7 +41,7 @@ publicRouter.get(
       // Whoever made the link hears that it was opened, once a day.
       await require("../services/push").tell(client, {
         companyId: link.company_id, userIds: [link.created_by], kind: "done", title: `${party[0]?.name || "A customer"} opened their invoices`,
-        body: "Through the link you gave them.", href: "/invoices", dedupeKey: `portal:${link.id}:${new Date().toISOString().slice(0, 10)}`,
+        body: "Through the link you gave them.", href: "/invoices", dedupeKey: `portal:${link.id}:${localToday()}`,
       });
       const { rows: invoices } = await client.query(
         `SELECT s.id, s.invoice_no, s.issue_date::text AS issued, s.due_date::text AS due, s.subject, s.net_laari, s.tax_laari, s.gross_laari,

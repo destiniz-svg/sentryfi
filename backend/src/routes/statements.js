@@ -5,6 +5,7 @@ const { requireAuth } = require("../middleware/auth");
 const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
 const statements = require("../ledger/statements");
+const { today } = require("../ledger/today");
 
 /**
  * The statements an accountant checks the work with. Read only, and computed
@@ -19,7 +20,6 @@ const day = (v, what) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || Number.isNaN(Date.parse(s))) throw ApiError.badRequest(`${what} should be a date, YYYY-MM-DD.`);
   return s;
 };
-const today = () => new Date().toISOString().slice(0, 10);
 
 /** The same day a year earlier; 29 February becomes the 28th. */
 const yearBefore = (d) => {
@@ -121,7 +121,7 @@ router.get(
     const lines = [["Entry", "Date", "What it was", "Source", "Account code", "Account", "Debit", "Credit", "Line note"].join(",")];
     for (const r of rows) lines.push([r.entry_no, r.dated, r.narrative, r.source, r.code, r.account, money(r.debit_laari), money(r.credit_laari), r.memo].map(cell).join(","));
     res.set("Content-Type", "text/csv; charset=utf-8");
-    res.set("Content-Disposition", `attachment; filename="journal-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.set("Content-Disposition", `attachment; filename="journal-${today()}.csv"`);
     // The byte-order mark tells a spreadsheet the file is UTF-8, so Thaana and ® survive.
     res.send("﻿" + lines.join("\n"));
   })
