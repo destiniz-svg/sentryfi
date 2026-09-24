@@ -653,6 +653,20 @@ input[type="date"]::-webkit-date-and-time-value {
 .no-bar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-bar::-webkit-scrollbar { display: none; }
 
+/* On a phone, a field whose text is under 16px makes iOS zoom in when it is
+   tapped, and in the installed app the zoom stays after signing in: Home then
+   opens wider than the screen, cut off on the right. Every field is 16px on a
+   touch screen, whatever its own size says. Outside the layers and marked
+   important, because each field's own text size is a utility that would
+   otherwise win. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 /* A text link reads in deep sea, the colour settled for links on 22 September
    2026. Navigation is not a text link and keeps ink. In the base layer, so a
    link that says its own colour (yellow on an ink card) wins: unlayered, this
