@@ -214,7 +214,8 @@ async function collect(client, req) {
     // A project whose spent and committed cost has gone past its budget:
     //    the margin is going, and the sooner someone knows the more of it
     //    can be saved.
-    for (const p of await require("../ledger/projects").list(client, { companyId: req.companyId })) {
+    const { rows: budgeted } = await client.query("SELECT 1 FROM projects WHERE company_id = $1 AND archived_at IS NULL LIMIT 1", [req.companyId]);
+    for (const p of budgeted.length ? await require("../ledger/projects").list(client, { companyId: req.companyId }) : []) {
       if (!p.overBudget.length) continue;
       found.push({
         kind: "money_at_risk",
@@ -249,9 +250,13 @@ async function collect(client, req) {
     // 7. The GST return. Only in the last two weeks, and until somebody says
     //    it was filed: a countdown that is always there is one nobody reads.
     //    Late is money at risk, because MIRA fines late returns.
-    const r = await gstReturn.build(client, { companyId: req.companyId });
-    const left = r.period.daysLeft;
-    if (!r.filed && r.pack.filing.dueDay && left !== null && left <= 14) {
+    // Whether the deadline is near is a date; the return itself is built only then.
+    const { rows: gp } = await client.query("SELECT gst_period FROM companies WHERE id = $1", [req.companyId]);
+    const pack = await require("../ledger/tax").packFor(client, { companyId: req.companyId });
+    const near = pack.filing.dueDay ? gstReturn.period(gstReturn.currentKey(gp[0]?.gst_period), { dueDay: pack.filing.dueDay }).daysLeft : null;
+    const r = near !== null && near <= 14 ? await gstReturn.build(client, { companyId: req.companyId }) : null;
+    const left = r ? r.period.daysLeft : null;
+    if (r && !r.filed && r.pack.filing.dueDay && left !== null && left <= 14) {
       const owe = r.out.tax - r.inp.tax;
       found.push({
         kind: left < 0 ? "money_at_risk" : "waiting",
@@ -269,7 +274,14 @@ async function collect(client, req) {
 
     // 8. Stock at or below its reorder level: order more before it runs out.
     if (req.can?.("read")) {
-      const low = (await require("../ledger/stock").list(client, { companyId: req.companyId })).filter((i) => i.low);
+      const { rows: lowRows } = await client.query(
+        `SELECT i.id, i.name, i.unit, i.reorder_at, COALESCE(SUM(m.quantity), 0) AS on_hand
+           FROM stock_items i LEFT JOIN stock_moves m ON m.item_id = i.id AND m.company_id = i.company_id
+          WHERE i.company_id = $1 AND i.counted AND i.archived_at IS NULL AND i.reorder_at IS NOT NULL
+          GROUP BY i.id HAVING COALESCE(SUM(m.quantity), 0) <= i.reorder_at`,
+        [req.companyId]
+      );
+      const low = lowRows.map((r) => ({ ...r, onHand: String(Number(r.on_hand)), reorderAt: String(Number(r.reorder_at)), low: true }));
       for (const i of low.slice(0, 5)) {
         found.push({
           kind: "waiting",

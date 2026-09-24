@@ -116,7 +116,7 @@ export default function Document() {
 function DocumentQuestions({ kind, id }) {
   const { companyId, can } = useCompany();
   const qc = useQueryClient();
-  const { data } = useQuery({ queryKey: ["questions", companyId, kind, id], queryFn: () => apiClient.get(`/documents/${kind}/${id}/questions`).then((r) => r.data.questions), enabled: Boolean(companyId) });
+  const { data } = useQuery({ queryKey: ["questions", companyId, kind, id], queryFn: () => apiClient.get(`/documents/${kind}/${id}/questions`).then((r) => r.data.questions), enabled: Boolean(companyId), refetchInterval: 15_000 });
   if (!data || (!data.length && !can("record"))) return null;
   return (
     <Questions
@@ -125,6 +125,7 @@ function DocumentQuestions({ kind, id }) {
       title="From the customer"
       empty="Nothing asked yet. Customers ask from their link to this document, and you answer here; they see the answer on the same page."
       placeholder="Answer the customer"
+      sendLabel="Reply"
       onSend={async ({ body }) => {
         await apiClient.post(`/documents/${kind}/${id}/questions`, { body });
         qc.invalidateQueries({ queryKey: ["questions", companyId, kind, id] });

@@ -1,6 +1,7 @@
 import { Link, useRouteError, isRouteErrorResponse } from "react-router-dom";
 import { AlertTriangle, RotateCcw, Home } from "lucide-react";
 import AILogo from "@/components/layout/AILogo";
+import { recoverFromStaleCode } from "@/lib/updates";
 
 /**
  * What a person sees when something breaks. The app shipped with no error
@@ -15,6 +16,8 @@ import AILogo from "@/components/layout/AILogo";
  */
 export default function ErrorPage() {
   const error = useRouteError();
+  // An old version missing a piece of itself: load the new one instead of showing this.
+  if (recoverFromStaleCode(error)) return <div className="min-h-dvh flex items-center justify-center bg-[var(--bg)] text-[var(--ink-muted)] text-sm">Updating Sentryfi…</div>;
 
   const notFound = !error || (isRouteErrorResponse(error) && error.status === 404);
   const detail = isRouteErrorResponse(error)

@@ -8,23 +8,23 @@ import { Navigate, createBrowserRouter } from "react-router-dom";
 import { PORTAL_URL } from "@/lib/portal";
 import ErrorPage from "./pages/ErrorPage";
 import { AppShell } from "@/components/layout/AppShell";
-import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
-import Register from "@/pages/Register";
-import Join from "@/pages/Join";
-import Reset from "@/pages/Reset";
-import Forgot from "@/pages/Forgot";
-import Verify from "@/pages/Verify";
 import CheckEmail from "@/pages/CheckEmail";
-import Portal from "@/pages/Portal";
-import Shared from "@/pages/Shared";
+const Landing = lazy(() => import("@/pages/Landing"));
+const Register = lazy(() => import("@/pages/Register"));
+const Join = lazy(() => import("@/pages/Join"));
+const Reset = lazy(() => import("@/pages/Reset"));
+const Forgot = lazy(() => import("@/pages/Forgot"));
+const Verify = lazy(() => import("@/pages/Verify"));
+const Portal = lazy(() => import("@/pages/Portal"));
+const Shared = lazy(() => import("@/pages/Shared"));
 const Genuine = lazy(() => import("@/pages/Genuine"));
 const Practice = lazy(() => import("@/pages/Practice"));
 const Trust = lazy(() => import("@/pages/Trust"));
 const Go = lazy(() => import("@/pages/Go"));
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
-import OpenBooks from "@/pages/OpenBooks";
+const OpenBooks = lazy(() => import("@/pages/OpenBooks"));
 import { usePhone } from "@/lib/phone";
 
 /**
@@ -133,7 +133,8 @@ function ProtectedShell() {
       </div>
     );
   }
-  if (!user) return <Navigate to="/login" replace />;
+  // Back here after signing in: a link to an approval or a document should open it, not the dashboard.
+  if (!user) return <Navigate to={`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`} replace />;
   if (user.mustVerify) return <CheckEmail />;
 
   // Belonging to no company is the ordinary first-run state, not an error.
@@ -150,7 +151,7 @@ function ProtectedShell() {
       </div>
     );
   }
-  if (companies.needsFirstCompany) return <OpenBooks />;
+  if (companies.needsFirstCompany) return <Suspense fallback={null}><OpenBooks /></Suspense>;
 
   return <AppShell />;
 }
@@ -161,15 +162,15 @@ function ToPortal() {
 }
 
 export const router = createBrowserRouter([
-  { path: "/", element: <Landing />, errorElement: <ErrorPage /> },
+  { path: "/", element: <Suspense fallback={null}><Landing /></Suspense>, errorElement: <ErrorPage /> },
   { path: "/login", element: <Login />, errorElement: <ErrorPage /> },
-  { path: "/register", element: <Register />, errorElement: <ErrorPage /> },
-  { path: "/join/:token", element: <Join />, errorElement: <ErrorPage /> },
-  { path: "/reset/:token", element: <Reset />, errorElement: <ErrorPage /> },
-  { path: "/forgot", element: <Forgot />, errorElement: <ErrorPage /> },
-  { path: "/verify/:token", element: <Verify />, errorElement: <ErrorPage /> },
-  { path: "/portal/:token", element: <Portal />, errorElement: <ErrorPage /> },
-  { path: "/d/:token", element: <Shared />, errorElement: <ErrorPage /> },
+  { path: "/register", element: <Suspense fallback={null}><Register /></Suspense>, errorElement: <ErrorPage /> },
+  { path: "/join/:token", element: <Suspense fallback={null}><Join /></Suspense>, errorElement: <ErrorPage /> },
+  { path: "/reset/:token", element: <Suspense fallback={null}><Reset /></Suspense>, errorElement: <ErrorPage /> },
+  { path: "/forgot", element: <Suspense fallback={null}><Forgot /></Suspense>, errorElement: <ErrorPage /> },
+  { path: "/verify/:token", element: <Suspense fallback={null}><Verify /></Suspense>, errorElement: <ErrorPage /> },
+  { path: "/portal/:token", element: <Suspense fallback={null}><Portal /></Suspense>, errorElement: <ErrorPage /> },
+  { path: "/d/:token", element: <Suspense fallback={null}><Shared /></Suspense>, errorElement: <ErrorPage /> },
   { path: "/trust", element: <Suspense fallback={null}><Trust /></Suspense>, errorElement: <ErrorPage /> },
   { path: "/v/:sha", element: <Suspense fallback={null}><Genuine /></Suspense>, errorElement: <ErrorPage /> },
   {

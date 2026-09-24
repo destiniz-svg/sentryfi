@@ -16,6 +16,12 @@ import { passkeysWork } from "@/components/settings/DevicesSection";
 
 
 
+/** Where to go after signing in: the page a link pointed at, if it is one of ours. */
+function nextPage() {
+  const n = new URLSearchParams(window.location.search).get("next") || "";
+  return n.startsWith("/") && !n.startsWith("//") && !n.startsWith("/login") ? n : "/dashboard";
+}
+
 export default function Login() {
   const { login, refresh } = useAuth();
   const nav = useNavigate();
@@ -33,7 +39,7 @@ export default function Login() {
       const response = await startAuthentication({ optionsJSON });
       await apiClient.post("/passkeys/login", { response });
       await refresh();
-      nav("/dashboard");
+      nav(nextPage());
     } catch (e) {
       if (e?.name !== "NotAllowedError") setErr(e.message || "That did not work. Sign in with your password.");
     } finally {
@@ -47,7 +53,7 @@ export default function Login() {
     setLoading(true);
     try {
       await login(form);
-      nav("/dashboard");
+      nav(nextPage());
     } catch (e) {
       setErr(e.message || "Login failed");
     } finally {

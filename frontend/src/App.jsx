@@ -8,6 +8,11 @@ import { CompanyProvider } from "@/context/CompanyContext";
 import { OutboxProvider } from "@/context/OutboxContext";
 import { UndoProvider } from "@/context/UndoContext";
 import { router } from "@/routes";
+import { atNavigation } from "@/lib/updates";
+
+router.subscribe((state) => {
+  if (state.navigation.state === "idle") atNavigation();
+});
 import { isPortal } from "@/lib/portal";
 
 // dev.sentryfi.app is the developer portal and nothing else (pages/DeveloperPortal.jsx).

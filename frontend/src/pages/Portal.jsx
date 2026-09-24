@@ -40,6 +40,8 @@ export default function Portal() {
     queryKey: ["portal", token],
     queryFn: () => apiClient.get(`/portal/${token}`).then((r) => r.data),
     retry: false,
+    // An answer from the company appears without a reload.
+    refetchInterval: 15_000,
   });
   const reload = () => qc.invalidateQueries({ queryKey: ["portal", token] });
 

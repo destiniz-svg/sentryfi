@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
  * looking ("customer" on the portal, "company" in the app), so their own
  * messages sit to the right.
  */
-export function Questions({ thread = [], me, onSend, askName = false, title = "Questions", empty, placeholder }) {
+export function Questions({ thread = [], me, onSend, askName = false, title = "Questions", empty, placeholder, sendLabel = "Send" }) {
   const [body, setBody] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -67,9 +67,9 @@ export function Questions({ thread = [], me, onSend, askName = false, title = "Q
             placeholder={placeholder}
             className="flex-1 min-h-[44px] px-4 py-2.5 rounded-[18px] border border-[var(--border)] bg-[var(--surface)] text-[15px] outline-none focus:border-[var(--ink)] resize-y"
           />
-          <Button type="submit" variant="outline" disabled={busy || !body.trim()} aria-label="Send">
+          <Button type="submit" variant="outline" disabled={busy || !body.trim()}>
             {busy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-            Send
+            {sendLabel}
           </Button>
         </div>
         {err && <p role="alert" className="text-[13px] text-[var(--danger)]">{err}</p>}
