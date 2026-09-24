@@ -43,8 +43,12 @@ router.post("/email", express.raw({ type: "*/*", limit: "1mb" }), async (req, re
 
   const meta = event.data || {};
   const from = String(meta.from || "");
-  // Never forward our own mail back round: that is how loops start.
-  if (/@sentryfi\.app>?$/i.test(from)) return res.json({ ok: true, ignored: "own mail" });
+  // Never forward a forward back round: that is how loops start. Forwards go
+  // out as support@, so only that is skipped. Sentryfi's own account mail
+  // (accounts@, security@) to a sentryfi.app person, such as the developer's
+  // confirm-your-email and reset links, is exactly what must come through;
+  // skipping every @sentryfi.app sender dropped those.
+  if (/support@sentryfi\.app>?$/i.test(from)) return res.json({ ok: true, ignored: "own forward" });
 
   try {
     const r = await fetch(`https://api.resend.com/emails/receiving/${encodeURIComponent(meta.email_id)}`, {
