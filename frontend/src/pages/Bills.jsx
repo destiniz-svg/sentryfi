@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { ListTree, Plus, Receipt, Ban, Loader2, Undo2, MoreHorizontal } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -175,9 +176,13 @@ export default function Bills() {
                   className="group grid grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,1.4fr)_120px_150px_minmax(0,1fr)_344px] gap-x-4 gap-y-1 px-5 py-4 items-center"
                 >
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold text-[var(--ink)] truncate">
+                    {/* The bill's own page: its lines, the photograph, what is paid and owed. */}
+                    <Link
+                      to={`/bills/${bill.id}`}
+                      className="block text-sm font-semibold text-[var(--ink)] truncate underline decoration-transparent underline-offset-4 hover:decoration-[var(--ink)]"
+                    >
                       {bill.supplier_name || "Nobody named yet"}
-                    </div>
+                    </Link>
                     {bill.bill_no && (
                       <div className="text-xs text-[var(--ink-muted)] tabular truncate">
                         {bill.bill_no}

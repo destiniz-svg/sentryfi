@@ -12,7 +12,7 @@ import { Money } from "@/components/ui/Money";
 import { Skeleton } from "@/components/ui/Skeleton";
 
 /**
- * One bill, opened from Money on a phone: who it is from, what it comes to
+ * One bill, opened from Money on a phone or from Bills at the desk: who it is from, what it comes to
  * and how its GST was quoted, what is paid and what is still owed, its lines,
  * the photograph, and the entry it became. Waiting bills can be put in the
  * books from here; everything else a bill can have done to it stays on Bills.
@@ -55,8 +55,9 @@ export default function MobileBill() {
     enabled: Boolean(companyId),
   });
 
-  // Back to wherever it was opened from; Money when opened straight from a link.
-  const back = () => (window.history.state?.idx > 0 ? nav(-1) : nav("/money"));
+  // Back to wherever it was opened from; the bill list when opened straight from a link.
+  const onPhone = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+  const back = () => (window.history.state?.idx > 0 ? nav(-1) : nav(onPhone ? "/money" : "/bills"));
 
   async function putIn() {
     setBusy(true);
@@ -73,13 +74,13 @@ export default function MobileBill() {
 
   const header = (
     <button type="button" onClick={back} className="-ml-2 h-11 pr-3 inline-flex items-center gap-1 text-[15px] font-semibold text-[var(--ink-muted)]">
-      <ChevronLeft size={20} aria-hidden="true" /> Money
+      <ChevronLeft size={20} aria-hidden="true" /> Back
     </button>
   );
 
   if (isPending) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 max-w-[640px] mx-auto">
         {header}
         <Skeleton className="h-[320px] rounded-[20px]" />
       </div>
@@ -87,7 +88,7 @@ export default function MobileBill() {
   }
   if (error || !data) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 max-w-[640px] mx-auto">
         {header}
         <p className="text-[15px] text-[var(--ink-muted)]">This bill could not be opened. It may belong to another company.</p>
       </div>
@@ -102,7 +103,7 @@ export default function MobileBill() {
   const foreign = bill.fcGross && bill.currency && bill.currency.trim() !== "MVR";
 
   return (
-    <div className="space-y-4 pb-6">
+    <div className="space-y-4 pb-6 max-w-[640px] mx-auto">
       {header}
 
       <div>

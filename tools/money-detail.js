@@ -21,7 +21,7 @@ const OUT = process.argv[2] || ".";
   await p.waitForTimeout(1500);
   console.log("bill page:", p.url().replace(/.*\/bills\//, "/bills/…"), "|", await p.locator("h1").first().innerText());
   await p.screenshot({ path: `${OUT}/money-bill.png`, fullPage: true });
-  await p.getByRole("button", { name: /Money/ }).first().click();
+  await p.getByRole("button", { name: /Back/ }).first().click();
   await p.waitForURL(/\/money/);
   console.log("back to:", new URL(p.url()).pathname);
 
@@ -35,5 +35,25 @@ const OUT = process.argv[2] || ".";
   await p.getByRole("link", { name: /Back/ }).first().click();
   await p.waitForTimeout(800);
   console.log("back to:", new URL(p.url()).pathname + new URL(p.url()).search);
+
+  // At the desk: a bill's supplier on Bills opens the same page, and Back returns to Bills.
+  const desk = await b.newContext({ viewport: { width: 1440, height: 900 } });
+  const d = await desk.newPage();
+  await d.goto("https://sentryfi.app/login", { waitUntil: "networkidle" });
+  await d.fill("input[type=email]", process.env.SHOOT_EMAIL);
+  await d.fill("input[type=password]", process.env.SHOOT_PASSWORD);
+  await d.click("button[type=submit]");
+  await d.waitForURL((u) => !u.pathname.endsWith("/login"), { timeout: 45000 });
+  await d.evaluate((id) => localStorage.setItem("sentryfi.company", id), co.id);
+  await d.goto("https://sentryfi.app/bills", { waitUntil: "networkidle" });
+  await d.waitForTimeout(1200);
+  await d.locator("a[href^='/bills/']").first().click();
+  await d.waitForURL(/\/bills\/[0-9a-f-]{36}/);
+  await d.waitForTimeout(1500);
+  console.log("desk bill page:", await d.locator("h1").first().innerText());
+  await d.screenshot({ path: `${OUT}/desk-bill.png` });
+  await d.getByRole("button", { name: /Back/ }).first().click();
+  await d.waitForURL(/\/bills$/);
+  console.log("desk back to:", new URL(d.url()).pathname);
   await b.close();
 })();
