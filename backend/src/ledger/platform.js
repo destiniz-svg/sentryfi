@@ -119,4 +119,75 @@ async function setPlan(client, { companyId, plan, actor, reason }) {
   await record(client, { actor, action: "set_plan", target: name, detail: { companyId, plan, reason } });
 }
 
-module.exports = { TRIAL_DAYS, trialOf, overview, customers, events, extendTrial, setPlan };
+/**
+ * Removes a customer outright: every row of every table that belongs to the
+ * company, then the company, then each of its people who belongs nowhere else.
+ *
+ * The books refuse deletion by design (journal triggers, restricting keys), so
+ * this is the one place that sets that aside, for this one transaction only,
+ * on the connection's own role. It is reached only by a platform admin who has
+ * typed the company's name and given a reason, both kept in platform_events,
+ * and the backup taken before it still holds what was removed.
+ */
+async function removeCustomer(client, { companyId, confirm, actor, reason, keep = [] }) {
+  const name = await companyName(client, companyId);
+  if (String(confirm || "").trim() !== name) throw Object.assign(new Error(`Type the company's name, ${name}, to remove it.`), { status: 400 });
+
+  const { rows: people } = await client.query(
+    `SELECT u.id, u.email FROM memberships m JOIN users u ON u.id = m.user_id
+      WHERE m.company_id = $1
+        AND NOT EXISTS (SELECT 1 FROM memberships o WHERE o.user_id = u.id AND o.company_id <> $1)
+      GROUP BY u.id, u.email`,
+    [companyId]
+  );
+
+  await client.query("SET LOCAL session_replication_role = replica");
+  for (const t of await tablesWith(client, "company_id")) {
+    if (t !== "companies") await client.query(`DELETE FROM "${t}" WHERE company_id = $1`, [companyId]);
+  }
+  await client.query("DELETE FROM companies WHERE id = $1", [companyId]);
+
+  const kept = new Set(keep.map((e) => e.toLowerCase()));
+  const gone = [];
+  for (const p of people) {
+    if (kept.has(p.email.toLowerCase())) continue;
+    await removePersonRows(client, p.id);
+    gone.push(p.email);
+  }
+  await client.query("SET LOCAL session_replication_role = origin");
+  await record(client, { actor, action: "remove_customer", target: name, detail: { companyId, people: gone, reason } });
+  return { removed: name, people: gone };
+}
+
+/** Someone who belongs to no company: a sign-up that never opened books. */
+async function removePerson(client, { userId, confirm, actor, reason, keep = [] }) {
+  const { rows } = await client.query("SELECT email FROM users WHERE id = $1", [userId]);
+  if (!rows[0]) throw Object.assign(new Error("There is no such person."), { status: 404 });
+  const email = rows[0].email;
+  if (keep.map((e) => e.toLowerCase()).includes(email.toLowerCase())) throw Object.assign(new Error("That account is kept."), { status: 400 });
+  if (String(confirm || "").trim().toLowerCase() !== email.toLowerCase()) throw Object.assign(new Error(`Type their email, ${email}, to remove them.`), { status: 400 });
+  const { rows: member } = await client.query("SELECT 1 FROM memberships WHERE user_id = $1 LIMIT 1", [userId]);
+  if (member.length) throw Object.assign(new Error("They belong to a company. Take them out of it, or remove the company."), { status: 400 });
+  await client.query("SET LOCAL session_replication_role = replica");
+  await removePersonRows(client, userId);
+  await client.query("SET LOCAL session_replication_role = origin");
+  await record(client, { actor, action: "remove_person", target: email, detail: { userId, reason } });
+  return { removed: email };
+}
+
+async function tablesWith(client, column) {
+  const { rows } = await client.query(
+    `SELECT c.table_name FROM information_schema.columns c
+       JOIN information_schema.tables t ON t.table_schema = c.table_schema AND t.table_name = c.table_name AND t.table_type = 'BASE TABLE'
+      WHERE c.table_schema = 'public' AND c.column_name = $1`,
+    [column]
+  );
+  return rows.map((r) => r.table_name);
+}
+
+async function removePersonRows(client, userId) {
+  for (const t of await tablesWith(client, "user_id")) await client.query(`DELETE FROM "${t}" WHERE user_id = $1`, [userId]);
+  await client.query("DELETE FROM users WHERE id = $1", [userId]);
+}
+
+module.exports = { TRIAL_DAYS, trialOf, overview, customers, events, extendTrial, setPlan, removeCustomer, removePerson };

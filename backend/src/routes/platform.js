@@ -61,4 +61,33 @@ router.post(
   })
 );
 
+// Removal keeps the platform admins' own accounts, whatever company they sit in.
+const keep = () =>
+  (process.env.PLATFORM_ADMIN_EMAILS || "")
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean);
+
+router.delete(
+  "/customers/:id",
+  asyncHandler(async (req, res) => {
+    const b = parse(z.object({ confirm: z.string(), reason }), req.body);
+    const out = await run((client) =>
+      platform.removeCustomer(client, { companyId: req.params.id, confirm: b.confirm, reason: b.reason, actor: req.user.email, keep: keep() })
+    );
+    res.json(out);
+  })
+);
+
+router.delete(
+  "/people/:id",
+  asyncHandler(async (req, res) => {
+    const b = parse(z.object({ confirm: z.string(), reason }), req.body);
+    const out = await run((client) =>
+      platform.removePerson(client, { userId: req.params.id, confirm: b.confirm, reason: b.reason, actor: req.user.email, keep: keep() })
+    );
+    res.json(out);
+  })
+);
+
 module.exports = router;

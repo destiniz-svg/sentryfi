@@ -4,7 +4,8 @@
  */
 import { describe, it, expect, afterAll } from "vitest";
 import { inRollback, aCompanyWith, closePool } from "./setup";
-import { trialOf, customers, extendTrial, setPlan } from "../src/ledger/platform";
+import { trialOf, customers, extendTrial, setPlan, removeCustomer, removePerson } from "../src/ledger/platform";
+import { postEntry } from "../src/ledger/post";
 
 afterAll(closePool);
 
@@ -39,5 +40,49 @@ describe("the trial", () => {
       expect(mine.usage).toMatchObject({ entries: expect.any(Number), bills: expect.any(Number) });
       const { rows } = await client.query("SELECT action FROM platform_events WHERE detail->>'companyId' = $1 ORDER BY id", [co.companyId]);
       expect(rows.map((x) => x.action)).toEqual(["extend_trial", "set_plan"]);
+    }));
+});
+
+describe("removing a customer", () => {
+  it("takes a company with posted books away entirely, with its only person, and leaves the seal on for everyone else", () =>
+    inRollback(async (client) => {
+      const co = await aCompanyWith(client);
+      const other = await aCompanyWith(client);
+      await client.query("INSERT INTO memberships (user_id, company_id, role) VALUES ($1, $2, 'administrator')", [co.userId, co.companyId]);
+      const { rows: acc } = await client.query("SELECT id, code FROM accounts WHERE company_id = $1 ORDER BY code LIMIT 2", [co.companyId]);
+      await postEntry(client, {
+        companyId: co.companyId, userId: co.userId, date: "2026-09-15", source: "bill", narrative: "Something to remove",
+        lines: [{ accountId: acc[0].id, debit: "10.00" }, { accountId: acc[1].id, credit: "10.00" }],
+      });
+      const { rows: named } = await client.query("SELECT name FROM companies WHERE id = $1", [co.companyId]);
+      // Posting took on the app's role; the dashboard's request never does.
+      await client.query("RESET ROLE");
+
+      await expect(removeCustomer(client, { companyId: co.companyId, confirm: "wrong", actor: "dev@example.test", reason: "Test" })).rejects.toThrow(/Type the company's name/);
+      const out = await removeCustomer(client, { companyId: co.companyId, confirm: named[0].name, actor: "dev@example.test", reason: "Test account" });
+      expect(out.people).toHaveLength(1);
+
+      const count = async (sql, id) => Number((await client.query(sql, [id])).rows[0].n);
+      expect(await count("SELECT count(*) AS n FROM companies WHERE id = $1", co.companyId)).toBe(0);
+      expect(await count("SELECT count(*) AS n FROM journal_lines WHERE company_id = $1", co.companyId)).toBe(0);
+      expect(await count("SELECT count(*) AS n FROM users WHERE id = $1", co.userId)).toBe(0);
+      expect(await count("SELECT count(*) AS n FROM companies WHERE id = $1", other.companyId)).toBe(1);
+
+      // The seal is back on: another company's journal still refuses deletion.
+      const { rows: acc2 } = await client.query("SELECT id FROM accounts WHERE company_id = $1 ORDER BY code LIMIT 2", [other.companyId]);
+      const e = await postEntry(client, {
+        companyId: other.companyId, userId: other.userId, date: "2026-09-15", source: "bill", narrative: "Stays",
+        lines: [{ accountId: acc2[0].id, debit: "5.00" }, { accountId: acc2[1].id, credit: "5.00" }],
+      });
+      await client.query("SAVEPOINT s");
+      await expect(client.query("DELETE FROM journal_entries WHERE id = $1", [e.id ?? e.entryId ?? e])).rejects.toThrow(/cannot be deleted|permission/);
+      await client.query("ROLLBACK TO SAVEPOINT s");
+      await client.query("RESET ROLE");
+
+      // Someone with no company goes on their own; a kept account never does.
+      const { rows: u } = await client.query("INSERT INTO users (name, email, password_hash) VALUES ('Lone', 'lone@example.test', 'x') RETURNING id");
+      await expect(removePerson(client, { userId: u[0].id, confirm: "lone@example.test", actor: "dev@example.test", reason: "Test", keep: ["lone@example.test"] })).rejects.toThrow(/kept/);
+      await removePerson(client, { userId: u[0].id, confirm: "lone@example.test", actor: "dev@example.test", reason: "Test sign-up" });
+      expect(await count("SELECT count(*) AS n FROM users WHERE id = $1", u[0].id)).toBe(0);
     }));
 });
