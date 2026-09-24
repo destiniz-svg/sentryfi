@@ -15,17 +15,16 @@ export function Tabs({ value, onValueChange, children, className }) {
 /**
  * A row of tabs.
  *
- * On a phone they wrap as separate pills: eight of them inside one pill
- * container wrapped into three rows and read as a blob, and scrolling the
- * strip sideways hid tabs with nothing to say they were there. From sm up
- * they sit in the one pill the design system draws.
+ * Always separate pills that wrap: a shared pill container turned into a
+ * blob whenever the row wrapped (phones, and seven tabs on a desk screen),
+ * and scrolling the strip sideways hid tabs with nothing to say so.
  */
 export function TabsList({ children, className }) {
   return (
     <div
       role="tablist"
       className={cn(
-        "flex flex-wrap items-center gap-2 sm:gap-1 sm:inline-flex sm:bg-[var(--surface-2)] sm:border sm:border-[var(--border)] sm:p-1 sm:rounded-full",
+        "flex flex-wrap items-center gap-2",
         className
       )}
     >
@@ -45,8 +44,7 @@ export function TabsTrigger({ value, children, className }) {
       onClick={() => ctx.onValueChange(value)}
       className={cn(
         "relative px-4 h-11 text-sm font-medium rounded-full transition-colors",
-        // Each pill carries its own edge where there is no container to sit in.
-        "border border-[var(--border)] sm:border-transparent",
+        "border border-[var(--border)]",
         active ? "text-[var(--bg)] border-[var(--ink)]" : "text-[var(--ink-muted)] hover:text-[var(--ink)]",
         className
       )}
