@@ -146,7 +146,7 @@ export default function Bills() {
         />
       ) : (
         <Card padding="none" className="overflow-hidden">
-          <div className="hidden md:grid grid-cols-[minmax(0,1.4fr)_120px_150px_minmax(0,1fr)_292px] gap-4 px-5 py-3 border-b border-[var(--border)] text-[12px] text-[var(--ink-muted)] font-medium">
+          <div className="hidden md:grid grid-cols-[minmax(0,1.4fr)_120px_150px_minmax(0,1fr)_344px] gap-4 px-5 py-3 border-b border-[var(--border)] text-[12px] text-[var(--ink-muted)] font-medium">
             <span>Supplier</span>
             <span>Dated</span>
             <span className="text-right">Amount</span>
@@ -172,7 +172,7 @@ export default function Bills() {
               return (
                 <div
                   key={bill.id}
-                  className="group grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1.4fr)_120px_150px_minmax(0,1fr)_292px] gap-x-4 gap-y-1 px-5 py-4 items-center"
+                  className="group grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1.4fr)_120px_150px_minmax(0,1fr)_344px] gap-x-4 gap-y-1 px-5 py-4 items-center"
                 >
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-[var(--ink)] truncate">

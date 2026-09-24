@@ -53,7 +53,7 @@ export default function Attention() {
   const items = data?.items || [];
 
   return (
-    <div className="max-w-[760px]">
+    <div className="max-w-[760px] 2xl:max-w-none">
       <h1 className="font-display text-[28px] font-semibold tracking-tight text-[var(--ink)]">
         What needs you
       </h1>
@@ -62,9 +62,12 @@ export default function Attention() {
         here will interrupt you.
       </p>
 
-      <GettingStarted className="mt-6" />
+      {/* On a wide screen the list keeps a readable width and setup sits beside
+          it, rather than the list stretching or half the screen standing empty. */}
+      <div className="2xl:grid 2xl:grid-cols-[minmax(0,1fr)_380px] 2xl:gap-8 2xl:items-start">
+      <GettingStarted className="mt-6 2xl:mt-7 2xl:order-2 2xl:sticky 2xl:top-6" />
 
-      <div className="mt-7">
+      <div className="mt-7 2xl:order-1">
         {isLoading ? (
           <div className="space-y-2">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -129,6 +132,7 @@ export default function Attention() {
             })}
           </ul>
         )}
+      </div>
       </div>
     </div>
   );

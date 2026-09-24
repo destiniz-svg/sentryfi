@@ -74,7 +74,7 @@ export function AppShell() {
   return (
     <div className="min-h-screen flex bg-[var(--bg)]">
       <Sidebar />
-      <main className="phone-soft flex-1 min-w-0 px-4 sm:px-6 md:px-8 py-5 md:py-6 pb-32 md:pb-6 max-w-[1600px] mx-auto w-full">
+      <main className="phone-soft flex-1 min-w-0 px-4 sm:px-6 md:px-8 py-5 md:py-6 pb-32 md:pb-6 max-w-[1600px] min-[2200px]:max-w-[1880px] mx-auto w-full">
         <Topbar onOpenPalette={openPalette} />
         {/* A CSS fade, not a framer-motion one. The framer version waited for
             the old page to leave, and when the new page was a screen not yet
