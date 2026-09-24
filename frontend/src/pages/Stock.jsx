@@ -118,7 +118,7 @@ export default function Stock() {
                   </button>
                   <div className="text-[14px] xl:text-right tabular">
                     {i.onHand} <span className="text-[var(--ink-muted)]">{i.unit}</span>
-                    {i.places && <span className="block text-[12px] text-[var(--ink-muted)]">{i.places.map((p) => `${p.name} ${p.onHand}`).join(" · ")}</span>}
+                    {i.places && i.places.some((p) => p.id) && <span className="block text-[12px] text-[var(--ink-muted)] whitespace-nowrap">{i.places.map((p) => `${p.name} ${p.onHand}`).join(" · ")}</span>}
                     {i.low && <span className="ml-1.5 inline-block rounded-full bg-[var(--warning)]/15 text-[var(--warning)] text-[11px] font-semibold px-2 py-0.5">Low</span>}
                   </div>
                   <div className="text-[14px] text-right text-[var(--ink-muted)]">

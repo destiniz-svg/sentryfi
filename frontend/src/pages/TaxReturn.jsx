@@ -383,6 +383,11 @@ function IncomeTaxYear() {
     queryFn: () => apiClient.get("/tax/income", { params: { year } }).then((r) => r.data),
     enabled: Boolean(companyId),
   });
+  // Last year is the return to file; with no books in it yet, this year so far says more.
+  if (y && year === thisYear - 1 && y.lines.length === 0) {
+    setYear(thisYear);
+    return null;
+  }
   if ((company?.tax?.code || "MV") !== "MV" || !y) return null;
   const manage = can("manage_settings");
 
