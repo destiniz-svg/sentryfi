@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
-import { FileClock, Banknote, Bot, Building2, Languages, Receipt, Boxes, CheckCheck, ChevronRight, ClipboardList, DatabaseBackup, FileText, HandCoins, HardHat, Lock, LogOut, Moon, Package, Palette, Percent, Scale, Settings, Ship, Sunrise, Upload, User, Users, Wallet , Gauge } from "lucide-react";
+import { Bot, ChevronRight, DatabaseBackup, Languages, LogOut, Moon, Receipt, User, Users } from "lucide-react";
+import { SECTIONS } from "@/lib/sections";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useCompany } from "@/context/CompanyContext";
@@ -7,9 +8,10 @@ import { PushSwitch } from "@/components/PushSwitch";
 import { useT } from "@/lib/i18n";
 
 /**
- * More, in the main app on a phone: everything that is not a daily place,
- * grouped the way an owner thinks about it — the books, the company, and
- * themselves. Rows a person cannot open are left out rather than refused.
+ * More, in the main app on a phone: every place, in the same sections as the
+ * desk's rail (Sales, Purchases, Banking, Team, Inventory, Projects,
+ * Accounting, Company), then the person themselves. Rows a person cannot open
+ * are left out rather than refused.
  */
 
 function Group({ title, rows }) {
@@ -51,54 +53,39 @@ function Group({ title, rows }) {
   );
 }
 
+// Phone-only places, added to the section they belong to.
+const EXTRAS = {
+  Purchases: [{ name: "The expenses app", icon: Receipt, to: "/go" }],
+  Team: [{ name: "People and roles", icon: Users, to: "/settings?tab=people", can: "manage_people" }],
+  Company: [{ name: "Your assistant", icon: Bot, to: "/settings?tab=assistant" }],
+};
+
 export default function More() {
   const { user, logout } = useAuth();
   const { theme, toggle } = useTheme();
   const { can, company, companies } = useCompany();
   const navigate = useNavigate();
   const { lang, setLang } = useT();
+  const tax = company?.tax?.tax || "GST";
+  const allowed = (it) => (!it.can || can(it.can)) && (!it.multi || companies.length > 1);
 
   return (
     <div className="max-w-xl space-y-4">
       <h1 className="font-display text-[28px] font-semibold tracking-tight">More</h1>
-      <Group
-        title="The books"
-        rows={[
-          can("read") && { name: "The CFO: the morning brief", icon: Sunrise, to: "/cfo" },
-          can("read") && { name: "Analytics", icon: Gauge, to: "/analytics" },
-          { name: "Statements", icon: Scale, to: "/statements" },
-          { name: "Projects", icon: HardHat, to: "/projects" },
-          { name: "Orders", icon: ClipboardList, to: "/orders" },
-          { name: "Expense claims", icon: Wallet, to: "/claims" },
-          { name: "The expenses app", icon: Receipt, to: "/go" },
-          can("approve") && { name: "Approvals", icon: CheckCheck, to: "/approvals" },
-          { name: "Proforma and retainers", icon: FileClock, to: "/advances" },
-          can("record") && { name: "Payments", icon: Banknote, to: "/payments" },
-          can("run_payroll") && { name: "Payroll", icon: Users, to: "/payroll" },
-          { name: "My payslips", icon: FileText, to: "/payslips" },
-          { name: "Items", icon: Boxes, to: "/stock" },
-          { name: "Shipments", icon: Ship, to: "/shipments" },
-          { name: "Fixed assets", icon: Package, to: "/assets" },
-          { name: "Closing a month or year", icon: Lock, to: "/closing" },
-          { name: `${company?.tax?.tax || "GST"} return`, icon: Percent, to: "/tax" },
-          can("manage_settings") && { name: "Bring history in", icon: Upload, to: "/import" },
-        ]}
-      />
-      <Group
-        title="The company"
-        rows={[
-          companies.length > 1 && { name: "All your companies", icon: Building2, to: "/practice" },
-          { name: "Invoices", icon: FileText, to: "/invoices" },
-          can("manage_people") && { name: "People", icon: Users, to: "/settings?tab=people" },
-          { name: "Cash tins", icon: Wallet, to: "/bank" },
-          { name: "Loans", icon: HandCoins, to: "/loans" },
-          user?.platformAdmin && { name: "Backups", icon: DatabaseBackup, to: "/settings?tab=backups" },
-          user?.platformAdmin && { name: "Developer portal", icon: DatabaseBackup, to: "/developer" },
-          { name: "Branding and documents", icon: Palette, to: "/branding" },
-          { name: "Your assistant", icon: Bot, to: "/settings?tab=assistant" },
-          { name: "Settings", icon: Settings, to: "/settings", side: company?.name },
-        ]}
-      />
+      {/* The same sections as the desk's rail, so a place is found in the same spot on both. Home is the tab bar's. */}
+      {SECTIONS.map((sec) => (
+        <Group
+          key={sec.label}
+          title={sec.label}
+          rows={[
+            ...sec.items.filter((it) => it.to !== "/dashboard" && allowed(it)).map((it) => ({ name: it.to === "/tax" ? `${tax} return` : it.label, icon: it.icon, to: it.to, side: it.to === "/settings" ? company?.name : undefined })),
+            ...(EXTRAS[sec.label] || []).filter(allowed),
+            ...(sec.label === "Company" && user?.platformAdmin
+              ? [{ name: "Backups", icon: DatabaseBackup, to: "/settings?tab=backups" }, { name: "Developer portal", icon: DatabaseBackup, to: "/developer" }]
+              : []),
+          ]}
+        />
+      ))}
       <Group
         title="You"
         rows={[

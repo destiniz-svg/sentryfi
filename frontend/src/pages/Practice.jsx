@@ -29,7 +29,7 @@ export default function Practice() {
 
   return (
     <div className="max-w-[1100px]">
-      <PageHeader title="All your companies" description="Every set of books you keep, and what each needs, in one place." />
+      <PageHeader title="All companies" description="Every set of books you keep, and what each needs, in one place." />
       {isLoading || !data ? (
         <div className="grid gap-4 md:grid-cols-2">
           <Skeleton className="h-64 rounded-[24px]" />

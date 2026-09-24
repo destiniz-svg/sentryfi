@@ -56,8 +56,8 @@ export default function Advances() {
   return (
     <div>
       <PageHeader
-        title="Proforma and retainers"
-        description="Ask for money before the tax invoice, keep what is paid for the customer, and use it when you invoice."
+        title="Advance billing"
+        description="Proforma and retainer invoices: ask for money before the tax invoice, keep what is paid for the customer, and use it when you invoice."
         actions={
           can("record") && (
             <Button variant="accent" onClick={() => setMaking("proforma")}>

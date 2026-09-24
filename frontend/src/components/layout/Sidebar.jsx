@@ -1,12 +1,12 @@
 import { PORTAL_URL } from "@/lib/portal";
 import { trialLine } from "./TrialStrip";
 import { useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { ChevronRight, LogOut, TerminalSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
-import { SECTIONS, sectionOf } from "@/lib/sections";
+import { SECTIONS, sectionOf, isHere } from "@/lib/sections";
 import { ROLE_TEXT } from "@/lib/roles";
 import AILogo from "./AILogo";
 import { useT } from "@/lib/i18n";
@@ -27,23 +27,24 @@ const KEY = "sentryfi.rail";
 
 function Item({ to, icon: Icon, label: english }) {
   const { t } = useT();
+  const { pathname, search } = useLocation();
   const label = t(english);
+  // A place with a query (Quotes, Sales orders, Purchase orders) is current only on its own kind.
+  const here = to === "/dashboard" ? pathname === to : isHere(to, pathname, search);
   return (
-    <NavLink
+    <Link
       to={to}
-      end={to === "/dashboard"}
       title={label}
       aria-label={label}
-      className={({ isActive }) =>
-        cn(
+      aria-current={here ? "page" : undefined}
+      className={cn(
           "flex items-center gap-3 h-10 mx-2 lg:mx-3 px-0 lg:px-3 rounded-xl justify-center lg:justify-start transition-colors",
-          isActive ? "bg-[var(--ink)] text-[var(--bg)]" : "text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
-        )
-      }
+          here ? "bg-[var(--ink)] text-[var(--bg)]" : "text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+      )}
     >
       <Icon size={19} strokeWidth={2} aria-hidden="true" className="shrink-0" />
       <span className={cn(LABEL, "hidden lg:inline truncate")}>{label}</span>
-    </NavLink>
+    </Link>
   );
 }
 
@@ -51,7 +52,7 @@ function Item({ to, icon: Icon, label: english }) {
 function useFolded() {
   const [folded, setFolded] = useState(() => {
     try {
-      return new Set(JSON.parse(localStorage.getItem(KEY) || "null") ?? ["Work and assets", "The books"]);
+      return new Set(JSON.parse(localStorage.getItem(KEY) || "null") ?? ["Inventory", "Projects", "Accounting"]);
     } catch {
       return new Set();
     }
@@ -105,10 +106,10 @@ export function Sidebar() {
   const { company, companies, roles, can } = useCompany();
   const multi = (companies || []).length > 1;
   const tax = company?.tax?.tax || "GST";
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const role = ROLE_TEXT[roles?.[0]]?.label;
   const [folded, toggle] = useFolded();
-  const here = sectionOf(pathname);
+  const here = sectionOf(pathname, search);
   const isOpen = (label) => label === here || !folded.has(label);
 
   return (

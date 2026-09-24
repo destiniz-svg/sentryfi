@@ -65,7 +65,7 @@ export default function Statements() {
   return (
     <div className="max-w-[1100px]">
       <PageHeader
-        title="Statements"
+        title="Reports"
         description="From the journal, for the date you ask."
         actions={
           <div className="flex items-center gap-4">

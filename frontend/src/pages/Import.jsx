@@ -209,7 +209,7 @@ export default function Import() {
 
   return (
     <div>
-      <PageHeader title="Bring history in" description="From another accounting system: connected directly, or as a CSV export." />
+      <PageHeader title="Import history" description="From another accounting system: connected directly, or as a CSV export." />
 
       <ZohoCard
         busy={look.isPending}

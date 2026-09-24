@@ -19,7 +19,7 @@ const PAGES = [
   ["/figures", "Figures"],
   ["/bills", "Bills"],
   ["/invoices", "Invoices"],
-  ["/bank", "Bank and cash"],
+  ["/bank", "Bank & cash"],
   ["/cash", "Cash"],
   ["/closing", "Closing"],
   ["/statements", "Statements"],

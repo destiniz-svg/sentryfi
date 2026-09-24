@@ -61,7 +61,7 @@ export default function Bank() {
   return (
     <div>
       <PageHeader
-        title="Bank and cash"
+        title="Bank & cash"
         description="Where the money is, from the books."
         actions={
           <div className="flex gap-2">

@@ -15,10 +15,10 @@ import { useT } from "@/lib/i18n";
 export function Topbar({ onOpenPalette }) {
   const { theme, toggle } = useTheme();
   const { user } = useAuth();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const firstName = user?.name?.split(" ")[0] || "there";
   const { t } = useT();
-  const crumbs = trail(pathname).map((c) => t(c));
+  const crumbs = trail(pathname, search).map((c) => t(c));
 
   const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/i.test(navigator.platform);
 
