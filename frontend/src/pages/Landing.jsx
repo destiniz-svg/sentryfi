@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { AnimatePresence, motion, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform } from "framer-motion";
+import { AnimatePresence, motion, useInView, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform } from "framer-motion";
 import { ArrowRight, Check, RotateCcw } from "lucide-react";
 import AILogo from "@/components/layout/AILogo";
 import Reveal from "@/components/marketing/Reveal";
@@ -241,26 +241,29 @@ function Receipt({ bill }) {
 // The signature: a bill booking itself onto the rule until the check line agrees.
 function LevelBook() {
   const still = useReducedMotion();
+  const ref = useRef(null);
+  // Books itself when it is on screen, not at load: on a phone it sits below the fold and was done before anyone got there.
+  const seen = useInView(ref, { amount: 0.5 });
   const [which, setWhich] = useState(0);
-  const [step, setStep] = useState(still ? 99 : 0);
+  const [step, setStep] = useState(0);
   const bill = BILLS[which];
   const lines = bill.rows.length + 1;
   const sum = bill.rows.reduce((a, r) => a + r[2], 0);
 
   useEffect(() => {
-    if (still) return undefined;
+    if (!seen) return undefined;
     const t = setInterval(() => setStep((s) => (s > lines + 1 ? s : s + 1)), 560);
     return () => clearInterval(t);
-  }, [which, lines, still]);
+  }, [which, lines, seen]);
 
   const done = step > lines;
   const pick = (i) => {
     setWhich(i);
-    setStep(still ? 99 : 0);
+    setStep(0);
   };
 
   return (
-    <div className="relative">
+    <div ref={ref} className="relative">
       <div className="flex flex-wrap gap-0 border-2 border-[#141414] w-fit" role="tablist" aria-label="Four ways a bill arrives">
         {BILLS.map((b, i) => (
           <button
@@ -363,8 +366,8 @@ function Row({ shown, dir, still, children }) {
   return (
     <motion.div
       className="grid grid-cols-[minmax(0,1fr)_104px] sm:grid-cols-[minmax(0,1fr)_112px] gap-6 items-center px-4 min-h-[58px] py-2 border-b border-[#E6E7EA]"
-      initial={still ? false : { opacity: 0, y: dir === "in" ? 16 : -16 }}
-      animate={shown ? { opacity: 1, y: 0 } : { opacity: 0, y: dir === "in" ? 16 : -16 }}
+      initial={{ opacity: 0, y: still ? 0 : dir === "in" ? 16 : -16 }}
+      animate={shown ? { opacity: 1, y: 0 } : { opacity: 0, y: still ? 0 : dir === "in" ? 16 : -16 }}
       transition={{ duration: 0.5, ease: EASE }}
     >
       {children}
@@ -429,9 +432,16 @@ function Readings() {
               <h3 className="font-display text-[clamp(28px,3vw,40px)] leading-[1.02] font-bold uppercase tracking-[.01em]">{x.title}</h3>
             </div>
             <p className="mt-4 text-[17px] leading-[1.55] text-[#3D4046] max-w-[46ch]">{x.body}</p>
-            <div className="lg:hidden mt-6 border-2 border-[#141414] bg-[#F4F4F2] p-4 flex justify-center">
-              <Screen r={x} />
-            </div>
+            {/* The outer box is what is watched: a fully clipped element never counts as on screen. */}
+            <motion.div className="lg:hidden mt-6" initial="hidden" whileInView="shown" viewport={{ once: true, amount: 0.2 }}>
+              <motion.div
+                className="border-2 border-[#141414] bg-[#F4F4F2] p-4 flex justify-center"
+                variants={still ? { hidden: { opacity: 0 }, shown: { opacity: 1 } } : { hidden: { clipPath: "inset(0 0 100% 0)" }, shown: { clipPath: "inset(0 0 0% 0)" } }}
+                transition={{ duration: 0.7, ease: EASE }}
+              >
+                <Screen r={x} />
+              </motion.div>
+            </motion.div>
           </li>
         ))}
       </ol>
