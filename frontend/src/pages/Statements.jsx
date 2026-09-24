@@ -63,7 +63,7 @@ export default function Statements() {
   });
 
   return (
-    <div>
+    <div className="max-w-[1100px]">
       <PageHeader
         title="Statements"
         description="From the journal, for the date you ask."
@@ -162,7 +162,7 @@ function Verdict({ ok, yes, no }) {
 function Trial({ t }) {
   const cols = "grid-cols-[minmax(0,1fr)_84px_84px] sm:grid-cols-[70px_minmax(0,1fr)_130px_130px]";
   return (
-    <Card padding="none" className="overflow-hidden max-w-[1100px]">
+    <Card padding="none" className="overflow-hidden">
       <div className="flex items-center justify-between px-5 pt-4">
         <h2 className="text-[15px] font-semibold">Trial balance as at {niceDate(t.asAt)}</h2>
         <Button
@@ -257,7 +257,7 @@ function ProfitAndLoss({ p }) {
   const q = p.prior;
   const cols = q ? "grid-cols-[minmax(0,1fr)_110px] sm:grid-cols-[70px_minmax(0,1fr)_150px_150px]" : "grid-cols-[minmax(0,1fr)_110px] sm:grid-cols-[70px_minmax(0,1fr)_150px]";
   return (
-    <Card padding="none" className="overflow-hidden max-w-[1100px]">
+    <Card padding="none" className="overflow-hidden">
       <div className="flex items-center justify-between px-5 pt-4">
         <h2 className="text-[15px] font-semibold">
           Profit and loss, {niceDate(p.from)} to {niceDate(p.to)}
@@ -329,7 +329,7 @@ function BalanceSheet({ b }) {
   const cols = q ? "grid-cols-[minmax(0,1fr)_110px] sm:grid-cols-[70px_minmax(0,1fr)_150px_150px]" : "grid-cols-[minmax(0,1fr)_110px] sm:grid-cols-[70px_minmax(0,1fr)_150px]";
   const equity = equityOf(b);
   return (
-    <Card padding="none" className="overflow-hidden max-w-[1100px]">
+    <Card padding="none" className="overflow-hidden">
       <div className="flex items-center justify-between px-5 pt-4">
         <h2 className="text-[15px] font-semibold">Balance sheet as at {niceDate(b.asAt)}</h2>
         <Button
