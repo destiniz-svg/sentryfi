@@ -119,7 +119,7 @@ export default function Trust() {
               <div>
                 <h2 className="text-[17px] font-semibold">A person, when you need one</h2>
                 <p className="mt-2 text-[15px] leading-relaxed opacity-80">
-                  Write to <a href="mailto:support@sentryfi.app" className="underline underline-offset-2 text-inherit">support@sentryfi.app</a>. A person reads every message and answers it; so does a security question, which goes to the front of the queue.
+                  Write to <a href="mailto:support@sentryfi.app" className="font-semibold text-[#F2C300] underline underline-offset-4 decoration-[#F2C300]/60 hover:decoration-[#F2C300]">support@sentryfi.app</a>. A person reads every message and answers it; so does a security question, which goes to the front of the queue.
                 </p>
               </div>
             </div>

@@ -840,6 +840,9 @@ export default function Landing() {
           <Link to="/trust" className="text-[14px] text-[#0F4C5C] underline underline-offset-4 hover:text-[#141414]">
             What happens to your books
           </Link>
+          <a href="mailto:support@sentryfi.app" className="text-[14px] text-[#0F4C5C] underline underline-offset-4 hover:text-[#141414]">
+            support@sentryfi.app
+          </a>
           <p className="sm:ml-auto text-[13px] text-[#5F646C]">Bills and figures on this page are illustrative.</p>
         </div>
       </footer>
