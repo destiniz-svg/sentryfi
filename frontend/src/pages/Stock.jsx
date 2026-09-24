@@ -91,7 +91,7 @@ export default function Stock() {
             </Card>
           </div>
           <Card padding="none" className="overflow-hidden">
-            <div className="hidden md:grid grid-cols-[minmax(0,1.6fr)_110px_120px_130px_130px_230px] gap-4 px-5 py-3 border-b border-[var(--border)] text-[12px] font-medium text-[var(--ink-muted)]">
+            <div className="hidden xl:grid grid-cols-[minmax(0,1.6fr)_110px_120px_130px_130px_230px] gap-4 px-5 py-3 border-b border-[var(--border)] text-[12px] font-medium text-[var(--ink-muted)]">
               <span>Item</span>
               <span className="text-right">On hand</span>
               <span className="text-right">Average cost</span>
@@ -104,31 +104,31 @@ export default function Stock() {
                 <div
                   key={i.id}
                   data-testid="stock-row"
-                  className="grid grid-cols-2 md:grid-cols-[minmax(0,1.6fr)_110px_120px_130px_130px_230px] gap-x-4 gap-y-1 px-5 py-4 items-center"
+                  className="grid grid-cols-2 xl:grid-cols-[minmax(0,1.6fr)_110px_120px_130px_130px_230px] gap-x-4 gap-y-1 px-5 py-4 items-center"
                 >
-                  <button type="button" onClick={() => setLooking(i)} className="min-w-0 col-span-2 md:col-span-1 text-left">
+                  <button type="button" onClick={() => setLooking(i)} className="min-w-0 col-span-2 xl:col-span-1 text-left">
                     <div className="text-[15px] font-semibold truncate hover:underline">{i.name}</div>
                     <div className="text-[13px] text-[var(--ink-muted)] truncate">
                       {i.code ? `${i.code} · ` : ""}
                       {i.salePrice ? `sells at MVR ${i.salePrice} a ${i.unit}` : `by the ${i.unit}`}
                     </div>
                   </button>
-                  <div className="text-[14px] md:text-right tabular">
+                  <div className="text-[14px] xl:text-right tabular">
                     {i.onHand} <span className="text-[var(--ink-muted)]">{i.unit}</span>
                     {i.low && <span className="ml-1.5 inline-block rounded-full bg-[var(--warning)]/15 text-[var(--warning)] text-[11px] font-semibold px-2 py-0.5">Low</span>}
                   </div>
                   <div className="text-[14px] text-right text-[var(--ink-muted)]">
-                    <span className="md:hidden text-[12px] mr-1.5">average</span>
+                    <span className="xl:hidden text-[12px] mr-1.5">average</span>
                     {i.averageCost ? <Money amount={i.averageCost} /> : "—"}
                   </div>
-                  <div className="text-[15px] font-semibold md:text-right">
-                    <span className="md:hidden text-[12px] font-normal text-[var(--ink-muted)] mr-1.5">worth</span>
+                  <div className="text-[15px] font-semibold xl:text-right">
+                    <span className="xl:hidden text-[12px] font-normal text-[var(--ink-muted)] mr-1.5">worth</span>
                     <Money amount={i.value} />
                   </div>
                   <div className="text-[14px] text-right">
                     {n(i.sales) > 0 ? (
                       <>
-                        <span className="md:hidden text-[12px] text-[var(--ink-muted)] mr-1.5">earned</span>
+                        <span className="xl:hidden text-[12px] text-[var(--ink-muted)] mr-1.5">earned</span>
                         <Money amount={i.margin} />
                         <span className="block text-[12px] text-[var(--ink-muted)]">{i.marginPercent}% of sales</span>
                       </>
@@ -136,7 +136,7 @@ export default function Stock() {
                       <span className="text-[var(--ink-muted)]">Not sold yet</span>
                     )}
                   </div>
-                  <div className="col-span-2 md:col-span-1 flex gap-2 md:justify-end">
+                  <div className="col-span-2 xl:col-span-1 flex gap-2 xl:justify-end">
                     {can("record") && (
                       <>
                         {n(i.onHand) === 0 && n(i.sold) === 0 && (

@@ -99,7 +99,7 @@ export default function Assets() {
         </Card>
       ) : (
         <Card padding="none" className="overflow-hidden">
-          <div className="hidden md:grid grid-cols-[minmax(0,1.6fr)_110px_120px_120px_130px_160px] gap-4 px-5 py-3 border-b border-[var(--border)] text-[12px] font-medium text-[var(--ink-muted)]">
+          <div className="hidden xl:grid grid-cols-[minmax(0,1.6fr)_110px_120px_120px_130px_160px] gap-4 px-5 py-3 border-b border-[var(--border)] text-[12px] font-medium text-[var(--ink-muted)]">
             <span>Asset</span>
             <span>Bought</span>
             <span className="text-right">Cost</span>
@@ -109,8 +109,8 @@ export default function Assets() {
           </div>
           <div className="divide-y divide-[var(--border)]">
             {list.map((a) => (
-              <div key={a.id} className="grid grid-cols-2 md:grid-cols-[minmax(0,1.6fr)_110px_120px_120px_130px_160px] gap-x-4 gap-y-1 px-5 py-4 items-center">
-                <div className="min-w-0 col-span-2 md:col-span-1">
+              <div key={a.id} className="grid grid-cols-2 xl:grid-cols-[minmax(0,1.6fr)_110px_120px_120px_130px_160px] gap-x-4 gap-y-1 px-5 py-4 items-center">
+                <div className="min-w-0 col-span-2 xl:col-span-1">
                   <div className="text-[15px] font-semibold truncate">{a.name}</div>
                   <div className="text-[13px] text-[var(--ink-muted)] truncate">
                     {a.categoryName} ·{" "}
@@ -121,13 +121,13 @@ export default function Assets() {
                 <div className="text-[14px] text-right">
                   <Money amount={a.cost} />
                 </div>
-                <div className="text-[14px] text-right text-[var(--ink-muted)] hidden md:block">
+                <div className="text-[14px] text-right text-[var(--ink-muted)] hidden xl:block">
                   <Money amount={a.worn} />
                 </div>
                 <div className="text-[15px] font-semibold text-right">
                   {a.disposedOn ? <Badge tone="neutral">{Number(a.proceeds?.replace(/,/g, "")) > 0 ? "Sold" : "Scrapped"}</Badge> : <Money amount={a.bookValue} />}
                 </div>
-                <div className="col-span-2 md:col-span-1 md:text-right">
+                <div className="col-span-2 xl:col-span-1 xl:text-right">
                   {!a.disposedOn && can("adjust") && (
                     <Button variant="outline" size="sm" onClick={() => setSelling(a)}>
                       Sold or scrapped

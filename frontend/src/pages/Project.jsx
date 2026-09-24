@@ -302,7 +302,7 @@ export default function Project() {
                     </span>
                     <Money amount={v.amount} className="text-[15px] font-semibold" />
                   </div>
-                  <div className="flex items-center justify-between gap-3 mt-1">
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mt-1">
                     {v.status === "approved" ? (
                       <Badge tone="success">Approved {formatDate(v.decidedOn)}</Badge>
                     ) : v.status === "rejected" ? (
@@ -375,9 +375,10 @@ export default function Project() {
           {p.hours.entries.length > 0 && (
             <ul className="divide-y divide-[var(--border)] mt-2" data-testid="hours">
               {p.hours.entries.map((h) => (
-                <li key={h.id} className="py-2 flex items-baseline justify-between gap-3">
-                  <span className="text-[14px] min-w-0 truncate">
-                    {h.who} <span className="text-[var(--ink-muted)]">· {formatDate(h.on)}{h.note ? ` · ${h.note}` : ""}</span>
+                <li key={h.id} className="py-2 flex items-center justify-between gap-3">
+                  <span className="text-[14px] min-w-0">
+                    <span className="block truncate">{h.who}</span>
+                    <span className="block truncate text-[12px] text-[var(--ink-muted)]">{formatDate(h.on)}{h.note ? ` · ${h.note}` : ""}</span>
                   </span>
                   <span className="flex items-baseline gap-2 text-[14px] tabular shrink-0">
                     {h.hours} h{h.rate ? <span className="text-[12px] text-[var(--ink-muted)]">at {h.rate}</span> : null}

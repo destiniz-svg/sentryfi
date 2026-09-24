@@ -146,7 +146,7 @@ export default function Bills() {
         />
       ) : (
         <Card padding="none" className="overflow-hidden">
-          <div className="hidden md:grid grid-cols-[minmax(0,1.4fr)_120px_150px_minmax(0,1fr)_344px] gap-4 px-5 py-3 border-b border-[var(--border)] text-[12px] text-[var(--ink-muted)] font-medium">
+          <div className="hidden xl:grid grid-cols-[minmax(0,1.4fr)_120px_150px_minmax(0,1fr)_344px] gap-4 px-5 py-3 border-b border-[var(--border)] text-[12px] text-[var(--ink-muted)] font-medium">
             <span>Supplier</span>
             <span>Dated</span>
             <span className="text-right">Amount</span>
@@ -172,7 +172,7 @@ export default function Bills() {
               return (
                 <div
                   key={bill.id}
-                  className="group grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1.4fr)_120px_150px_minmax(0,1fr)_344px] gap-x-4 gap-y-1 px-5 py-4 items-center"
+                  className="group grid grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,1.4fr)_120px_150px_minmax(0,1fr)_344px] gap-x-4 gap-y-1 px-5 py-4 items-center"
                 >
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-[var(--ink)] truncate">
@@ -185,7 +185,7 @@ export default function Bills() {
                     )}
                   </div>
 
-                  <div className="text-sm text-[var(--ink-muted)] tabular hidden md:block">
+                  <div className="text-sm text-[var(--ink-muted)] tabular hidden xl:block">
                     {bill.issue_date ? formatDate(bill.issue_date) : "—"}
                   </div>
 
@@ -200,7 +200,7 @@ export default function Bills() {
                     )}
                   </div>
 
-                  <div className="order-3 md:order-none col-span-2 md:col-span-1 flex items-start justify-between gap-2">
+                  <div className="order-3 xl:order-none col-span-2 xl:col-span-1 flex items-start justify-between gap-2">
                     <div className="min-w-0">
                     <Badge tone={isVoid ? "neutral" : status.tone} title={bill.void_reason || undefined}>
                       {isVoid ? "Void" : status.label}
@@ -211,10 +211,10 @@ export default function Bills() {
                       </span>
                     )}
                     </div>
-                    <div className="md:hidden -my-2 -mr-2">{menu}</div>
+                    <div className="xl:hidden -my-2 -mr-2">{menu}</div>
                   </div>
 
-                  <div className={`order-4 md:order-none col-span-2 md:col-span-1 md:justify-self-end flex-wrap items-center gap-1.5 ${decide ? "flex" : "hidden md:flex"}`}>
+                  <div className={`order-4 xl:order-none col-span-2 xl:col-span-1 xl:justify-self-end flex-wrap items-center gap-1.5 ${decide ? "flex" : "hidden xl:flex"}`}>
                     {canRecord && !isVoid && bill.status !== "posted" && (
                       <Button variant="ghost" onClick={() => setSplitting(bill)} aria-label={`What the bill from ${bill.supplier_name || "this supplier"} was for`}>
                         <ListTree size={14} /> What it was for
@@ -230,7 +230,7 @@ export default function Bills() {
                         Put in the books
                       </Button>
                     )}
-                    <div className="hidden md:block">{menu}</div>
+                    <div className="hidden xl:block">{menu}</div>
                   </div>
                 </div>
               );
@@ -286,7 +286,7 @@ function RowMenu({ label, items, busy }) {
         {busy ? <Loader2 size={15} className="animate-spin" /> : <MoreHorizontal size={18} />}
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 bottom-full mb-1 md:bottom-auto md:top-full md:mt-1 md:mb-0 z-20 min-w-[200px] rounded-2xl bg-[var(--surface)] p-1.5 shadow-[0_12px_32px_-12px_rgb(0_0_0/0.3)] border border-[var(--border)]">
+        <div role="menu" className="absolute right-0 bottom-full mb-1 xl:bottom-auto xl:top-full xl:mt-1 xl:mb-0 z-20 min-w-[200px] rounded-2xl bg-[var(--surface)] p-1.5 shadow-[0_12px_32px_-12px_rgb(0_0_0/0.3)] border border-[var(--border)]">
           {items.map((it) => (
             <button
               key={it.label}
