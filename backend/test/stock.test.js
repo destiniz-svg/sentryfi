@@ -291,3 +291,64 @@ describe("stock kept in more than one place", () => {
       expect(h.find((x) => x.kind === "moved").note).toBe("From Main store to The yard");
     }));
 });
+
+describe("products and services", () => {
+  const balanceOf = async (client, companyId, code) =>
+    BigInt((await client.query(
+      `SELECT COALESCE(SUM(l.debit_laari - l.credit_laari), 0) AS b FROM journal_lines l JOIN accounts a ON a.id = l.account_id WHERE a.company_id = $1 AND a.code = $2`,
+      [companyId, code]
+    )).rows[0].b);
+
+  it("sells a service on its own income account, with no stock and no cost of sales", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      const hire = (await client.query("INSERT INTO accounts (company_id, code, name, type) VALUES ($1,'4200','Equipment rental','income') RETURNING id", [companyId])).rows[0].id;
+      const { rows } = await client.query(
+        "INSERT INTO stock_items (company_id, name, unit, kind, counted, income_account_id, created_by) VALUES ($1,'Excavator hire','day','service',false,$2,$3) RETURNING id",
+        [companyId, hire, userId]
+      );
+      await shop.sell([{ itemId: rows[0].id, quantity: 2.5, unitPrice: "3000.00" }]);
+      expect(await balanceOf(client, companyId, "4200")).toBe(-750000n);
+      expect(await balanceOf(client, companyId, "4100")).toBe(0n);
+      expect(await balanceOf(client, companyId, "5050")).toBe(0n);
+      const { rows: moves } = await client.query("SELECT 1 FROM stock_moves WHERE company_id = $1", [companyId]);
+      expect(moves).toHaveLength(0);
+    }));
+
+  it("buys an uncounted product as a cost on its own kind of cost, and never counts it", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      const bolts = (await client.query(
+        "INSERT INTO stock_items (company_id, name, unit, counted, cost_account_id, created_by) VALUES ($1,'Nuts and bolts','box',false,$2,$3) RETURNING id",
+        [companyId, shop.accounts.expense, userId]
+      )).rows[0].id;
+      await shop.buy([{ itemId: bolts, quantity: "4", amount: "400.00" }]);
+      expect(await shop.tied()).toBe(0n);
+      const { rows: moves } = await client.query("SELECT 1 FROM stock_moves WHERE company_id = $1", [companyId]);
+      expect(moves).toHaveLength(0);
+      const { rows: cost } = await client.query(
+        "SELECT SUM(debit_laari) AS d FROM journal_lines WHERE company_id = $1 AND account_id = $2",
+        [companyId, shop.accounts.expense]
+      );
+      expect(BigInt(cost[0].d)).toBe(40000n);
+      await expect(stock.count(client, { companyId, userId, itemId: bolts, counted: "3", on: "2026-09-21" })).rejects.toThrow(/is not counted/);
+    }));
+
+  it("asks for a kind of cost when an uncounted product has none", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      const sand = (await client.query("INSERT INTO stock_items (company_id, name, counted, created_by) VALUES ($1,'Sand',false,$2) RETURNING id", [companyId, userId])).rows[0].id;
+      await expect(shop.buy([{ itemId: sand, quantity: "1", amount: "50.00" }])).rejects.toThrow(/Say which kind of cost/);
+    }));
+
+  it("never keeps count of a service", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      await expect(
+        client.query("INSERT INTO stock_items (company_id, name, kind, counted, created_by) VALUES ($1,'Design','service',true,$2)", [shop.companyId, shop.userId])
+      ).rejects.toThrow(/stock_items_service_uncounted/);
+    }));
+});

@@ -63,7 +63,7 @@ function unitsText(u) {
 /** An item and what is on hand of it, locked for the rest of the transaction. */
 async function holding(client, { companyId, itemId }) {
   const { rows } = await client.query(
-    "SELECT id, name, unit, archived_at FROM stock_items WHERE id = $1 AND company_id = $2 FOR UPDATE",
+    "SELECT id, name, unit, archived_at, counted FROM stock_items WHERE id = $1 AND company_id = $2 FOR UPDATE",
     [itemId, companyId]
   );
   if (!rows.length) throw new Error("That item is not in these books.");
@@ -72,6 +72,11 @@ async function holding(client, { companyId, itemId }) {
     [companyId, itemId]
   );
   return { item: rows[0], units: fromDb(sum[0].q), value: BigInt(sum[0].v) };
+}
+
+/** Counts, opening stock and moves are for counted products only. */
+function mustCount(held) {
+  if (!held.item.counted) throw new Error(`${held.item.name} is not counted, so there is no stock of it to count or move. Turn on counting for it first.`);
 }
 
 const MAIN = "main";
@@ -155,7 +160,15 @@ async function undoBillStock(client, { companyId, userId, billId, entryId, on })
  * after the other.
  */
 async function invoiceCost(client, { companyId, userId, invoice, lines }) {
-  const sold = lines.filter((l) => l.item_id);
+  const withItem = lines.filter((l) => l.item_id);
+  if (!withItem.length) return { entryLines: [], record: async () => {} };
+  // A service or an uncounted product sells by name and price only.
+  const { rows: counted } = await client.query(
+    "SELECT id FROM stock_items WHERE company_id = $1 AND id = ANY($2::uuid[]) AND counted",
+    [companyId, [...new Set(withItem.map((l) => l.item_id))]]
+  );
+  const countedIds = new Set(counted.map((r) => r.id));
+  const sold = withItem.filter((l) => countedIds.has(l.item_id));
   if (!sold.length) return { entryLines: [], record: async () => {} };
   const stockAcc = await account(client, companyId, ACCOUNTS.stock);
   const cogsAcc = await account(client, companyId, ACCOUNTS.cogs);
@@ -316,6 +329,7 @@ async function recost(client, { companyId, userId, itemId, since, why }) {
 async function count(client, { companyId, userId, itemId, counted, on, unitCost, note, placeId }) {
   await assumeIdentity(client, { companyId, userId });
   const held = await holding(client, { companyId, itemId });
+  mustCount(held);
   if (placeId) await place(client, { companyId, placeId });
   // Counted at one place, against what the books say is there.
   const there = (await atPlaces(client, { companyId, itemId })).get(placeKey(placeId)) || 0n;
@@ -349,6 +363,7 @@ async function count(client, { companyId, userId, itemId, counted, on, unitCost,
 async function opening(client, { companyId, userId, itemId, quantity, unitCost, on, placeId }) {
   await assumeIdentity(client, { companyId, userId });
   const held = await holding(client, { companyId, itemId });
+  mustCount(held);
   const units = toUnits(quantity);
   const value = (toLaari(unitCost) * units + SCALE / 2n) / SCALE;
   if (value <= 0n) throw new Error("Say what one cost, above zero.");
@@ -392,6 +407,7 @@ async function transfer(client, { companyId, userId, itemId, fromPlaceId, toPlac
   await assumeIdentity(client, { companyId, userId });
   if ((fromPlaceId || null) === (toPlaceId || null)) throw new Error("It is already there.");
   const held = await holding(client, { companyId, itemId });
+  mustCount(held);
   const from = fromPlaceId ? await place(client, { companyId, placeId: fromPlaceId }) : { name: "Main store" };
   const to = toPlaceId ? await place(client, { companyId, placeId: toPlaceId }) : { name: "Main store" };
   const units = toUnits(quantity);
@@ -407,10 +423,11 @@ async function transfer(client, { companyId, userId, itemId, fromPlaceId, toPlac
 
 // ------------------------------------------------------------------ reading
 
-/** Every item with what is on hand, its value, its average cost, and what its sales earned over their cost. */
+/** Every item: what kind it is, how it is bought and sold, and for a counted product what is on hand, its value, its average cost, and what its sales earned over their cost. */
 async function list(client, { companyId }) {
   const { rows } = await client.query(
     `SELECT i.id, i.name, i.code, i.unit, i.sale_price_laari, i.archived_at, i.reorder_at,
+            i.kind, i.counted, i.sells, i.buys, i.buy_price_laari, i.income_account_id, i.cost_account_id,
             COALESCE(SUM(m.quantity), 0) AS on_hand,
             COALESCE(SUM(m.value_laari), 0) AS value,
             COALESCE(SUM(m.sale_net_laari) FILTER (WHERE m.kind IN ('sold','returned')), 0) AS sales,
@@ -447,11 +464,18 @@ async function list(client, { companyId }) {
       name: r.name,
       code: r.code,
       unit: r.unit,
+      kind: r.kind,
+      counted: r.counted,
+      sells: r.sells,
+      buys: r.buys,
+      incomeAccountId: r.income_account_id,
+      costAccountId: r.cost_account_id,
+      buyPrice: r.buy_price_laari === null ? null : formatLaari(BigInt(r.buy_price_laari)),
       salePrice: r.sale_price_laari === null ? null : formatLaari(BigInt(r.sale_price_laari)),
       archived: Boolean(r.archived_at),
       onHand: unitsText(units),
       reorderAt: r.reorder_at === null ? null : unitsText(fromDb(r.reorder_at)),
-      low: r.reorder_at !== null && !r.archived_at && units <= fromDb(r.reorder_at),
+      low: r.counted && r.reorder_at !== null && !r.archived_at && units <= fromDb(r.reorder_at),
       value: formatLaari(value),
       averageCost: units > 0n ? formatLaari((value * SCALE + units / 2n) / units) : null,
       sold: unitsText(fromDb(r.sold)),

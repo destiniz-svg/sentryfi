@@ -128,12 +128,13 @@ async function raise(client, {
 
   const income = await accountByCode(client, { companyId, code: DEFAULT_INCOME });
 
-  // A line can sell a stock item; the item must be this company's.
+  // A line can sell an item, product or service; the item must be this company's,
+  // and its line goes to the item's own income account when it has one.
   const itemIds = [...new Set(lines.map((l) => l.itemId).filter(Boolean))];
   const items = new Map();
   if (itemIds.length) {
     const { rows: found } = await client.query(
-      "SELECT id, name, unit FROM stock_items WHERE company_id = $1 AND id = ANY($2::uuid[]) AND archived_at IS NULL",
+      "SELECT id, name, unit, income_account_id FROM stock_items WHERE company_id = $1 AND id = ANY($2::uuid[]) AND archived_at IS NULL",
       [companyId, itemIds]
     );
     if (found.length !== itemIds.length) throw new Error("One of those items is not in these books.");
@@ -167,7 +168,7 @@ async function raise(client, {
       unitPriceLaari: unit,
       netLaari: split.net,
       taxLaari: split.tax,
-      accountId: line.accountId || income?.id || null,
+      accountId: line.accountId || item?.income_account_id || income?.id || null,
       projectId: line.projectId || projectId || null,
       position: index,
     };

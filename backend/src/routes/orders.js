@@ -64,7 +64,7 @@ router.get(
         const q = async (sql) => (await client.query(sql, [companyId])).rows;
         return {
           accounts: await q("SELECT id, code, name FROM accounts WHERE company_id = $1 AND type = 'expense' AND archived_at IS NULL ORDER BY code"),
-          items: await q("SELECT id, name, unit, sale_price_laari FROM stock_items WHERE company_id = $1 AND archived_at IS NULL ORDER BY lower(name)"),
+          items: await q("SELECT id, name, unit, sale_price_laari, buy_price_laari, kind, counted, sells, buys FROM stock_items WHERE company_id = $1 AND archived_at IS NULL ORDER BY lower(name)"),
           projects: await q("SELECT id, name FROM projects WHERE company_id = $1 AND archived_at IS NULL ORDER BY lower(name)"),
           parties: await q("SELECT id, name, kind FROM counterparties WHERE company_id = $1 AND archived_at IS NULL ORDER BY lower(name)"),
         };

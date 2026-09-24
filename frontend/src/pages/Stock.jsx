@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2, Plus } from "lucide-react";
+import { Box, Loader2, Plus, Wrench } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Money } from "@/components/ui/Money";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { apiClient } from "@/api/client";
 import { useCompany } from "@/context/CompanyContext";
 import { useSendOrKeep } from "@/context/OutboxContext";
@@ -14,10 +15,13 @@ import { useToast } from "@/context/UIContext";
 import { formatDate, today } from "@/lib/utils";
 
 /**
- * Stock: the things bought to be sold. What is on hand, what it cost on
- * average, what it is worth, and what the sales of each have earned over their
- * cost. Buying it happens on a bill and selling it on an invoice; this page
- * adds items, counts them, and takes in stock that was there before Sentryfi.
+ * Items: everything a company buys or sells, in one list. A product is a
+ * thing; a service is work or time. A product can be counted, and then it is
+ * stock: what is on hand, what it cost on average, what it is worth, and what
+ * each sale earned over its cost. Everything else is bought and sold by name
+ * and price, each on its own income and cost account. Buying happens on a
+ * bill and selling on an invoice; this page adds and changes items, counts
+ * them, and takes in stock that was there before Sentryfi.
  */
 
 const FIELD =
@@ -34,31 +38,49 @@ function useRefresh() {
   };
 }
 
+const FILTERS = [
+  ["all", "Everything", () => true],
+  ["product", "Products", (i) => i.kind === "product"],
+  ["service", "Services", (i) => i.kind === "service"],
+  ["counted", "Counted stock", (i) => i.counted],
+];
+
+// What an item is, in a few words: the second line under its name.
+function about(i) {
+  const what = i.kind === "service" ? "Service" : i.counted ? "Counted" : "Product, not counted";
+  const prices = [i.sells && i.salePrice && `sells at MVR ${i.salePrice} a ${i.unit}`, i.buys && i.buyPrice && `buys at MVR ${i.buyPrice}`].filter(Boolean);
+  return [i.code, what, ...prices].filter(Boolean).join(" · ");
+}
+
 export default function Stock() {
   const { companyId, can } = useCompany();
   const refresh = useRefresh();
-  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState(null); // {} to add, an item to change
   const [counting, setCounting] = useState(null);
   const [opening, setOpening] = useState(null);
   const [looking, setLooking] = useState(null);
   const [moving, setMoving] = useState(null);
+  const [filter, setFilter] = useState("all");
 
   const { data, isLoading } = useQuery({
     queryKey: ["stock", companyId],
     queryFn: () => apiClient.get("/stock").then((r) => r.data),
     enabled: Boolean(companyId),
   });
-  const list = (data?.items || []).filter((i) => !i.archived);
+  const all = (data?.items || []).filter((i) => !i.archived);
+  const list = all.filter(FILTERS.find(([k]) => k === filter)[2]);
+  const counted = all.filter((i) => i.counted);
   const places = data?.places || [{ id: null, name: "Main store" }];
+  const accounts = data?.accounts || { income: [], cost: [] };
 
   return (
     <div>
       <PageHeader
-        title="Stock"
-        description="What you buy to sell: how much is on hand, what it cost, and what each item earns."
+        title="Items"
+        description="What you buy and sell: products, counted as stock or not, and services."
         actions={
           can("record") && (
-            <Button variant="accent" onClick={() => setAdding(true)}>
+            <Button variant="accent" onClick={() => setEditing({})}>
               <Plus size={16} /> Add an item
             </Button>
           )
@@ -67,32 +89,42 @@ export default function Stock() {
 
       {isLoading ? (
         <Skeleton className="h-40 rounded-2xl" />
-      ) : list.length === 0 ? (
+      ) : all.length === 0 ? (
         <Card padding="lg">
           <p className="text-[16px] font-semibold">No items yet</p>
           <p className="text-[14px] text-[var(--ink-muted)] mt-1.5 max-w-prose">
-            Cement, tiles, fuel you resell, spare parts: anything you buy and then sell. Add an item, then say which bills brought it in and
-            which invoice lines sold it. Sentryfi keeps count, works out what each one cost on average, and shows what every sale earned
-            over that cost.
+            Anything you buy or sell more than once. Cement and spare parts you keep count of; an excavator hire by the day or a site
+            visit by the job. Save it once, then pick it on invoices and bills: its price fills in and it goes to its own account.
           </p>
         </Card>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 mb-4 max-w-md">
-            <Card padding="md">
-              <div className="text-[13px] text-[var(--ink-muted)]">Worth on hand</div>
-              <div className="text-[20px] font-semibold mt-0.5" data-testid="stock-total">
-                <Money amount={sum(list, "value")} />
-              </div>
-            </Card>
-            <Card padding="md">
-              <div className="text-[13px] text-[var(--ink-muted)]">Earned over cost</div>
-              <div className="text-[20px] font-semibold mt-0.5">
-                <Money amount={sum(list, "margin")} />
-              </div>
-            </Card>
-          </div>
-          <Places places={places} canAdd={can("record")} onDone={refresh} />
+          {counted.length > 0 && (
+            <div className="grid grid-cols-2 gap-3 mb-4 max-w-md">
+              <Card padding="md">
+                <div className="text-[13px] text-[var(--ink-muted)]">Stock worth on hand</div>
+                <div className="text-[20px] font-semibold mt-0.5" data-testid="stock-total">
+                  <Money amount={sum(counted, "value")} />
+                </div>
+              </Card>
+              <Card padding="md">
+                <div className="text-[13px] text-[var(--ink-muted)]">Earned over cost</div>
+                <div className="text-[20px] font-semibold mt-0.5">
+                  <Money amount={sum(counted, "margin")} />
+                </div>
+              </Card>
+            </div>
+          )}
+          <Tabs value={filter} onValueChange={setFilter} className="mb-4">
+            <TabsList>
+              {FILTERS.map(([k, label]) => (
+                <TabsTrigger key={k} value={k}>
+                  {label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+          {counted.length > 0 && (filter === "all" || filter === "counted" || filter === "product") && <Places places={places} canAdd={can("record")} onDone={refresh} />}
           <Card padding="none" className="overflow-hidden">
             <div className="hidden xl:grid grid-cols-[minmax(0,1.6fr)_110px_120px_130px_130px_230px] gap-4 px-5 py-3 border-b border-[var(--border)] text-[12px] font-medium text-[var(--ink-muted)]">
               <span>Item</span>
@@ -102,6 +134,7 @@ export default function Stock() {
               <span className="text-right">Earned over cost</span>
               <span />
             </div>
+            {list.length === 0 && <p className="px-5 py-6 text-[14px] text-[var(--ink-muted)]">None of these yet.</p>}
             <div className="divide-y divide-[var(--border)]">
               {list.map((i) => (
                 <div
@@ -109,53 +142,68 @@ export default function Stock() {
                   data-testid="stock-row"
                   className="grid grid-cols-2 xl:grid-cols-[minmax(0,1.6fr)_110px_120px_130px_130px_230px] gap-x-4 gap-y-1 px-5 py-4 items-center"
                 >
-                  <button type="button" onClick={() => setLooking(i)} className="min-w-0 col-span-2 xl:col-span-1 text-left">
-                    <div className="text-[15px] font-semibold truncate hover:underline">{i.name}</div>
-                    <div className="text-[13px] text-[var(--ink-muted)] truncate">
-                      {i.code ? `${i.code} · ` : ""}
-                      {i.salePrice ? `sells at MVR ${i.salePrice} a ${i.unit}` : `by the ${i.unit}`}
-                    </div>
+                  <button type="button" onClick={() => (i.counted ? setLooking(i) : can("record") && setEditing(i))} className="min-w-0 col-span-2 xl:col-span-1 text-left flex items-start gap-3">
+                    <span className="mt-0.5 h-8 w-8 shrink-0 rounded-full bg-[var(--surface-2)] inline-flex items-center justify-center text-[var(--ink-muted)]" aria-hidden="true">
+                      {i.kind === "service" ? <Wrench size={15} /> : <Box size={15} />}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[15px] font-semibold truncate hover:underline">{i.name}</span>
+                      <span className="block text-[13px] text-[var(--ink-muted)] truncate">{about(i)}</span>
+                    </span>
                   </button>
-                  <div className="text-[14px] xl:text-right tabular">
-                    {i.onHand} <span className="text-[var(--ink-muted)]">{i.unit}</span>
-                    {i.places && i.places.some((p) => p.id) && <span className="block text-[12px] text-[var(--ink-muted)] whitespace-nowrap">{i.places.map((p) => `${p.name} ${p.onHand}`).join(" · ")}</span>}
-                    {i.low && <span className="ml-1.5 inline-block rounded-full bg-[var(--warning)]/15 text-[var(--warning)] text-[11px] font-semibold px-2 py-0.5">Low</span>}
-                  </div>
-                  <div className="text-[14px] text-right text-[var(--ink-muted)]">
-                    <span className="xl:hidden text-[12px] mr-1.5">average</span>
-                    {i.averageCost ? <Money amount={i.averageCost} /> : "—"}
-                  </div>
-                  <div className="text-[15px] font-semibold xl:text-right">
-                    <span className="xl:hidden text-[12px] font-normal text-[var(--ink-muted)] mr-1.5">worth</span>
-                    <Money amount={i.value} />
-                  </div>
-                  <div className="text-[14px] text-right">
-                    {n(i.sales) > 0 ? (
-                      <>
-                        <span className="xl:hidden text-[12px] text-[var(--ink-muted)] mr-1.5">earned</span>
-                        <Money amount={i.margin} />
-                        <span className="block text-[12px] text-[var(--ink-muted)]">{i.marginPercent}% of sales</span>
-                      </>
-                    ) : (
-                      <span className="text-[var(--ink-muted)]">Not sold yet</span>
-                    )}
-                  </div>
+                  {i.counted ? (
+                    <>
+                      <div className="text-[14px] xl:text-right tabular">
+                        {i.onHand} <span className="text-[var(--ink-muted)]">{i.unit}</span>
+                        {i.places && i.places.some((p) => p.id) && <span className="block text-[12px] text-[var(--ink-muted)] whitespace-nowrap">{i.places.map((p) => `${p.name} ${p.onHand}`).join(" · ")}</span>}
+                        {i.low && <span className="ml-1.5 inline-block rounded-full bg-[var(--warning)]/15 text-[var(--warning)] text-[11px] font-semibold px-2 py-0.5">Low</span>}
+                      </div>
+                      <div className="text-[14px] text-right text-[var(--ink-muted)]">
+                        <span className="xl:hidden text-[12px] mr-1.5">average</span>
+                        {i.averageCost ? <Money amount={i.averageCost} /> : "—"}
+                      </div>
+                      <div className="text-[15px] font-semibold xl:text-right">
+                        <span className="xl:hidden text-[12px] font-normal text-[var(--ink-muted)] mr-1.5">worth</span>
+                        <Money amount={i.value} />
+                      </div>
+                      <div className="text-[14px] text-right">
+                        {n(i.sales) > 0 ? (
+                          <>
+                            <span className="xl:hidden text-[12px] text-[var(--ink-muted)] mr-1.5">earned</span>
+                            <Money amount={i.margin} />
+                            <span className="block text-[12px] text-[var(--ink-muted)]">{i.marginPercent}% of sales</span>
+                          </>
+                        ) : (
+                          <span className="text-[var(--ink-muted)]">Not sold yet</span>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="hidden xl:block xl:col-span-4 text-[13px] text-[var(--ink-muted)] text-right">
+                      {i.sells && i.buys ? "Bought and sold" : i.sells ? "Sold" : "Bought"}, not counted
+                    </div>
+                  )}
                   <div className="col-span-2 xl:col-span-1 flex gap-2 xl:justify-end">
                     {can("record") && (
                       <>
-                        {n(i.onHand) === 0 && n(i.sold) === 0 && (
+                        {i.counted && n(i.onHand) === 0 && n(i.sold) === 0 && (
                           <Button variant="outline" size="sm" onClick={() => setOpening(i)}>
                             Already had some
                           </Button>
                         )}
-                        <Button variant="outline" size="sm" onClick={() => setCounting(i)}>
-                          Count
-                        </Button>
-                        {places.length > 1 && n(i.onHand) > 0 && (
+                        {i.counted && (
+                          <Button variant="outline" size="sm" onClick={() => setCounting(i)}>
+                            Count
+                          </Button>
+                        )}
+                        {i.counted && places.length > 1 && n(i.onHand) > 0 && (
                           <Button variant="ghost" size="sm" onClick={() => setMoving(i)}>
                             Move
                           </Button>
                         )}
+                        <Button variant="ghost" size="sm" onClick={() => setEditing(i)}>
+                          Change
+                        </Button>
                       </>
                     )}
                   </div>
@@ -166,7 +214,7 @@ export default function Stock() {
         </>
       )}
 
-      {adding && <AddItem onClose={() => setAdding(false)} onDone={refresh} />}
+      {editing && <ItemForm item={editing.id ? editing : null} accounts={accounts} onClose={() => setEditing(null)} onDone={refresh} />}
       {counting && <Count item={counting} places={places} onClose={() => setCounting(null)} onDone={refresh} />}
       {moving && <Move item={moving} places={places} onClose={() => setMoving(null)} onDone={refresh} />}
       {opening && <Opening item={opening} onClose={() => setOpening(null)} onDone={refresh} />}
@@ -207,20 +255,93 @@ function Actions({ onClose, busy, disabled, children }) {
   );
 }
 
-function AddItem({ onClose, onDone }) {
+/** A pair of large choices, one of which is picked. */
+function Choice({ name, value, options, onChange }) {
+  return (
+    <div role="radiogroup" aria-label={name} className="grid sm:grid-cols-2 gap-2">
+      {options.map(([v, title, line, Icon]) => (
+        <button
+          key={String(v)}
+          type="button"
+          role="radio"
+          aria-checked={value === v}
+          onClick={() => onChange(v)}
+          className={`text-left rounded-2xl border p-3.5 flex items-start gap-3 transition-colors ${value === v ? "border-[var(--ink)] bg-[var(--surface-2)]" : "border-[var(--border)] hover:border-[var(--ink-muted)]"}`}
+        >
+          {Icon && (
+            <span className={`h-9 w-9 shrink-0 rounded-full inline-flex items-center justify-center ${value === v ? "bg-[var(--ink)] text-[var(--surface)]" : "bg-[var(--surface-2)] text-[var(--ink-muted)]"}`} aria-hidden="true">
+              <Icon size={16} />
+            </span>
+          )}
+          <span className="min-w-0">
+            <span className="block text-[15px] font-semibold">{title}</span>
+            <span className="block text-[13px] text-[var(--ink-muted)] mt-0.5">{line}</span>
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** A switched section: ticked, its fields show. */
+function Side({ label, on, onChange, children }) {
+  return (
+    <div className="rounded-2xl border border-[var(--border)] p-3.5">
+      <label className="flex items-center gap-2.5 text-[15px] font-semibold cursor-pointer">
+        <input type="checkbox" checked={on} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 accent-[var(--ink)]" />
+        {label}
+      </label>
+      {on && <div className="grid sm:grid-cols-2 gap-4 mt-3">{children}</div>}
+    </div>
+  );
+}
+
+const money = (v) => (v ? String(v).replace(/,/g, "") : "");
+
+/** Adding an item, or changing one: what it is, whether it is counted, and how it is sold and bought. */
+function ItemForm({ item, accounts, onClose, onDone }) {
   const toast = useToast();
-  const [f, setF] = useState({ name: "", code: "", unit: "each", salePrice: "" });
+  const [f, setF] = useState(() => ({
+    kind: item?.kind || "product",
+    counted: item ? item.counted : true,
+    name: item?.name || "",
+    code: item?.code || "",
+    unit: item?.unit || "each",
+    sells: item ? item.sells : true,
+    salePrice: money(item?.salePrice),
+    incomeAccountId: item?.incomeAccountId || "",
+    buys: item ? item.buys : true,
+    buyPrice: money(item?.buyPrice),
+    costAccountId: item?.costAccountId || "",
+  }));
   const [err, setErr] = useState("");
-  const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
-  const save = useMutation({ mutationFn: (body) => apiClient.post("/stock", body).then((r) => r.data) });
+  const put = (patch) => setF((x) => ({ ...x, ...patch }));
+  const set = (k) => (e) => put({ [k]: e.target.value });
+  const save = useMutation({
+    mutationFn: (body) => (item ? apiClient.patch(`/stock/${item.id}`, body) : apiClient.post("/stock", body)).then((r) => r.data),
+  });
+  const service = f.kind === "service";
+  const stockHeld = item?.counted && n(item.onHand) !== 0;
 
   async function onSubmit(e) {
     e.preventDefault();
     setErr("");
     try {
-      await save.mutateAsync({ name: f.name, code: f.code || null, unit: f.unit || "each", salePrice: f.salePrice || null });
+      await save.mutateAsync({
+        kind: f.kind,
+        counted: !service && f.counted,
+        name: f.name,
+        code: f.code || null,
+        unit: f.unit || "each",
+        sells: f.sells,
+        salePrice: f.sells ? f.salePrice || null : null,
+        incomeAccountId: f.sells ? f.incomeAccountId || null : null,
+        buys: f.buys,
+        buyPrice: f.buys ? f.buyPrice || null : null,
+        costAccountId: f.buys && (service || !f.counted) ? f.costAccountId || null : null,
+      });
       onDone();
-      toast.success(`${f.name.trim()} added`, "Say which bills bring it in, and pick it on invoice lines that sell it.");
+      toast.success(item ? `${f.name.trim()} changed` : `${f.name.trim()} added`, f.sells ? "Pick it on invoice lines, and its price and account fill in." : "Pick it on bills and orders.");
       onClose();
     } catch (ex) {
       setErr(ex.message);
@@ -228,26 +349,81 @@ function AddItem({ onClose, onDone }) {
   }
 
   return (
-    <Modal open onClose={onClose} as="form" onSubmit={onSubmit} title="Add an item" description="Something you buy and then sell.">
+    <Modal open onClose={onClose} as="form" onSubmit={onSubmit} title={item ? `Change ${item.name}` : "Add an item"} description="Anything you buy or sell more than once." size="lg">
       <div className="grid gap-4">
-        <Field label="What is it">
-          <input id="item-name" value={f.name} onChange={set("name")} placeholder="Cement, 50 kg bag" className={FIELD} />
-        </Field>
-        <div className="grid sm:grid-cols-3 gap-4">
-          <Field label="Counted by">
-            <input id="item-unit" value={f.unit} onChange={set("unit")} placeholder="bag" className={FIELD} />
+        <Choice
+          name="What is it"
+          value={f.kind}
+          onChange={(kind) => put({ kind, unit: f.unit === "each" || f.unit === "hour" ? (kind === "service" ? "hour" : "each") : f.unit })}
+          options={[
+            ["product", "A product", "A thing you buy or sell", Box],
+            ["service", "A service", "Work or time you charge or pay for", Wrench],
+          ]}
+        />
+        <div className="grid sm:grid-cols-[minmax(0,1fr)_140px_140px] gap-4">
+          <Field label="Name">
+            <input id="item-name" value={f.name} onChange={set("name")} placeholder={service ? "Excavator hire, with operator" : "Cement, 50 kg bag"} className={FIELD} />
+          </Field>
+          <Field label={service ? "Charged by" : "Counted by"}>
+            <input id="item-unit" value={f.unit} onChange={set("unit")} placeholder={service ? "hour" : "bag"} className={FIELD} />
           </Field>
           <Field label="Code (optional)">
-            <input id="item-code" value={f.code} onChange={set("code")} placeholder="CEM-50" className={FIELD} />
-          </Field>
-          <Field label="Sells at (optional)">
-            <input id="item-price" value={f.salePrice} onChange={set("salePrice")} inputMode="decimal" placeholder="120.00" className={`${FIELD} tabular`} />
+            <input id="item-code" value={f.code} onChange={set("code")} placeholder={service ? "HIRE-EX" : "CEM-50"} className={FIELD} />
           </Field>
         </div>
+        {!service && (
+          <div>
+            <span className="text-sm font-medium block mb-1.5">Keep count of it?</span>
+            <Choice
+              name="Keep count of it"
+              value={f.counted}
+              onChange={(counted) => !stockHeld && put({ counted })}
+              options={[
+                [true, "Yes, keep stock", "How many are on hand, what they cost, what each sale earns"],
+                [false, "No, just buy and sell it", "Bought for a job or sold on order, by name and price"],
+              ]}
+            />
+            {stockHeld && <p className="text-[13px] text-[var(--ink-muted)] mt-1.5">{item.onHand} {item.unit} are on hand. Sell or count it down to nothing before you stop counting it.</p>}
+          </div>
+        )}
+        <Side label="You sell it" on={f.sells} onChange={(sells) => put({ sells })}>
+          <Field label="Price (optional)">
+            <input id="item-price" value={f.salePrice} onChange={set("salePrice")} inputMode="decimal" placeholder="0.00" className={`${FIELD} tabular`} />
+          </Field>
+          <Field label="Income goes to">
+            <select id="item-income" value={f.incomeAccountId} onChange={set("incomeAccountId")} className={FIELD}>
+              <option value="">Your usual income</option>
+              {accounts.income.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.code} {a.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </Side>
+        <Side label="You buy it" on={f.buys} onChange={(buys) => put({ buys })}>
+          <Field label="Cost (optional)">
+            <input id="item-buy-price" value={f.buyPrice} onChange={set("buyPrice")} inputMode="decimal" placeholder="0.00" className={`${FIELD} tabular`} />
+          </Field>
+          {service || !f.counted ? (
+            <Field label="Kind of cost">
+              <select id="item-cost" value={f.costAccountId} onChange={set("costAccountId")} className={FIELD}>
+                <option value="">Ask each time</option>
+                {accounts.cost.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.code} {a.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : (
+            <p className="text-[13px] text-[var(--ink-muted)] self-center">Goes into stock on hand, and into cost of sales as each one is sold.</p>
+          )}
+        </Side>
       </div>
       <Failure err={err} />
-      <Actions onClose={onClose} busy={save.isPending} disabled={!f.name.trim()}>
-        Add it
+      <Actions onClose={onClose} busy={save.isPending} disabled={!f.name.trim() || (!f.sells && !f.buys)}>
+        {item ? "Save" : "Add it"}
       </Actions>
     </Modal>
   );

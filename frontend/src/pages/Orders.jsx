@@ -180,12 +180,13 @@ function NewOrder({ kind, onClose }) {
                     value={l.itemId}
                     onChange={(e) => {
                       const it = o.items.find((x) => x.id === e.target.value);
-                      setLine(i, { itemId: e.target.value, description: it ? it.name : l.description, unitPrice: kind === "sale" && it?.sale_price_laari ? String(Number(it.sale_price_laari) / 100) : l.unitPrice });
+                      const price = kind === "sale" ? it?.sale_price_laari : it?.buy_price_laari;
+                      setLine(i, { itemId: e.target.value, description: it ? it.name : l.description, unitPrice: price ? String(Number(price) / 100) : l.unitPrice });
                     }}
                     className={`${FIELD} flex-1 min-w-0`}
                   >
-                    <option value="">{kind === "purchase" ? "Not stock: a service or a cost" : "Not from stock"}</option>
-                    {o.items.map((it) => (
+                    <option value="">{kind === "purchase" ? "Not a saved item: say the kind of cost" : "Not a saved item"}</option>
+                    {o.items.filter((it) => (kind === "purchase" ? it.buys : it.sells)).map((it) => (
                       <option key={it.id} value={it.id}>
                         {it.name}
                       </option>

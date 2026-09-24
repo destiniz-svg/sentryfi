@@ -177,7 +177,7 @@ The phases below say *what*; this says *when*. Set 23 September 2026. Each sprin
 **Procurement.** Purchase and sales orders, goods received matched to what was ordered and invoiced, partial deliveries included, spending limits and an approver above them. *(was steps 21, 27)*
 **Done when:** an order, a delivery and an invoice for the same goods become one cost, not three.
 
-**Inventory and stock.** Quantity-based stock, landed cost, margin per unit, valuation held consistently month to month. *(was step 23)*
+**Inventory and stock.** Quantity-based stock, landed cost, margin per unit, valuation held consistently month to month. *(was step 23)* *24 Sep 2026: items are products or services; a product is counted (stock) or not; each item sells to its own income account and, uncounted, is bought on its own kind of cost (Items page, invoices, bills, orders, the adviser). Bundles and lot or serial numbers wait for a customer who needs them.*
 **Done when:** stock on hand, its cost and its margin are all ledger queries, not a spreadsheet.
 
 **Equipment and rental.** Machine register, utilisation, hours, fuel and maintenance, machine-level profitability, rate cards. *(was step 20)*

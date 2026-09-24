@@ -61,7 +61,7 @@ async function advise(client, { companyId, counterpartyId, lines, shipmentId }) 
   const shipmentRef = (id) => openShipments.find((x) => x.id === id)?.reference || "the shipment";
 
   const { rows: items } = await client.query(
-    "SELECT id, name, unit FROM stock_items WHERE company_id = $1 AND archived_at IS NULL",
+    "SELECT id, name, unit, counted, cost_account_id FROM stock_items WHERE company_id = $1 AND archived_at IS NULL AND buys",
     [companyId]
   );
   const { rows: accounts } = await client.query("SELECT id, code, name FROM accounts WHERE company_id = $1 AND type = 'expense'", [companyId]);
@@ -109,14 +109,20 @@ async function advise(client, { companyId, counterpartyId, lines, shipmentId }) 
       continue;
     }
 
-    // 3: an item in stock whose name the charge carries.
+    // 3: an item bought before whose name the charge carries: stock when it is
+    // counted, otherwise a cost on the item's own kind of cost.
     const words = new Set(key.split(" "));
     const item = items.find((i) => {
       const k = keyOf(i.name).split(" ").filter((w) => w.length > 2);
       return k.length && k.every((w) => words.has(w));
     });
-    if (item) {
+    if (item && item.counted) {
       out.push({ ...base, kind: "stock", itemId: item.id, sure: false, because: `It reads like ${item.name}, which you keep in stock.` });
+      continue;
+    }
+    if (item && item.cost_account_id) {
+      const acc = accounts.find((a) => a.id === item.cost_account_id);
+      out.push({ ...base, kind: "cost", accountId: item.cost_account_id, sure: false, because: `It reads like ${item.name}, which goes to ${acc ? acc.name : "its own kind of cost"}.` });
       continue;
     }
 

@@ -95,8 +95,16 @@ async function save(client, { companyId, userId, billId, lines }) {
 
   const itemIds = [...new Set(prepared.filter((p) => p.kind === "stock").map((p) => p.itemId))];
   if (itemIds.length) {
-    const { rows: found } = await client.query("SELECT id FROM stock_items WHERE company_id = $1 AND id = ANY($2::uuid[]) AND archived_at IS NULL", [companyId, itemIds]);
+    const { rows: found } = await client.query("SELECT id, name, counted, cost_account_id FROM stock_items WHERE company_id = $1 AND id = ANY($2::uuid[]) AND archived_at IS NULL", [companyId, itemIds]);
     if (found.length !== itemIds.length) throw new Error("One of those items is not in these books.");
+    // A service or an uncounted product is a cost, on the item's own kind of cost.
+    const byId = new Map(found.map((r) => [r.id, r]));
+    prepared.forEach((p, i) => {
+      const item = p.kind === "stock" && byId.get(p.itemId);
+      if (!item || item.counted) return;
+      if (!item.cost_account_id) throw new Error(`${item.name} is not counted as stock. Say which kind of cost it is, on the item or here.`);
+      prepared[i] = { position: p.position, kind: "cost", description: p.description || item.name, accountId: item.cost_account_id, amount: p.amount };
+    });
   }
   const accountIds = [...new Set(prepared.filter((p) => p.kind === "cost").map((p) => p.accountId))];
   if (accountIds.length) {

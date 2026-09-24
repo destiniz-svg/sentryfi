@@ -37,7 +37,7 @@ export const SECTIONS = [
     label: "Work and assets",
     items: [
       { to: "/projects", icon: HardHat, label: "Projects" },
-      { to: "/stock", icon: Boxes, label: "Stock" },
+      { to: "/stock", icon: Boxes, label: "Items" },
       { to: "/shipments", icon: Ship, label: "Shipments" },
       { to: "/assets", icon: Package, label: "Fixed assets" },
     ],

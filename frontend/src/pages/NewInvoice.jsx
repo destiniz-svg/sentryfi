@@ -165,8 +165,8 @@ export default function NewInvoice() {
       all.map((l, j) => (j === i ? { ...l, [key]: e.target.value } : l)),
     );
 
-  // A line can sell a stock item: picking one fills in its name, unit and
-  // price, and posting takes it out of stock at its average cost.
+  // A line can sell a saved item, product or service: picking one fills in its
+  // name, unit and price. A counted product leaves stock at its average cost.
   const { data: stockItems } = useQuery({
     queryKey: ["stock", companyId],
     // The same cache as the Stock page, so the same shape: the items are picked out here.
@@ -174,7 +174,7 @@ export default function NewInvoice() {
     select: (d) => d.items,
     enabled: Boolean(companyId) && open,
   });
-  const forSale = (stockItems || []).filter((i) => !i.archived);
+  const forSale = (stockItems || []).filter((i) => !i.archived && i.sells !== false);
   const pickItem = (i) => (e) => {
     const item = forSale.find((it) => it.id === e.target.value);
     setLines((all) =>
@@ -520,15 +520,15 @@ export default function NewInvoice() {
                 >
                   {forSale.length > 0 && (
                     <select
-                      aria-label={`Line ${i + 1}: from stock`}
+                      aria-label={`Line ${i + 1}: item`}
                       value={line.itemId}
                       onChange={pickItem(i)}
                       className={`${FIELD} col-span-5 h-10 text-[14px]`}
                     >
-                      <option value="">Not from stock</option>
+                      <option value="">Not a saved item</option>
                       {forSale.map((it) => (
                         <option key={it.id} value={it.id}>
-                          {it.name} · {it.onHand} {it.unit} on hand
+                          {it.name} · {it.counted ? `${it.onHand} ${it.unit} on hand` : it.kind === "service" ? "service" : "product"}
                         </option>
                       ))}
                     </select>

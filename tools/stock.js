@@ -93,7 +93,7 @@ const api = (page, method, url, body) =>
 
     await page.goto(BASE + "/invoices", { waitUntil: "networkidle" });
     await page.getByRole("button", { name: /new invoice/i }).first().click();
-    await page.getByLabel("Line 1: from stock").selectOption({ label: `${name} · 20 bag on hand` });
+    await page.getByLabel("Line 1: item").selectOption({ label: `${name} · 20 bag on hand` });
     const desc = await page.getByLabel("Line 1: what it is").inputValue();
     const rate = await page.getByLabel("Line 1: rate").inputValue();
     if (desc === name && rate === "150.00") ok("an invoice line offers the item and fills in its name and price");

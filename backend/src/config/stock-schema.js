@@ -79,6 +79,23 @@ END $$;
 GRANT SELECT, INSERT, UPDATE ON stock_items TO sentryfi_app;
 -- When what is on hand falls to this, it is time to order more (Needs you says so).
 ALTER TABLE stock_items ADD COLUMN IF NOT EXISTS reorder_at NUMERIC(18,4) CHECK (reorder_at >= 0);
+-- Products and services in one list. A product may be counted (stock, as
+-- before) or not (bought or sold by name and price only); a service never is.
+-- Selling posts to its income account, buying an uncounted one to its cost
+-- account; either left empty takes the company's usual one.
+ALTER TABLE stock_items ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'product' CHECK (kind IN ('product','service'));
+ALTER TABLE stock_items ADD COLUMN IF NOT EXISTS counted BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE stock_items ADD COLUMN IF NOT EXISTS sells BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE stock_items ADD COLUMN IF NOT EXISTS buys BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE stock_items ADD COLUMN IF NOT EXISTS buy_price_laari BIGINT CHECK (buy_price_laari >= 0);
+ALTER TABLE stock_items ADD COLUMN IF NOT EXISTS income_account_id UUID REFERENCES accounts(id);
+ALTER TABLE stock_items ADD COLUMN IF NOT EXISTS cost_account_id UUID REFERENCES accounts(id);
+DO $$ BEGIN
+  ALTER TABLE stock_items ADD CONSTRAINT stock_items_service_uncounted CHECK (kind = 'product' OR NOT counted);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE stock_items ADD CONSTRAINT stock_items_sells_or_buys CHECK (sells OR buys);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 -- A movement is history: added, never changed.
 GRANT SELECT, INSERT ON stock_moves TO sentryfi_app;
 GRANT SELECT, INSERT, DELETE ON bill_stock_lines TO sentryfi_app;
