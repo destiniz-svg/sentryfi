@@ -1,5 +1,5 @@
 const { postEntry } = require("./post");
-const { toLaari, formatLaari } = require("./money");
+const { toLaari, formatLaari, allocate } = require("./money");
 const taxEngine = require("./tax");
 const fx = require("./fx");
 
@@ -657,13 +657,30 @@ async function creditNote(client, {
 
   const receivable = await accountByCode(client, { companyId, code: AR });
   const outputTax = await accountByCode(client, { companyId, code: OUTPUT_TAX });
-  const income = await accountByCode(client, { companyId, code: DEFAULT_INCOME });
+  // The income comes back off the accounts the invoice put it on, in the same
+  // shares, with their projects and dimensions: a credit on a rental invoice
+  // reduces rental income, not whatever the default income account is.
+  const { rows: earned } = await client.query(
+    `SELECT account_id, project_id, cost_code_id, dimension_ids, SUM(credit_laari - debit_laari) AS amount
+       FROM journal_lines l JOIN accounts a ON a.id = l.account_id AND a.type = 'income'
+      WHERE l.entry_id = $1
+      GROUP BY account_id, project_id, cost_code_id, dimension_ids
+     HAVING SUM(credit_laari - debit_laari) > 0
+      ORDER BY 5 DESC`,
+    [invoice.entry_id]
+  );
+  const incomeLines = [];
+  if (earned.length && creditNet > 0n) {
+    const shares = allocate(creditNet, earned.map((r) => BigInt(r.amount)));
+    earned.forEach((r, i) => shares[i] > 0n && incomeLines.push({ accountId: r.account_id, debit: shares[i], projectId: r.project_id, costCodeId: r.cost_code_id, dimensionIds: r.dimension_ids, counterpartyId: invoice.counterparty_id, memo: said }));
+  } else {
+    const income = await accountByCode(client, { companyId, code: DEFAULT_INCOME });
+    incomeLines.push({ accountId: income.id, debit: creditNet, counterpartyId: invoice.counterparty_id, memo: said });
+  }
 
   const number = String(noteNo || "").trim() || (await nextNoteNo(client, { companyId }));
 
-  const lines = [
-    { accountId: income.id, debit: creditNet, counterpartyId: invoice.counterparty_id, memo: said },
-  ];
+  const lines = [...incomeLines];
   if (creditTax > 0n) {
     lines.push({
       accountId: outputTax.id,
@@ -767,9 +784,30 @@ async function aged(client, { companyId, asOf }) {
     [companyId, asOf || localToday()]
   );
 
+  // Money a customer paid without saying which invoice (on account) still
+  // reduces what they owe: it is taken off their oldest invoices first, so a
+  // customer who paid is not shown late, and the total agrees with 1300.
+  const { rows: onAcct } = await client.query(
+    `SELECT r.counterparty_id AS id,
+            SUM(r.amount_laari) - COALESCE(SUM((SELECT SUM(a.amount_laari) FROM receipt_allocations a WHERE a.receipt_id = r.id)), 0) AS free
+       FROM receipts r
+      WHERE r.company_id = $1 AND r.voided_at IS NULL AND r.counterparty_id IS NOT NULL AND r.received_on <= $2::date
+      GROUP BY r.counterparty_id`,
+    [companyId, asOf || localToday()]
+  );
+  const free = new Map(onAcct.filter((r) => BigInt(r.free) > 0n).map((r) => [r.id, BigInt(r.free)]));
+  let appliedOnAccount = 0n;
+
   const buckets = { current: 0n, thirty: 0n, sixty: 0n, ninety: 0n, older: 0n };
   const invoices = rows.map((r) => {
-    const left = BigInt(r.gross_laari) - BigInt(r.paid) - BigInt(r.credited);
+    let left = BigInt(r.gross_laari) - BigInt(r.paid) - BigInt(r.credited);
+    const spare = free.get(r.customer_id) || 0n;
+    if (spare > 0n) {
+      const use = spare < left ? spare : left;
+      left -= use;
+      appliedOnAccount += use;
+      free.set(r.customer_id, spare - use);
+    }
     const over = Number(r.days_over);
     const bucket =
       over <= 0 ? "current" : over <= 30 ? "thirty" : over <= 60 ? "sixty" : over <= 90 ? "ninety" : "older";
@@ -791,7 +829,8 @@ async function aged(client, { companyId, asOf }) {
   });
 
   return {
-    invoices,
+    invoices: invoices.filter((i) => i.outstandingLaari !== "0"),
+    onAccountApplied: formatLaari(appliedOnAccount),
     buckets: Object.fromEntries(
       Object.entries(buckets).map(([k, v]) => [k, formatLaari(v)])
     ),

@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const { postEntry } = require("./post");
 const { toLaari, formatLaari } = require("./money");
 const { lockedThrough } = require("./periods");
+const { rateOn } = require("./tax");
 
 /**
  * Fixed assets: the register, depreciation, and selling or scrapping one.
@@ -85,13 +86,19 @@ function wornAfter(asset, k) {
   const depreciable = cost - residual;
   if (k <= 0) return 0n;
   if (asset.method === "reducing_balance") {
+    // The year's rate on what was left at the start of each year in use,
+    // spread evenly over its twelve months: 25% a year writes off 25% of the
+    // opening value in the first year, not 22.4% as a monthly twelfth would.
     const bp = BigInt(asset.rate_bp);
     let nbv = cost;
-    for (let i = 0; i < k; i++) {
-      nbv -= (nbv * bp) / 120000n; // a year's rate, a twelfth at a time
+    const years = Math.floor(k / 12);
+    for (let y = 0; y < years; y++) {
+      nbv -= (nbv * bp) / 10000n;
       if (nbv <= residual) return depreciable;
     }
-    return cost - nbv;
+    const part = (nbv * bp * BigInt(k % 12)) / 120000n;
+    const worn = cost - nbv + part;
+    return worn >= depreciable ? depreciable : worn;
   }
   const life = BigInt(asset.life_months);
   const kk = BigInt(k);
@@ -241,15 +248,39 @@ async function dispose(client, { companyId, userId, assetId, on, proceeds, toAcc
   if (got > 0n && !toAccountId) throw new Error("Where did the money go?");
 
   await depreciate(client, { companyId, userId, through: prevMonthEnd(on) });
-  const { rows: w } = await client.query("SELECT COALESCE(SUM(amount_laari),0)::text AS worn FROM asset_depreciation WHERE asset_id = $1", [assetId]);
+  // Everything charged, and what was charged for months before it went. Months
+  // already charged after it went (depreciation run ahead) come back off.
+  const { rows: w } = await client.query(
+    "SELECT COALESCE(SUM(amount_laari),0)::text AS worn, COALESCE(SUM(amount_laari) FILTER (WHERE month <= $2::date),0)::text AS before FROM asset_depreciation WHERE asset_id = $1",
+    [assetId, prevMonthEnd(on)]
+  );
   const cost = BigInt(a.cost_laari);
   const worn = BigInt(w[0].worn);
-  const left = cost - worn;
-  const gain = got - left;
+  const wornBefore = BigInt(w[0].before);
+  const ahead = worn - wornBefore;
+
+  // A registered company charges GST on what it sells, used equipment too:
+  // what it fetched is taken as the money received, GST included.
+  const { rows: co } = await client.query("SELECT gst_registered FROM companies WHERE id = $1", [companyId]);
+  let gst = 0n;
+  if (got > 0n && co[0]?.gst_registered) {
+    const { bp } = await rateOn(client, { companyId, on });
+    gst = (got * BigInt(bp) + BigInt(10000 + bp) / 2n) / BigInt(10000 + bp);
+  }
+  const left = cost - wornBefore;
+  const gain = got - gst - left;
 
   const lines = [{ accountId: a.asset_account_id, credit: cost, memo: a.name }];
   if (worn > 0n) lines.push({ accountId: a.worn_account_id, debit: worn, memo: a.name });
+  if (ahead > 0n) {
+    const dep = await ensureAccount(client, { companyId, code: DEPRECIATION[0], name: DEPRECIATION[1], type: DEPRECIATION[2] });
+    lines.push({ accountId: dep.id, credit: ahead, memo: `${a.name}: charged for after it went, taken back` });
+  }
   if (got > 0n) lines.push({ accountId: toAccountId, debit: got, memo: a.name });
+  if (gst > 0n) {
+    const out = await ensureAccount(client, { companyId, code: "2200", name: "GST we owe", type: "liability" });
+    lines.push({ accountId: out.id, credit: gst, memo: `GST on selling ${a.name}` });
+  }
   if (gain > 0n) {
     const g = await ensureAccount(client, { companyId, code: GAIN[0], name: GAIN[1], type: GAIN[2] });
     lines.push({ accountId: g.id, credit: gain, memo: a.name });

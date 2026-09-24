@@ -23,9 +23,23 @@ const pct = (now, before) => (before > 0n ? Math.round(Number(((now - before) * 
  * year to date or twelve months, as an accountant reads them), or else the
  * period just before it, as long as it.
  */
-const yearEarlier = (d) => `${Number(d.slice(0, 4)) - 1}${d.slice(4) === "-02-29" ? "-02-28" : d.slice(4)}`;
+const lastOfMonth = (y, m) => new Date(Date.UTC(y, m, 0)).getUTCDate();
+const isMonthEnd = (d) => Number(d.slice(8)) === lastOfMonth(Number(d.slice(0, 4)), Number(d.slice(5, 7)));
+/** The same day a year earlier; a month's last day stays its month's last (28 Feb 2025 against 29 Feb 2024). */
+const yearEarlier = (d) => {
+  const y = Number(d.slice(0, 4)) - 1, m = Number(d.slice(5, 7));
+  const day = isMonthEnd(d) ? lastOfMonth(y, m) : Math.min(Number(d.slice(8)), lastOfMonth(y, m));
+  return `${y}-${d.slice(5, 7)}-${String(day).padStart(2, "0")}`;
+};
 function previous(from, to, compare) {
   if (compare === "year") return { from: yearEarlier(from), to: yearEarlier(to) };
+  // Whole months against the whole months just before: September against
+  // August, a quarter against the quarter before, not "as many days".
+  if (from.slice(8) === "01" && isMonthEnd(to)) {
+    const months = (Number(to.slice(0, 4)) - Number(from.slice(0, 4))) * 12 + Number(to.slice(5, 7)) - Number(from.slice(5, 7)) + 1;
+    const start = new Date(Date.UTC(Number(from.slice(0, 4)), Number(from.slice(5, 7)) - 1 - months, 1));
+    return { from: iso(start), to: iso(new Date(Date.parse(from) - DAY)) };
+  }
   const days = Math.round((Date.parse(to) - Date.parse(from)) / DAY) + 1;
   return { from: iso(new Date(Date.parse(from) - days * DAY)), to: iso(new Date(Date.parse(from) - DAY)) };
 }
@@ -48,11 +62,12 @@ async function overview(client, { companyId, from, to, compare }) {
   const profitBefore = before.income - before.costs;
 
   const { rows: cashRows } = await client.query(
-    `SELECT COALESCE(SUM(l.debit_laari - l.credit_laari), 0)::text AS now,
+    `SELECT COALESCE(SUM(l.debit_laari - l.credit_laari) FILTER (WHERE e.entry_date <= $3::date), 0)::text AS now,
             COALESCE(SUM(l.debit_laari - l.credit_laari) FILTER (WHERE e.entry_date < $2::date), 0)::text AS before
        FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id JOIN accounts a ON a.id = l.account_id
       WHERE l.company_id = $1 AND a.type = 'asset' AND (a.code LIKE '11%' OR a.code LIKE '12%')`,
-    [companyId, from]
+    // At the end of the period, not today: "last month" shows what last month closed with.
+    [companyId, from, to]
   );
   const owedNow = await aged(client, { companyId });
   const owedTotal = owedNow.invoices.reduce((a, i) => a + BigInt(i.outstandingLaari), 0n);
@@ -269,4 +284,4 @@ async function entries(client, { companyId, from, to, type, accountId, counterpa
   };
 }
 
-module.exports = { overview, entries, previous };
+module.exports = { overview, entries, previous, yearEarlier };

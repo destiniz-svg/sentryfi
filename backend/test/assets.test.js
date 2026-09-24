@@ -37,9 +37,10 @@ describe("how an asset wears out", () => {
 
   it("reducing balance: a share of what is left each year, never below the residual", () => {
     const van = { cost_laari: "1200000", residual_laari: "0", life_months: 60, method: "reducing_balance", rate_bp: 2500 };
-    expect(wornAfter(van, 1)).toBe(25000n); // 25% a year, a twelfth of it on 12,000.00
-    expect(wornAfter(van, 2)).toBeGreaterThan(wornAfter(van, 1));
-    expect(wornAfter(van, 2) - wornAfter(van, 1)).toBeLessThan(25000n);
+    expect(wornAfter(van, 1)).toBe(25000n); // 25% a year on 12,000.00, a twelfth a month
+    expect(wornAfter(van, 12)).toBe(300000n); // a full 25% in the first year
+    expect(wornAfter(van, 13)).toBe(318750n); // then 25% of the 9,000.00 left, a twelfth a month
+    expect(wornAfter(van, 24)).toBe(525000n);
   });
 
   it("counts the month it was bought", () => {
@@ -106,10 +107,11 @@ describe("the register, against the books", () => {
         companyId, userId, name: "Boat", category: "vehicles", cost: "12,000.00",
         acquiredOn: "2025-01-01", lifeYears: 1, fromAccountId: accounts.bank,
       });
-      // Charged January to June (6 x 1,000.00), sold on 15 July for 7,000.00.
+      // Charged January to June (6 x 1,000.00), sold on 15 July for 7,000.00
+      // with GST: 518.52 of it is GST owed, 6,481.48 against 6,000.00 left.
       const sold = await dispose(client, { companyId, userId, assetId: boat.id, on: "2025-07-15", proceeds: "7,000.00", toAccountId: accounts.bank });
       expect(sold.bookValue).toBe(600000n);
-      expect(sold.gain).toBe(100000n);
+      expect(sold.gain).toBe(48148n);
       await expect(dispose(client, { companyId, userId, assetId: boat.id, on: "2025-08-01" })).rejects.toThrow(/already/);
 
       const drill = await register(client, {
@@ -124,6 +126,25 @@ describe("the register, against the books", () => {
       // Nothing more is charged on either once they are gone.
       const later = await depreciate(client, { companyId, userId, through: "2025-12-31" });
       expect(later.total).toBe(0n);
+    }));
+});
+
+describe("selling after depreciation ran ahead", () => {
+  it("takes back the months charged after it went, and the gain counts only the months before", () =>
+    inRollback(async (client) => {
+      const { companyId, userId, accounts } = await books(client);
+      const boat = await register(client, {
+        companyId, userId, name: "Boat", category: "vehicles", cost: "12,000.00",
+        acquiredOn: "2025-01-01", lifeYears: 1, fromAccountId: accounts.bank,
+      });
+      await depreciate(client, { companyId, userId, through: "2025-09-30" }); // nine months charged
+      const scrapped = await dispose(client, { companyId, userId, assetId: boat.id, on: "2025-07-15" });
+      expect(scrapped.bookValue).toBe(600000n); // six months worn by the time it went, not nine
+      expect(scrapped.gain).toBe(-600000n);
+      const bs = await balanceSheet(client, { companyId, asAt: "2025-12-31" });
+      expect(bs.difference).toBe(0n);
+      const { rows } = await client.query("SELECT COALESCE(SUM(l.debit_laari - l.credit_laari),0)::text AS d FROM journal_lines l JOIN accounts a ON a.id = l.account_id WHERE a.company_id = $1 AND a.code = '5800'", [companyId]);
+      expect(rows[0].d).toBe("600000"); // depreciation left in the books: six months
     }));
 });
 

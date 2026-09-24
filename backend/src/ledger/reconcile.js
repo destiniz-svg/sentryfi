@@ -35,6 +35,8 @@ const sideOf = (l) =>
     ? { moneyIn: true, laari: BigInt(l.credit_laari) }
     : { moneyIn: false, laari: BigInt(l.debit_laari) };
 
+// A group is its payee; lines with no payee group by what the bank called them
+// (a charge, a transfer), never all together under a blank name.
 const key = (who) => String(who || "").trim().toLowerCase();
 
 /** One line, locked for the rest of the transaction so two people cannot answer it twice. */
@@ -212,12 +214,12 @@ async function rulesFor(client, { companyId, pairs }) {
  */
 async function groups(client, { companyId, accountId, limit = 40 }) {
   const { rows } = await client.query(
-    `SELECT lower(btrim(coalesce(who, ''))) AS k, max(who) AS who, (credit_laari > 0) AS money_in,
+    `SELECT coalesce(nullif(lower(btrim(coalesce(who, ''))), ''), 'kind:' || lower(btrim(kind))) AS k, max(who) AS who, max(kind) AS kind, (credit_laari > 0) AS money_in,
             count(*)::int AS n, SUM(debit_laari + credit_laari) AS total,
             min(posted_on) AS first_on, max(posted_on) AS last_on
        FROM bank_statement_lines
       WHERE company_id = $1 AND account_id = $2 AND status = 'open'
-      GROUP BY 1, 3
+      GROUP BY 1, 4
       ORDER BY total DESC, n DESC
       LIMIT $3`,
     [companyId, accountId, limit]
@@ -226,6 +228,7 @@ async function groups(client, { companyId, accountId, limit = 40 }) {
   return rows.map((r) => ({
     key: r.k,
     who: r.who,
+    kind: r.kind,
     moneyIn: r.money_in,
     count: r.n,
     total: formatLaari(BigInt(r.total)),
@@ -240,7 +243,7 @@ async function linesOf(client, { companyId, accountId, who, moneyIn, status = "o
   const { rows } = await client.query(
     `SELECT * FROM bank_statement_lines
       WHERE company_id = $1 AND account_id = $2 AND status = $3
-        AND lower(btrim(coalesce(who, ''))) = $4 AND (credit_laari > 0) = $5
+        AND coalesce(nullif(lower(btrim(coalesce(who, ''))), ''), 'kind:' || lower(btrim(kind))) = $4 AND (credit_laari > 0) = $5
       ORDER BY posted_on DESC, id LIMIT $6`,
     [companyId, accountId, status, key(who), Boolean(moneyIn), limit]
   );
@@ -440,7 +443,7 @@ async function postGroup(client, { companyId, userId, bankId, who, moneyIn, acco
   const { rows } = await client.query(
     `SELECT id FROM bank_statement_lines
       WHERE company_id = $1 AND account_id = $2 AND status = 'open'
-        AND lower(btrim(coalesce(who, ''))) = $3 AND (credit_laari > 0) = $4
+        AND coalesce(nullif(lower(btrim(coalesce(who, ''))), ''), 'kind:' || lower(btrim(kind))) = $3 AND (credit_laari > 0) = $4
         AND debit_laari + credit_laari > 0
       ORDER BY posted_on, id LIMIT $5`,
     [companyId, bankId, key(who), Boolean(moneyIn), limit]
@@ -466,7 +469,7 @@ async function setAsideGroup(client, { companyId, userId, bankId, who, moneyIn, 
   const { rows } = await client.query(
     `SELECT id FROM bank_statement_lines
       WHERE company_id = $1 AND account_id = $2 AND status = 'open'
-        AND lower(btrim(coalesce(who, ''))) = $3 AND (credit_laari > 0) = $4
+        AND coalesce(nullif(lower(btrim(coalesce(who, ''))), ''), 'kind:' || lower(btrim(kind))) = $3 AND (credit_laari > 0) = $4
       ORDER BY posted_on, id LIMIT $5`,
     [companyId, bankId, key(who), Boolean(moneyIn), limit]
   );
@@ -486,9 +489,13 @@ async function autoMatch(client, { companyId, userId, accountId }) {
     [companyId, accountId]
   );
   const ideas = await suggest(client, { companyId, lines: open });
+  // A receipt two lines both point at is not sure for either: both are left
+  // for a person, rather than the second link failing and the import with it.
+  const claimed = new Map();
+  for (const l of open) for (const e of ideas.get(l.id).entries.filter((x) => x.exact)) claimed.set(e.entryId, (claimed.get(e.entryId) || 0) + 1);
   let matched = 0;
   for (const l of open) {
-    const sure = ideas.get(l.id).entries.filter((e) => e.exact);
+    const sure = ideas.get(l.id).entries.filter((e) => e.exact && claimed.get(e.entryId) === 1);
     if (sure.length === 1) {
       await link(client, { companyId, userId, lineId: l.id, entryId: sure[0].entryId, note: "Same reference and amount as a recorded receipt" });
       matched += 1;

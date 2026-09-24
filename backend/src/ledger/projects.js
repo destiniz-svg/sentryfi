@@ -399,7 +399,7 @@ async function summary(client, { companyId, projectId }) {
     [projectId, companyId]
   );
   const { rows: invoiced } = await client.query(
-    `SELECT COALESCE(SUM(s.gross_laari), 0) AS gross,
+    `SELECT COALESCE(SUM(s.gross_laari - (SELECT COALESCE(SUM(n.gross_laari), 0) FROM credit_notes n WHERE n.invoice_id = s.id)), 0) AS gross,
             COALESCE(SUM((SELECT COALESCE(SUM(a.amount_laari), 0) FROM receipt_allocations a JOIN receipts r ON r.id = a.receipt_id AND r.voided_at IS NULL WHERE a.invoice_id = s.id)), 0) AS paid
        FROM sales_invoices s WHERE s.company_id = $1 AND s.project_id = $2 AND s.status = 'posted' AND s.voided_at IS NULL`,
     [companyId, projectId]
@@ -483,7 +483,9 @@ async function summary(client, { companyId, projectId }) {
     committed: f(committed),
     forecastCost: f(forecast),
     costToComplete: f(forecast - spent),
-    forecastMargin: contract === null ? null : f(contract - forecast),
+    // The team's own hours are a cost of the job even though they are not a bill:
+    // at their rates, they come off the margin it is heading for.
+    forecastMargin: contract === null ? null : f(contract - forecast - hoursValue),
     // Without a budget the forecast is only what is spent so far, so a share of it says nothing.
     percentComplete: budget > 0n && forecast > 0n ? Number((spent * 1000n) / forecast) / 10 : null,
     overBudget: lines.filter((l) => l.budget > 0n && l.spent + l.committed > l.budget).map((l) => l.name),

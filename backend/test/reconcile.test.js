@@ -127,6 +127,34 @@ describe("what the books already know", () => {
       await expect(rec.link(client, { ...s.base, lineId: s.lines[1].id, entryId: t.entry.id })).rejects.toThrow(/already answers/);
     }));
 
+  it("leaves a receipt two lines both point at for a person, and the import stands", () =>
+    inRollback(async (client) => {
+      const s = await aStatement(client, [
+        row("2026/01/02", "BLAZ100000000002", "PAYER ONE", "", "426.50", "10426.50"),
+        row("2026/01/02", "BLAZ100000000003", "PAYER ONE", "", "426.50", "10853.00"),
+      ]);
+      await receive(client, {
+        companyId: s.companyId, userId: s.userId, amount: "426.50", accountId: s.accounts.bank,
+        receivedOn: "2026-01-02", reference: "BLAZ100000000002 / BLAZ100000000003",
+      });
+      expect(await rec.autoMatch(client, { ...s.base, accountId: s.accounts.bank })).toBe(0);
+    }));
+
+  it("groups lines with no payee by what the bank called them, never all together", () =>
+    inRollback(async (client) => {
+      const kinded = (on, ref, kind, debit, balance) =>
+        [q(on), q(on), q(kind), xl(ref), xl("FT1"), q("01-01-2026 01-01-01"), xl(""), q("Internet Banking"), q(debit), q(""), q(balance)].join(",");
+      const s = await aStatement(client, [
+        kinded("2026/01/02", "BLAZ100000000011", "Service Charge", "10", "9990.00"),
+        kinded("2026/01/03", "BLAZ100000000012", "Service Charge", "10", "9980.00"),
+        kinded("2026/01/04", "BLAZ100000000013", "Transfer", "500", "9480.00"),
+      ]);
+      const g = await rec.groups(client, { companyId: s.companyId, accountId: s.accounts.bank });
+      expect(g.map((x) => [x.key, x.count]).sort()).toEqual([["kind:service charge", 2], ["kind:transfer", 1]]);
+      const done = await rec.postGroup(client, { ...s.base, bankId: s.accounts.bank, who: "kind:service charge", moneyIn: false, accountId: s.accounts.expense });
+      expect(done.posted).toBe(2); // the two charges, and not the transfer
+    }));
+
   it("links a receipt on its exact reference by itself, and only then", () =>
     inRollback(async (client) => {
       const s = await aStatement(client, [

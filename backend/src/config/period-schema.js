@@ -103,6 +103,30 @@ DROP TRIGGER IF EXISTS journal_entries_refuse_closed_period ON journal_entries;
 CREATE TRIGGER journal_entries_refuse_closed_period
   BEFORE INSERT ON journal_entries
   FOR EACH ROW EXECUTE FUNCTION refuse_closed_period();
+
+-- A line joining an entry dated in a closed month is refused the same way: the
+-- rule is about the month an amount lands in, and a balancing pair of lines
+-- added to an old entry would land there too. A deliberate adjustment keeps
+-- its reason set until all its lines are written (ledger/post.js).
+CREATE OR REPLACE FUNCTION refuse_closed_period_line() RETURNS trigger AS $fn$
+DECLARE lock_date DATE; dated DATE;
+BEGIN
+  lock_date := books_locked_through(NEW.company_id);
+  IF lock_date IS NULL THEN RETURN NEW; END IF;
+  SELECT entry_date INTO dated FROM journal_entries WHERE id = NEW.entry_id;
+  IF dated <= lock_date AND COALESCE(current_setting('app.closed_period_reason', true), '') = '' THEN
+    RAISE EXCEPTION 'The books are closed through %. A line on an entry dated % needs a deliberate adjustment, with a reason.',
+      to_char(lock_date, 'DD Mon YYYY'), to_char(dated, 'DD Mon YYYY')
+      USING HINT = 'closed_period';
+  END IF;
+  RETURN NEW;
+END
+$fn$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS journal_lines_refuse_closed_period ON journal_lines;
+CREATE TRIGGER journal_lines_refuse_closed_period
+  BEFORE INSERT ON journal_lines
+  FOR EACH ROW EXECUTE FUNCTION refuse_closed_period_line();
 `;
 
 module.exports = { PERIOD_SQL };

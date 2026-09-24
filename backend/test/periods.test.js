@@ -59,6 +59,17 @@ describe("a closed month", () => {
       ).rejects.toThrow(/closed through/);
     }));
 
+  it("refuses a line added later to an entry in a closed month", () =>
+    inRollback(async (client) => {
+      const b = await aBusiness(client);
+      const old = await b.put("2026-08-10");
+      await periods.close(client, { ...b.base, through: "2026-08-31" });
+      const { rows } = await client.query("SELECT account_id FROM journal_lines WHERE entry_id = $1 LIMIT 1", [old.id]);
+      await expect(
+        client.query("INSERT INTO journal_lines (company_id, entry_id, position, account_id, debit_laari, credit_laari) VALUES ($1,$2,99,$3,100,0)", [b.companyId, old.id, rows[0].account_id])
+      ).rejects.toThrow(/closed through/);
+    }));
+
   it("takes a deliberate adjustment with a reason, and keeps the reason", () =>
     inRollback(async (client) => {
       const b = await aBusiness(client);

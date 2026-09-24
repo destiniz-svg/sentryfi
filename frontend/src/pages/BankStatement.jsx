@@ -187,8 +187,9 @@ function Question({ group, accounts, accountId, phone = false }) {
   const [err, setErr] = useState("");
 
   const chosen = accounts.find((a) => a.id === pick);
-  const who = group.who || "";
-  const label = group.who || "No name given";
+  // The group's key, not its name: lines with no payee are grouped by kind.
+  const who = group.key;
+  const label = group.who || `No name given: ${group.kind || "other"}`;
 
   const post = useMutation({ mutationFn: (body) => bankApi.postGroup(accountId, body) });
   const aside = useMutation({ mutationFn: (body) => bankApi.setAsideGroup(accountId, body) });

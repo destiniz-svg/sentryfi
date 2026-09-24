@@ -298,7 +298,7 @@ function Dispose({ asset, payFrom, onClose, onDone }) {
           <input id="dispose-on" type="date" value={on} onChange={(e) => setOn(e.target.value)} className={FIELD} />
         </label>
         <label className="block">
-          <span className="text-sm font-medium block mb-1.5">What it was sold for (leave empty if scrapped)</span>
+          <span className="text-sm font-medium block mb-1.5">What it was sold for, with any GST (leave empty if scrapped)</span>
           <input id="dispose-proceeds" value={proceeds} onChange={(e) => setProceeds(e.target.value)} inputMode="decimal" placeholder="0.00" className={`${FIELD} tabular`} />
         </label>
         {selling && (

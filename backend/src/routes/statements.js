@@ -21,12 +21,7 @@ const day = (v, what) => {
   return s;
 };
 
-/** The same day a year earlier; 29 February becomes the 28th. */
-const yearBefore = (d) => {
-  const y = Number(d.slice(0, 4)) - 1;
-  const md = d.slice(5) === "02-29" ? "02-28" : d.slice(5);
-  return `${y}-${md}`;
-};
+const { yearEarlier: yearBefore } = require("../ledger/analytics");
 const comparing = (req) => req.query.compare === "1" || req.query.compare === "true";
 
 router.get(

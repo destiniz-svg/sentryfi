@@ -299,6 +299,21 @@ describe("money in", () => {
   });
 });
 
+describe("what is owed, by age", () => {
+  it("takes money paid on account off the customer's oldest invoice", async () => {
+    await inRollback(async (client) => {
+      const seller = await aSellerWith(client);
+      const { invoice } = await anInvoice(client, seller, { issueDate: "2026-05-01", dueDate: "2026-05-31" });
+      await post(client, { companyId: seller.companyId, userId: seller.userId, invoiceId: invoice.id });
+      await receive(client, { companyId: seller.companyId, userId: seller.userId, counterpartyId: seller.customerId, amount: "30000.00", accountId: seller.accounts.bank, receivedOn: "2026-06-01", reference: "On account" });
+      const a = await aged(client, { companyId: seller.companyId, asOf: "2026-09-24" });
+      expect(a.total).toBe("67,200.00"); // 97,200.00 less the 30,000.00 on account
+      expect(a.onAccountApplied).toBe("30,000.00");
+      expect(a.invoices[0].outstanding).toBe("67,200.00");
+    });
+  });
+});
+
 describe("crediting it back", () => {
   it("takes the tax back out in the proportion it went in", async () => {
     await inRollback(async (client) => {
@@ -326,6 +341,27 @@ describe("crediting it back", () => {
         invoiceId: invoice.id,
       });
       expect(formatLaari(left)).toBe("90,720.00");
+    });
+  });
+
+  it("takes the income back off the accounts the invoice put it on, in the same shares", async () => {
+    await inRollback(async (client) => {
+      const seller = await aSellerWith(client);
+      const { rows } = await client.query("INSERT INTO accounts (company_id, code, name, type) VALUES ($1,'4300','Machine hire','income') RETURNING id", [seller.companyId]);
+      // 60,000 of work on 4100 and 30,000 of machine hire on 4300, plus GST.
+      const { invoice } = await anInvoice(client, seller, {
+        lines: [
+          { description: "Work", quantity: 1, unitPrice: "60000.00" },
+          { description: "Excavator hire", quantity: 1, unitPrice: "30000.00", accountId: rows[0].id },
+        ],
+      });
+      await post(client, { companyId: seller.companyId, userId: seller.userId, invoiceId: invoice.id });
+      const note = await creditNote(client, { companyId: seller.companyId, userId: seller.userId, invoiceId: invoice.id, reason: "A third off", amount: "32400.00" });
+      const { rows: back } = await client.query(
+        "SELECT a.code, l.debit_laari::text AS d FROM journal_lines l JOIN accounts a ON a.id = l.account_id WHERE l.entry_id = $1 AND a.type = 'income' ORDER BY a.code",
+        [note.entry.id]
+      );
+      expect(back).toEqual([{ code: "4100", d: "2000000" }, { code: "4300", d: "1000000" }]);
     });
   });
 

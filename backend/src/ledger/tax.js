@@ -61,7 +61,7 @@ const MV = {
   words: { tax: "GST", taxId: "TIN", registration: "GST number", authority: "MIRA", portal: "MIRAconnect" },
   // MIRA's Input and Output Tax Statements (gstReturn.js), and the rates the input one has columns for.
   statements: true,
-  inputRateColumns: [600, 800, 1200, 1600],
+  inputRateColumns: [600, 800, 1200, 1600, 1700],
   form: "mira",
 };
 

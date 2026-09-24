@@ -121,7 +121,8 @@ export default function Analytics() {
 const said = {
   incomeBy(a) {
     const total = a.incomeBy.reduce((s, r) => s + r.raw, 0);
-    const top = a.incomeBy[0];
+    // Income with no customer on it is not a customer, so it is never the one named as a risk.
+    const top = a.incomeBy.find((r) => r.id);
     if (!top || total <= 0) return null;
     const share = Math.round((top.raw / total) * 100);
     return share >= 50 ? `${top.name} is ${share}% of what came in. One customer that large is a risk worth knowing.` : `${top.name} leads, at ${share}% of what came in.`;
@@ -215,7 +216,7 @@ function Kpis({ a, look }) {
     { label: "Income", v: k.income.now, change: k.income.change, spark: series((m) => m.income), open: { type: "income", what: "Income", amount: k.income.now } },
     { label: "Costs", v: k.costs.now, change: k.costs.change, bad: true, spark: series((m) => m.costs), open: { type: "expense", what: "Costs", amount: k.costs.now } },
     { label: "Profit", v: k.profit.now, change: k.profit.change, sub: k.margin.now !== null ? `${k.margin.now}% of income` : null, spark: series((m) => m.income - m.costs) },
-    { label: "Cash now", v: k.cash.now, change: k.cash.change, open: { type: "cash", what: "Money in and out of cash and bank", amount: null, allTime: true } },
+    { label: a.period.to < new Date().toLocaleDateString("en-CA") ? "Cash at the end" : "Cash now", testid: "kpi-cash-now", v: k.cash.now, change: k.cash.change, open: { type: "cash", what: "Money in and out of cash and bank", amount: null, allTime: true } },
     { label: "Owed to you", v: k.owed.now, note: k.owed.overdueRaw > 0 ? `${k.owed.overdue} overdue` : "nothing overdue", to: "/invoices", tone: k.owed.overdueRaw > 0 },
   ];
   return (
@@ -239,7 +240,7 @@ function Kpis({ a, look }) {
         return t.to ? (
           <Link key={t.label} to={t.to} className={cls}>{body}</Link>
         ) : (
-          <button key={t.label} type="button" disabled={!t.open} onClick={() => t.open && look(t.open)} className={`${cls} disabled:hover:translate-y-0`} data-testid={`kpi-${t.label.toLowerCase().replace(/ /g, "-")}`}>
+          <button key={t.label} type="button" disabled={!t.open} onClick={() => t.open && look(t.open)} className={`${cls} disabled:hover:translate-y-0`} data-testid={t.testid || `kpi-${t.label.toLowerCase().replace(/ /g, "-")}`}>
             {body}
           </button>
         );

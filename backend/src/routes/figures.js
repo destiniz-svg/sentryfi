@@ -148,7 +148,7 @@ router.get(
                 ), 0)::text AS amount
            FROM journal_lines l
            JOIN accounts a ON a.id = l.account_id
-          WHERE l.company_id = $1 AND a.code IN ('2100','1300','2200')
+          WHERE l.company_id = $1 AND a.code IN ('2100','1300','2200','1400')
           GROUP BY a.code`,
         [req.companyId]
       );
@@ -208,7 +208,9 @@ router.get(
       owedToSuppliers: money(data.byCode["2100"]),
       // What customers owe, and what the tax authority is owed on what was sold.
       owedToUs: money(data.byCode["1300"]),
-      gstOwed: money(data.byCode["2200"]),
+      // What to keep aside is GST charged less GST that can be claimed back
+      // (1400 reads positive as an asset); nothing to keep when the claim is larger.
+      gstOwed: money((() => { const net = BigInt(data.byCode["2200"] || 0) - BigInt(data.byCode["1400"] || 0); return net > 0n ? net : 0n; })()),
       earned: money(data.byType.income),
       inBankAndCash: money(data.cash),
       // Nothing has been imported yet, so a cash figure of zero means "not

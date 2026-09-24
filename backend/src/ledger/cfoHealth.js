@@ -198,9 +198,12 @@ async function health(client, { companyId, today }) {
   // ---- Risk: one customer, and other currencies.
   const top = await one(
     client,
-    `SELECT c.name, SUM(s.net_laari) AS v, SUM(SUM(s.net_laari)) OVER () AS total
-       FROM sales_invoices s JOIN counterparties c ON c.id = s.counterparty_id
-      WHERE s.company_id = $1 AND s.status = 'posted' AND s.voided_at IS NULL AND s.issue_date BETWEEN $2 AND $3
+    `SELECT c.name, SUM(x.v) AS v, SUM(SUM(x.v)) OVER () AS total FROM (
+       SELECT s.counterparty_id, s.net_laari AS v FROM sales_invoices s
+        WHERE s.company_id = $1 AND s.status = 'posted' AND s.voided_at IS NULL AND s.issue_date BETWEEN $2 AND $3
+       UNION ALL -- net of what was credited back
+       SELECT n.counterparty_id, -n.net_laari FROM credit_notes n WHERE n.company_id = $1 AND n.issue_date BETWEEN $2 AND $3
+     ) x JOIN counterparties c ON c.id = x.counterparty_id
       GROUP BY c.name ORDER BY 2 DESC LIMIT 1`,
     [companyId, ...lastYear]
   );

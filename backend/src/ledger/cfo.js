@@ -51,7 +51,7 @@ async function figures(client, { companyId, today }) {
             s.gross_laari - COALESCE((SELECT SUM(a.amount_laari) FROM receipt_allocations a JOIN receipts r ON r.id = a.receipt_id AND r.voided_at IS NULL WHERE a.invoice_id = s.id), 0)
                           - COALESCE((SELECT SUM(n.gross_laari) FROM credit_notes n WHERE n.invoice_id = s.id), 0) AS owed
        FROM sales_invoices s JOIN counterparties c ON c.id = s.counterparty_id
-      WHERE s.company_id = $1 AND s.status = 'posted' AND s.voided_at IS NULL AND s.fc_gross IS NULL AND COALESCE(s.due_date, s.issue_date + 30) <= $2`,
+      WHERE s.company_id = $1 AND s.status = 'posted' AND s.voided_at IS NULL AND COALESCE(s.due_date, s.issue_date + 30) <= $2`,
     [companyId, until]
   );
   const inParts = invoices.filter((i) => big(i.owed) > 0n).map((i) => ({ kind: "invoice", id: i.id, label: `${i.invoice_no} from ${i.name}`, due: i.due, amount: big(i.owed) }));
@@ -76,6 +76,36 @@ async function figures(client, { companyId, today }) {
     [companyId, until]
   );
   const outParts = bills.filter((b) => big(b.owed) > 0n).map((b) => ({ kind: "bill", id: b.id, label: `${b.name}${b.bill_no ? ` ${b.bill_no}` : ""}`, due: b.due, amount: big(b.owed) }));
+  // A bill in another currency is paid from the foreign account against the
+  // supplier, not bill by bill; so it is still owed as far as that supplier's
+  // balance in that currency still is, oldest bill first. In rufiyaa at the
+  // rates the books carry.
+  const { rows: fcBills } = await client.query(
+    `SELECT b.id, b.bill_no, c.name, b.counterparty_id, trim(b.currency) AS cur, b.gross_laari,
+            COALESCE(b.due_date, b.issue_date + 30)::text AS due
+       FROM bills b JOIN counterparties c ON c.id = b.counterparty_id
+      WHERE b.company_id = $1 AND b.status = 'posted' AND b.voided_at IS NULL AND b.fc_gross IS NOT NULL
+      ORDER BY COALESCE(b.due_date, b.issue_date + 30), b.issue_date`,
+    [companyId]
+  );
+  if (fcBills.length) {
+    const { rows: owedFc } = await client.query(
+      `SELECT l.counterparty_id, trim(l.currency) AS cur, SUM(l.credit_laari - l.debit_laari) AS owed
+         FROM journal_lines l JOIN accounts a ON a.id = l.account_id AND a.code = '2100'
+        WHERE l.company_id = $1 AND l.currency IS NOT NULL
+        GROUP BY 1, 2`,
+      [companyId]
+    );
+    const left = new Map(owedFc.map((r) => [r.counterparty_id + r.cur, big(r.owed)]));
+    for (const b of fcBills) {
+      const k = b.counterparty_id + b.cur;
+      const still = left.get(k) || 0n;
+      const owed = still < big(b.gross_laari) ? still : big(b.gross_laari);
+      if (owed <= 0n) continue;
+      left.set(k, still - owed);
+      if (b.due <= until) outParts.push({ kind: "bill", id: b.id, label: `${b.name}${b.bill_no ? ` ${b.bill_no}` : ""} (${b.cur})`, due: b.due, amount: owed });
+    }
+  }
   const claims = require("./claims");
   const { rows: cl } = await client.query("SELECT id FROM expense_claims WHERE company_id = $1 AND approved_at IS NOT NULL AND rejected_at IS NULL", [companyId]);
   for (const r of cl) {
@@ -140,8 +170,12 @@ async function profile(client, { companyId, today }) {
 
   const top = async (sql) => (await client.query(sql, [companyId, from, today])).rows.map((r) => ({ name: r.name, value: big(r.v) }));
   const customers = await top(
-    `SELECT c.name, SUM(s.net_laari) AS v FROM sales_invoices s JOIN counterparties c ON c.id = s.counterparty_id
-      WHERE s.company_id = $1 AND s.status = 'posted' AND s.voided_at IS NULL AND s.issue_date BETWEEN $2 AND $3 GROUP BY c.name ORDER BY 2 DESC LIMIT 5`
+    `SELECT c.name, SUM(x.v) AS v FROM (
+       SELECT s.counterparty_id, s.net_laari AS v FROM sales_invoices s
+        WHERE s.company_id = $1 AND s.status = 'posted' AND s.voided_at IS NULL AND s.issue_date BETWEEN $2 AND $3
+       UNION ALL -- a credit note takes its share back off the customer
+       SELECT n.counterparty_id, -n.net_laari FROM credit_notes n WHERE n.company_id = $1 AND n.issue_date BETWEEN $2 AND $3
+     ) x JOIN counterparties c ON c.id = x.counterparty_id GROUP BY c.name HAVING SUM(x.v) > 0 ORDER BY 2 DESC LIMIT 5`
   );
   const suppliers = await top(
     `SELECT c.name, SUM(b.net_laari) AS v FROM bills b JOIN counterparties c ON c.id = b.counterparty_id
@@ -162,7 +196,10 @@ async function profile(client, { companyId, today }) {
   // Suppliers as a share of everything billed (bills carry stock and assets too, not only costs).
   const billed = big((await one(client, "SELECT COALESCE(SUM(net_laari), 0) AS v FROM bills WHERE company_id = $1 AND status = 'posted' AND voided_at IS NULL AND issue_date BETWEEN $2 AND $3", [companyId, from, today])).v);
   const monthly = months.map((m) => ({ month: m.m, revenue: big(m.v) }));
-  const sorted = [...monthly].filter((m) => m.revenue > 0n).sort((a, b) => (b.revenue > a.revenue ? 1 : -1));
+  // Busiest and quietest among whole months only: the month still running and
+  // the part-month the year starts in would always look quiet.
+  const whole = (m) => m !== today.slice(0, 7) && !(m === from.slice(0, 7) && from.slice(8) !== "01");
+  const sorted = [...monthly].filter((m) => m.revenue > 0n && whole(m.month)).sort((a, b) => (b.revenue > a.revenue ? 1 : -1));
   return {
     from,
     to: today,

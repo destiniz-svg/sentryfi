@@ -74,3 +74,7 @@ Customs values a consignment by its own rules: its own exchange rate (published 
 **What the product does instead** is described in PRODUCT.md under "It reads, asks, and learns": it recognises each charge on the document, asks when a line is unclear, and remembers the answer.
 
 The Customs rate table remains useful for one thing only, later: a rough estimate of duty and fees *before* goods are ordered, shown as an estimate and replaced by the notice when it arrives.
+
+## Input Tax Statement: the 17% column (added 24 September 2026)
+
+Tourism GST has been 17% since 1 July 2025, but the Input Tax Statement template we copied (v23.1) has columns for 6, 8, 12 and 16% only. Sentryfi now writes a "GST Charged at 17%" column after the 16% one, so 17% bills are listed and the statement adds up to the return. **To confirm:** the column's exact heading and position in MIRA's current template, and whether GST paid at Customs is listed with Customs as the supplier and the declaration number as the invoice number (Sentryfi uses the shipment's reference until a declaration number is stored).

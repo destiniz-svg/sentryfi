@@ -45,7 +45,14 @@ async function aBusiness(client) {
 
 describe("analytics", () => {
   it("measures a period against the one before it, as long as it", () => {
-    expect(analytics.previous("2026-09-01", "2026-09-30")).toEqual({ from: "2026-08-02", to: "2026-08-31" });
+    // A whole month against the whole month before, a quarter against the quarter before.
+    expect(analytics.previous("2026-09-01", "2026-09-30")).toEqual({ from: "2026-08-01", to: "2026-08-31" });
+    expect(analytics.previous("2026-03-01", "2026-03-31")).toEqual({ from: "2026-02-01", to: "2026-02-28" });
+    expect(analytics.previous("2026-07-01", "2026-09-30")).toEqual({ from: "2026-04-01", to: "2026-06-30" });
+    // Days that are not whole months: as many days just before.
+    expect(analytics.previous("2026-09-10", "2026-09-19")).toEqual({ from: "2026-08-31", to: "2026-09-09" });
+    // February a year earlier keeps its 29th.
+    expect(analytics.previous("2025-02-01", "2025-02-28", "year")).toEqual({ from: "2024-02-01", to: "2024-02-29" });
     expect(analytics.previous("2026-01-01", "2026-12-31")).toEqual({ from: "2025-01-01", to: "2025-12-31" });
     expect(analytics.previous("2026-01-01", "2026-09-24", "year")).toEqual({ from: "2025-01-01", to: "2025-09-24" });
     expect(analytics.previous("2028-01-01", "2028-02-29", "year")).toEqual({ from: "2027-01-01", to: "2027-02-28" });

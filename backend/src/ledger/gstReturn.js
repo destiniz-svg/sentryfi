@@ -23,7 +23,9 @@ const { today: localToday } = require("./today");
 
 // The rate columns MIRA's Input Tax Statement v23.1 has. A rate that is not
 // one of these cannot be put on the statement and is reported as a problem.
-const INPUT_RATE_COLUMNS = [600, 800, 1200, 1600];
+// 17% is tourism GST from 1 July 2025; its column follows 16% (to confirm
+// against MIRA's current template, docs/domain/to-confirm.md).
+const INPUT_RATE_COLUMNS = [600, 800, 1200, 1600, 1700];
 
 const pad = (n) => String(n).padStart(2, "0");
 const lastDay = (y, m) => new Date(Date.UTC(y, m, 0)).getUTCDate();
@@ -220,7 +222,7 @@ async function build(client, { companyId, key }) {
   for (const b of pack.inputRateColumns ? bills.filter((r) => r.sign > 0 && !pack.inputRateColumns.includes(r.gst_rate_bp)) : []) {
     problems.push({
       what: `Bill ${b.bill_no || ""} at ${b.gst_rate_bp / 100}%`,
-      detail: "MIRA's Input Tax Statement has columns for 6, 8, 12 and 16% only. Check the rate on the paper.",
+      detail: "MIRA's Input Tax Statement has columns for 6, 8, 12, 16 and 17% only. Check the rate on the paper.",
       href: "/bills",
     });
   }
@@ -286,7 +288,7 @@ function inputRows(r) {
   const head = [
     "#", "Supplier TIN", "Supplier Name", "Supplier Invoice Number", "Invoice Date",
     "Invoice Total (excluding GST)", "GST Charged at 6%", "GST Charged at 8%", "GST Charged at 12%",
-    "GST Charged at 16%", "Your Taxable Activity Number", "Revenue / Capital",
+    "GST Charged at 16%", "GST Charged at 17%", "Your Taxable Activity Number", "Revenue / Capital",
   ];
   const money = (v, sign = 1) => Number(formatLaari(BigInt(v) * BigInt(sign), { withGrouping: false }));
   return [
@@ -295,7 +297,7 @@ function inputRows(r) {
       const at = (bp) => (b.gst_rate_bp === bp ? money(b.tax_laari, b.sign) : null);
       return [
         i + 1, b.tin || "", b.supplier || "", b.bill_no || "", b.dated, money(b.net_laari, b.sign),
-        at(600), at(800), at(1200), at(1600), r.company.gst_number || "", b.capital ? "Capital" : "Revenue",
+        at(600), at(800), at(1200), at(1600), at(1700), r.company.gst_number || "", b.capital ? "Capital" : "Revenue",
       ];
     }),
   ];

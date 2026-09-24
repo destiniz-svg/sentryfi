@@ -151,9 +151,9 @@ describe("the statements", () => {
       expect(input[0]).toEqual([
         "#", "Supplier TIN", "Supplier Name", "Supplier Invoice Number", "Invoice Date",
         "Invoice Total (excluding GST)", "GST Charged at 6%", "GST Charged at 8%", "GST Charged at 12%",
-        "GST Charged at 16%", "Your Taxable Activity Number", "Revenue / Capital",
+        "GST Charged at 16%", "GST Charged at 17%", "Your Taxable Activity Number", "Revenue / Capital",
       ]);
-      expect(input[1]).toEqual([1, "1000004GST501", "State Trading Organisation", "B-2026-08-10", "2026-08-10", 1000, null, 80, null, null, "1145053GST501", "Revenue"]);
+      expect(input[1]).toEqual([1, "1000004GST501", "State Trading Organisation", "B-2026-08-10", "2026-08-10", 1000, null, 80, null, null, null, "1145053GST501", "Revenue"]);
 
       const [invoices, other] = gst.outputSheets(r);
       expect([invoices.name, other.name]).toEqual(["TaxInvoices", "OtherTransactions"]);

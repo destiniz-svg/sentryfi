@@ -80,6 +80,23 @@ describe("the CFO", () => {
       expect(await cashMoves(client, { companyId, today: "2026-09-24" })).toEqual(["-30000", "-10000"]);
     }));
 
+  it("counts a dollar bill as due out until the supplier is paid in dollars", () =>
+    inRollback(async (client) => {
+      const co = await aBusiness(client);
+      const { companyId, userId, accounts } = co;
+      // USD 1,000 at 15.42, due in five days.
+      const { rows } = await client.query(
+        `INSERT INTO bills (company_id, counterparty_id, bill_no, issue_date, due_date, net_laari, tax_laari, gross_laari, gst_treatment, status, currency, fx_rate, fc_net, fc_tax, fc_gross)
+         VALUES ($1,$2,'US-9','2026-09-20','2026-09-28',1542000,0,1542000,'none_unregistered','draft','USD','15.42',100000,0,100000) RETURNING id`,
+        [companyId, co.supplier]
+      );
+      await postBill(client, { companyId, userId, billId: rows[0].id, accounts: { expense: co.code["5400"], payable: accounts.payable, taxReclaimable: accounts.taxReclaimable } });
+      expect((await cfo.figures(client, { companyId, today: TODAY })).committedOut).toBe("15,420.00");
+      await postEntry(client, { companyId, userId, date: "2026-09-22", source: "adjustment", narrative: "Paid in dollars",
+        lines: [{ accountId: accounts.payable, debit: "15420", counterpartyId: co.supplier, fc: { currency: "USD", amount: "1000", rate: "15.42" } }, { accountId: accounts.bank, credit: "15420" }] });
+      expect((await cfo.figures(client, { companyId, today: TODAY })).committedOut).toBe("0.00");
+    }));
+
   it("counts a bill as owed again once its payment is taken back", () =>
     inRollback(async (client) => {
       const co = await aBusiness(client);

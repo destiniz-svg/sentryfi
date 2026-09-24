@@ -171,11 +171,15 @@ describe("variations, the bill of quantities and hours", () => {
       const co = await aContract(client);
       const { companyId, userId, projectId } = co;
       const before = (await client.query("SELECT count(*)::int AS n FROM journal_entries WHERE company_id = $1", [companyId])).rows[0].n;
+      const margin = (await co.summary()).forecastMargin;
       await projects.logHours(client, { companyId, userId, projectId, workedOn: "2026-07-01", who: "Site foreman", hours: "8.5", rate: "90" });
       await projects.logHours(client, { companyId, userId, projectId, workedOn: "2026-07-02", who: "Mason", hours: "7" });
       await expect(projects.logHours(client, { companyId, userId, projectId, workedOn: "2026-07-02", who: "Mason", hours: "25" })).rejects.toThrow(/at most 24/);
       const s = await co.summary();
       expect([s.hours.total, s.hours.value, s.hours.entries.length]).toEqual(["15.5", "765.00", 2]);
+      // The team's time at its rate comes off the margin the job is heading for.
+      const n = (v) => Number(String(v).replace(/,/g, ""));
+      expect(n(margin) - n(s.forecastMargin)).toBeCloseTo(765, 2);
       expect((await client.query("SELECT count(*)::int AS n FROM journal_entries WHERE company_id = $1", [companyId])).rows[0].n).toBe(before);
     }));
 });
