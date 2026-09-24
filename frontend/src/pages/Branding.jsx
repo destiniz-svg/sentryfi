@@ -433,7 +433,7 @@ function Workspace({ start, mayChange, onUndo }) {
                 {template.language === "en-dv" && <p className="text-[12px] text-[var(--ink-muted)] mt-2 leading-snug">The Dhivehi labels are suggestions. Have someone who writes Dhivehi every day check them; each can be changed below.</p>}
               </Group>
               <details className="group">
-                <summary className="flex items-center gap-2 cursor-pointer list-none font-display text-[12px] font-bold uppercase tracking-[0.12em] text-[var(--ink-muted)] hover:text-[var(--ink)]">
+                <summary className="flex items-center gap-2 cursor-pointer list-none text-[13px] font-semibold text-[var(--ink-muted)] hover:text-[var(--ink)]">
                   Rename labels <ChevronDown size={14} className="transition-transform group-open:rotate-180" aria-hidden="true" />
                 </summary>
                 <div className="grid grid-cols-2 gap-2 mt-3">
@@ -619,7 +619,7 @@ function Box({ label, id, hint, className, children }) {
 function Group({ title, note, children }) {
   return (
     <section>
-      <h2 className="font-display text-[12px] font-bold uppercase tracking-[0.12em] text-[var(--ink-muted)] mb-3">
+      <h2 className="text-[13px] font-semibold text-[var(--ink-muted)] mb-3">
         {title}
         {note && <span className="font-sans font-normal normal-case tracking-normal"> · {note}</span>}
       </h2>

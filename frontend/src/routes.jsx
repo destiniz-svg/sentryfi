@@ -39,11 +39,9 @@ import { usePhone } from "@/lib/phone";
  * a round trip. Everything behind the login is fetched when it is first
  * opened.
  */
-const Figures = lazy(() => import("@/pages/Figures"));
 const Analytics = lazy(() => import("@/pages/Analytics"));
 const Attention = lazy(() => import("@/pages/Attention"));
 const Bills = lazy(() => import("@/pages/Bills"));
-const NotReady = lazy(() => import("@/pages/NotReady"));
 const Invoices = lazy(() => import("@/pages/Invoices"));
 const Bank = lazy(() => import("@/pages/Bank"));
 const Closing = lazy(() => import("@/pages/Closing"));
@@ -187,9 +185,8 @@ export const router = createBrowserRouter([
       { path: "approvals", element: <Approvals /> },
       { path: "payments", element: <Payments /> },
       { path: "loans", element: <Loans /> },
-      { path: "figures", element: <Figures /> },
+      { path: "figures", element: <Navigate to="/analytics" replace /> },
       { path: "analytics", element: <Analytics /> },
-      // Still on the purchased product's tables. See config/readiness.js.
       { path: "invoices", element: <Invoices /> },
       { path: "invoices/new", element: <NewInvoice /> },
       { path: "bank", element: <Bank /> },
@@ -198,15 +195,13 @@ export const router = createBrowserRouter([
       { path: "tax", element: <TaxReturn /> },
       { path: "import", element: <Import /> },
       { path: "bank/:accountId", element: <BankStatement /> },
-      { path: "clients", element: <NotReady /> },
+      { path: "clients", element: <Navigate to="/invoices" replace /> },
       { path: "bills", element: <OnPhone board={<PhoneBills />} desk={<Bills />} /> },
-      { path: "expenses", element: <NotReady /> },
-      { path: "payments", element: <NotReady /> },
-      { path: "items", element: <NotReady /> },
-      { path: "reports", element: <NotReady /> },
-      // Cash is a phone job. At a desk it is a report, and that comes with
-      // the rest of the bank work in milestone two.
-      { path: "cash", element: <FieldTool board={<PhoneCash />} desk={<NotReady />} /> },
+      { path: "expenses", element: <Navigate to="/bills" replace /> },
+      { path: "items", element: <Navigate to="/stock" replace /> },
+      { path: "reports", element: <Navigate to="/statements" replace /> },
+      // Cash is a phone job. At a desk the tins are on Bank and cash.
+      { path: "cash", element: <FieldTool board={<PhoneCash />} desk={<Navigate to="/bank" replace />} /> },
       { path: "settings", element: <Settings /> },
     ],
   },

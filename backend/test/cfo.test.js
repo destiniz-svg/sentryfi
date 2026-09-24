@@ -122,7 +122,7 @@ describe("the CFO", () => {
       );
       const [note] = await cfo.market(client, { companyId, today: TODAY });
       expect(note).toMatchObject({ currency: "USD", moved: true, was: "15.42", rate: "15.6", source: "BML selling rate", on: "2026-09-22" });
-      expect(note.text).toBe("USD moved from 15.42 (2026-09-10) to 15.6 (2026-09-22). On the USD 1,000.00 of bills in USD, that is about MVR 180.00 more to pay in rufiyaa.");
+      expect(note.text).toBe("USD moved from 15.42 (10 Sept 2026) to 15.6 (22 Sept 2026). On the USD 1,000.00 of bills in USD, that is about MVR 180.00 more to pay in rufiyaa.");
     }));
 
   it("makes the brief once a day and keeps it", () =>

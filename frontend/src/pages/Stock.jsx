@@ -91,7 +91,7 @@ export default function Stock() {
             </Card>
           </div>
           <Card padding="none" className="overflow-hidden">
-            <div className="hidden md:grid grid-cols-[minmax(0,1.6fr)_110px_120px_130px_130px_auto] gap-4 px-5 py-3 border-b border-[var(--border)] font-display text-[12px] font-bold uppercase tracking-[0.12em] text-[var(--ink-muted)]">
+            <div className="hidden md:grid grid-cols-[minmax(0,1.6fr)_110px_120px_130px_130px_230px] gap-4 px-5 py-3 border-b border-[var(--border)] text-[12px] font-medium text-[var(--ink-muted)]">
               <span>Item</span>
               <span className="text-right">On hand</span>
               <span className="text-right">Average cost</span>
@@ -104,7 +104,7 @@ export default function Stock() {
                 <div
                   key={i.id}
                   data-testid="stock-row"
-                  className="grid grid-cols-2 md:grid-cols-[minmax(0,1.6fr)_110px_120px_130px_130px_auto] gap-x-4 gap-y-1 px-5 py-4 items-center"
+                  className="grid grid-cols-2 md:grid-cols-[minmax(0,1.6fr)_110px_120px_130px_130px_230px] gap-x-4 gap-y-1 px-5 py-4 items-center"
                 >
                   <button type="button" onClick={() => setLooking(i)} className="min-w-0 col-span-2 md:col-span-1 text-left">
                     <div className="text-[15px] font-semibold truncate hover:underline">{i.name}</div>

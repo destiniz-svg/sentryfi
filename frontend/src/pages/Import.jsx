@@ -183,16 +183,16 @@ export default function Import() {
           </label>
           <label className="block flex-1 min-w-[240px]">
             <span className="text-sm font-medium block mb-1.5">The export</span>
-            <input id="import-file" type="file" accept=".csv,text/csv" onChange={onPick} className={FIELD + " w-full py-2 h-auto"} />
+            <input id="import-file" type="file" accept=".csv,text/csv" onChange={onPick} className={FIELD + " w-full h-11 py-1.5 file:mr-3 file:h-8 file:rounded-full file:border-0 file:bg-[var(--surface-2)] file:px-4 file:text-[14px] file:font-medium file:text-[var(--ink)] file:cursor-pointer"} />
           </label>
           <label className="block flex-1 min-w-[240px]">
             <span className="text-sm font-medium block mb-1.5">
               Their chart of accounts <span className="font-normal text-[var(--ink-muted)]">(optional)</span>
             </span>
-            <input id="import-chart" type="file" accept=".csv,text/csv" onChange={onChart} className={FIELD + " w-full py-2 h-auto"} />
+            <input id="import-chart" type="file" accept=".csv,text/csv" onChange={onChart} className={FIELD + " w-full h-11 py-1.5 file:mr-3 file:h-8 file:rounded-full file:border-0 file:bg-[var(--surface-2)] file:px-4 file:text-[14px] file:font-medium file:text-[var(--ink)] file:cursor-pointer"} />
           </label>
         </div>
-        <p className="text-[13px] text-[var(--ink-muted)] mt-3">
+        <p className="text-[13px] text-[var(--ink-muted)] mt-3 max-w-[80ch]">
           From Zoho Books: Reports, Journal Report, whole period, Export as CSV. Any file with a date, an account, a debit and a
           credit column works. The chart of accounts (Accountant, Chart of Accounts, Export) says what every account is, so none
           has to be guessed. Nothing is written until you say so.

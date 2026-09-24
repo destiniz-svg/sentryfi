@@ -25,6 +25,9 @@ const plus = (iso, days) => new Date(Date.parse(iso + "T00:00:00Z") + days * DAY
 /** Today where the company is (the Maldives, UTC+5). */
 const todayHere = () => new Date(Date.now() + 5 * 3600000).toISOString().slice(0, 10);
 const big = (v) => BigInt(v ?? 0);
+// Dates in words, as the rest of the app writes them: 4 Aug 2026, August 2026.
+const onDay = (v) => require("./gstReturn").niceDate(String(v instanceof Date ? v.toISOString() : v).slice(0, 10));
+const monthOf = (ym) => new Date(String(ym).slice(0, 7) + "-01T00:00:00Z").toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
 
 async function one(client, sql, params) {
   return (await client.query(sql, params)).rows[0];
@@ -279,7 +282,7 @@ async function market(client, { companyId, today }) {
     );
     const owe = big(exposure.owe);
     if (!before || Number(before.rate) === Number(r.rate)) {
-      notes.push({ currency: cur, rate: String(Number(r.rate)), on: r.on, source: r.source || "recorded in Sentryfi", moved: false, text: `${cur} stands at ${Number(r.rate)} (${r.on}).` });
+      notes.push({ currency: cur, rate: String(Number(r.rate)), on: r.on, source: r.source || "recorded in Sentryfi", moved: false, text: `${cur} stands at ${Number(r.rate)} (${onDay(r.on)}).` });
       continue;
     }
     const delta = Number(r.rate) - Number(before.rate);
@@ -287,7 +290,7 @@ async function market(client, { companyId, today }) {
     notes.push({
       currency: cur, rate: String(Number(r.rate)), on: r.on, was: String(Number(before.rate)), wasOn: before.on, source: r.source || "recorded in Sentryfi", moved: true,
       text:
-        `${cur} moved from ${Number(before.rate)} (${before.on}) to ${Number(r.rate)} (${r.on}).` +
+        `${cur} moved from ${Number(before.rate)} (${onDay(before.on)}) to ${Number(r.rate)} (${onDay(r.on)}).` +
         (owe > 0n ? ` On the ${cur} ${f(owe)} of bills in ${cur}, that is about MVR ${f(effect < 0n ? -effect : effect)} ${effect > 0n ? "more" : "less"} to pay in rufiyaa.` : ""),
     });
   }
@@ -324,7 +327,7 @@ async function toDo(client, { companyId, today }, figs) {
     out.push({ text: `Pay ${payNow.length} ${payNow.length === 1 ? "bill" : "bills"} due this week, MVR ${f(total)}.`, href: "/payments" });
   }
   const chase = figs.inParts.filter((p) => p.kind === "invoice" && p.due < today).slice(0, 3);
-  for (const c of chase) out.push({ text: `Chase ${c.label}: MVR ${c.amount}, due ${c.due}.`, href: "/invoices" });
+  for (const c of chase) out.push({ text: `Chase ${c.label}: MVR ${c.amount}, due ${onDay(c.due)}.`, href: "/invoices" });
   const waiting = await one(
     client,
     `SELECT (SELECT count(*) FROM orders WHERE company_id = $1 AND kind = 'purchase' AND needs_approval AND approved_at IS NULL AND cancelled_at IS NULL)
@@ -345,7 +348,7 @@ function lesson(p, today) {
     const share = Math.round(Number((r.customers[0].value * 1000n) / r.revenue) / 10);
     facts.push(share >= 40 ? `${r.customers[0].name} brings ${share}% of your revenue. If they paid late or left, you would feel it at once; a second customer that size is worth chasing.` : `Your largest customer, ${r.customers[0].name}, is ${share}% of revenue: no single customer holds you.`);
   }
-  if (p.busiest && p.quietest) facts.push(`Your busiest month in the last year was ${p.busiest.month} (MVR ${p.busiest.revenue}), your quietest ${p.quietest.month} (MVR ${p.quietest.revenue}). Plan cash for the quiet one.`);
+  if (p.busiest && p.quietest) facts.push(`Your busiest month in the last year was ${monthOf(p.busiest.month)} (MVR ${p.busiest.revenue}), your quietest ${monthOf(p.quietest.month)} (MVR ${p.quietest.revenue}). Plan cash for the quiet one.`);
   if (p.grossMarginPercent !== null) facts.push(`What you sell earns ${p.grossMarginPercent}% over what it cost you.`);
   if (r.interest > 0n && r.revenue > 0n) facts.push(`Borrowing cost you MVR ${f(r.interest)} in the last year, ${Math.round(Number((r.interest * 1000n) / r.revenue) / 10)}% of revenue.`);
   if (!facts.length) return "The more months of books there are, the more this can tell you. Every bill and invoice teaches it something.";
@@ -429,7 +432,7 @@ function asText(b) {
     "Yesterday: " + b.changed.lines.join(" "),
     "Today: " + b.todo.map((t) => t.text).join(" "),
     ...(b.noticed.length ? ["Noticed: " + b.noticed.map((n) => `${n.title}. ${n.detail}`).join(" ")] : []),
-    b.market ? `The market: ${b.market.text} (${b.market.source}, ${b.market.on})` : b.marketQuiet,
+    b.market ? `The market: ${b.market.text} (${b.market.source}, ${onDay(b.market.on)})` : b.marketQuiet,
     "Learned: " + b.learned,
   ];
 }

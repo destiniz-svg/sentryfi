@@ -321,8 +321,8 @@ function Profile({ p }) {
         ))}
       </div>
       <p className="text-[14px] text-[var(--ink-muted)] mt-6">
-        {p.busiest ? `Busiest month ${p.busiest.month}, MVR ${p.busiest.revenue}. ` : ""}
-        {p.quietest ? `Quietest ${p.quietest.month}, MVR ${p.quietest.revenue}. ` : ""}
+        {p.busiest ? `Busiest month ${formatDate(p.busiest.month + "-01", { month: "long", year: "numeric" })}, MVR ${p.busiest.revenue}. ` : ""}
+        {p.quietest ? `Quietest ${formatDate(p.quietest.month + "-01", { month: "long", year: "numeric" })}, MVR ${p.quietest.revenue}. ` : ""}
         {p.financing.loans ? `${p.financing.loans} ${p.financing.loans === 1 ? "loan" : "loans"}, MVR ${p.financing.owed} owed; borrowing cost MVR ${p.financing.interestLastYear} last year.` : "No borrowing."}
       </p>
       <Notes notes={p.notes} />

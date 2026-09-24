@@ -7,6 +7,7 @@ const { requireAuth } = require("../middleware/auth");
 const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
 const { formatLaari } = require("../ledger/money");
+const { niceDate } = require("../ledger/gstReturn");
 const gstReturn = require("../ledger/gstReturn");
 
 /**
@@ -157,7 +158,7 @@ async function collect(client, req) {
       found.push({
         kind: u.days > 30 ? "ageing" : "waiting",
         title: `${u.n} bank ${u.n === 1 ? "line" : "lines"} the books do not explain`,
-        detail: `MVR ${formatLaari(BigInt(u.total))} moved at the bank with nothing in the books behind it. The oldest is from ${u.oldest}.`,
+        detail: `MVR ${formatLaari(BigInt(u.total))} moved at the bank with nothing in the books behind it. The oldest is from ${niceDate(u.oldest)}.`,
         does: "Say what they were, or leave them for later",
         href: `/bank`,
       });

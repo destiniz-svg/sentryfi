@@ -156,7 +156,7 @@ function Schedule({ rows, costName }) {
   return (
     <div className="border-t border-[var(--border)] overflow-x-auto">
       <div className="min-w-[560px]">
-        <div className={`${cols} px-5 py-2.5 font-display text-[12px] font-bold uppercase tracking-[0.12em] text-[var(--ink-muted)]`}>
+        <div className={`${cols} px-5 py-2.5 text-[12px] font-medium text-[var(--ink-muted)]`}>
           <span>#</span>
           <span>Due</span>
           <span className="text-right">Payment</span>

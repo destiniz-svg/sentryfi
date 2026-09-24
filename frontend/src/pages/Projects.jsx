@@ -69,7 +69,7 @@ export default function Projects() {
                     <Money amount={p.spent} />
                   </div>
                   <div>
-                    <div className="text-[12px] text-[var(--ink-muted)]">Heading for</div>
+                    <div className="text-[12px] text-[var(--ink-muted)]">Margin heading for</div>
                     {p.forecastMargin ? <Money amount={p.forecastMargin} /> : <span className="text-[var(--ink-muted)]">—</span>}
                   </div>
                 </div>

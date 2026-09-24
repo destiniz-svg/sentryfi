@@ -16,7 +16,7 @@ import AILogo from "@/components/layout/AILogo";
 export default function ErrorPage() {
   const error = useRouteError();
 
-  const notFound = isRouteErrorResponse(error) && error.status === 404;
+  const notFound = !error || (isRouteErrorResponse(error) && error.status === 404);
   const detail = isRouteErrorResponse(error)
     ? `${error.status} ${error.statusText}`
     : error?.message || String(error || "Unknown error");
@@ -64,7 +64,7 @@ export default function ErrorPage() {
           </Link>
         </div>
 
-        <details className="mt-10 group">
+        {!notFound && <details className="mt-10 group">
           <summary className="cursor-pointer text-[14px] font-medium text-[var(--ink-muted)] hover:text-[var(--ink)] list-none">
             Technical detail, for whoever fixes it
           </summary>
@@ -72,7 +72,7 @@ export default function ErrorPage() {
             {detail}
             {stack ? "\n\n" + stack : ""}
           </pre>
-        </details>
+        </details>}
       </div>
     </div>
   );

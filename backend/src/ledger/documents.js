@@ -8,6 +8,7 @@
  */
 const crypto = require("crypto");
 const { formatLaari } = require("./money");
+const { niceDate } = require("./gstReturn");
 
 const KINDS = ["invoice", "quote", "sales_order", "purchase_order", "delivery_note", "goods_received", "credit_note", "receipt", "statement"];
 const f = (v) => (v === null || v === undefined ? null : formatLaari(BigInt(v)));
@@ -291,7 +292,7 @@ async function statementData(client, { companyId, id }) {
     number: `ST-${today.replace(/-/g, "")}`,
     status: "posted",
     issued: today,
-    subject: `From ${from} to ${today}`,
+    subject: `From ${niceDate(from)} to ${niceDate(today)}`,
     to: party,
     currency: null,
     gstTreatment: "none_unregistered",

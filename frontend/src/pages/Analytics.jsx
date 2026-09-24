@@ -232,10 +232,10 @@ function Kpis({ a, look }) {
               {t.note && <span className={t.tone ? "text-[var(--danger)]" : "text-[var(--ink-muted)]"}>{t.note}</span>}
             </div>
             {t.sub && <div className="text-[12px] text-[var(--ink-muted)]">{t.sub}</div>}
-            {t.spark && <Spark values={t.spark} tone={t.bad ? "var(--ink-muted)" : "var(--ink)"} />}
+            {t.spark && <div className="mt-auto"><Spark values={t.spark} tone={t.bad ? "var(--ink-muted)" : "var(--ink)"} /></div>}
           </>
         );
-        const cls = `text-left rounded-[20px] bg-[var(--surface)] lift p-4 min-w-0 transition-transform hover:-translate-y-0.5 ${i === 4 ? "col-span-2 lg:col-span-1" : ""}`;
+        const cls = `flex flex-col justify-start text-left rounded-[20px] bg-[var(--surface)] lift p-4 min-w-0 transition-transform hover:-translate-y-0.5 ${i === 4 ? "col-span-2 lg:col-span-1" : ""}`;
         return t.to ? (
           <Link key={t.label} to={t.to} className={cls}>{body}</Link>
         ) : (

@@ -484,7 +484,8 @@ async function summary(client, { companyId, projectId }) {
     forecastCost: f(forecast),
     costToComplete: f(forecast - spent),
     forecastMargin: contract === null ? null : f(contract - forecast),
-    percentComplete: forecast > 0n ? Number((spent * 1000n) / forecast) / 10 : null,
+    // Without a budget the forecast is only what is spent so far, so a share of it says nothing.
+    percentComplete: budget > 0n && forecast > 0n ? Number((spent * 1000n) / forecast) / 10 : null,
     overBudget: lines.filter((l) => l.budget > 0n && l.spent + l.committed > l.budget).map((l) => l.name),
     revenue: f(BigInt(revenueRows[0].r)),
     claimed: f(claimedToDate),

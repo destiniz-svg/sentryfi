@@ -38,7 +38,7 @@ export default function Orders() {
   return (
     <div>
       <PageHeader
-        title="Orders"
+        title="Orders and quotes"
         description="What was agreed before the goods moved, what has arrived or gone out, and what is billed."
         actions={
           mayAdd && (
