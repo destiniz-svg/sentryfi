@@ -654,9 +654,13 @@ input[type="date"]::-webkit-date-and-time-value {
 .no-bar::-webkit-scrollbar { display: none; }
 
 /* A text link reads in deep sea, the colour settled for links on 22 September
-   2026. Navigation is not a text link and keeps ink. */
-a.underline { color: var(--deep); }
-a.underline:hover { color: var(--deep-strong); }
+   2026. Navigation is not a text link and keeps ink. In the base layer, so a
+   link that says its own colour (yellow on an ink card) wins: unlayered, this
+   beat every colour utility and left deep sea on ink, nearly invisible. */
+@layer base {
+  a.underline { color: var(--deep); }
+  a.underline:hover { color: var(--deep-strong); }
+}
 
 /* ------------------------------------------------------------------
    The main app on a phone (DESIGN.md, "The phone, refined"): white cards
