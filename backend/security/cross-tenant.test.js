@@ -1133,3 +1133,14 @@ describe("analytics, from B", () => {
     denied(await call(B, "GET", "/analytics/entries?type=expense", { company: A.companyId }));
   });
 });
+
+describe("withholding tax, from B", () => {
+  it("lists only B's suppliers, and cannot mark one of A's", async () => {
+    noLeak(await call(B, "GET", "/tax/withholding"), "SECRET-SUPPLIER-A");
+    denied(await call(B, "GET", "/tax/withholding", { company: A.companyId }));
+    const aSupplier = (await db.query("SELECT id FROM counterparties WHERE company_id = $1 AND name = 'SECRET-SUPPLIER-A'", [A.companyId])).rows[0].id;
+    const r = await call(B, "PUT", `/tax/withholding/suppliers/${aSupplier}`, { body: { category: "services" } });
+    expect(r.status).toBe(400);
+    expect((await db.query("SELECT nwt_category FROM counterparties WHERE id = $1", [aSupplier])).rows[0].nwt_category).toBe(null);
+  });
+});

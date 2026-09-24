@@ -45,4 +45,41 @@ router.post(
   })
 );
 
+// ---- withholding tax on payments to non-residents
+const nwt = require("../ledger/nwt");
+
+router.get(
+  "/withholding",
+  requireCan("read"),
+  asyncHandler(async (req, res) => {
+    const key = /^d{4}-d{2}$/.test(String(req.query.month || "")) ? req.query.month : require("../ledger/today").today().slice(0, 7);
+    res.json(
+      await asCompany(req, async (client) => {
+        const rules = await nwt.rules(client, { companyId: req.companyId });
+        if (!rules) return { available: false };
+        return {
+          available: true,
+          categories: Object.entries(rules.categories).map(([code, c]) => ({ code, label: c.label, ratePct: c.bp / 100 })),
+          suppliers: await nwt.suppliers(client, { companyId: req.companyId }),
+          month: await nwt.month(client, { companyId: req.companyId, key }),
+        };
+      })
+    );
+  })
+);
+
+router.put(
+  "/withholding/suppliers/:id",
+  requireCan("manage_settings"),
+  validate(z.object({ category: z.string().trim().max(40).nullable() })),
+  asyncHandler(async (req, res) => {
+    try {
+      await asCompany(req, (client) => nwt.setSupplier(client, { companyId: req.companyId, counterpartyId: req.params.id, category: req.body.category }));
+      res.json({ ok: true });
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
 module.exports = router;

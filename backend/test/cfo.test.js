@@ -80,6 +80,25 @@ describe("the CFO", () => {
       expect(await cashMoves(client, { companyId, today: "2026-09-24" })).toEqual(["-30000", "-10000"]);
     }));
 
+  it("warns past the GST line, says how spread the customers are, and where break-even is", () =>
+    inRollback(async (client) => {
+      const co = await aBusiness(client);
+      const { companyId } = co;
+      await client.query("RESET ROLE"); // settings the app role may not change, set as the owner would
+      await client.query("UPDATE companies SET gst_registered = false WHERE id = $1", [companyId]);
+      await assumeIdentity(client, { companyId, userId: co.userId });
+      const second = (await client.query("INSERT INTO counterparties (company_id, name, kind) VALUES ($1,'A café','{customer}') RETURNING id", [companyId])).rows[0].id;
+      await co.invoice("2026-06-15", "900000", "2026-07-15"); // the resort: most of it
+      const { invoice } = await raise(client, { companyId, userId: co.userId, counterpartyId: second, issueDate: "2026-07-01", gstTreatment: "none_unregistered", lines: [{ description: "Work", amount: "150000" }] });
+      await post(client, { companyId, userId: co.userId, invoiceId: invoice.id });
+      await co.bill("2026-07-01", 30000000); // 300,000.00 of equipment and fuel: a fixed cost here
+      const checks = await cfo.health(client, { companyId, today: TODAY });
+      const by = Object.fromEntries(checks.map((c) => [c.name, c]));
+      expect(by["GST registration"]).toMatchObject({ verdict: "act", value: "105% of the line" });
+      expect(by["Customers, spread"]).toMatchObject({ verdict: "act", value: "Top 2: 100% of sales" });
+      expect(by["Break-even"].value).toBe("MVR 25,000.00 a month");
+    }));
+
   it("counts a dollar bill as due out until the supplier is paid in dollars", () =>
     inRollback(async (client) => {
       const co = await aBusiness(client);

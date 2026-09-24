@@ -14,6 +14,9 @@ const { postEntry, assumeIdentity } = require("./post");
 const { toLaari, formatLaari } = require("./money");
 const stock = require("./stock");
 const claims = require("./claims");
+const nwt = require("./nwt");
+
+const NWT_OWED = ["2250", "Withholding tax to pay", "liability"];
 
 /** Bills in the books, in our own currency, not fully paid; and approved claims not fully paid. */
 async function unpaid(client, { companyId }) {
@@ -50,13 +53,15 @@ async function pay(client, { companyId, userId, fromAccountId, paidOn, reference
   const lines = [];
   const recorded = [];
   const transfers = [];
+  const withheld = [];
+  const nwtRules = await nwt.rules(client, { companyId });
   let total = 0n;
   for (const it of items) {
     const amount = toLaari(it.amount);
     if (amount <= 0n) throw new Error("Each payment is above zero.");
     if (it.billId) {
       const { rows } = await client.query(
-        `SELECT b.id, b.bill_no, b.gross_laari, b.counterparty_id, b.status, b.fc_gross, c.name, c.bank_accounts,
+        `SELECT b.id, b.bill_no, b.gross_laari, b.counterparty_id, b.status, b.fc_gross, c.name, c.bank_accounts, c.nwt_category,
                 COALESCE((SELECT SUM(p.amount_laari) FROM payment_items p JOIN payment_runs pr ON pr.id = p.run_id AND pr.reversed_at IS NULL WHERE p.bill_id = b.id), 0) AS paid
            FROM bills b JOIN counterparties c ON c.id = b.counterparty_id WHERE b.id = $1 AND b.company_id = $2 FOR UPDATE OF b`,
         [it.billId, companyId]
@@ -68,7 +73,12 @@ async function pay(client, { companyId, userId, fromAccountId, paidOn, reference
       if (amount > left) throw new Error(`Only MVR ${formatLaari(left)} is still owed on ${b.name}'s ${b.bill_no || "bill"}.`);
       lines.push({ accountId: payable.id, debit: amount, counterpartyId: b.counterparty_id, memo: `Paid ${b.name}${b.bill_no ? `, ${b.bill_no}` : ""}` });
       recorded.push({ billId: b.id, amount });
-      transfers.push({ payee: b.name, bankAccount: (b.bank_accounts || [])[0] || null, amount: formatLaari(amount), reference: b.bill_no || "" });
+      // A non-resident supplier is paid less the tax kept back for the tax
+      // authority; the bill is still settled in full.
+      const rule = b.nwt_category && nwtRules?.categories[b.nwt_category];
+      const kept = rule ? nwt.withheldOn(amount, rule.bp) : 0n;
+      if (kept > 0n) withheld.push({ counterpartyId: b.counterparty_id, billId: b.id, category: b.nwt_category, bp: rule.bp, gross: amount, kept, name: b.name, billNo: b.bill_no });
+      transfers.push({ payee: b.name, bankAccount: (b.bank_accounts || [])[0] || null, amount: formatLaari(amount - kept), reference: b.bill_no || "", ...(kept > 0n ? { withheld: formatLaari(kept) } : {}) });
     } else if (it.claimId) {
       const c = claims.show(await claims.load(client, { companyId, claimId: it.claimId }));
       if (!["approved", "part_paid"].includes(c.status)) throw new Error(`${c.number} is not approved and owed.`);
@@ -79,7 +89,12 @@ async function pay(client, { companyId, userId, fromAccountId, paidOn, reference
     } else throw new Error("Each payment is for a bill or a claim.");
     total += amount;
   }
-  lines.push({ accountId: from[0].id, credit: total, memo: reference ? `Payment run ${reference}` : "Payment run" });
+  const keptTotal = withheld.reduce((a, w) => a + w.kept, 0n);
+  if (keptTotal > 0n) {
+    const toPay = await stock.account(client, companyId, NWT_OWED);
+    for (const w of withheld) lines.push({ accountId: toPay, credit: w.kept, counterpartyId: w.counterpartyId, memo: `Withholding tax kept back from ${w.name}${w.billNo ? `, ${w.billNo}` : ""}` });
+  }
+  lines.push({ accountId: from[0].id, credit: total - keptTotal, memo: reference ? `Payment run ${reference}` : "Payment run" });
   const entry = await postEntry(client, { companyId, userId, date: paidOn, source: "adjustment", narrative: `Payment run: ${items.length} ${items.length === 1 ? "payment" : "payments"}${reference ? `, ${reference}` : ""}`, lines });
   const { rows: run } = await client.query(
     "INSERT INTO payment_runs (company_id, paid_on, from_account_id, reference, entry_id, created_by) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id",
@@ -88,7 +103,13 @@ async function pay(client, { companyId, userId, fromAccountId, paidOn, reference
   for (const r of recorded) {
     await client.query("INSERT INTO payment_items (company_id, run_id, bill_id, claim_id, amount_laari) VALUES ($1,$2,$3,$4,$5)", [companyId, run[0].id, r.billId || null, r.claimId || null, r.amount.toString()]);
   }
-  return { runId: run[0].id, entry, total, from: from[0].name, transfers };
+  for (const w of withheld) {
+    await client.query(
+      "INSERT INTO nwt_withheld (company_id, counterparty_id, bill_id, run_id, entry_id, category, rate_bp, gross_laari, withheld_laari, paid_on) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
+      [companyId, w.counterpartyId, w.billId, run[0].id, entry.id, w.category, w.bp, w.gross.toString(), w.kept.toString(), paidOn]
+    );
+  }
+  return { runId: run[0].id, entry, total, withheld: keptTotal, from: from[0].name, transfers };
 }
 
 async function runs(client, { companyId }) {

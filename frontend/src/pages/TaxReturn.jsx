@@ -7,6 +7,8 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { gstApi } from "@/api/gst";
+import { apiClient } from "@/api/client";
+import { Money } from "@/components/ui/Money";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 
@@ -197,6 +199,168 @@ export default function TaxReturn() {
           )}
         </div>
       </div>
+
+      <Withholding />
     </div>
+  );
+}
+
+const monthsBack = (n) =>
+  Array.from({ length: n }, (_, i) => {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - i);
+    return { key: d.toLocaleDateString("en-CA").slice(0, 7), label: d.toLocaleDateString("en-GB", { month: "long", year: "numeric" }) };
+  });
+
+const SELECT = "h-11 px-3 max-w-full rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[14px]";
+
+/**
+ * Withholding tax on payments to non-residents: which suppliers it applies to,
+ * and the month's payments for the return. Where the country has no such tax
+ * in Sentryfi, nothing shows.
+ */
+function Withholding() {
+  const { companyId, can } = useCompany();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [month, setMonth] = useState(monthsBack(1)[0].key);
+  const [adding, setAdding] = useState({ supplier: "", category: "" });
+  const { data } = useQuery({
+    queryKey: ["withholding", companyId, month],
+    queryFn: () => apiClient.get("/tax/withholding", { params: { month } }).then((r) => r.data),
+    enabled: Boolean(companyId),
+  });
+  if (!data?.available) return null;
+  const m = data.month;
+  const marked = data.suppliers.filter((x) => x.category);
+  const others = data.suppliers.filter((x) => !x.category);
+  const manage = can("manage_settings");
+
+  async function mark(id, category) {
+    try {
+      await apiClient.put(`/tax/withholding/suppliers/${id}`, { category: category || null });
+      qc.invalidateQueries({ queryKey: ["withholding", companyId] });
+      setAdding({ supplier: "", category: "" });
+    } catch (ex) {
+      toast.error("Not changed", ex.message);
+    }
+  }
+
+  function csv() {
+    const cell = (v) => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+    const rows = [
+      ["Date paid", "Paid to", "TIN", "Kind of payment", "Rate", "Amount paid", "Tax withheld", "Bill"],
+      ...m.payments.map((p) => [p.paidOn, p.payee, p.tin, p.categoryLabel, p.ratePct + "%", p.gross, p.withheld, p.billNo || ""]),
+    ];
+    const blob = new Blob(["\ufeff" + rows.map((r) => r.map(cell).join(",")).join("\n")], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `withholding-tax-${m.key}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  const kinds = data.categories.map((c) => (
+    <option key={c.code} value={c.code}>
+      {c.ratePct}%: {c.label}
+    </option>
+  ));
+
+  return (
+    <section className="mt-8" aria-labelledby="nwt-title">
+      <h2 id="nwt-title" className="text-[20px] font-semibold tracking-[-0.01em]">Withholding tax on payments abroad</h2>
+      <p className="text-[14px] text-[var(--ink-muted)] mt-1 max-w-[75ch]">
+        Paying a non-resident for rent, royalties, interest, services or work done here, the tax is kept back from what they are paid and paid over with the {m.form} by the 15th of the next month. Mark who it applies to; payments do the rest.
+      </p>
+      <div className="grid gap-4 mt-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-start">
+        <Card padding="lg">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <select aria-label="Month" value={month} onChange={(e) => setMonth(e.target.value)} className={SELECT}>
+              {monthsBack(12).map((x) => (
+                <option key={x.key} value={x.key}>
+                  {x.label}
+                </option>
+              ))}
+            </select>
+            {m.payments.length > 0 && (
+              <Button variant="outline" onClick={csv}>
+                <Download size={15} /> CSV
+              </Button>
+            )}
+          </div>
+          <div className="mt-4">
+            <div className="text-[13px] text-[var(--ink-muted)]">
+              To pay for {m.label}, due {m.dueLabel}
+            </div>
+            <div className="text-[26px] font-semibold tabular mt-1" data-testid="nwt-total">
+              <Money amount={m.total} />
+            </div>
+          </div>
+          {m.payments.length === 0 ? (
+            <p className="text-[14px] text-[var(--ink-muted)] mt-3">Nothing was kept back this month, so there is no {m.form} to file for it.</p>
+          ) : (
+            <ul className="mt-4 divide-y divide-[var(--border)] text-[14px]">
+              {m.payments.map((p, i) => (
+                <li key={i} className="py-2.5 flex items-baseline justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className="block font-medium truncate">{p.payee}</span>
+                    <span className="block text-[12px] text-[var(--ink-muted)]">
+                      {p.paidOn} · {p.ratePct}% of <Money amount={p.gross} />
+                    </span>
+                  </span>
+                  <span className="tabular font-semibold">
+                    <Money amount={p.withheld} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card padding="lg">
+          <div className="text-[15px] font-semibold">Non-resident suppliers</div>
+          {marked.length === 0 ? (
+            <p className="text-[14px] text-[var(--ink-muted)] mt-1">None marked yet.</p>
+          ) : (
+            <ul className="mt-2 space-y-2">
+              {marked.map((x) => (
+                <li key={x.id} className="flex flex-wrap items-center gap-2">
+                  <span className="flex-1 min-w-[8rem] text-[14px] font-medium truncate">{x.name}</span>
+                  <select aria-label={`Kind of payment to ${x.name}`} disabled={!manage} value={x.category} onChange={(e) => mark(x.id, e.target.value)} className={SELECT}>
+                    {kinds}
+                  </select>
+                  {manage && (
+                    <button type="button" onClick={() => mark(x.id, null)} className="h-11 px-2 text-[13px] text-[var(--ink-muted)] hover:text-[var(--danger)]">
+                      Not abroad
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {manage && others.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-[var(--border)] grid gap-2">
+              <select aria-label="Supplier" value={adding.supplier} onChange={(e) => setAdding({ ...adding, supplier: e.target.value })} className={SELECT}>
+                <option value="">Mark a supplier as non-resident…</option>
+                {others.map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {x.name}
+                  </option>
+                ))}
+              </select>
+              <select aria-label="Kind of payment" value={adding.category} onChange={(e) => setAdding({ ...adding, category: e.target.value })} className={SELECT}>
+                <option value="">What is paid to them?</option>
+                {kinds}
+              </select>
+              <Button variant="outline" disabled={!adding.supplier || !adding.category} onClick={() => mark(adding.supplier, adding.category)}>
+                Mark as non-resident
+              </Button>
+            </div>
+          )}
+          <p className="text-[12px] text-[var(--ink-muted)] mt-4">Rates and kinds of payment as MIRA lists them; your accountant confirms them before the first return.</p>
+        </Card>
+      </div>
+    </section>
   );
 }

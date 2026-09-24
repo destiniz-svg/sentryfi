@@ -301,13 +301,82 @@ async function health(client, { companyId, today }) {
     });
   }
 
+  // ---- Tax: a company not registered for GST that has sold past the line must register.
+  const pack = await require("./tax").packFor(client, { companyId });
+  const reg = await one(client, "SELECT gst_registered FROM companies WHERE id = $1", [companyId]);
+  if (!reg.gst_registered && pack.registrationThreshold) {
+    const sold = await flow(client, companyId, "income", ...lastYear);
+    const line = big(pack.registrationThreshold);
+    const share = pct(sold, line);
+    const W = pack.words;
+    add({
+      area: "Tax", name: `${W.tax} registration`, value: `${share}% of the line`,
+      verdict: sold >= line ? "act" : share >= 80 ? "watch" : "good",
+      explain: sold >= line
+        ? `Sales over the last twelve months are ${pack.currency} ${f(sold)}, past the ${pack.currency} ${f(line)} at which registering with ${W.authority} is compulsory. Register now: ${W.tax} is owed from the date you should have registered.`
+        : share >= 80
+          ? `Sales over the last twelve months are ${pack.currency} ${f(sold)}, close to the ${pack.currency} ${f(line)} at which you must register with ${W.authority}. Watch it month by month.`
+          : `Sales over the last twelve months are ${pack.currency} ${f(sold)}, well under the ${pack.currency} ${f(line)} registration line.`,
+      basis: { salesLast12Months: f(sold), line: f(line) },
+    });
+  }
+
+  // ---- Risk: how spread out the customers are, all of them, not only the largest.
+  const { rows: spread } = await client.query(
+    `SELECT SUM(x.v) AS v FROM (
+       SELECT s.counterparty_id, s.net_laari AS v FROM sales_invoices s
+        WHERE s.company_id = $1 AND s.status = 'posted' AND s.voided_at IS NULL AND s.issue_date BETWEEN $2 AND $3
+       UNION ALL
+       SELECT n.counterparty_id, -n.net_laari FROM credit_notes n WHERE n.company_id = $1 AND n.issue_date BETWEEN $2 AND $3
+     ) x GROUP BY x.counterparty_id HAVING SUM(x.v) > 0 ORDER BY 1 DESC`,
+    [companyId, ...lastYear]
+  );
+  if (spread.length >= 2) {
+    const values = spread.map((r) => big(r.v));
+    const all = values.reduce((a, b) => a + b, 0n);
+    // Herfindahl: the sum of each customer's share squared, 0 to 10,000.
+    const hhi = Math.round(values.reduce((a, v) => a + (Number(v) / Number(all)) ** 2, 0) * 10000);
+    const top3 = pct(values.slice(0, 3).reduce((a, b) => a + b, 0n), all);
+    add({
+      area: "Risk", name: "Customers, spread", value: `Top ${Math.min(3, values.length)}: ${top3}% of sales`,
+      verdict: hhi >= 2500 ? "act" : hhi >= 1500 ? "watch" : "good",
+      explain: hhi >= 2500
+        ? `Sales rest on very few customers (a concentration of ${hhi} out of 10,000; over 2,500 is high). Losing one would change the year: find two or three more of the size you already have.`
+        : hhi >= 1500
+          ? `Sales lean on a few customers (a concentration of ${hhi} out of 10,000). Worth widening before one of them slows.`
+          : `Sales are spread across ${values.length} customers (a concentration of ${hhi} out of 10,000): no few of them hold the business.`,
+      basis: { customers: values.length, concentration: hhi, topThreeShare: `${top3}%` },
+    });
+  }
+
+  // ---- Profit: the sales a month needs before anything is made.
+  // ponytail: "varies with sales" is the cost of goods sold (5050) and
+  // materials (5100); everything else is taken as fixed. A company whose other
+  // costs rise with each job reads a break-even that is too low.
+  const yearSales = await flow(client, companyId, "income", ...lastYear);
+  const yearCosts = await flow(client, companyId, "expense", ...lastYear);
+  const variable = await flow(client, companyId, "expense", ...lastYear, "a.code IN ('5050','5100')");
+  const fixed = yearCosts - variable;
+  if (yearSales > 0n && yearSales > variable && fixed > 0n) {
+    // Sales needed = fixed / (1 - variable/sales), a month at a time.
+    const monthlyNeed = (fixed * yearSales) / (yearSales - variable) / 12n;
+    const monthlySales = yearSales / 12n;
+    const cover = Number((monthlySales * 100n) / (monthlyNeed || 1n)) / 100;
+    add({
+      area: "Profit", name: "Break-even", value: `MVR ${f(monthlyNeed)} a month`,
+      verdict: cover < 1 ? "act" : cover < 1.2 ? "watch" : "good",
+      explain: `Each month needs about MVR ${f(monthlyNeed)} of sales to cover MVR ${f(fixed / 12n)} of costs that do not move with sales, at the ${pct(yearSales - variable, yearSales)}% left over from each sale after materials and goods. ${cover < 1 ? "Sales have been below that" : `Sales have averaged MVR ${f(monthlySales)}, ${Math.round((cover - 1) * 100)}% above it`}.`,
+      basis: { salesLast12Months: f(yearSales), variableCosts: f(variable), fixedCosts: f(fixed), monthlyNeed: f(monthlyNeed) },
+    });
+  }
+
   // ---- The books themselves: advice is only as good as they are.
   const bank = await one(client, "SELECT count(*)::int AS n, min(posted_on)::text AS oldest FROM bank_statement_lines WHERE company_id = $1 AND status = 'open'", [companyId]);
   const closed = (await one(client, "SELECT books_locked_through($1)::text AS d", [companyId])).d;
   add({
     area: "The books", name: "Up to date", value: bank.n ? `${bank.n} bank lines to explain` : "Bank explained",
     verdict: bank.n > 50 ? "act" : bank.n ? "watch" : "good",
-    explain: `${bank.n ? `${bank.n} bank lines are not explained yet, the oldest from ${bank.oldest}. Every figure here is only as right as the books.` : "Every bank line is explained."} ${closed ? `The books are closed through ${closed}.` : "No month has been closed yet."}`,
+    explain: `${bank.n ? `${bank.n} bank lines are not explained yet, the oldest from ${require("./gstReturn").niceDate(bank.oldest)}. Every figure here is only as right as the books.` : "Every bank line is explained."} ${closed ? `The books are closed through ${require("./gstReturn").niceDate(closed)}.` : "No month has been closed yet."}`,
     basis: { openBankLines: bank.n, closedThrough: closed },
   });
 

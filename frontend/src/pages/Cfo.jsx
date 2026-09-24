@@ -341,6 +341,7 @@ function Profile({ p }) {
           </div>
         ))}
       </div>
+      {p.seasons && <Seasons s={p.seasons} />}
       <p className="text-[14px] text-[var(--ink-muted)] mt-6 max-w-[75ch]">
         {p.busiest ? `Busiest month ${formatDate(p.busiest.month + "-01", { month: "long", year: "numeric" })}, MVR ${p.busiest.revenue}. ` : ""}
         {p.quietest ? `Quietest ${formatDate(p.quietest.month + "-01", { month: "long", year: "numeric" })}, MVR ${p.quietest.revenue}. ` : ""}
@@ -348,6 +349,30 @@ function Profile({ p }) {
       </p>
       <Notes notes={p.notes} />
     </section>
+  );
+}
+
+const MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** Each calendar month against an ordinary one (100): the year's shape, for planning cash. */
+function Seasons({ s }) {
+  const top = Math.max(100, ...s.months.map((m) => m.index || 0));
+  return (
+    <div className="mt-7">
+      <h3 className="text-[13px] text-[var(--ink-muted)]">The year's shape, from {s.years} {s.years === 1 ? "year" : "years"} of books: each month against an ordinary one</h3>
+      <ol className="mt-3 grid grid-cols-12 gap-1.5 items-end h-24" aria-label="Sales by month against an ordinary month">
+        {s.months.map((m) => (
+          <li key={m.month} className="flex flex-col items-center justify-end h-full gap-1" aria-label={`${MONTH[m.month - 1]}: ${m.index === null ? "no whole month yet" : `${m.index} against 100`}`}>
+            <span className="text-[11px] tabular text-[var(--ink-muted)]">{m.index ?? ""}</span>
+            <span
+              className={cn("w-full max-w-7 rounded-t-md", m.index === null ? "bg-[var(--surface-2)]" : m.index >= 110 ? "bg-[var(--accent)]" : "bg-[var(--ink)] opacity-70")}
+              style={{ height: `${m.index === null ? 6 : Math.max(6, (m.index / top) * 64)}px` }}
+            />
+            <span className="text-[11px] text-[var(--ink-muted)]">{MONTH[m.month - 1].slice(0, 1)}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 

@@ -63,6 +63,25 @@ const MV = {
   statements: true,
   inputRateColumns: [600, 800, 1200, 1600, 1700],
   form: "mira",
+  // Taxable supplies over twelve months that make registering compulsory.
+  registrationThreshold: 100000000, // MVR 1,000,000.00
+  // Non-resident withholding tax (Income Tax Act s.55): kept back from a
+  // payment to a non-resident and paid to MIRA with the MIRA 602 by the 15th
+  // of the next month. Categories and rates to be confirmed by the accountant
+  // (docs/domain/to-confirm.md); contractor work was 5% when this was written,
+  // with a bill before parliament (August 2026) to make it 10%.
+  withholding: {
+    form: "MIRA 602",
+    dueDay: 15,
+    categories: {
+      rent: { label: "Rent for property in the Maldives", bp: 1000 },
+      royalties: { label: "Royalties, or the right to use a copyright, patent, trademark, design or process", bp: 1000 },
+      interest: { label: "Interest (not to a bank or approved lender)", bp: 1000 },
+      services: { label: "Fees for technical, professional or management services", bp: 1000 },
+      contractor: { label: "Work done in the Maldives by a non-resident contractor", bp: 500 },
+      other: { label: "Another payment listed in section 55", bp: 1000 },
+    },
+  },
 };
 
 /**
@@ -90,6 +109,7 @@ const AE = {
   statements: false,
   inputRateColumns: null,
   form: "vat201",
+  registrationThreshold: 37500000, // AED 375,000.00, mandatory registration
 };
 
 /**

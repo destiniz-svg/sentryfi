@@ -359,7 +359,22 @@ async function payBill(client, { companyId, userId, lineId, billId }) {
   const { laari, moneyIn } = sideOf(line);
   if (moneyIn || laari <= 0n) throw new Error("Only money going out can pay a bill.");
   const paidOn = line.posted_on instanceof Date ? line.posted_on.toISOString().slice(0, 10) : String(line.posted_on).slice(0, 10);
-  const r = await require("./payments").pay(client, { companyId, userId, fromAccountId: line.account_id, paidOn, reference: line.bank_ref || "From the bank statement", items: [{ billId, amount: formatLaari(laari, { withGrouping: false }) }] });
+  // What left the bank is what the supplier got. For a non-resident supplier
+  // that is the bill less the tax kept back, so the bill settles by more.
+  let settles = laari;
+  const { rows: sup } = await client.query("SELECT c.nwt_category FROM bills b JOIN counterparties c ON c.id = b.counterparty_id WHERE b.id = $1 AND b.company_id = $2", [billId, companyId]);
+  const rule = sup[0]?.nwt_category && (await require("./nwt").rules(client, { companyId }))?.categories[sup[0].nwt_category];
+  if (rule) {
+    const nwt = require("./nwt");
+    settles = (laari * 10000n + BigInt(10000 - rule.bp) / 2n) / BigInt(10000 - rule.bp);
+    // Rounding the tax can leave the net a laari off what the bank shows: nudge until it is exact.
+    for (let i = 0; i < 3; i++) {
+      const off = laari - (settles - nwt.withheldOn(settles, rule.bp));
+      if (off === 0n) break;
+      settles += off;
+    }
+  }
+  const r = await require("./payments").pay(client, { companyId, userId, fromAccountId: line.account_id, paidOn, reference: line.bank_ref || "From the bank statement", items: [{ billId, amount: formatLaari(settles, { withGrouping: false }) }] });
   await settle(client, { companyId, userId, lineId, status: "posted", entryId: r.entry.id });
   return { status: "posted", entryId: r.entry.id, entryNo: String(r.entry.entryNo), paid: formatLaari(laari) };
 }

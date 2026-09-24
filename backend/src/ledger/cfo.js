@@ -196,6 +196,25 @@ async function profile(client, { companyId, today }) {
   // Suppliers as a share of everything billed (bills carry stock and assets too, not only costs).
   const billed = big((await one(client, "SELECT COALESCE(SUM(net_laari), 0) AS v FROM bills WHERE company_id = $1 AND status = 'posted' AND voided_at IS NULL AND issue_date BETWEEN $2 AND $3", [companyId, from, today])).v);
   const monthly = months.map((m) => ({ month: m.m, revenue: big(m.v) }));
+  // Seasons: each calendar month's average sales across every year in the
+  // books, against the average month (100 is an ordinary month). Whole months
+  // only, and only once there is a year of them to compare.
+  const { rows: allMonths } = await client.query(
+    `SELECT to_char(e.entry_date, 'YYYY-MM') AS m, SUM(l.credit_laari - l.debit_laari) AS v
+       FROM journal_lines l JOIN accounts a ON a.id = l.account_id JOIN journal_entries e ON e.id = l.entry_id
+      WHERE a.company_id = $1 AND a.type = 'income' AND e.entry_date < date_trunc('month', $2::date)
+        AND e.source <> 'opening_balance'
+      GROUP BY 1 ORDER BY 1`,
+    [companyId, today]
+  );
+  let seasons = null;
+  if (allMonths.length >= 12) {
+    const by = Array.from({ length: 12 }, () => []);
+    for (const r of allMonths) by[Number(r.m.slice(5, 7)) - 1].push(Number(big(r.v)));
+    const avg = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+    const overall = avg(allMonths.map((r) => Number(big(r.v))));
+    if (overall > 0) seasons = { years: Math.round((allMonths.length / 12) * 10) / 10, months: by.map((xs, i) => ({ month: i + 1, index: xs.length ? Math.round((avg(xs) / overall) * 100) : null })) };
+  }
   // Busiest and quietest among whole months only: the month still running and
   // the part-month the year starts in would always look quiet.
   const whole = (m) => m !== today.slice(0, 7) && !(m === from.slice(0, 7) && from.slice(8) !== "01");
@@ -213,6 +232,7 @@ async function profile(client, { companyId, today }) {
     customers: customers.map((c) => ({ name: c.name, value: f(c.value), share: pct(c.value, revenue) })),
     suppliers: suppliers.map((s) => ({ name: s.name, value: f(s.value), share: pct(s.value, billed) })),
     costStructure: costs.slice(0, 8).map((c) => ({ accountId: c.id, name: c.name, value: f(c.value), share: pct(c.value, spent) })),
+    seasons,
     busiest: sorted[0] ? { month: sorted[0].month, revenue: f(sorted[0].revenue) } : null,
     quietest: sorted.length > 1 ? { month: sorted[sorted.length - 1].month, revenue: f(sorted[sorted.length - 1].revenue) } : null,
     monthly: monthly.map((m) => ({ month: m.month, revenue: f(m.revenue) })),
