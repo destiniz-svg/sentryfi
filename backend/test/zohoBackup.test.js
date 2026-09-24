@@ -34,7 +34,8 @@ const files = {
     ["B1", "S-9", "2026-01-08", "Overdue", "Paper Supplier", "MVR", "1", "540.00", "540.00", "0", "0", "500.00", "40.00", "Office Supplies", "Paper"],
   ]),
   "Vendor_Payment.csv": csv([
-    ["VendorPayment ID", "Payment Number", "Date", "Vendor Name", "Currency Code", "Exchange Rate", "Amount", "Unused Amount", "Bank Charges", "Paid Through", "Bill ID", "Bill Amount", "Bill Number"],
+    ["VendorPayment ID", "Payment Number", "Date", "Vendor Name", "Currency Code", "Exchange Rate", "Amount", "Unused Amount", "Bank Charges", "Paid Through", "Bill ID", "Bill Amount", "Bill Number", "Payment Status"],
+    ["V2", "2", "2026-01-26", "Paper Supplier", "MVR", "1", "540.000", "0", "0", "Current Account", "B1", "540.00", "S-9", "Draft"],
     ["V1", "1", "2026-01-25", "Paper Supplier", "MVR", "1", "540.000", "540.000", "0", "Current Account", "B1", "540.00", "S-9"],
   ]),
   "Expense.csv": csv([
@@ -122,6 +123,8 @@ describe("a Zoho Books backup", () => {
     expect(invoices[0]).toMatchObject({ currency: "USD", gross: 166536n, tax: 12336n, fcGross: 10800n });
     expect(bills[0]).toMatchObject({ number: "S-9", gross: 54000n, tax: 4000n });
     expect(customerPayments[0].applied).toEqual([{ invoice: "INV-1", amount: 166536n }]);
+    expect(vendorPayments.map((p) => p.number)).toEqual(["1"]); // the draft never reached Zoho's books
+    expect(by(r, "Vendor payment")).toHaveLength(1);
     expect(vendorPayments[0].applied).toEqual([]); // all of it left unused, so nothing paid against the bill
     expect([...invoices, ...bills, ...customerPayments, ...vendorPayments].every((d) => keys.has(d.key))).toBe(true);
   });

@@ -9,6 +9,7 @@
  * adds nothing.
  */
 const { findOrCreate } = require("./counterparties");
+const { reverseEntry } = require("./post");
 
 async function bring(client, { companyId, userId, records, system = "zoho" }) {
   const done = { invoices: 0, bills: 0, receipts: 0, payments: 0, skipped: 0 };
@@ -24,6 +25,17 @@ async function bring(client, { companyId, userId, records, system = "zoho" }) {
   };
   const s = (v) => (v === null || v === undefined ? null : v.toString());
   const had = async (table, entryId) => (await client.query(`SELECT id FROM ${table} WHERE company_id = $1 AND entry_id = $2 LIMIT 1`, [companyId, entryId])).rows[0]?.id;
+
+  // A payment an earlier import posted although Zoho holds it only as a draft
+  // (or voided) is taken back out, with what it paid.
+  for (const key of records.notPosted || []) {
+    const entryId = entryOf.get(key);
+    if (!entryId || (await client.query("SELECT 1 FROM journal_entries WHERE reverses_id = $1", [entryId])).rows.length) continue;
+    await reverseEntry(client, { companyId, userId, entryId, reason: "A draft in Zoho, never posted there" });
+    await client.query("UPDATE payment_runs SET reversed_at = now() WHERE entry_id = $1 AND company_id = $2 AND reversed_at IS NULL", [entryId, companyId]);
+    await client.query("UPDATE receipts SET voided_at = now(), void_reason = 'A draft in Zoho, never posted there' WHERE entry_id = $1 AND company_id = $2 AND voided_at IS NULL", [entryId, companyId]);
+    done.takenBack = (done.takenBack || 0) + 1;
+  }
 
   // Invoices, then what paid them.
   const invoiceId = new Map();

@@ -161,8 +161,11 @@ function convert(files) {
     push({ key: `invoice|${id}|${h["Invoice Date"]}`, date: h["Invoice Date"], type: "Invoice", theirId: h["Invoice Number"], memo: h["Customer Name"], lines });
   }
 
+  // A payment left as a draft (or voided) never reached Zoho's books.
+  const paid = (file, idCol) => [...group(get(file), idCol)].filter(([, ls]) => !/draft|void/i.test(ls[0]["Payment Status"] || ""));
+
   // ---- customer payments
-  for (const [id, ls] of group(get("Customer_Payment.csv"), "CustomerPayment ID")) {
+  for (const [id, ls] of paid("Customer_Payment.csv", "CustomerPayment ID")) {
     const h = ls[0];
     const cur = h["Currency Code"] || BASE;
     const rate = h["Exchange Rate"] || "1";
@@ -215,7 +218,7 @@ function convert(files) {
   }
 
   // ---- vendor payments
-  for (const [id, ls] of group(get("Vendor_Payment.csv"), "VendorPayment ID")) {
+  for (const [id, ls] of paid("Vendor_Payment.csv", "VendorPayment ID")) {
     const h = ls[0];
     const cur = h["Currency Code"] || BASE;
     const rate = h["Exchange Rate"] || "1";
@@ -381,7 +384,11 @@ function convert(files) {
         lines: ls.map((l, i) => ({ position: i, description: [l["Item Name"], l.Description].filter(Boolean).join(": ") || l.Account || "Item", quantity: String(Number(l.Quantity || 1) || 1), unitPrice: laari(l.Rate), net: laari(l["Item Total"]), tax: laari(l["Tax Amount"]) })),
       };
     }),
-    customerPayments: [...group(get("Customer_Payment.csv"), "CustomerPayment ID")].map(([id, ls]) => {
+    // Payments Zoho holds only as drafts or voided, by the key an earlier import may have posted them under.
+    notPosted: [["Customer_Payment.csv", "CustomerPayment ID", "customer_payment"], ["Vendor_Payment.csv", "VendorPayment ID", "vendor_payment"]].flatMap(([file, idCol, type]) =>
+      [...group(get(file), idCol)].filter(([, ls]) => /draft|void/i.test(ls[0]["Payment Status"] || "")).map(([id, ls]) => `${type}|${id}|${ls[0].Date}`)
+    ),
+    customerPayments: paid("Customer_Payment.csv", "CustomerPayment ID").map(([id, ls]) => {
       const h = ls[0];
       const cur = h["Currency Code"] || BASE;
       const rate = h["Exchange Rate"] || "1";
@@ -395,7 +402,7 @@ function convert(files) {
         }),
       };
     }),
-    vendorPayments: [...group(get("Vendor_Payment.csv"), "VendorPayment ID")].map(([id, ls]) => {
+    vendorPayments: paid("Vendor_Payment.csv", "VendorPayment ID").map(([id, ls]) => {
       const h = ls[0];
       const cur = h["Currency Code"] || BASE;
       const rate = h["Exchange Rate"] || "1";
