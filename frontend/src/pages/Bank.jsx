@@ -425,9 +425,21 @@ function BringStatement({ place, onClose }) {
             </p>
           )}
           {result.flagged > 0 && (
-            <p className="text-[var(--ink-muted)]">
-              {result.flagged} {result.flagged === 1 ? "line carries" : "lines carry"} something odd in one field. Kept, and marked.
-            </p>
+            <div className="text-[var(--ink-muted)]">
+              <p>
+                {result.flagged} {result.flagged === 1 ? "line carries" : "lines carry"} something odd, kept and marked on the statement:
+              </p>
+              <ul className="list-disc pl-5 mt-1">
+                {(result.flags || []).map((f) => (
+                  <li key={f.reason}>
+                    {f.reason === "the channel holds a timestamp"
+                      ? "the bank wrote a time where it names the channel. The amounts are not affected"
+                      : f.reason}{" "}
+                    ({f.count})
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
           {result.skipped.length > 0 && (
             <p className="text-[var(--danger)]">

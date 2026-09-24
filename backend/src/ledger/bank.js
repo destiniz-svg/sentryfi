@@ -187,6 +187,8 @@ async function importStatement(client, { companyId, userId, accountId, text, lay
     alreadyHad: parsed.rows.length - rowCount,
     skipped: parsed.skipped,
     flagged: parsed.rows.filter((r) => r.flag).length,
+    // What was odd, and on how many lines, so the person can tell a harmless quirk from a real problem.
+    flags: Object.entries(parsed.rows.reduce((m, r) => { for (const f of r.flag ? r.flag.split("; ") : []) m[f] = (m[f] || 0) + 1; return m; }, {})).map(([reason, count]) => ({ reason, count })),
     from: dates[0],
     to: dates[dates.length - 1],
     balance: parsed.balance,
