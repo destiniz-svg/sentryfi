@@ -948,7 +948,7 @@ describe("every company table is walled", () => {
     );
     // Tables the app role cannot reach at all need no policy: the platform's own.
     // Looked up before anyone is known, and out of the app role's reach entirely.
-    const platform = new Set(["password_resets", "backup_runs", "portal_links", "api_keys", "webhooks"]);
+    const platform = new Set(["password_resets", "backup_runs", "portal_links", "document_links", "api_keys", "webhooks"]);
     const open = rows.filter((r) => !platform.has(r.t) && !(r.on && r.forced && r.policies > 0)).map((r) => r.t);
     expect(open).toEqual([]);
   });
@@ -1247,5 +1247,39 @@ describe("the customer portal's questions, quotes and advances", () => {
     denied(await call(B, "POST", `/documents/invoice/${A.invoiceId}/questions`, { body: { body: "probe" } }));
     const left = (await db.query("SELECT COALESCE(SUM(amount_laari),0) AS s FROM advance_uses WHERE advance_id = $1", [A.advanceId])).rows[0].s;
     expect(String(left)).toBe("0");
+  });
+});
+
+describe("sending a document", () => {
+  it("B cannot make or turn off links to A's documents", async () => {
+    for (const [kind, id] of [["invoice", A.invoiceId], ["quote", A.otherQuote], ["proforma", A.otherProforma], ["statement", A.customerId]]) {
+      denied(await call(B, "POST", `/share/${kind}/${id}`, { body: { how: "link" } }));
+      denied(await call(B, "POST", `/share/${kind}/${id}`, { body: { how: "link" }, company: A.companyId }));
+    }
+    denied(await call(B, "DELETE", `/share/statement/${A.customerId}`));
+  });
+
+  it("a one-document link shows that document only, and stops when turned off", async () => {
+    const made = await call(A, "POST", `/share/statement/${A.customerId}`, { body: { how: "link" } });
+    expect(made.status).toBe(201);
+    const token = made.json.url.split("/d/")[1];
+    const guest = { cookie: null, companyId: null };
+    const seen = await call(guest, "GET", `/shared/${token}`);
+    expect(seen.status).toBe(200);
+    expect(seen.json.kind).toBe("statement");
+    noLeak(seen, "OTHER-CUSTOMER-A", "SECRET-PROFORMA");
+    denied(await call(guest, "GET", `/shared/${token.slice(0, -2)}xx`));
+    expect((await call(A, "DELETE", `/share/statement/${A.customerId}`)).status).toBe(200);
+    denied(await call(guest, "GET", `/shared/${token}`));
+  });
+
+  it("a quote's link opens the customer's own page, at the quote", async () => {
+    const made = await call(A, "POST", `/share/invoice/${A.invoiceId}`, { body: { how: "link" } });
+    expect(made.status).toBe(201);
+    expect(made.json.url).toMatch(/\/portal\/[A-Za-z0-9_-]+\?open=invoice:/);
+    const token = made.json.url.split("/portal/")[1].split("?")[0];
+    const page = await call({ cookie: null }, "GET", `/portal/${token}`);
+    expect(page.status).toBe(200);
+    noLeak(page, "OTHER-CUSTOMER-A", "SECRET-QUOTE-LINE");
   });
 });

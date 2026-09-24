@@ -26,7 +26,15 @@ const H2 = "mt-8 mb-2 text-[13px] uppercase tracking-[0.12em] font-display font-
 export default function Portal() {
   const { token } = useParams();
   const qc = useQueryClient();
-  const [open, setOpen] = useState(null);
+  // A link sent for one document (?open=quote:<id>) opens the page at it.
+  const [open, setOpen] = useState(() => new URLSearchParams(window.location.search).get("open")?.split(":")[1] || null);
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => document.getElementById(`doc-${open}`)?.scrollIntoView({ block: "start", behavior: "smooth" }), 300);
+    return () => clearTimeout(t);
+    // Only on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const { data, error, isLoading } = useQuery({
     queryKey: ["portal", token],
     queryFn: () => apiClient.get(`/portal/${token}`).then((r) => r.data),
@@ -136,7 +144,7 @@ function Row({ token, kind, d, open, onToggle, thread, onAsked, right }) {
   const status = invoice ? (paid ? "Paid" : `${d.owed} to pay`) : kind === "quote" ? WORD[d.status] : d.acceptedAt && d.status === "open" ? "Accepted" : WORD[d.status] || d.status;
   const waiting = thread.some((q) => q.open);
   return (
-    <li className="px-5 py-3">
+    <li className="px-5 py-3 scroll-mt-4" id={`doc-${d.id}`}>
       <button type="button" onClick={onToggle} className="w-full flex items-center gap-3 text-left" aria-expanded={open}>
         <div className="min-w-0 flex-1">
           <div className="text-[15px] font-medium">

@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Printer, FileDown, ShieldCheck, Mail, Loader2 } from "lucide-react";
-import { Modal } from "@/components/ui/Modal";
-import { useToast } from "@/context/UIContext";
+import { ArrowLeft, Printer, FileDown, ShieldCheck, Share2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Questions } from "@/components/documents/Questions";
+import { ShareDocument } from "@/components/documents/Share";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { FittedPaper } from "@/components/documents/DocumentPaper";
@@ -24,6 +23,8 @@ import { FIELD } from "@/lib/shipments";
 
 const BACK = { invoice: "/invoices", credit_note: "/invoices", quote: "/orders?kind=quote", sales_order: "/orders?kind=sale", purchase_order: "/orders?kind=purchase", delivery_note: "/orders?kind=sale", goods_received: "/orders?kind=purchase", receipt: "/invoices", statement: "/invoices", proforma: "/advances", retainer: "/advances" };
 const QUESTIONED = ["invoice", "quote", "proforma", "retainer"];
+// Every document with someone to send it to.
+const SENT = ["invoice", "quote", "proforma", "retainer", "sales_order", "delivery_note", "goods_received", "credit_note", "receipt", "statement", "purchase_order"];
 
 export default function Document() {
   const { kind, id } = useParams();
@@ -68,9 +69,9 @@ export default function Document() {
             </option>
           ))}
         </select>
-        {kind === "invoice" && data.issuedCopy && (
-          <Button variant="outline" onClick={() => setEmailing(true)} data-testid="email-invoice">
-            <Mail size={15} /> Email
+        {SENT.includes(kind) && (kind !== "invoice" || data.issuedCopy) && data.data.to?.name && (
+          <Button variant="outline" onClick={() => setEmailing(true)} data-testid="share-document">
+            <Share2 size={15} /> Send
           </Button>
         )}
         <Button variant="outline" onClick={() => window.print()}>
@@ -102,7 +103,7 @@ export default function Document() {
       </div>
       <PrintCopy model={model} />
       {QUESTIONED.includes(kind) && <DocumentQuestions kind={kind} id={id} />}
-      {emailing && <EmailInvoice id={id} number={data.data.number} to={data.data.to?.email || ""} onClose={() => setEmailing(false)} />}
+      {emailing && <ShareDocument kind={kind} id={id} number={data.data.number} to={data.data.to} onClose={() => setEmailing(false)} />}
     </div>
   );
 }
@@ -129,40 +130,3 @@ function DocumentQuestions({ kind, id }) {
   );
 }
 
-/** Sends the invoice to its customer: a private link to their page, where it is drawn as issued. */
-function EmailInvoice({ id, number, to: first, onClose }) {
-  const toast = useToast();
-  const [to, setTo] = useState(first);
-  const [note, setNote] = useState("");
-  const [busy, setBusy] = useState(false);
-  async function send(e) {
-    e.preventDefault();
-    setBusy(true);
-    try {
-      const r = await apiClient.post(`/sales/${id}/email`, { to: to.trim() || undefined, note: note.trim() || undefined });
-      toast.success(`${number} sent to ${r.data.to}`, "They get a link to their page, where it is drawn exactly as issued and can be printed or saved as a PDF.");
-      onClose();
-    } catch (err) {
-      toast.error("Not sent", err.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <Modal open onClose={onClose} as="form" onSubmit={send} title={`Email ${number}`} description="A private link to their page: this invoice as issued, what else they owe, and how to pay. Replies come to your company's address.">
-      <div className="space-y-3">
-        <label className="block">
-          <span className="block text-[13px] font-medium mb-1.5">To</span>
-          <input type="email" value={to} onChange={(e) => setTo(e.target.value)} placeholder="accounts@customer.mv" className={FIELD} required />
-        </label>
-        <label className="block">
-          <span className="block text-[13px] font-medium mb-1.5">A note (optional)</span>
-          <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={600} className={FIELD.replace("h-11", "min-h-[84px] py-2.5")} placeholder="Thank you for the work this month." />
-        </label>
-        <Button type="submit" variant="accent" disabled={busy || !to.trim()} className="w-full">
-          {busy ? <Loader2 size={14} className="animate-spin" /> : <Mail size={15} />} Send it
-        </Button>
-      </div>
-    </Modal>
-  );
-}

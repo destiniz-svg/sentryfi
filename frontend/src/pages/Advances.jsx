@@ -14,6 +14,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 import { formatDate, today } from "@/lib/utils";
 import { FIELD, Field } from "@/pages/Payroll";
+import { ShareDocument } from "@/components/documents/Share";
 
 /**
  * Money asked for before the tax invoice.
@@ -96,6 +97,7 @@ function Requests({ list, onPay, onRetainer, onDone }) {
   const navigate = useNavigate();
   const { can } = useCompany();
   const [busy, setBusy] = useState(null);
+  const [sending, setSending] = useState(null);
   async function invoice(r) {
     if (!window.confirm(`Raise the tax invoice for ${r.number} today and put it in the books? What was paid against it (${r.paid}) is taken off.`)) return;
     setBusy(r.id);
@@ -167,6 +169,7 @@ function Requests({ list, onPay, onRetainer, onDone }) {
                   <span className="col-span-2 lg:col-span-1 flex flex-wrap gap-2 lg:justify-end">
                     {live && can("record") && (
                       <>
+                        <Button variant="outline" size="sm" onClick={() => setSending(r)}>Send</Button>
                         {n(r.paid) < n(r.gross) && r.status !== "invoiced" && (
                           <Button variant="outline" size="sm" onClick={() => onPay(r)}>Record a payment</Button>
                         )}
@@ -187,6 +190,7 @@ function Requests({ list, onPay, onRetainer, onDone }) {
           </ul>
         </Card>
       )}
+      {sending && <ShareDocument kind={sending.kind} id={sending.id} number={sending.number} to={{ name: sending.customer }} onClose={() => setSending(null)} />}
       {can("record") && (
         <div className="mt-4">
           <Button variant="ghost" size="sm" onClick={onRetainer}>

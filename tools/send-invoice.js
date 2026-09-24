@@ -39,13 +39,13 @@ const api = (page, m, u, b) =>
     if (!posted) throw new Error("No posted invoice in the check books.");
 
     await page.goto(`${BASE}/documents/invoice/${posted.id}`, { waitUntil: "networkidle" });
-    await page.getByTestId("email-invoice").click();
+    await page.getByTestId("share-document").click();
     const to = page.getByRole("dialog").locator("input[type=email]");
     ok(`the form opens with "${await to.inputValue()}" filled in`);
     await to.fill(SAFE);
     await page.getByRole("dialog").locator("textarea").fill("A check from Sentryfi.");
     await page.screenshot({ path: "shots/email-form.png" });
-    await page.getByRole("button", { name: /send it/i }).click();
+    await page.getByRole("button", { name: /^Email to/i }).click();
     await page.getByText(`sent to ${SAFE}`).first().waitFor({ timeout: 20000 });
     ok("it sends, and says where it went");
   } catch (err) {

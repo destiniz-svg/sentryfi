@@ -17,6 +17,7 @@ import Forgot from "@/pages/Forgot";
 import Verify from "@/pages/Verify";
 import CheckEmail from "@/pages/CheckEmail";
 import Portal from "@/pages/Portal";
+import Shared from "@/pages/Shared";
 const Genuine = lazy(() => import("@/pages/Genuine"));
 const Practice = lazy(() => import("@/pages/Practice"));
 const Trust = lazy(() => import("@/pages/Trust"));
@@ -168,6 +169,7 @@ export const router = createBrowserRouter([
   { path: "/forgot", element: <Forgot />, errorElement: <ErrorPage /> },
   { path: "/verify/:token", element: <Verify />, errorElement: <ErrorPage /> },
   { path: "/portal/:token", element: <Portal />, errorElement: <ErrorPage /> },
+  { path: "/d/:token", element: <Shared />, errorElement: <ErrorPage /> },
   { path: "/trust", element: <Suspense fallback={null}><Trust /></Suspense>, errorElement: <ErrorPage /> },
   { path: "/v/:sha", element: <Suspense fallback={null}><Genuine /></Suspense>, errorElement: <ErrorPage /> },
   {
