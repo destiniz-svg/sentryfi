@@ -61,6 +61,7 @@ const Settings = lazy(() => import("@/pages/Settings"));
 const PhoneHome = lazy(() => import("@/pages/phone/Home"));
 const MobileHome = lazy(() => import("@/pages/mobile/Home"));
 const MobileMoney = lazy(() => import("@/pages/mobile/Money"));
+const MobileBill = lazy(() => import("@/pages/mobile/Bill"));
 const PhoneBills = lazy(() => import("@/pages/phone/BillsBoard"));
 const PhoneCash = lazy(() => import("@/pages/phone/Cash"));
 const PhoneMe = lazy(() => import("@/pages/phone/Me"));
@@ -205,6 +206,7 @@ export const router = createBrowserRouter([
       { path: "bank/:accountId", element: <BankStatement /> },
       { path: "clients", element: <Navigate to="/invoices" replace /> },
       { path: "bills", element: <OnPhone board={<PhoneBills />} desk={<Bills />} /> },
+      { path: "bills/:id", element: <MobileBill /> },
       { path: "expenses", element: <Navigate to="/bills" replace /> },
       { path: "items", element: <Navigate to="/stock" replace /> },
       { path: "reports", element: <Navigate to="/statements" replace /> },

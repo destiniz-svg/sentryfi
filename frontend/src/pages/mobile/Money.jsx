@@ -11,8 +11,10 @@ import { byDay, DayHeader, EmptyState, laariText, MoneyRow, Segments } from "@/c
 /**
  * Money, in the main app on a phone: bills and invoices as one place with two
  * views. A sticky total says what the list adds up to; rows run by day; a
- * swipe puts a waiting one in the books. Every other action (void, receive a
- * payment, credit) stays on the full Bills and Invoices pages, linked below.
+ * swipe puts a waiting one in the books, and a tap opens it: a bill on its own
+ * page (pages/mobile/Bill.jsx), an invoice as the document the customer gets.
+ * Every other action (void, receive a payment, credit) stays on the full Bills
+ * and Invoices pages, linked below.
  */
 
 const BILL = {
@@ -120,6 +122,7 @@ function BillList() {
         render={(b) => (
           <MoneyRow
             key={b.id}
+            to={`/bills/${b.id}`}
             who={b.supplier_name || "Nobody named yet"}
             line={[b.bill_no, b.tax_laari !== "0" ? `incl. ${b.tax} GST` : null].filter(Boolean).join(" · ")}
             amount={b.gross}
@@ -179,6 +182,7 @@ function InvoiceList() {
         render={(i) => (
           <MoneyRow
             key={i.id}
+            to={`/documents/invoice/${i.id}`}
             who={i.customer || "Nobody named yet"}
             line={[i.invoiceNo, !i.settled && i.status === "posted" && i.outstanding !== i.gross ? `${i.outstanding} left` : null]
               .filter(Boolean)

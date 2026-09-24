@@ -229,6 +229,40 @@ router.get(
   })
 );
 
+/** One bill, as its detail screen shows it: the lines, what has been paid, and its entry. */
+router.get(
+  "/:id",
+  requireCan("read"),
+  asyncHandler(async (req, res) => {
+    if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) throw ApiError.notFound("There is no such bill here.");
+    const out = await asCompany(req, async (client) => {
+      const { rows } = await client.query(
+        `SELECT b.*, c.name AS supplier_name, e.entry_no,
+                COALESCE((SELECT SUM(p.amount_laari) FROM payment_items p JOIN payment_runs r ON r.id = p.run_id AND r.reversed_at IS NULL
+                           WHERE p.bill_id = b.id), 0) AS paid_laari
+           FROM bills b
+           LEFT JOIN counterparties c ON c.id = b.counterparty_id
+           LEFT JOIN journal_entries e ON e.id = b.entry_id
+          WHERE b.company_id = $1 AND b.id = $2`,
+        [req.companyId, req.params.id]
+      );
+      if (!rows[0]) return null;
+      const { rows: lines } = await client.query(
+        "SELECT description, quantity, net_laari, tax_laari FROM bill_lines WHERE company_id = $1 AND bill_id = $2 ORDER BY position",
+        [req.companyId, req.params.id]
+      );
+      return { bill: rows[0], lines };
+    });
+    if (!out) throw ApiError.notFound("There is no such bill here.");
+    const paid = BigInt(out.bill.paid_laari);
+    const owed = BigInt(out.bill.gross_laari) - paid;
+    res.json({
+      bill: { ...serialize(out.bill), paid: formatLaari(paid), owed: formatLaari(owed > 0n ? owed : 0n), fcGross: out.bill.fc_gross === null ? null : formatLaari(BigInt(out.bill.fc_gross)) },
+      lines: out.lines.map((l) => ({ description: l.description, quantity: l.quantity, net: formatLaari(BigInt(l.net_laari)), tax: formatLaari(BigInt(l.tax_laari)) })),
+    });
+  })
+);
+
 /**
  * Records a bill, without posting it.
  *

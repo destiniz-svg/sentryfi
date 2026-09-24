@@ -43,7 +43,17 @@ export default function Document() {
   return (
     <div className="max-w-[980px] mx-auto">
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <Link to={BACK[kind] || "/"} className="inline-flex items-center gap-1.5 h-10 px-3 -ml-3 rounded-full text-[14px] text-[var(--ink-muted)] hover:text-[var(--ink)]">
+        {/* Back to wherever it was opened from (Money on a phone, Invoices at the desk); the list for its kind when opened from a link. */}
+        <Link
+          to={BACK[kind] || "/"}
+          onClick={(e) => {
+            if (window.history.state?.idx > 0) {
+              e.preventDefault();
+              window.history.back();
+            }
+          }}
+          className="inline-flex items-center gap-1.5 h-11 px-3 -ml-3 rounded-full text-[14px] text-[var(--ink-muted)] hover:text-[var(--ink)]"
+        >
           <ArrowLeft size={16} /> Back
         </Link>
         <h1 className="font-display text-[22px] font-bold tracking-tight mr-auto">
