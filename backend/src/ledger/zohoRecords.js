@@ -78,6 +78,8 @@ async function bring(client, { companyId, userId, records, system = "zoho" }) {
     );
     done.projects += rowCount;
   }
+  // The invoices, bills and payments, as documents on the entries the books already hold.
+  done.documents = await require("./zohoDocs").bring(client, { companyId, userId, records, system });
   return done;
 }
 

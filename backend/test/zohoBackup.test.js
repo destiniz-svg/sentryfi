@@ -115,6 +115,17 @@ describe("a Zoho Books backup", () => {
     expect(tagged.records.purchaseOrders[0]).toMatchObject({ number: "PO-7", status: "billed" });
   });
 
+  it("reads invoices, bills and payments as documents, each keyed to its own transaction", () => {
+    const keys = new Set(r.transactions.map((t) => t.key));
+    const { invoices, bills, customerPayments, vendorPayments } = r.records;
+    expect(invoices.map((i) => i.number)).toEqual(["INV-1", "INV-2"]);
+    expect(invoices[0]).toMatchObject({ currency: "USD", gross: 166536n, tax: 12336n, fcGross: 10800n });
+    expect(bills[0]).toMatchObject({ number: "S-9", gross: 54000n, tax: 4000n });
+    expect(customerPayments[0].applied).toEqual([{ invoice: "INV-1", amount: 166536n }]);
+    expect(vendorPayments[0].applied).toEqual([]); // all of it left unused, so nothing paid against the bill
+    expect([...invoices, ...bills, ...customerPayments, ...vendorPayments].every((d) => keys.has(d.key))).toBe(true);
+  });
+
   it("reads Zoho's three decimal places", () => {
     expect([laari("1689.330"), laari("-12.5"), laari("0.005"), laari("")]).toEqual([168933n, -1250n, 1n, 0n]);
   });

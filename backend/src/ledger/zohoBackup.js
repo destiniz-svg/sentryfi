@@ -353,6 +353,64 @@ function convert(files) {
       };
     }),
     tags: [...new Set([...billTags, ...expenseTags, ...journalTags])],
+    // The documents themselves, as the books already hold them: each one is
+    // filed against the entry its own transaction became (same key).
+    invoices: [...group(get("Invoice.csv"), "Invoice ID")].filter(([, ls]) => !/draft|void/i.test(ls[0]["Invoice Status"])).map(([id, ls]) => {
+      const h = ls[0];
+      const cur = h["Currency Code"] || BASE;
+      const rate = h["Exchange Rate"] || "1";
+      const tax = ls.reduce((a, l) => a + laari(l["Item Tax Amount"]), 0n);
+      const total = laari(h.Total);
+      return {
+        key: `invoice|${id}|${h["Invoice Date"]}`, number: h["Invoice Number"], date: h["Invoice Date"], due: h["Due Date"] || null,
+        party: h["Customer Name"], purchaseOrder: h.PurchaseOrder || null, subject: h.Subject || null, currency: cur, rate: String(Number(rate)),
+        gross: inBase(total, cur, rate), tax: inBase(tax, cur, rate), fcGross: cur === BASE ? null : total, fcTax: cur === BASE ? null : tax,
+        lines: ls.map((l, i) => ({ position: i, description: [l["Item Name"], l["Item Desc"]].filter(Boolean).join(": ") || "Item", quantity: String(Number(l.Quantity || 1) || 1), unitPrice: laari(l["Item Price"]), net: laari(l["Item Total"]), tax: laari(l["Item Tax Amount"]) })),
+      };
+    }),
+    bills: [...group(get("Bill.csv"), "Bill ID")].filter(([, ls]) => !/draft|void/i.test(ls[0]["Bill Status"])).map(([id, ls]) => {
+      const h = ls[0];
+      const cur = h["Currency Code"] || BASE;
+      const rate = h["Exchange Rate"] || "1";
+      const tax = ls.reduce((a, l) => a + laari(l["Tax Amount"]), 0n);
+      const total = laari(h.Total);
+      return {
+        key: `bill|${id}|${h["Bill Date"]}`, zohoId: id, number: h["Bill Number"] || null, date: h["Bill Date"], due: h["Due Date"] || null,
+        party: h["Vendor Name"], currency: cur, rate: String(Number(rate)), taxBp: Number(ls.find((l) => l["Tax Percentage"])?.["Tax Percentage"] || 0) * 100 || null,
+        gross: inBase(total, cur, rate), tax: inBase(tax, cur, rate), fcGross: cur === BASE ? null : total, fcTax: cur === BASE ? null : tax,
+        lines: ls.map((l, i) => ({ position: i, description: [l["Item Name"], l.Description].filter(Boolean).join(": ") || l.Account || "Item", quantity: String(Number(l.Quantity || 1) || 1), unitPrice: laari(l.Rate), net: laari(l["Item Total"]), tax: laari(l["Tax Amount"]) })),
+      };
+    }),
+    customerPayments: [...group(get("Customer_Payment.csv"), "CustomerPayment ID")].map(([id, ls]) => {
+      const h = ls[0];
+      const cur = h["Currency Code"] || BASE;
+      const rate = h["Exchange Rate"] || "1";
+      const amount = laari(h.Amount);
+      return {
+        key: `customer_payment|${id}|${h.Date}`, number: h["Payment Number"], date: h.Date, party: h["Customer Name"], account: h["Deposit To"], reference: h["Reference Number"] || null,
+        currency: cur, rate: String(Number(rate)), amount: inBase(amount, cur, rate), fcAmount: cur === BASE ? null : amount,
+        applied: ls.filter((a) => laari(a["Amount Applied to Invoice"]) > 0n).map((a) => {
+          const inv = invoiceRate.get(a["Invoice Number"]) || { cur, rate };
+          return { invoice: a["Invoice Number"], amount: inBase(laari(a["Amount Applied to Invoice"]), inv.cur, inv.rate) };
+        }),
+      };
+    }),
+    vendorPayments: [...group(get("Vendor_Payment.csv"), "VendorPayment ID")].map(([id, ls]) => {
+      const h = ls[0];
+      const cur = h["Currency Code"] || BASE;
+      const rate = h["Exchange Rate"] || "1";
+      let toApply = laari(h.Amount) - laari(h["Unused Amount"]) - laari(h["Bank Charges"]);
+      const applied = [];
+      for (const a of ls) {
+        let amt = laari(a["Bill Amount"]);
+        if (amt > toApply) amt = toApply;
+        if (amt <= 0n) continue;
+        toApply -= amt;
+        const b = billRate.get(a["Bill ID"]) || { cur, rate };
+        applied.push({ bill: a["Bill ID"], amount: inBase(amt, b.cur, b.rate) });
+      }
+      return { key: `vendor_payment|${id}|${h.Date}`, number: h["Payment Number"], date: h.Date, party: h["Vendor Name"], account: h["Paid Through"], reference: h["Reference Number"] || null, applied };
+    }),
     projects: get("Projects.csv").map((p) => ({ name: p["Project Name"], customer: p["Customer Name"] || null, contract: laari(p["Project Cost"]) || null, budget: laari(p["Budget Amount"] || p["Cost Budget"]) || null })),
   };
   // Two documents Zoho gave the same key (it happens with references): each keeps its own, numbered.
