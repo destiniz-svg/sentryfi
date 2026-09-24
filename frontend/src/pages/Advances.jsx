@@ -15,6 +15,7 @@ import { useToast } from "@/context/UIContext";
 import { formatDate, today } from "@/lib/utils";
 import { FIELD, Field } from "@/pages/Payroll";
 import { ShareDocument } from "@/components/documents/Share";
+import { PendingAttachments, uploadPending } from "@/components/documents/Attachments";
 
 /**
  * Money asked for before the tax invoice.
@@ -256,6 +257,8 @@ function NewRequest({ kind: first, customers, onClose, onDone }) {
   const toast = useToast();
   const navigate = useNavigate();
   const { company } = useCompany();
+  const [files, setFiles] = useState([]);
+  const [shareFiles, setShareFiles] = useState(false);
   const [f, setF] = useState({ kind: first, counterpartyId: "", customerName: "", issueDate: today(), dueDate: "", gstTreatment: "exclusive", subject: "", lines: [blankLine()] });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -277,6 +280,7 @@ function NewRequest({ kind: first, customers, onClose, onDone }) {
         gstTreatment: registered ? f.gstTreatment : null,
         lines: f.lines.filter((l) => l.description.trim() || n(l.unitPrice)).map((l) => ({ ...l, unitPrice: String(l.unitPrice).replace(/,/g, "") })),
       });
+      if (files.length) await uploadPending(f.kind, r.data.id, files, shareFiles);
       onDone();
       toast.success(`${r.data.number} made`, "Send it from its page, or give the customer their link.");
       navigate(`/documents/${f.kind}/${r.data.id}`);
@@ -330,6 +334,7 @@ function NewRequest({ kind: first, customers, onClose, onDone }) {
             <Button type="button" variant="ghost" size="sm" onClick={() => put({ lines: [...f.lines, blankLine()] })}><Plus size={14} /> Another line</Button>
           </div>
         </div>
+        <PendingAttachments files={files} onChange={setFiles} share={shareFiles} onShare={setShareFiles} />
         {registered && (
           <Field label={tax} hint={`${tax} on a payment is due when it is paid, not when the tax invoice comes.`}>
             <select value={f.gstTreatment} onChange={(e) => put({ gstTreatment: e.target.value })} className={`${FIELD} sm:max-w-sm`}>

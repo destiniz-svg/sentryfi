@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { authApi } from "@/api/auth";
-import { remembered, forgetKept } from "@/lib/kept";
+import { remembered, forgetKept, lastKept } from "@/lib/kept";
 
 // Who is signed in, kept: opened with no signal, the app still knows.
 const whoAmI = remembered("me", () => authApi.me());
@@ -9,8 +9,9 @@ const whoAmI = remembered("me", () => authApi.me());
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Drawn at once as whoever was signed in last time; the check below confirms it or signs them out.
+  const [user, setUser] = useState(() => lastKept("me")?.user || null);
+  const [loading, setLoading] = useState(() => !lastKept("me")?.user);
   const queryClient = useQueryClient();
 
   const refresh = useCallback(async () => {

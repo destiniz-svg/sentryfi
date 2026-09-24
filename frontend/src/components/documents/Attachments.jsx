@@ -151,6 +151,85 @@ export function Attachments({ kind, id, title = "Attachments", compact = false }
   );
 }
 
+/**
+ * Papers picked while something is still being made: kept in the form, then
+ * attached the moment the record exists (uploadPending). The same drop area
+ * and list as on a saved document, so attaching is the same act either way.
+ */
+export function PendingAttachments({ files, onChange, share, onShare, shareLabel = "Show them to the customer with it" }) {
+  const input = useRef(null);
+  const [over, setOver] = useState(false);
+  const add = (list) => onChange([...files, ...list.filter((f) => f.size <= 10 * 1024 * 1024)]);
+  return (
+    <div
+      className={`rounded-2xl border border-dashed ${over ? "border-[var(--ink)] bg-[var(--surface-2)]" : "border-[var(--border)]"} p-4 transition-colors`}
+      data-testid="pending-attachments"
+      onDragOver={(e) => {
+        e.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setOver(false);
+        add([...e.dataTransfer.files]);
+      }}
+    >
+      <div className="flex items-center gap-2 flex-wrap">
+        <Paperclip size={15} className="text-[var(--ink-muted)]" aria-hidden="true" />
+        <span className="text-[14px] font-medium">Attachments</span>
+        <span className="text-[13px] text-[var(--ink-muted)]">{files.length ? `· ${files.length}` : "drawings, timesheets, specs: PDF, photo, Excel, Word"}</span>
+        <input ref={input} type="file" multiple accept={ACCEPT} className="hidden" onChange={(e) => { add([...e.target.files]); e.target.value = ""; }} aria-label="Attach files" />
+        <button type="button" onClick={() => input.current?.click()} className="ml-auto h-9 px-3.5 rounded-full border border-[var(--border)] text-[13px] font-medium inline-flex items-center gap-1.5 hover:bg-[var(--surface-2)]">
+          <Upload size={14} /> Attach
+        </button>
+      </div>
+      {files.length > 0 && (
+        <>
+          <ul className="mt-2 divide-y divide-[var(--border)]">
+            {files.map((f, i) => (
+              <li key={`${f.name}-${i}`} className="py-2 flex items-center gap-3">
+                <span className="h-8 w-8 shrink-0 rounded-full bg-[var(--surface-2)] inline-flex items-center justify-center text-[var(--ink-muted)]">
+                  <Icon type={f.type} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[14px] truncate">{f.name}</span>
+                  <span className="block text-[12px] text-[var(--ink-muted)]">{size(f.size)}</span>
+                </span>
+                <button type="button" onClick={() => onChange(files.filter((_, j) => j !== i))} aria-label={`Leave ${f.name} out`} className="h-8 w-8 rounded-full inline-flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)]">
+                  <X size={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
+          {onShare && (
+            <label className="mt-2 flex items-center gap-2 text-[13px] cursor-pointer">
+              <input type="checkbox" checked={share} onChange={(e) => onShare(e.target.checked)} className="h-4 w-4 accent-[var(--ink)]" />
+              {shareLabel}
+            </label>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Attaches what was picked in a form to the record it made. Returns how many failed. */
+export async function uploadPending(kind, id, files, share = false) {
+  let failed = 0;
+  for (const file of files) {
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const r = await apiClient.post(`/attachments/doc/${kind}/${id}`, form, { headers: { "Content-Type": "multipart/form-data" } });
+      if (share) await apiClient.patch(`/attachments/${r.data.attachment.id}`, { shared: true });
+    } catch {
+      failed += 1;
+    }
+  }
+  return failed;
+}
+
 /** Papers shown with a document on a public page (the customer's page or a link). */
 export function SharedFiles({ files, base }) {
   if (!files?.length) return null;

@@ -16,6 +16,7 @@ import { useToast } from "@/context/UIContext";
 import { TagPicker } from "@/components/ui/TagPicker";
 import { toDateInput } from "@/lib/utils";
 import { apiClient } from "@/api/client";
+import { PendingAttachments, uploadPending } from "@/components/documents/Attachments";
 
 /**
  * Raising an invoice.
@@ -122,6 +123,8 @@ export default function NewInvoice() {
 
   // Fresh every time it opens: the page remounts it with a new key, so there
   // is no reset step and no moment where the last invoice's figures show.
+  const [files, setFiles] = useState([]);
+  const [shareFiles, setShareFiles] = useState(false);
   const [form, setForm] = useState(() => ({
     customerName: "",
     // null until somebody types one, so the suggested number fills it without
@@ -262,6 +265,8 @@ export default function NewInvoice() {
             ? "Put it in the books when it goes to the customer."
             : "It has no purchase order. Their accounts department may not be able to match it.",
       );
+      // What was attached while writing it goes on with it.
+      if (files.length && (await uploadPending("invoice", result.invoice.id, files, shareFiles))) toast.error("Some attachments did not go on", "Add them on the invoice's page.");
       navigate(`/documents/invoice/${result.invoice.id}`);
     } catch (ex) {
       setErr(ex.message || "The invoice could not be saved.");
@@ -647,6 +652,8 @@ export default function NewInvoice() {
               </dd>
             </div>
           </dl>
+
+          <PendingAttachments files={files} onChange={setFiles} share={shareFiles} onShare={setShareFiles} />
 
           {err && (
             <p role="alert" className="text-[13px] text-[var(--danger)]">

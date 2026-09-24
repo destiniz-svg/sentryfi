@@ -11,6 +11,7 @@ import { useSalesMutations } from "@/hooks/useSales";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 import { today } from "@/lib/utils";
+import { PendingAttachments, uploadPending } from "@/components/documents/Attachments";
 
 /**
  * What happens to an invoice after it is in the books: money arrives against
@@ -208,6 +209,8 @@ export function CreditInvoice({ invoice, onClose }) {
   const [reason, setReason] = useState("");
   const [err, setErr] = useState("");
   const [back, setBack] = useState({});
+  const [files, setFiles] = useState([]);
+  const [shareFiles, setShareFiles] = useState(false);
   const { data: returnable = [] } = useQuery({
     queryKey: ["returnable", invoice?.id],
     queryFn: () => apiClient.get(`/sales/${invoice.id}/returnable`).then((r) => r.data.items),
@@ -242,6 +245,7 @@ export function CreditInvoice({ invoice, onClose }) {
         `${result.noteNo} · MVR ${result.credited} credited`,
         `Of which MVR ${result.ofWhichTax} is GST that is no longer owed.`
       );
+      if (files.length) await uploadPending("credit_note", result.id, files, shareFiles);
       onClose();
       navigate(`/documents/credit_note/${result.id}`);
     } catch (ex) {
@@ -282,6 +286,7 @@ export function CreditInvoice({ invoice, onClose }) {
             It goes on the credit note the customer receives, and into the journal.
           </span>
         </label>
+        <PendingAttachments files={files} onChange={setFiles} share={shareFiles} onShare={setShareFiles} />
         {returnable.length > 0 && (
           <fieldset data-testid="coming-back">
             <legend className="text-sm font-medium mb-1">Coming back into stock</legend>

@@ -36,6 +36,21 @@ export function remembered(name, fn) {
   };
 }
 
+/**
+ * The last answer kept, without asking: so the app opens at once on what it
+ * knew and checks in the background, instead of waiting on three requests in
+ * a row before anything is drawn. The server still decides everything; a
+ * session that has ended is found by the check and sent to sign in.
+ */
+export function lastKept(name) {
+  try {
+    const saved = localStorage.getItem(PREFIX + name);
+    return saved === null ? undefined : JSON.parse(saved);
+  } catch {
+    return undefined;
+  }
+}
+
 /** Everything kept, gone: on signing out, so the next person on a shared phone sees none of it. */
 export function forgetKept() {
   try {

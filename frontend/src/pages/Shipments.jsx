@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { apiClient } from "@/api/client";
 import { useCompany } from "@/context/CompanyContext";
 import { BASIS, FIELD } from "@/lib/shipments";
+import { PendingAttachments, uploadPending } from "@/components/documents/Attachments";
 
 /**
  * Shipments: goods bought abroad and everything it took to land them. Each
@@ -100,6 +101,7 @@ function NewShipment({ onClose }) {
   const [f, setF] = useState({ reference: "", description: "", basis: "value" });
   const [boxes, setBoxes] = useState([{ number: "", size: "20", cbm: "" }]);
   const [err, setErr] = useState("");
+  const [files, setFiles] = useState([]);
   const save = useMutation({ mutationFn: (body) => apiClient.post("/shipments", body).then((r) => r.data) });
   const setBox = (i, k) => (e) => setBoxes((bs) => bs.map((b, j) => (j === i ? { ...b, [k]: e.target.value } : b)));
 
@@ -111,6 +113,7 @@ function NewShipment({ onClose }) {
         ...f,
         containers: boxes.filter((b) => b.number.trim()).map((b) => ({ number: b.number, size: b.size || null, cbm: b.cbm || null })),
       });
+      if (files.length) await uploadPending("shipment", r.id, files);
       qc.invalidateQueries({ queryKey: ["shipments", companyId] });
       nav(`/shipments/${r.id}`);
     } catch (ex) {
@@ -154,6 +157,7 @@ function NewShipment({ onClose }) {
             <Plus size={14} /> Another container
           </Button>
         </fieldset>
+        <PendingAttachments files={files} onChange={setFiles} />
         <label className="block">
           <span className="text-sm font-medium block mb-1.5">Share landing costs</span>
           <select id="ship-basis" value={f.basis} onChange={(e) => setF({ ...f, basis: e.target.value })} className={FIELD}>

@@ -15,6 +15,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { formatDate } from "@/lib/utils";
 import { FIELD } from "@/lib/shipments";
 import { ORDER_STATUS } from "@/lib/orders";
+import { PendingAttachments, uploadPending } from "@/components/documents/Attachments";
 
 /**
  * Orders: what was agreed with a supplier or a customer before the goods
@@ -106,6 +107,8 @@ function NewOrder({ kind, onClose }) {
   const qc = useQueryClient();
   const { companyId } = useCompany();
   const { data: o } = useQuery({ queryKey: ["orders", companyId, "options"], queryFn: () => apiClient.get("/orders/options").then((r) => r.data) });
+  const [files, setFiles] = useState([]);
+  const [shareFiles, setShareFiles] = useState(false);
   const [f, setF] = useState({ partyName: "", projectId: "", expectedOn: "", note: "", validUntil: "" });
   const [lines, setLines] = useState([blankLine()]);
   const [err, setErr] = useState("");
@@ -129,6 +132,7 @@ function NewOrder({ kind, onClose }) {
           .filter((l) => l.itemId || l.description.trim())
           .map((l) => ({ itemId: l.itemId || null, description: l.description, accountId: l.itemId ? null : l.accountId || null, quantity: String(l.quantity), unitPrice: String(l.unitPrice || "0").replace(/,/g, "") })),
       });
+      if (files.length) await uploadPending({ quote: "quote", sale: "sales_order", purchase: "purchase_order" }[kind], r.id, files, shareFiles);
       qc.invalidateQueries({ queryKey: ["orders", companyId] });
       nav(`/orders/${r.id}`);
     } catch (ex) {
@@ -224,6 +228,7 @@ function NewOrder({ kind, onClose }) {
           <p className="text-[14px] text-right tabular" data-testid="order-total">
             MVR {total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} before tax
           </p>
+          <PendingAttachments files={files} onChange={setFiles} share={shareFiles} onShare={setShareFiles} shareLabel={kind === "purchase" ? "Show them to the supplier with it" : "Show them to the customer with it"} />
         </div>
       )}
       {err && (

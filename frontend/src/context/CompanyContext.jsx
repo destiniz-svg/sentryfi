@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { setRequestCompany } from "@/api/client";
 import { companiesApi } from "@/api/companies";
 import { useAuth } from "@/context/AuthContext";
-import { remembered } from "@/lib/kept";
+import { remembered, lastKept } from "@/lib/kept";
 
 /**
  * Which company the screens are looking at.
@@ -51,6 +51,9 @@ export function CompanyProvider({ children }) {
     queryFn: remembered(`companies:${user?.id}`, companiesApi.mine),
     enabled: Boolean(user),
     staleTime: 60_000,
+    // What was known last time, at once, then checked: nothing waits on the network to draw.
+    initialData: () => (user ? lastKept(`companies:${user.id}`) : undefined),
+    initialDataUpdatedAt: 0,
   });
 
   const companies = companiesQuery.data;
@@ -82,6 +85,8 @@ export function CompanyProvider({ children }) {
     queryFn: remembered(`company:${companyId}`, () => companiesApi.current(companyId)),
     enabled: Boolean(companyId),
     staleTime: 60_000,
+    initialData: () => (companyId ? lastKept(`company:${companyId}`) : undefined),
+    initialDataUpdatedAt: 0,
   });
 
   const choose = useCallback((id) => setChosenId(id), []);

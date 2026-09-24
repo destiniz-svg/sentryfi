@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { apiClient } from "@/api/client";
 import { useCompany } from "@/context/CompanyContext";
 import { FIELD } from "@/lib/shipments";
+import { PendingAttachments, uploadPending } from "@/components/documents/Attachments";
 
 /**
  * Projects: each one's contract, what it has cost so far against its budget,
@@ -97,12 +98,14 @@ function NewProject({ onClose }) {
   const { companyId } = useCompany();
   const [name, setName] = useState("");
   const [err, setErr] = useState("");
+  const [files, setFiles] = useState([]);
   const save = useMutation({ mutationFn: (body) => apiClient.post("/projects", body).then((r) => r.data) });
   async function onSubmit(e) {
     e.preventDefault();
     setErr("");
     try {
       const r = await save.mutateAsync({ name });
+      if (files.length) await uploadPending("project", r.id, files);
       qc.invalidateQueries({ queryKey: ["projects", companyId] });
       qc.invalidateQueries({ queryKey: ["dimensions", companyId] });
       nav(`/projects/${r.id}`);
@@ -116,6 +119,9 @@ function NewProject({ onClose }) {
         <span className="text-sm font-medium block mb-1.5">Name</span>
         <input id="project-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Office fit-out, Malé" className={FIELD} />
       </label>
+      <div className="mt-4">
+        <PendingAttachments files={files} onChange={setFiles} />
+      </div>
       {err && (
         <p role="alert" className="text-[13px] text-[var(--danger)] mt-4">
           {err}
