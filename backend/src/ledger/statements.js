@@ -71,8 +71,12 @@ async function trialBalance(client, { companyId, asAt }) {
 // so what was made on the goods themselves reads before the running costs.
 const COST_OF_SALES = ["5050"];
 
-/** A share of income, to one decimal, or null when there was no income. */
-const marginOf = (part, income) => (income > 0n ? Number((part * 1000n) / income) / 10 : null);
+/** A share of income, to one decimal rounded half away from zero, or null when there was no income. */
+const marginOf = (part, income) => {
+  if (income <= 0n) return null;
+  const twice = (part * 2000n) / income;
+  return Number((twice + (twice < 0n ? -1n : 1n)) / 2n) / 10;
+};
 
 /** What was earned and spent between two dates, and what was left. */
 async function profitAndLoss(client, { companyId, from, to, dimensionId = null, projectId = null }) {

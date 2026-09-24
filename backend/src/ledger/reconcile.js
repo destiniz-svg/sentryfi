@@ -97,6 +97,7 @@ async function suggest(client, { companyId, lines }) {
        JOIN journal_entries je ON je.id = r.entry_id
       WHERE s.id = ANY($1::uuid[]) AND s.company_id = $2
         AND length(coalesce(s.bank_ref, '')) >= 8 AND s.credit_laari > 0
+        AND EXISTS (SELECT 1 FROM journal_lines jl WHERE jl.entry_id = je.id AND jl.account_id = s.account_id)
         AND NOT EXISTS (SELECT 1 FROM journal_entries x WHERE x.reverses_id = je.id)
         AND NOT EXISTS (SELECT 1 FROM bank_statement_lines x WHERE x.entry_id = je.id AND x.account_id = s.account_id)`,
     [ids, companyId]
@@ -284,10 +285,12 @@ async function link(client, { companyId, userId, lineId, entryId, note }) {
        JOIN journal_lines jl ON jl.entry_id = je.id AND jl.account_id = $3
       WHERE je.id = $1 AND je.company_id = $2
         AND ${moneyIn ? "jl.debit_laari" : "jl.credit_laari"} = $4
+        AND je.reverses_id IS NULL
+        AND NOT EXISTS (SELECT 1 FROM journal_entries r WHERE r.reverses_id = je.id)
         AND NOT EXISTS (SELECT 1 FROM bank_statement_lines x WHERE x.entry_id = je.id AND x.account_id = $3)`,
     [entryId, companyId, line.account_id, laari.toString()]
   );
-  if (!rows.length) throw new Error("That entry is not for this amount on this account, or it already answers another line.");
+  if (!rows.length) throw new Error("That entry is not for this amount on this account, has been reversed, or already answers another line.");
   await settle(client, { companyId, userId, lineId, status: "matched", entryId, note });
   return { status: "matched", entryId };
 }
@@ -405,6 +408,15 @@ async function undo(client, { companyId, userId, lineId }) {
   if (line.status === "open") throw new Error("That line has not been answered.");
 
   if (line.status === "posted" && line.entry_id) {
+    // The same entry can answer the other bank's statement too (a move between
+    // our own accounts). Reversing it from here would leave that line pointing
+    // at an entry that no longer stands, so that answer comes back first.
+    const { rows: other } = await client.query(
+      `SELECT a.name FROM bank_statement_lines x JOIN accounts a ON a.id = x.account_id
+        WHERE x.entry_id = $1 AND x.id <> $2 AND x.company_id = $3 LIMIT 1`,
+      [line.entry_id, lineId, companyId]
+    );
+    if (other.length) throw new Error(`A line on ${other[0].name}'s statement is answered by the same entry. Take that answer back first.`);
     await reverseEntry(client, {
       companyId,
       userId,

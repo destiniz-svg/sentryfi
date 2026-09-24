@@ -75,6 +75,9 @@ describe("a worked example", () => {
       const p = await profitAndLoss(client, { ...b.base, from: "2026-02-01", to: "2026-02-28" });
       expect(p).toMatchObject({ totalIncome: 100_000n, totalCostOfSales: 30_000n, grossProfit: 70_000n, totalExpenses: 50_000n, profit: 20_000n, grossMargin: 70, netMargin: 20 });
       expect(p.expenses.map((r) => r.code)).not.toContain("5050");
+      // Two thirds is 66.7%, not 66.6%.
+      await b.put("2026-02-02", [{ accountId: rows[0].id, debit: "33.33" }, { accountId: b.by["1100"], credit: "33.33" }]);
+      expect((await profitAndLoss(client, { ...b.base, from: "2026-02-01", to: "2026-02-28" })).grossMargin).toBe(66.7);
     }));
 
   it("balances the balance sheet, and gives last month's answer when asked for last month", () =>

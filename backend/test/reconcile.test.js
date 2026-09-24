@@ -79,6 +79,31 @@ describe("what the books already know", () => {
       await rec.link(client, { ...s.base, lineId: other[0].id, entryId: t.entry.id });
     }));
 
+  it("reads the day's closing balance whatever order the lines came in", () =>
+    inRollback(async (client) => {
+      // Printed newest first, with the same time on each: 100 out, then 50 in, closing at 9,950.
+      const s = await aStatement(client, [
+        row("2026/01/03", "BLAZ100000000002", "B", "", "50", "9950.00"),
+        row("2026/01/03", "BLAZ100000000001", "A", "100", "", "9900.00"),
+      ]);
+      const d = await doubtsFor(client, { companyId: s.companyId, through: "2026-01-31" });
+      expect(d.unbalanced).toEqual([expect.objectContaining({ bank: "9,950.00", books: "10,000.00" })]);
+    }));
+
+  it("will not undo a posting that the other bank's statement also answers with", () =>
+    inRollback(async (client) => {
+      const s = await aStatement(client, [row("2026/01/03", "BLAZ100000000001", "TO SAVINGS", "100", "", "9900.00")]);
+      const savings = await openBank(client, { companyId: s.companyId, name: "BML Savings" });
+      const done = await rec.post(client, { ...s.base, lineId: s.lines[0].id, accountId: savings.id, note: "To savings" });
+      await importStatement(client, { ...s.base, accountId: savings.id, text: row("2026/01/03", "BLAZ100000000009", "FROM CURRENT", "", "100", "100.00") });
+      const { rows: other } = await client.query("SELECT id FROM bank_statement_lines WHERE account_id = $1", [savings.id]);
+      await rec.link(client, { ...s.base, lineId: other[0].id, entryId: done.entryId });
+      await expect(rec.undo(client, { ...s.base, lineId: s.lines[0].id })).rejects.toThrow(/Take that answer back first/);
+      await rec.undo(client, { ...s.base, lineId: other[0].id });
+      await rec.undo(client, { ...s.base, lineId: s.lines[0].id });
+      await expect(rec.link(client, { ...s.base, lineId: other[0].id, entryId: done.entryId })).rejects.toThrow(/reversed/);
+    }));
+
   it("says at month end when the bank's closing balance and the books disagree", () =>
     inRollback(async (client) => {
       const s = await aStatement(client, [row("2026/01/03", "BLAZ100000000001", "FUEL", "100", "", "9900.00")]);

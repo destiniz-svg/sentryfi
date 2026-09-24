@@ -5,7 +5,7 @@ const { requireAuth } = require("../middleware/auth");
 const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
 const { formatLaari } = require("../ledger/money");
-const { cashTrend, runway } = require("../ledger/trend");
+const { cashTrend, runway, cashMoves } = require("../ledger/trend");
 
 const router = express.Router();
 router.use(requireAuth, requireCompany);
@@ -131,18 +131,8 @@ router.get(
         [req.companyId]
       );
 
-      // How cash itself moved in each of the last three whole months, once the
-      // books had begun: the burn runway is measured by. Opening balances are
-      // not a month's movement, and the month still running is not whole.
-      const { rows: burn } = await client.query(
-        `SELECT SUM(l.debit_laari - l.credit_laari)::text AS amount
-           FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id JOIN accounts a ON a.id = l.account_id
-          WHERE ${CASH} AND e.source NOT IN ('opening_balance', 'import')
-            AND e.entry_date >= date_trunc('month', CURRENT_DATE) - INTERVAL '3 months'
-            AND e.entry_date <  date_trunc('month', CURRENT_DATE)
-          GROUP BY date_trunc('month', e.entry_date)`,
-        [req.companyId]
-      );
+      // Today where the company is (the Maldives, UTC+5), as the CFO reads it.
+      const burn = await cashMoves(client, { companyId: req.companyId, today: new Date(Date.now() + 5 * 3600000).toISOString().slice(0, 10) });
 
       // The two headline balances that are one account each, read from that
       // account rather than from a whole type. "Owed to suppliers" used to be
@@ -197,12 +187,8 @@ router.get(
 
     const trend = cashTrend(data.before, data.moves, new Date());
     // Runway: what cash covers at the pace cash fell over the last three whole
-    // months the books were kept, as an average over those months. Months
-    // before the books began are not months when nothing moved.
-    const whole = data.spend.slice(-4, -1).filter((r) => !r.before_books).length;
-    const moved = data.burn.map((r) => r.amount);
-    while (moved.length < whole) moved.push("0");
-    const { months: runwayMonths, growing: cashGrowing } = runway(data.cash, moved);
+    // months the books covered (ledger/trend.js).
+    const { months: runwayMonths, growing: cashGrowing } = runway(data.cash, data.burn);
 
     res.json({
       cashTrend: trend.map((v) => Number(v)),

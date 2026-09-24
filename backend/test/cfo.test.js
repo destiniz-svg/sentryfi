@@ -14,6 +14,7 @@ import { raise, post } from "../src/ledger/sales";
 import * as cfo from "../src/ledger/cfo";
 import { ask } from "../src/ledger/cfoAsk";
 import { pay } from "../src/ledger/payments";
+import { cashMoves } from "../src/ledger/trend";
 
 afterAll(closePool);
 
@@ -63,6 +64,20 @@ describe("the CFO", () => {
       expect([f.cash, f.expectedIn, f.committedOut, f.forecast]).toEqual(["100,000.00", "25,000.00", "3,000.00", "122,000.00"]);
       expect(f.inParts.map((p) => p.amount)).toEqual(["20,000.00", "5,000.00"]);
       expect(f.short).toBe(false);
+    }));
+
+  it("measures runway by whole months the books covered, history brought in included", () =>
+    inRollback(async (client) => {
+      const { companyId, userId, accounts } = await aCompanyWith(client);
+      await assumeIdentity(client, { companyId, userId });
+      const put = (date, source, amount) =>
+        postEntry(client, { companyId, userId, date, source, narrative: source, lines: [{ accountId: accounts.expense, debit: amount }, { accountId: accounts.bank, credit: amount }] });
+      await postEntry(client, { companyId, userId, date: "2026-06-20", source: "opening_balance", narrative: "Start", lines: [{ accountId: accounts.bank, debit: "10000" }, { accountId: accounts.payable, credit: "10000" }] });
+      await put("2026-07-01", "import", "300"); // brought in from the old system: real movement
+      await put("2026-08-15", "adjustment", "100");
+      await put("2026-09-10", "adjustment", "999"); // the month still running: not whole
+      // June held only the opening balance, so it is not a month the books covered.
+      expect(await cashMoves(client, { companyId, today: "2026-09-24" })).toEqual(["-30000", "-10000"]);
     }));
 
   it("counts a bill as owed again once its payment is taken back", () =>

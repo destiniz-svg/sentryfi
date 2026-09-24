@@ -43,18 +43,26 @@ async function doubtsFor(client, { companyId, through }) {
   // the bank said it held on the statement's last day in the period, against
   // what the books say it held that day. Every line answered and still a
   // difference means something in the books never happened at the bank.
-  // ponytail: the day's last line is taken by the time the bank printed on it;
-  // a statement without times on one busy day could pick an earlier line.
+  // The day's last line is the one no other line that day starts from (its
+  // balance before it is the balance after this one), so the order the bank
+  // printed them in does not matter. Accounts in another currency are left
+  // out: their statements are not read as ours (ledger/bank.js).
   const { rows: banks } = await client.query(
     `SELECT a.name, s.posted_on::text AS on, s.balance_laari::text AS bank,
             (SELECT COALESCE(SUM(l.debit_laari - l.credit_laari), 0) FROM journal_lines l
                JOIN journal_entries e ON e.id = l.entry_id
               WHERE l.account_id = a.id AND e.entry_date <= s.posted_on)::text AS books
        FROM accounts a
-       JOIN LATERAL (SELECT posted_on, balance_laari FROM bank_statement_lines
-                      WHERE account_id = a.id AND posted_on <= $2::date AND balance_laari IS NOT NULL
-                      ORDER BY posted_on DESC, happened_at DESC NULLS LAST, balance_laari LIMIT 1) s ON true
-      WHERE a.company_id = $1
+       JOIN companies c ON c.id = a.company_id
+       JOIN LATERAL (SELECT x.posted_on, x.balance_laari FROM bank_statement_lines x
+                      WHERE x.account_id = a.id AND x.balance_laari IS NOT NULL
+                        AND x.posted_on = (SELECT max(posted_on) FROM bank_statement_lines
+                                            WHERE account_id = a.id AND posted_on <= $2::date AND balance_laari IS NOT NULL)
+                        AND NOT EXISTS (SELECT 1 FROM bank_statement_lines o
+                                         WHERE o.account_id = x.account_id AND o.posted_on = x.posted_on AND o.id <> x.id
+                                           AND o.balance_laari - o.credit_laari + o.debit_laari = x.balance_laari)
+                      ORDER BY x.happened_at DESC NULLS LAST LIMIT 1) s ON true
+      WHERE a.company_id = $1 AND (a.currency IS NULL OR a.currency = c.base_currency)
       ORDER BY a.code`,
     [companyId, through]
   );

@@ -134,6 +134,9 @@ async function build(client, { companyId, key }) {
       ORDER BY e.entry_date`,
     [companyId, p.from, p.to]
   );
+  // ponytail: the value before GST is worked back from the GST at the general
+  // rate, not read from the Customs declaration, so it can differ by a laari
+  // or two; store the declared value on payDirect if MIRA ever queries it.
   for (const c of customs) {
     const tax = BigInt(c.tax);
     if (tax === 0n) continue;

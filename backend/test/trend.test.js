@@ -34,5 +34,6 @@ describe("runway", () => {
   it("says nothing without whole months or cash", () => {
     expect(runway("100000000", [])).toEqual({ months: null, growing: false });
     expect(runway("0", ["-100"])).toEqual({ months: null, growing: false });
+    expect(runway("100", ["0", "0"])).toEqual({ months: null, growing: false }); // nothing moved: not growing
   });
 });
