@@ -201,7 +201,7 @@ The phases below say *what*; this says *when*. Set 23 September 2026. Each sprin
 **Group and consolidation.** Several companies, intercompany balances that eliminate, one set of statements for the group. *(was step 29)*
 **Done when:** a group statement balances, intercompany balances cancel, and each company's own books are unchanged by being consolidated.
 
-**The rest of the money.** Quotes that become orders and invoices, repeat billing with a reminder ladder, expense claims for people without a tin, time against a job, approvals with a record of who said yes, budgets against actuals, a payment run that pays several suppliers and matches back, a customer portal to see, pay and query. *(was step 27)*
+**The rest of the money.** Quotes that become orders and invoices, repeat billing with a reminder ladder, expense claims for people without a tin, time against a job, approvals with a record of who said yes, budgets against actuals, a payment run that pays several suppliers and matches back, a customer portal to see, pay and query. *(was step 27)* *25 Sep 2026: the portal now answers too: customers accept or decline quotes (a yes becomes a sales order) and accept proforma invoices by name, and ask about any invoice, quote, proforma or retainer, answered from the document and shown in Needs you until answered. Retainer (RT-) and proforma (PF-) invoices ask for money before the tax invoice; money in advance is held on 2350 with its GST due when paid, used on tax invoices or given back, and a proforma becomes its tax invoice in one step. Paying online from the portal still waits for a gateway.*
 **Done when:** a small business can quote, bill, chase, claim, approve and pay from here without a spreadsheet beside it.
 
 ### Phase D — Across everything

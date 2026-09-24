@@ -3,7 +3,8 @@ import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, Printer, FileDown, ShieldCheck, Mail, Loader2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/context/UIContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Questions } from "@/components/documents/Questions";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { FittedPaper } from "@/components/documents/DocumentPaper";
@@ -21,7 +22,8 @@ import { FIELD } from "@/lib/shipments";
  * changing what the document says.
  */
 
-const BACK = { invoice: "/invoices", credit_note: "/invoices", quote: "/orders?kind=quote", sales_order: "/orders?kind=sale", purchase_order: "/orders?kind=purchase", delivery_note: "/orders?kind=sale", goods_received: "/orders?kind=purchase", receipt: "/invoices", statement: "/invoices" };
+const BACK = { invoice: "/invoices", credit_note: "/invoices", quote: "/orders?kind=quote", sales_order: "/orders?kind=sale", purchase_order: "/orders?kind=purchase", delivery_note: "/orders?kind=sale", goods_received: "/orders?kind=purchase", receipt: "/invoices", statement: "/invoices", proforma: "/advances", retainer: "/advances" };
+const QUESTIONED = ["invoice", "quote", "proforma", "retainer"];
 
 export default function Document() {
   const { kind, id } = useParams();
@@ -99,8 +101,31 @@ export default function Document() {
         <FittedPaper model={model} />
       </div>
       <PrintCopy model={model} />
+      {QUESTIONED.includes(kind) && <DocumentQuestions kind={kind} id={id} />}
       {emailing && <EmailInvoice id={id} number={data.data.number} to={data.data.to?.email || ""} onClose={() => setEmailing(false)} />}
     </div>
+  );
+}
+
+/** What the customer asked from their link, and the answer, under the document. */
+function DocumentQuestions({ kind, id }) {
+  const { companyId, can } = useCompany();
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ["questions", companyId, kind, id], queryFn: () => apiClient.get(`/documents/${kind}/${id}/questions`).then((r) => r.data.questions), enabled: Boolean(companyId) });
+  if (!data || (!data.length && !can("record"))) return null;
+  return (
+    <Questions
+      thread={data}
+      me="company"
+      title="From the customer"
+      empty="Nothing asked yet. Customers ask from their link to this document, and you answer here; they see the answer on the same page."
+      placeholder="Answer the customer"
+      onSend={async ({ body }) => {
+        await apiClient.post(`/documents/${kind}/${id}/questions`, { body });
+        qc.invalidateQueries({ queryKey: ["questions", companyId, kind, id] });
+        qc.invalidateQueries({ queryKey: ["attention", companyId] });
+      }}
+    />
   );
 }
 

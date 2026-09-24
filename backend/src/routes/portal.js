@@ -69,7 +69,33 @@ publicRouter.get(
         });
       }
       const total = out.reduce((a, i) => a + BigInt(i.owed.replace(/[,.]/g, "")), 0n);
+      const orders = require("../ledger/orders");
+      const { rows: q } = await client.query(
+        "SELECT id FROM orders WHERE company_id = $1 AND counterparty_id = $2 AND kind = 'quote' AND created_at > now() - interval '180 days' ORDER BY ordered_on DESC LIMIT 20",
+        [link.company_id, link.counterparty_id]
+      );
+      const day = (d) => (d ? String(d instanceof Date ? d.toISOString() : d).slice(0, 10) : null);
+      const quotes = [];
+      for (const x of q) {
+        const o = await orders.load(client, { companyId: link.company_id, orderId: x.id });
+        quotes.push({ id: x.id, number: o.order.number, issued: day(o.order.ordered_on), until: day(o.order.valid_until), status: o.status, total: formatLaari(o.total), subject: o.order.note || null });
+      }
+      const adv = require("../ledger/advances");
+      const requests = (await adv.list(client, { companyId: link.company_id })).filter((r) => r.counterpartyId === link.counterparty_id && r.status !== "cancelled");
+      const heldFor = (await adv.held(client, { companyId: link.company_id, counterpartyId: link.counterparty_id })).reduce((a, x) => a + x.left, 0n);
+      const questions = require("../ledger/questions");
+      const threads = {};
+      for (const [kind, list] of [["invoice", out], ["quote", quotes], ["proforma", requests.filter((r) => r.kind === "proforma")], ["retainer", requests.filter((r) => r.kind === "retainer")]]) {
+        for (const d of list) {
+          const t = await questions.thread(client, { companyId: link.company_id, kind, documentId: d.id });
+          if (t.length) threads[d.id] = t;
+        }
+      }
       return {
+        quotes,
+        requests: requests.map((r) => ({ id: r.id, kind: r.kind, label: r.label, number: r.number, issued: r.issued, due: r.due, subject: r.subject, gross: r.gross, paid: r.paid, status: r.status, acceptedAt: r.acceptedAt, invoiceNo: r.invoiceNo })),
+        heldForYou: formatLaari(heldFor),
+        threads,
         company: { name: co[0]?.name, paymentDetails: co[0]?.payment_details || "", tin: co[0]?.gst_number || co[0]?.tin || null, currency: co[0]?.currency || "MVR" },
         customer: party[0]?.name,
         owed: formatLaari(total),
@@ -105,6 +131,115 @@ publicRouter.get(
     if (!doc) throw ApiError.notFound("No such invoice.");
     res.set("Cache-Control", "no-store");
     res.json(doc);
+  })
+);
+
+/** The live link a token opens, or a 404. */
+async function linkOf(token) {
+  const { rows } = await pool.query("SELECT id, company_id, counterparty_id, created_by FROM portal_links WHERE token_hash = $1 AND revoked_at IS NULL", [hash(token)]);
+  if (!rows[0]) throw ApiError.notFound("This link has been turned off, or is not complete. Ask for a new one.");
+  return rows[0];
+}
+const asLink = (link, fn) => asCompany({ companyId: link.company_id, user: { id: link.created_by } }, fn);
+// Writing from a public link: fewer tries than reading.
+const writing = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: "draft-7", legacyHeaders: false, keyGenerator: (req, res) => ipKeyGenerator(req, res) });
+const PORTAL_KINDS = { quote: "quote", proforma: "proforma", retainer: "retainer", invoice: "invoice" };
+
+publicRouter.get(
+  "/:token/documents/:kind/:id",
+  looking,
+  asyncHandler(async (req, res) => {
+    const kind = PORTAL_KINDS[req.params.kind];
+    if (!kind || !/^[0-9a-f-]{36}$/i.test(req.params.id)) throw ApiError.notFound("No such document.");
+    const link = await linkOf(req.params.token);
+    const doc = await asLink(link, async (client) => {
+      const questions = require("../ledger/questions");
+      try {
+        if ((await questions.ownerOf(client, { companyId: link.company_id, kind, documentId: req.params.id })) !== link.counterparty_id) return null;
+      } catch {
+        return null;
+      }
+      return require("../ledger/documents").show(client, { companyId: link.company_id, kind, documentId: req.params.id });
+    });
+    if (!doc) throw ApiError.notFound("No such document.");
+    res.set("Cache-Control", "no-store");
+    res.json(doc);
+  })
+);
+
+publicRouter.post(
+  "/:token/questions",
+  writing,
+  asyncHandler(async (req, res) => {
+    const p = z
+      .object({ kind: z.enum(["invoice", "quote", "proforma", "retainer"]), documentId: z.string().uuid(), body: z.string().trim().min(1, "Write the question first.").max(2000), name: z.string().trim().max(120).nullish() })
+      .safeParse(req.body ?? {});
+    if (!p.success) throw ApiError.badRequest(p.error.issues[0].message);
+    const link = await linkOf(req.params.token);
+    try {
+      const thread = await asLink(link, (client) =>
+        require("../ledger/questions").ask(client, { companyId: link.company_id, counterpartyId: link.counterparty_id, ...p.data, tellUserIds: [link.created_by] })
+      );
+      res.status(201).json({ thread });
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
+// A quote answered from the link: yes makes it a sales order, as if the office had said so.
+publicRouter.post(
+  "/:token/quotes/:id",
+  writing,
+  asyncHandler(async (req, res) => {
+    const p = z.object({ accepted: z.boolean(), name: z.string().trim().min(2, "Say who is answering.").max(120), reason: z.string().trim().max(1000).nullish() }).safeParse(req.body ?? {});
+    if (!p.success) throw ApiError.badRequest(p.error.issues[0].message);
+    if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) throw ApiError.notFound("No such quote.");
+    const link = await linkOf(req.params.token);
+    try {
+      await asLink(link, async (client) => {
+        const orders = require("../ledger/orders");
+        const s = await orders.load(client, { companyId: link.company_id, orderId: req.params.id });
+        if (s.order.kind !== "quote" || s.order.counterparty_id !== link.counterparty_id) throw new Error("No such quote.");
+        if (s.status === "expired") throw new Error("This quote is past its date. Ask for a new one.");
+        await orders.answerQuote(client, { companyId: link.company_id, userId: link.created_by, orderId: req.params.id, accepted: p.data.accepted });
+        const words = p.data.accepted ? `Accepted by ${p.data.name}.` : `Declined by ${p.data.name}.`;
+        await require("../ledger/questions").ask(client, {
+          companyId: link.company_id, counterpartyId: link.counterparty_id, kind: "quote", documentId: req.params.id, name: p.data.name,
+          body: p.data.reason ? `${words} ${p.data.reason}` : words, tellUserIds: [link.created_by], needsReply: false,
+        });
+      });
+      res.json({ ok: true });
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
+// A proforma or retainer accepted from the link.
+publicRouter.post(
+  "/:token/requests/:id/accept",
+  writing,
+  asyncHandler(async (req, res) => {
+    const p = z.object({ name: z.string().trim().min(2, "Say who is accepting.").max(120) }).safeParse(req.body ?? {});
+    if (!p.success) throw ApiError.badRequest(p.error.issues[0].message);
+    if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) throw ApiError.notFound("No such document.");
+    const link = await linkOf(req.params.token);
+    try {
+      await asLink(link, async (client) => {
+        const adv = require("../ledger/advances");
+        const r = await adv.request(client, { companyId: link.company_id, id: req.params.id });
+        if (r.counterparty_id !== link.counterparty_id) throw new Error("No such document.");
+        await adv.accept(client, { companyId: link.company_id, id: req.params.id, name: p.data.name });
+        await require("../services/push").tell(client, {
+          companyId: link.company_id, userIds: [link.created_by], kind: "done", title: `${p.data.name} accepted ${r.number}`,
+          body: `${adv.LABEL[r.kind]} for ${r.customer}.`, href: `/documents/${r.kind}/${r.id}`,
+        });
+      });
+      res.json({ ok: true });
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
   })
 );
 

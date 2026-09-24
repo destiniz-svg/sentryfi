@@ -281,6 +281,18 @@ async function collect(client, req) {
       }
     }
 
+    // A customer asked about a document from their link, and nobody has answered.
+    for (const q of await require("../ledger/questions").waiting(client, { companyId: req.companyId })) {
+      const days = Math.floor((Date.now() - new Date(q.since).getTime()) / 86400000);
+      found.push({
+        kind: days > 2 ? "ageing" : "waiting",
+        title: `${q.customer} asked about ${q.number}`,
+        detail: `${q.n === 1 ? "A question" : `${q.n} questions`} from their link, ${days ? `${days} ${days === 1 ? "day" : "days"} ago` : "today"}, not answered yet.`,
+        does: "Answer",
+        href: q.href,
+      });
+    }
+
     found.sort((a, b) => SEVERITY[a.kind] - SEVERITY[b.kind]);
     return found;
 }

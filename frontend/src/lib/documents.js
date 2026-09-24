@@ -53,11 +53,13 @@ export const KIND_LABEL = {
   credit_note: "Credit note",
   receipt: "Receipt",
   statement: "Statement",
+  proforma: "Proforma invoice",
+  retainer: "Retainer invoice",
 };
 
 /** Every label on the paper, renamable per template. */
 /** Who the paper is addressed to, by kind; renamable as the "Bill to" label. */
-const TO = { invoice: "Bill to", quote: "Prepared for", sales_order: "Customer", purchase_order: "Supplier", delivery_note: "Deliver to", goods_received: "Received from", credit_note: "Credit to", receipt: "Received from", statement: "Account of" };
+const TO = { invoice: "Bill to", quote: "Prepared for", sales_order: "Customer", purchase_order: "Supplier", delivery_note: "Deliver to", goods_received: "Received from", credit_note: "Credit to", receipt: "Received from", statement: "Account of", proforma: "Bill to", retainer: "Bill to" };
 
 export const LABELS = {
   billTo: "Bill to",
@@ -321,7 +323,7 @@ export function compose({ data, brand, template, size, verifyUrl }) {
     size: s,
     layout: s.receipt ? "receipt" : DESIGNS[t.layout] ? t.layout : "classic",
     // The one figure a reader looks for, for the designs that set it large.
-    hero: priced && gross ? { label: data.kind === "invoice" ? (data.due ? "Amount due" : "Total") : data.kind === "credit_note" ? "Credited" : "Total", value: gross, currency, note: data.kind === "invoice" && data.due ? `by ${longDate(data.due)}` : null } : null,
+    hero: priced && gross ? { label: ["invoice", "proforma", "retainer"].includes(data.kind) ? (data.due ? "Amount due" : "Total") : data.kind === "credit_note" ? "Credited" : "Total", value: gross, currency, note: ["invoice", "proforma", "retainer"].includes(data.kind) && data.due ? `by ${longDate(data.due)}` : null } : null,
     qr,
     font: FONTS[brand.font] || FONTS.barlow,
     accent,
@@ -354,7 +356,7 @@ export function compose({ data, brand, template, size, verifyUrl }) {
     words: priced && t.show.words && data.kind !== "statement" && data.totals.gross ? amountInWords(data.totals.gross, currency) : null,
     notes: t.notes ? { label: label("notes"), text: t.notes } : null,
     terms: t.terms ? { label: label("terms"), text: t.terms } : null,
-    payment: priced && ["invoice", "quote", "sales_order", "statement"].includes(data.kind) && t.show.payment && brand.paymentDetails ? { label: label("payment"), text: brand.paymentDetails } : null,
+    payment: priced && ["invoice", "quote", "sales_order", "statement", "proforma", "retainer"].includes(data.kind) && t.show.payment && brand.paymentDetails ? { label: label("payment"), text: brand.paymentDetails } : null,
     signature: t.show.signature && (brand.signature || brand.signatory) ? { image: brand.signature, name: brand.signatory, title: brand.signatoryTitle } : null,
     stamp: t.show.stamp ? brand.stamp : null,
     footer: t.show.footer ? brand.footer : null,
@@ -406,6 +408,13 @@ const SUPPLIER = { name: "Coral Steel Trading Pvt Ltd", address: "Malé, Maldive
 const ORDER_LINES = SAMPLE_INVOICE.lines;
 export const SAMPLES = {
   invoice: SAMPLE_INVOICE,
+  proforma: { ...SAMPLE_INVOICE, kind: "proforma", number: "PF-0007", reference: null, due: "2026-10-05", dueLabel: "Pay by", priceNote: "Not a tax invoice. The tax invoice follows, and what is paid now is taken off it. GST on a payment is due when it is paid." },
+  retainer: {
+    ...SAMPLE_INVOICE, kind: "retainer", number: "RT-0003", reference: null, due: "2026-10-01", dueLabel: "Pay by",
+    lines: [{ description: "Retainer for site supervision, October", quantity: "1", unit: null, rate: "15,000.00", amount: "15,000.00" }],
+    totals: { net: "15,000.00", tax: "1,200.00", gross: "16,200.00" },
+    priceNote: "Not a tax invoice. Tax invoices follow, and what is paid now is taken off them. GST on a payment is due when it is paid.",
+  },
   quote: { ...SAMPLE_INVOICE, kind: "quote", number: "QT-0031", reference: null, due: "2026-10-23", dueLabel: "Valid until", priceNote: "GST at 8%, the rate today; the invoice charges the rate on its own date." },
   sales_order: { ...SAMPLE_INVOICE, kind: "sales_order", number: "SO-0012", reference: "PO-2026-0418", due: "2026-10-01", dueLabel: "Expected" },
   purchase_order: {

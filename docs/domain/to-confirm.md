@@ -101,3 +101,17 @@ Sentryfi runs payroll by the rules in `docs/domain/payroll.md`, kept as dated da
   - The WPS SIF layout for the company's bank.
   - The GPSSA shares and whether the government share still applies.
   - The gratuity day rate.
+
+## Payments in advance: retainer and proforma invoices (added 25 September 2026)
+
+Sentryfi treats GST as due when an advance is paid, because the time of supply is the earlier of the tax invoice or the payment, part payment included (section 5 of `maldives-tax-and-statutory.md`).
+- **When an advance arrives:** the payment is taken as including GST at the rate on the day it arrives. The GST goes to 2200 and the rest is held on 2350 "Customer advances".
+- **When it's used against the tax invoice:** the invoice charges GST on the whole amount, so the advance's GST is taken back off.
+- **When it's refunded:** its GST comes off too.
+- **On the return:** advances appear as documents, positive when paid and negative when used or refunded, so the return and the books agree.
+- **Retainer and proforma invoices themselves** say "Not a tax invoice" and post nothing.
+
+**To confirm:**
+- Whether MIRA expects a tax invoice (or a receipt carrying GST) to be issued when an advance is received.
+- Which sheet of the Output Tax Statement advances and their reversals belong on (OtherTransactions is assumed).
+- If the rate changes between the advance and the invoice, whether the advance's share keeps the old rate. Sentryfi charges the invoice's rate on all of it and reverses the advance at its own rate.

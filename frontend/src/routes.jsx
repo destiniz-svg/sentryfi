@@ -70,6 +70,7 @@ const More = lazy(() => import("@/pages/More"));
 const Assets = lazy(() => import("@/pages/Assets"));
 const Stock = lazy(() => import("@/pages/Stock"));
 const Payroll = lazy(() => import("@/pages/Payroll"));
+const Advances = lazy(() => import("@/pages/Advances"));
 const PayRun = lazy(() => import("@/pages/PayRun"));
 const Payslip = lazy(() => import("@/pages/Payslip"));
 const MyPayslips = lazy(() => import("@/pages/Payslip").then((m) => ({ default: m.MyPayslips })));
@@ -182,6 +183,7 @@ export const router = createBrowserRouter([
       { path: "assets", element: <Assets /> },
       { path: "stock", element: <Stock /> },
       { path: "payroll", element: <Payroll /> },
+      { path: "advances", element: <Advances /> },
       { path: "payroll/runs/:id", element: <PayRun /> },
       { path: "payroll/runs/:runId/slips/:employeeId", element: <Payslip /> },
       { path: "payslips", element: <MyPayslips /> },

@@ -166,6 +166,19 @@ async function build(client, { companyId, key }) {
        FROM credit_notes n JOIN sales_invoices s ON s.id = n.invoice_id
        LEFT JOIN counterparties c ON c.id = n.counterparty_id
       WHERE n.company_id = $1 AND n.issue_date BETWEEN $2 AND $3
+     UNION ALL
+     -- Paid in advance: GST is due when the money arrives (time of supply),
+     -- and comes back off when the advance is used on a tax invoice or given back.
+     SELECT COALESCE(q.number, 'Advance ' || to_char(a.received_on, 'YYYY-MM-DD')), a.received_on::text, a.amount_laari - a.tax_laari, a.tax_laari,
+            'inclusive', c.name, COALESCE(c.tin, c.gst_number), 1
+       FROM customer_advances a LEFT JOIN advance_requests q ON q.id = a.request_id LEFT JOIN counterparties c ON c.id = a.counterparty_id
+      WHERE a.company_id = $1 AND a.tax_laari > 0 AND a.received_on BETWEEN $2 AND $3
+     UNION ALL
+     SELECT CASE WHEN u.kind = 'invoice' THEN 'Advance used on ' || s.invoice_no ELSE 'Advance given back' END, u.used_on::text,
+            u.amount_laari - u.tax_laari, u.tax_laari, 'inclusive', c.name, COALESCE(c.tin, c.gst_number), -1
+       FROM advance_uses u JOIN customer_advances a ON a.id = u.advance_id LEFT JOIN sales_invoices s ON s.id = u.invoice_id
+       LEFT JOIN counterparties c ON c.id = a.counterparty_id
+      WHERE u.company_id = $1 AND u.tax_laari > 0 AND u.used_on BETWEEN $2 AND $3
       ORDER BY 2, 1`,
     [companyId, p.from, p.to]
   );

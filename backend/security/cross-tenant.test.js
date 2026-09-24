@@ -1199,3 +1199,53 @@ describe("payroll", () => {
     }
   });
 });
+
+describe("the customer portal's questions, quotes and advances", () => {
+  beforeAll(async () => {
+    A.customerId = (await db.query("SELECT counterparty_id FROM sales_invoices WHERE id = $1", [A.invoiceId])).rows[0].counterparty_id;
+    A.portal = (await call(A, "POST", "/portal-links", { body: { counterpartyId: A.customerId } })).json.token;
+    const other = await call(A, "POST", "/orders", { body: { kind: "quote", partyName: "OTHER-CUSTOMER-A", validUntil: "2030-01-01", lines: [{ description: "SECRET-QUOTE-LINE", quantity: "1", unitPrice: "999" }] } });
+    expect(other.status).toBe(201);
+    A.otherQuote = other.json.id || other.json.order?.id;
+    const pf = await call(A, "POST", "/advances/requests", { body: { kind: "proforma", partyName: undefined, customerName: "OTHER-CUSTOMER-A", lines: [{ description: "SECRET-PROFORMA", unitPrice: "500" }] } });
+    expect(pf.status).toBe(201);
+    A.otherProforma = pf.json.id;
+    A.bankAcc = (await db.query("SELECT id FROM accounts WHERE company_id = $1 AND code LIKE '11%' ORDER BY code LIMIT 1", [A.companyId])).rows[0].id;
+    const paid = await call(A, "POST", "/advances/receive", { body: { requestId: A.otherProforma, amount: "100", accountId: A.bankAcc } });
+    expect(paid.status).toBe(201);
+    A.advanceId = paid.json.id;
+  });
+
+  it("one customer's link never reaches another customer's documents", async () => {
+    const guest = { cookie: null, companyId: null };
+    const page = await call(guest, "GET", `/portal/${A.portal}`);
+    expect(page.status).toBe(200);
+    noLeak(page, "SECRET-QUOTE-LINE", "SECRET-PROFORMA", "OTHER-CUSTOMER-A");
+    for (const [kind, id] of [["quote", A.otherQuote], ["proforma", A.otherProforma]]) {
+      denied(await call(guest, "GET", `/portal/${A.portal}/documents/${kind}/${id}`));
+      denied(await call(guest, "POST", `/portal/${A.portal}/questions`, { body: { kind, documentId: id, body: "probe" } }));
+    }
+    denied(await call(guest, "POST", `/portal/${A.portal}/quotes/${A.otherQuote}`, { body: { accepted: true, name: "Mallory" } }));
+    denied(await call(guest, "POST", `/portal/${A.portal}/requests/${A.otherProforma}/accept`, { body: { name: "Mallory" } }));
+    expect((await db.query("SELECT accepted_at FROM orders WHERE id = $1", [A.otherQuote])).rows[0].accepted_at).toBe(null);
+    expect((await db.query("SELECT accepted_at FROM advance_requests WHERE id = $1", [A.otherProforma])).rows[0].accepted_at).toBe(null);
+    // Its own invoice it may ask about.
+    expect((await call(guest, "POST", `/portal/${A.portal}/questions`, { body: { kind: "invoice", documentId: A.invoiceId, body: "Is this right?" } })).status).toBe(201);
+    denied(await call(guest, "GET", `/portal/not-a-real-token/documents/invoice/${A.invoiceId}`));
+  });
+
+  it("from B: A's requests, money held and questions are out of reach", async () => {
+    noLeak(await call(B, "GET", "/advances"), "SECRET-PROFORMA", "OTHER-CUSTOMER-A");
+    denied(await call(B, "GET", "/advances", { company: A.companyId }));
+    denied(await call(B, "POST", `/advances/requests/${A.otherProforma}/invoice`, { body: {} }));
+    denied(await call(B, "POST", `/advances/${A.advanceId}/refund`, { body: { fromAccountId: B.bankId } }));
+    denied(await call(B, "GET", `/advances/${A.advanceId}/invoices`));
+    denied(await call(B, "GET", `/documents/proforma/${A.otherProforma}`));
+    const q = await call(B, "GET", `/documents/invoice/${A.invoiceId}/questions`);
+    denied(q);
+    noLeak(q, "Is this right?");
+    denied(await call(B, "POST", `/documents/invoice/${A.invoiceId}/questions`, { body: { body: "probe" } }));
+    const left = (await db.query("SELECT COALESCE(SUM(amount_laari),0) AS s FROM advance_uses WHERE advance_id = $1", [A.advanceId])).rows[0].s;
+    expect(String(left)).toBe("0");
+  });
+});

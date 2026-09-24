@@ -120,6 +120,37 @@ router.get(
   })
 );
 
+// A customer's questions about a document, and the company's answer.
+const QUESTIONED = ["invoice", "quote", "proforma", "retainer"];
+router.get(
+  "/:kind/:id/questions",
+  requireCan("read"),
+  asyncHandler(async (req, res) => {
+    if (!QUESTIONED.includes(req.params.kind)) return res.json({ questions: [] });
+    const questions = require("../ledger/questions");
+    try {
+      res.json({ questions: await asCompany(req, async (client) => {
+        await questions.ownerOf(client, { companyId: req.companyId, kind: req.params.kind, documentId: req.params.id });
+        return questions.thread(client, { companyId: req.companyId, kind: req.params.kind, documentId: req.params.id });
+      }) });
+    } catch (err) {
+      throw ApiError.notFound(err.message);
+    }
+  })
+);
+router.post(
+  "/:kind/:id/questions",
+  requireCan("record"),
+  asyncHandler(async (req, res) => {
+    if (!QUESTIONED.includes(req.params.kind)) throw ApiError.badRequest("Customers ask about invoices, quotes, proformas and retainers.");
+    try {
+      res.status(201).json({ questions: await asCompany(req, (client) => require("../ledger/questions").answer(client, { companyId: req.companyId, userId: req.user.id, kind: req.params.kind, documentId: req.params.id, body: req.body?.body })) });
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
 /**
  * Is this paper genuine? Public: the QR code on an issued document carries its
  * fingerprint, and whoever holds the paper can check it against the copy kept

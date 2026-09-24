@@ -11,7 +11,7 @@ const { formatLaari } = require("./money");
 const { niceDate } = require("./gstReturn");
 const { today: localToday } = require("./today");
 
-const KINDS = ["invoice", "quote", "sales_order", "purchase_order", "delivery_note", "goods_received", "credit_note", "receipt", "statement"];
+const KINDS = ["invoice", "quote", "sales_order", "purchase_order", "delivery_note", "goods_received", "credit_note", "receipt", "statement", "proforma", "retainer"];
 const f = (v) => (v === null || v === undefined ? null : formatLaari(BigInt(v)));
 
 /** The brand kit, with the facts the company already keeps filled in. */
@@ -93,6 +93,40 @@ async function invoiceData(client, { companyId, id: invoiceId }) {
     totals: foreign
       ? { net: f(s.fc_net), tax: f(s.fc_tax), gross: f(s.fc_gross), taxInBase: f(s.tax_laari), grossInBase: f(s.gross_laari) }
       : { net: f(s.net_laari), tax: f(s.tax_laari), gross: f(s.gross_laari) },
+  };
+}
+
+/**
+ * A retainer or proforma invoice: asked for before the tax invoice, and never
+ * one. It says so on its face, and what has been paid against it.
+ */
+async function requestData(client, { companyId, id }) {
+  const adv = require("./advances");
+  const r = adv.showRequest(await adv.request(client, { companyId, id }));
+  const paid = BigInt(r.paid.replace(/[,.]/g, ""));
+  const brand = await brandOf(client, { companyId });
+  return {
+    kind: r.kind,
+    id,
+    number: r.number,
+    status: r.status === "cancelled" ? "void" : "posted",
+    watermark: r.status === "cancelled" ? "WITHDRAWN" : null,
+    issued: r.issued,
+    due: r.due,
+    dueLabel: "Pay by",
+    subject: r.subject,
+    to: await partyOf(client, { companyId, id: r.counterpartyId }),
+    currency: null,
+    gstTreatment: r.treatment,
+    gstRatePercent: r.ratePercent,
+    lines: r.lines.map((l) => ({ code: null, description: l.description, quantity: String(Number(l.quantity)), unit: l.unit, rate: l.unitPrice, amount: l.net })),
+    totals: { net: r.net, tax: r.tax, gross: r.gross },
+    priceNote: [
+      `Not a tax invoice. ${r.kind === "proforma" ? "The tax invoice follows" : "Tax invoices follow"}, and what is paid now is taken off ${r.kind === "proforma" ? "it" : "them"}.`,
+      brand.gstRegistered && BigInt(r.tax.replace(/[,.]/g, "")) > 0n ? `${brand.tax.tax} on a payment is due when it is paid.` : null,
+      paid > 0n ? `Paid so far: ${r.paid}.` : null,
+      r.acceptedAt ? `Accepted${r.acceptedBy ? ` by ${r.acceptedBy}` : ""}.` : null,
+    ].filter(Boolean).join(" "),
   };
 }
 
@@ -263,7 +297,11 @@ async function statementData(client, { companyId, id }) {
   const today = localToday();
   const { rows: before } = await client.query(
     `SELECT COALESCE((SELECT SUM(gross_laari) FROM sales_invoices WHERE company_id = $1 AND counterparty_id = $2 AND status = 'posted' AND voided_at IS NULL AND issue_date < $3), 0)
-          - COALESCE((SELECT SUM(amount_laari) FROM receipts WHERE company_id = $1 AND counterparty_id = $2 AND voided_at IS NULL AND received_on < $3), 0)
+          - COALESCE((SELECT SUM(r.amount_laari) FROM receipts r WHERE r.company_id = $1 AND r.counterparty_id = $2 AND r.voided_at IS NULL AND r.received_on < $3
+                        AND NOT EXISTS (SELECT 1 FROM advance_uses u WHERE u.receipt_id = r.id)), 0)
+          - COALESCE((SELECT SUM(amount_laari) FROM customer_advances WHERE company_id = $1 AND counterparty_id = $2 AND received_on < $3), 0)
+          + COALESCE((SELECT SUM(u.amount_laari) FROM advance_uses u JOIN customer_advances a ON a.id = u.advance_id
+                       WHERE u.company_id = $1 AND a.counterparty_id = $2 AND u.kind = 'refund' AND u.used_on < $3), 0)
           - COALESCE((SELECT SUM(gross_laari) FROM credit_notes WHERE company_id = $1 AND counterparty_id = $2 AND issue_date < $3), 0) AS opening`,
     [companyId, id, from]
   );
@@ -275,8 +313,16 @@ async function statementData(client, { companyId, id }) {
      SELECT issue_date::text, 2, 'Credit note ' || note_no, 0, gross_laari FROM credit_notes
       WHERE company_id = $1 AND counterparty_id = $2 AND issue_date >= $3
      UNION ALL
-     SELECT received_on::text, 3, 'Payment received' || COALESCE(', ' || reference, ''), 0, amount_laari FROM receipts
-      WHERE company_id = $1 AND counterparty_id = $2 AND voided_at IS NULL AND received_on >= $3
+     SELECT r.received_on::text, 3, 'Payment received' || COALESCE(', ' || r.reference, ''), 0, r.amount_laari FROM receipts r
+      WHERE r.company_id = $1 AND r.counterparty_id = $2 AND r.voided_at IS NULL AND r.received_on >= $3
+        AND NOT EXISTS (SELECT 1 FROM advance_uses u WHERE u.receipt_id = r.id)
+     UNION ALL
+     SELECT a.received_on::text, 3, 'Paid in advance' || COALESCE(', ' || q.number, ''), 0, a.amount_laari FROM customer_advances a
+       LEFT JOIN advance_requests q ON q.id = a.request_id
+      WHERE a.company_id = $1 AND a.counterparty_id = $2 AND a.received_on >= $3
+     UNION ALL
+     SELECT u.used_on::text, 4, 'Advance given back', u.amount_laari, 0 FROM advance_uses u JOIN customer_advances a ON a.id = u.advance_id
+      WHERE u.company_id = $1 AND a.counterparty_id = $2 AND u.kind = 'refund' AND u.used_on >= $3
      ORDER BY 1, 2, 3`,
     [companyId, id, from]
   );
@@ -312,7 +358,7 @@ async function statementData(client, { companyId, id }) {
   };
 }
 
-const DATA = { invoice: invoiceData, quote: orderData, sales_order: orderData, purchase_order: orderData, delivery_note: deliveryData, goods_received: deliveryData, credit_note: creditData, receipt: receiptData, statement: statementData };
+const DATA = { proforma: requestData, retainer: requestData, invoice: invoiceData, quote: orderData, sales_order: orderData, purchase_order: orderData, delivery_note: deliveryData, goods_received: deliveryData, credit_note: creditData, receipt: receiptData, statement: statementData };
 
 /** What to draw: the issued copy if there is one, else the document as it is now. */
 async function show(client, { companyId, kind, documentId }) {

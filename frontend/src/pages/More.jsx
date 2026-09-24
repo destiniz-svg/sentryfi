@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Banknote, Bot, Building2, Languages, Receipt, Boxes, CheckCheck, ChevronRight, ClipboardList, DatabaseBackup, FileText, HandCoins, HardHat, Lock, LogOut, Moon, Package, Palette, Percent, Scale, Settings, Ship, Sunrise, Upload, User, Users, Wallet , Gauge } from "lucide-react";
+import { FileClock, Banknote, Bot, Building2, Languages, Receipt, Boxes, CheckCheck, ChevronRight, ClipboardList, DatabaseBackup, FileText, HandCoins, HardHat, Lock, LogOut, Moon, Package, Palette, Percent, Scale, Settings, Ship, Sunrise, Upload, User, Users, Wallet , Gauge } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useCompany } from "@/context/CompanyContext";
@@ -72,6 +72,7 @@ export default function More() {
           { name: "Expense claims", icon: Wallet, to: "/claims" },
           { name: "The expenses app", icon: Receipt, to: "/go" },
           can("approve") && { name: "Approvals", icon: CheckCheck, to: "/approvals" },
+          { name: "Proforma and retainers", icon: FileClock, to: "/advances" },
           can("record") && { name: "Payments", icon: Banknote, to: "/payments" },
           can("run_payroll") && { name: "Payroll", icon: Users, to: "/payroll" },
           { name: "My payslips", icon: FileText, to: "/payslips" },
