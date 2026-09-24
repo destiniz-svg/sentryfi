@@ -1,5 +1,6 @@
 const { tokenise } = require("./statement");
 const { postEntry } = require("./post");
+const { findOrCreate } = require("./counterparties");
 const { toLaari, formatLaari } = require("./money");
 
 /**
@@ -268,7 +269,15 @@ async function reclassify(client, { companyId, userId, changes, reason }) {
 }
 
 /** Their account names, each with what it is here or a suggestion. */
-async function mapAccounts(client, { companyId, system, transactions }) {
+// Their accounts that are always ours, whatever they are called there.
+const SAME_AS = [
+  [/^accounts receivable$/i, "1300"],
+  [/^accounts payable$/i, "2100"],
+  [/^gst on sales \(zoho/i, "2200"],
+  [/^gst on purchases \(zoho/i, "1400"],
+];
+
+async function mapAccounts(client, { companyId, system, transactions, types = {} }) {
   const theirs = new Map();
   for (const t of transactions) for (const l of t.lines) if (!theirs.has(l.account)) theirs.set(l.account, l.code);
 
@@ -288,7 +297,12 @@ async function mapAccounts(client, { companyId, system, transactions }) {
       ours.find((a) => a.name.toLowerCase() === name.toLowerCase()) ||
       (code ? ours.find((a) => a.code === code) : null);
     if (same) return { theirs: name, code, accountId: same.id, how: "same name" };
-    return { theirs: name, code, accountId: null, how: "new", suggestType: guessType(name, code) };
+    const fixed = SAME_AS.find(([re]) => re.test(name));
+    const ourFixed = fixed && ours.find((a) => a.code === fixed[1]);
+    if (ourFixed) return { theirs: name, code, accountId: ourFixed.id, how: "same account" };
+    // Their own chart says what kind it is; failing that, the name does.
+    const kind = types[name] ? require("./zohoBackup").kindOf(types[name]) : guessType(name, code);
+    return { theirs: name, code, accountId: null, how: "new", suggestType: kind };
   });
 }
 
@@ -301,7 +315,7 @@ async function alreadyHad(client, { companyId, system, transactions }) {
   return new Set(rows.map((r) => r.external_id));
 }
 
-async function preview(client, { companyId, system, text, transactions: given }) {
+async function preview(client, { companyId, system, text, transactions: given, types }) {
   const { columns, transactions, skipped } = given ? { columns: [], transactions: given, skipped: [] } : read(text);
   const had = await alreadyHad(client, { companyId, system, transactions });
   const fresh = transactions.filter((t) => !had.has(t.key));
@@ -319,7 +333,7 @@ async function preview(client, { companyId, system, text, transactions: given })
     skipped,
     from: dates[0] || null,
     to: dates[dates.length - 1] || null,
-    accounts: await mapAccounts(client, { companyId, system, transactions: fresh }),
+    accounts: await mapAccounts(client, { companyId, system, transactions: fresh, types }),
   };
 }
 
@@ -340,11 +354,11 @@ async function nextCode(client, { companyId, type }) {
  * Posts every balanced transaction not brought in before, with the mapping a
  * person agreed: { [theirName]: accountId } or { [theirName]: { create: type } }.
  */
-async function commit(client, { companyId, userId, system, text, transactions: given, mapping = {}, limit = null }) {
+async function commit(client, { companyId, userId, system, text, transactions: given, mapping = {}, limit = null, types }) {
   const transactions = given || read(text).transactions;
   const had = await alreadyHad(client, { companyId, system, transactions });
   const fresh = transactions.filter((t) => !had.has(t.key) && t.balanced);
-  const proposed = await mapAccounts(client, { companyId, system, transactions: fresh });
+  const proposed = await mapAccounts(client, { companyId, system, transactions: fresh, types });
 
   const accountOf = new Map();
   for (const p of proposed) {
@@ -379,20 +393,36 @@ async function commit(client, { companyId, userId, system, text, transactions: g
   // runs long enough to time out. Each chunk is its own transaction; running it
   // again after a failure only adds what is not in yet.
   const batch = limit ? fresh.slice(0, limit) : fresh;
+  // A line on receivable or payable names who it is owed by or to, so each
+  // customer's and supplier's balance comes across, not only the total.
+  const parties = new Map();
+  const partyOf = async (p) => {
+    if (!p?.name) return undefined;
+    const k = `${p.kind}|${p.name.toLowerCase()}`;
+    if (!parties.has(k)) parties.set(k, (await findOrCreate(client, { companyId, userId, name: p.name, kind: p.kind, exact: true })).party.id);
+    return parties.get(k);
+  };
   let posted = 0;
   for (const t of batch) {
+    // One at a time: the same customer on two lines is found once, not made twice.
+    const lines = [];
+    for (const l of t.lines) {
+      lines.push({
+        accountId: accountOf.get(l.account),
+        debit: l.debit > 0n ? l.debit : undefined,
+        credit: l.credit > 0n ? l.credit : undefined,
+        memo: l.memo,
+        counterpartyId: await partyOf(l.party),
+        fc: l.fc,
+      });
+    }
     const entry = await postEntry(client, {
       companyId,
       userId,
       date: t.date,
       source: "import",
       narrative: `From ${system}: ${[t.type, t.theirId].filter(Boolean).join(" ") || "transaction"}${t.memo ? ` - ${t.memo}` : ""}`.slice(0, 500),
-      lines: t.lines.map((l) => ({
-        accountId: accountOf.get(l.account),
-        debit: l.debit > 0n ? l.debit : undefined,
-        credit: l.credit > 0n ? l.credit : undefined,
-        memo: l.memo,
-      })),
+      lines,
     });
     await client.query(
       "INSERT INTO imported_records (company_id, system, external_id, entry_id, imported_by) VALUES ($1,$2,$3,$4,$5)",

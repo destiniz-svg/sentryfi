@@ -51,14 +51,16 @@ export default function Import() {
   // Accounts already brought in whose kind their chart disagrees with.
   const [differ, setDiffer] = useState([]);
   // Where the transactions come from: a file, or Zoho directly over dates.
-  const [source, setSource] = useState(null); // { kind: "csv" } | { kind: "zoho", from, to }
+  const [source, setSource] = useState(null); // { kind: "csv" } | { kind: "zoho", from, to } | { kind: "backup", zip }
 
   const look = useMutation({
     mutationFn: async (src) => {
       const [p, accounts] = await Promise.all([
         src.kind === "zoho"
           ? apiClient.post("/zoho/preview", { from: src.from, to: src.to }).then((r) => r.data)
-          : apiClient.post(`/imports/preview?system=${system}`, src.csv, { headers: { "Content-Type": "text/csv" } }).then((r) => r.data),
+          : src.kind === "backup"
+            ? apiClient.post("/imports/zoho-backup/preview", { zip: src.zip }).then((r) => r.data)
+            : apiClient.post(`/imports/preview?system=${system}`, src.csv, { headers: { "Content-Type": "text/csv" } }).then((r) => r.data),
         apiClient.get("/periods/accounts").then((r) => r.data.accounts),
       ]);
       setOurs(accounts);
@@ -78,9 +80,10 @@ export default function Import() {
       const of = look.data?.toPost || 0;
       let total = { posted: 0, unbalanced: 0 };
       for (let first = true; ; first = false) {
-        const r = await apiClient
-          .post(`/imports/commit?system=${system}`, { text, mapping: first ? mapping : {}, limit: 400 })
-          .then((res) => res.data);
+        const r = await (source?.kind === "backup"
+          ? apiClient.post("/imports/zoho-backup/commit", { zip: source.zip, mapping: first ? mapping : {}, limit: 400 })
+          : apiClient.post(`/imports/commit?system=${system}`, { text, mapping: first ? mapping : {}, limit: 400 })
+        ).then((res) => res.data);
         total = { posted: total.posted + r.posted, unbalanced: r.unbalanced };
         setProgress({ done: total.posted, of });
         if (!r.remaining || !r.posted) return total;
@@ -98,6 +101,24 @@ export default function Import() {
     setSource({ kind: "csv", csv });
     bring.reset();
     look.mutate({ kind: "csv", csv });
+  }
+
+  // The zip Zoho exports of a whole organisation: read here, sent as it is.
+  async function onBackup(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const zip = await new Promise((ok, fail) => {
+      const r = new FileReader();
+      r.onload = () => ok(String(r.result).split(",")[1]);
+      r.onerror = () => fail(r.error);
+      r.readAsDataURL(file);
+    });
+    const src = { kind: "backup", zip };
+    setName(file.name);
+    setSource(src);
+    bring.reset();
+    look.mutate(src);
   }
 
   async function onChart(e) {
@@ -168,6 +189,20 @@ export default function Import() {
           look.mutate(src);
         }}
       />
+
+      <Card padding="lg" className="mb-4">
+        <div className="text-[15px] font-semibold">A Zoho Books backup</div>
+        <p className="text-[13px] text-[var(--ink-muted)] mt-1 max-w-[75ch]">
+          In Zoho Books: Settings, Export data, Backup, then download the zip. It brings in every invoice, bill, expense, payment, transfer and journal, with each customer and supplier, checked against the backup's own totals. Nothing is written until you say so.
+        </p>
+        <input id="import-backup" type="file" accept=".zip,application/zip" onChange={onBackup} className={FIELD + " w-full max-w-md mt-3 h-11 py-1.5 file:mr-3 file:h-8 file:rounded-full file:border-0 file:bg-[var(--surface-2)] file:px-4 file:text-[14px] file:font-medium file:text-[var(--ink)] file:cursor-pointer"} />
+        {source?.kind === "backup" && p?.notBroughtIn && (
+          <p className="text-[13px] text-[var(--ink-muted)] mt-3">
+            {p.problems?.length ? <span className="block text-[var(--danger)]">{p.problems.length} {p.problems.length === 1 ? "document does" : "documents do"} not agree with the backup's own totals: {p.problems.slice(0, 3).join("; ")}.</span> : <span className="block">Every document agrees with the backup's own totals.</span>}
+            {Object.keys(p.notBroughtIn).length > 0 && <span className="block">Kept in the backup, not brought in as books: {Object.entries(p.notBroughtIn).map(([k, n]) => `${n} ${k.replace(/_/g, " ").toLowerCase()}`).join(", ")}.</span>}
+          </p>
+        )}
+      </Card>
 
       <Card padding="lg" className="mb-4">
         <div className="flex flex-wrap items-end gap-3">

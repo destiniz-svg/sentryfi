@@ -20,3 +20,6 @@ tools/shots/
 # real amounts. They are working output, not a record, and this repository is
 # public.
 shots/
+
+# Checks run against real data on this machine only; never committed.
+*.private.test.js

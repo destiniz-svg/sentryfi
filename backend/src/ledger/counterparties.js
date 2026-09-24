@@ -39,7 +39,7 @@ const same = (a, b) =>
  * there is one — the TIN being the only strong key here, since names on real
  * Maldivian invoices are spelled inconsistently by their own issuers.
  */
-async function findOrCreate(client, { companyId, userId, name, tin, kind = "supplier" }) {
+async function findOrCreate(client, { companyId, userId, name, tin, kind = "supplier", exact = false }) {
   await assumeIdentity(client, { companyId, userId });
   const trimmed = clean(name);
 
@@ -63,13 +63,21 @@ async function findOrCreate(client, { companyId, userId, name, tin, kind = "supp
         LIMIT 1`,
       [companyId, trimmed]
     );
-    if (rows.length) return { party: rows[0], created: false, matchedOn: "name" };
+    if (rows.length) {
+      // Found as a supplier and now met as a customer (or the other way): it is both.
+      if (exact && !(rows[0].kind || []).includes(kind)) {
+        await client.query("UPDATE counterparties SET kind = array_append(kind, $3::cp_t) WHERE id = $1 AND company_id = $2", [rows[0].id, companyId, kind]);
+      }
+      return { party: rows[0], created: false, matchedOn: "name" };
+    }
   }
 
   // A close-but-not-exact name, using trigram similarity. Returned as a match
   // with the spelling remembered, because one real invoice spells its own
   // issuer two ways on a single page.
-  if (trimmed && trimmed.length >= 4) {
+  // An import names its contacts exactly, each already its own in the other
+  // system, so two close names there stay two here.
+  if (!exact && trimmed && trimmed.length >= 4) {
     const { rows } = await client.query(
       `SELECT *, similarity(name, $2) AS score FROM counterparties
         WHERE company_id = $1 AND archived_at IS NULL AND name % $2
