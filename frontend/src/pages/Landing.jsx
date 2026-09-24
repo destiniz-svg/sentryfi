@@ -167,7 +167,7 @@ export default function Landing() {
     <div className="min-h-dvh bg-white text-[#141414] font-sans">
       {/* ---------------------------------------------------------- nav */}
       <header className="sticky top-0 z-50 backdrop-blur bg-white/85 border-b border-[#EDEEF0]">
-        <div className="mx-auto max-w-[1180px] px-6 h-[68px] flex items-center gap-8">
+        <div className="mx-auto max-w-[1180px] px-4 min-[380px]:px-6 h-[68px] flex items-center gap-4 min-[380px]:gap-8">
           <Link to="/" className="flex items-center gap-2.5 shrink-0" aria-label="Sentryfi home">
             <AILogo size={30} />
             <span className="text-[19px] font-semibold tracking-[-.02em]">Sentryfi</span>
@@ -181,13 +181,13 @@ export default function Landing() {
           <div className="ml-auto flex items-center gap-2">
             <Link
               to="/login"
-              className="h-10 px-4 inline-flex items-center rounded-full text-[15px] font-semibold text-[#6B7078] hover:text-[#141414] transition-colors"
+              className="h-10 px-2.5 min-[380px]:px-4 inline-flex items-center whitespace-nowrap rounded-full text-[15px] font-semibold text-[#6B7078] hover:text-[#141414] transition-colors"
             >
               Log in
             </Link>
             <Link
               to="/register"
-              className="h-10 px-5 inline-flex items-center rounded-full bg-[#F2C300] text-[#141414] text-[15px] font-semibold hover:brightness-[.97] transition"
+              className="h-10 px-4 min-[380px]:px-5 inline-flex items-center whitespace-nowrap rounded-full bg-[#F2C300] text-[#141414] text-[15px] font-semibold hover:brightness-[.97] transition"
             >
               Get started
             </Link>
