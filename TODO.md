@@ -122,6 +122,9 @@ The phases below say *what*; this says *when*. Set 23 September 2026. Each sprin
 **Opening balances from a trial balance.** The importer takes Zoho's `.xlsx`/`.csv` trial balance directly, instead of opening balances being converted by hand. *(was step 14)*
 **Done when:** a trial balance file sets every opening balance without manual re-entry.
 
+**Zoho Books, live.** Parked by the owner on 24 September 2026 until the Zoho app is registered (see "Waiting on people"). Today the connection reads account transactions for a date range on demand. Extend it to Zoho's documents API: invoices, bills, customer and vendor payments, contacts, quotes and purchase orders, mapped through the same records the backup import makes (`ledger/zohoBackup.js`, `zohoDocs.js`, `zohoRecords.js`), so a document arrives as a Sentryfi document on its own entry. Then keep it in step: a scheduled pull of what changed since the last one (Zoho's `last_modified_time`), never posting twice, with drafts and voids left out as the backup import does.
+**Done when:** a Zoho invoice or bill raised today appears in Sentryfi within the hour as the same document, and Enricher's balances still agree with Zoho's.
+
 **QuickBooks and Xero connections.** Same connector interface as Zoho; plus chunked reading for a large direct Zoho pull. *(was step 14)*
 **Done when:** a QuickBooks or Xero company can bring its history in the same way Zoho does.
 
