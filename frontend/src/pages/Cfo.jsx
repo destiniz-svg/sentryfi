@@ -62,7 +62,7 @@ export default function Cfo() {
   ];
 
   return (
-    <div className="max-w-[1100px]">
+    <div>
       <PageHeader
         title="The CFO"
         description={`The morning brief for ${formatDate(b.forDate)}. Every figure opens onto what makes it up.`}
@@ -96,9 +96,9 @@ export default function Cfo() {
         }
       />
 
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start [overflow-wrap:anywhere]" data-testid="brief">
+      <div className="flex flex-col gap-5 [overflow-wrap:anywhere]" data-testid="brief">
         {/* ---- the one black card: cash, and the next thirty days */}
-        <section className="min-w-0 rounded-[24px] bg-[var(--ink-panel)] text-[var(--on-ink-panel)] p-6 lg:col-span-2">
+        <section className="min-w-0 rounded-[24px] bg-[var(--ink-panel)] text-[var(--on-ink-panel)] p-6">
           <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
             <button type="button" disabled className="text-left disabled:cursor-default" data-testid="cfo-cash-now">
               <div className="text-[14px] opacity-70">Cash now</div>
@@ -135,10 +135,17 @@ export default function Cfo() {
           </p>
         </section>
 
+        {/* From 1280px: the brief on the left, asking on the right. Narrower,
+            the two wrappers dissolve and the cards fall in one column in the
+            order a morning reads: what it says, the morning, a question, then
+            the detail. */}
+        <div className="flex flex-col gap-5 xl:grid xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
+        <div className="contents xl:flex xl:flex-col xl:gap-5 xl:min-w-0">
+
         {b.written && (
-          <section className={cn(CARD, "lg:col-span-2")}>
+          <section className={cn(CARD, "order-1")}>
             <Heading icon={MessageSquareText} title="What the CFO says" note="Written by Gemini from the figures on this page, and nothing else." />
-            <p className="text-[15px] leading-relaxed mt-3">{b.written.summary}</p>
+            <p className="text-[15px] leading-relaxed mt-3 max-w-[75ch]">{b.written.summary}</p>
             {b.written.advice?.length > 0 && (
               <ul className="mt-3 space-y-2">
                 {b.written.advice.map((a, i) => (
@@ -153,8 +160,8 @@ export default function Cfo() {
         )}
 
         {/* ---- the morning, in five short parts */}
-        <section className={CARD} aria-label="This morning">
-          <ul className="space-y-5">
+        <section className={cn(CARD, "order-2")} aria-label="This morning">
+          <ul className="space-y-5 md:space-y-0 md:columns-2 md:gap-10 [&>li]:break-inside-avoid md:[&>li]:mb-5 md:[&>li:last-child]:mb-0">
             <Part icon={History} title="Yesterday">
               {b.changed.lines.map((l, i) => (
                 <p key={i}>{l}</p>
@@ -164,8 +171,9 @@ export default function Cfo() {
               <ul className="space-y-1">
                 {b.todo.map((t, i) => (
                   <li key={i}>
-                    <Link to={t.href} className="inline-flex items-center gap-1 text-[var(--ink)] hover:underline underline-offset-2">
-                      {t.text} <ChevronRight size={14} aria-hidden="true" className="text-[var(--ink-muted)]" />
+                    <Link to={t.href} className="group flex items-start gap-1 text-[var(--ink)]">
+                      <span className="group-hover:underline underline-offset-2">{t.text}</span>
+                      <ChevronRight size={14} aria-hidden="true" className="mt-[3px] shrink-0 text-[var(--ink-muted)]" />
                     </Link>
                   </li>
                 ))}
@@ -203,10 +211,15 @@ export default function Cfo() {
           </ul>
         </section>
 
-        <Ask ready={data.written} />
         <Health checks={data.health} />
         <Profile p={p} />
-        <Settings data={data} />
+        </div>
+        {/* Asking stays in reach while the brief scrolls past, and scrolls on its own once the answers run long. */}
+        <div className="contents xl:flex xl:flex-col xl:gap-5 xl:min-w-0 xl:sticky xl:top-6 xl:max-h-[calc(100dvh-3rem)] xl:overflow-y-auto xl:rounded-[24px]">
+          <Ask ready={data.written} />
+          <Settings data={data} />
+        </div>
+        </div>
       </div>
 
       {parts && (
@@ -301,26 +314,34 @@ function Rows({ list, empty }) {
 
 function Profile({ p }) {
   return (
-    <section className={cn(CARD, "lg:col-span-2")} data-testid="profile">
+    <section className={cn(CARD, "order-5")} data-testid="profile">
       <Heading
         icon={Lightbulb}
         title="What it has learned about the business"
         note={`From ${formatDate(p.from)} to ${formatDate(p.to)}, ${p.monthsOfBooks} ${p.monthsOfBooks === 1 ? "month" : "months"} of books. Revenue MVR ${p.revenue}, costs MVR ${p.costs}${p.grossMarginPercent !== null ? `, ${p.grossMarginPercent}% over cost on what is sold` : ""}.`}
       />
-      <div className="grid grid-cols-[minmax(0,1fr)] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-10 gap-y-7 mt-6">
+      <div className="grid grid-cols-[minmax(0,1fr)] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-10 gap-y-7 mt-6 items-start">
         {[
-          ["What it sells", p.sells, "Nothing sold yet."],
-          ["To whom", p.customers, "No customers yet."],
-          ["Where the money goes", p.costStructure, "No costs yet."],
-          ["From whom", p.suppliers, "No suppliers yet."],
-        ].map(([title, list, empty]) => (
-          <div key={title}>
-            <h3 className="text-[13px] text-[var(--ink-muted)] mb-3">{title}</h3>
-            <Rows list={list} empty={empty} />
+          [
+            ["What it sells", p.sells, "Nothing sold yet."],
+            ["To whom", p.customers, "No customers yet."],
+          ],
+          [
+            ["Where the money goes", p.costStructure, "No costs yet."],
+            ["From whom", p.suppliers, "No suppliers yet."],
+          ],
+        ].map((side, i) => (
+          <div key={i} className="space-y-7">
+            {side.map(([title, list, empty]) => (
+              <div key={title}>
+                <h3 className="text-[13px] text-[var(--ink-muted)] mb-3">{title}</h3>
+                <Rows list={list} empty={empty} />
+              </div>
+            ))}
           </div>
         ))}
       </div>
-      <p className="text-[14px] text-[var(--ink-muted)] mt-6">
+      <p className="text-[14px] text-[var(--ink-muted)] mt-6 max-w-[75ch]">
         {p.busiest ? `Busiest month ${formatDate(p.busiest.month + "-01", { month: "long", year: "numeric" })}, MVR ${p.busiest.revenue}. ` : ""}
         {p.quietest ? `Quietest ${formatDate(p.quietest.month + "-01", { month: "long", year: "numeric" })}, MVR ${p.quietest.revenue}. ` : ""}
         {p.financing.loans ? `${p.financing.loans} ${p.financing.loans === 1 ? "loan" : "loans"}, MVR ${p.financing.owed} owed; borrowing cost MVR ${p.financing.interestLastYear} last year.` : "No borrowing."}
@@ -383,7 +404,7 @@ function Settings({ data }) {
   const [pushIt, setPushIt] = useState(data.subscription ? data.subscription.push !== false : true);
   const pill = (on) => cn("h-10 px-4 rounded-full text-[14px] font-medium inline-flex items-center gap-1.5 transition-colors", on ? "bg-[var(--ink)] text-[var(--surface)]" : "bg-[var(--surface-2)] text-[var(--ink-muted)] hover:text-[var(--ink)]");
   return (
-    <section className={cn(CARD, "lg:col-span-2")}>
+    <section className={cn(CARD, "order-6")}>
       <Heading icon={History} title="The brief each morning" note="Sent at the hour you choose, Maldives time: to the devices you turned notifications on for, and by email if you like." />
       <div className="flex flex-wrap items-center gap-2 mt-4">
         <button type="button" id="cfo-push" aria-pressed={pushIt} onClick={() => setPushIt(!pushIt)} className={pill(pushIt)}>
@@ -441,7 +462,7 @@ function Ask({ ready }) {
     }
   };
   return (
-    <section className={CARD} data-testid="ask">
+    <section className={cn(CARD, "order-3")} data-testid="ask">
       <Heading icon={MessageSquareText} title="Ask the CFO" note={ready ? "Answered from your books, with what each figure rests on. It reads; it never changes anything." : "Asking needs a Gemini key on the server."} />
       <form
         className="mt-4 flex items-center gap-2 rounded-full bg-[var(--surface-2)] pl-5 pr-1.5 h-12"
@@ -497,7 +518,7 @@ function Health({ checks }) {
   const count = (v) => checks.filter((c) => c.verdict === v).length;
   const shown = only === "all" ? checks : checks.filter((c) => c.verdict === only);
   return (
-    <section className={cn(CARD, "lg:col-span-2")} data-testid="health">
+    <section className={cn(CARD, "order-4")} data-testid="health">
       <Heading icon={ListChecks} title="How the business stands" note="What a CFO checks, from the books as they are this morning. What needs acting on comes first." />
       <div className="flex flex-wrap gap-2 mt-4" role="group" aria-label="Show">
         {[
@@ -512,11 +533,11 @@ function Health({ checks }) {
           </button>
         ))}
       </div>
-      <ul className="mt-3 divide-y divide-[var(--border)]">
+      <ul className="mt-3 2xl:columns-2 2xl:gap-x-10">
         {shown.map((c) => {
           const isOpen = open === c.name;
           return (
-            <li key={c.name}>
+            <li key={c.name} className="break-inside-avoid border-b border-[var(--border)]">
               <button type="button" onClick={() => setOpen(isOpen ? null : c.name)} className="w-full text-left flex items-center gap-3 py-3.5" aria-expanded={isOpen}>
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: VERDICT[c.verdict][1] }} title={VERDICT[c.verdict][0]} />
                 <span className="flex-1 min-w-0">
