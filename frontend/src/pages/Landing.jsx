@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { AnimatePresence, motion, useReducedMotion, useScroll, useSpring, useTransform } from "framer-motion";
+import { AnimatePresence, motion, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform } from "framer-motion";
 import { ArrowRight, Check, RotateCcw } from "lucide-react";
 import AILogo from "@/components/layout/AILogo";
 import Reveal from "@/components/marketing/Reveal";
@@ -463,7 +463,6 @@ function Screen({ r, fill = false }) {
 
 // Returns fall due on the 28th after each quarter; the light runs to now.
 function FilingStrip() {
-  const still = useReducedMotion();
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const today = new Date();
   const now = today.getMonth();
@@ -479,26 +478,11 @@ function FilingStrip() {
   const [lit, setLit] = useState(-1);
   const ref = useRef(null);
 
-  // Runs every time the strip comes into view, so it is not spent before anyone looks.
-  // Only colours change, nothing moves, so it runs with reduced motion too, in slower steps.
-  useEffect(() => {
-    let t;
-    const io = new IntersectionObserver(([e]) => {
-      clearInterval(t);
-      if (!e.isIntersecting) return setLit(-1);
-      let i = -1;
-      t = setInterval(() => {
-        i += 1;
-        setLit(i);
-        if (i >= now) clearInterval(t);
-      }, still ? 160 : 110);
-    }, { threshold: 0.6 });
-    if (ref.current) io.observe(ref.current);
-    return () => {
-      io.disconnect();
-      clearInterval(t);
-    };
-  }, [now, still]);
+  // The light follows the scroll: it starts as the strip enters from below and reaches
+  // this month when the strip is in the middle of the screen; scrolling back takes it back.
+  // Only colours change, so it holds with reduced motion too.
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "center center"] });
+  useMotionValueEvent(scrollYProgress, "change", (p) => setLit(Math.min(now, Math.floor(p * (now + 1.999)) - 1)));
 
   return (
     <div ref={ref}>
