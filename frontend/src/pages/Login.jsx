@@ -77,7 +77,7 @@ export default function Login() {
           Welcome back
         </h1>
         <p className="text-[var(--ink-muted)] mt-2 text-[15px]">
-          Sign in to your books.
+          Sign in to your books. New here? Every company starts with 30 days free.
         </p>
 
         <form onSubmit={onSubmit} className="mt-9 space-y-4">

@@ -91,6 +91,7 @@ app.use("/api/passkeys", require("./routes/passkeys"));
 app.use("/api/settings", settingsRouter);
 app.use("/api/invites", invitesRouter);
 app.use("/api/backups", backupsRouter);
+app.use("/api/platform", require("./routes/platform"));
 app.use("/api/items", itemsRouter);
 // The ledger side. Everything below here is scoped to a company by
 // requireCompany, and every write goes through asCompany so the database

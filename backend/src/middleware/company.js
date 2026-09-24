@@ -70,7 +70,7 @@ async function resolveCompany(client, { userId, asked }) {
 
   const { rows: memberships } = await client.query(
     `SELECT m.company_id, m.role::text AS role,
-            c.name, c.base_currency, c.gst_registered, c.tax_pack
+            c.name, c.base_currency, c.gst_registered, c.tax_pack, c.plan, c.trial_ends_at
        FROM memberships m
        JOIN companies c ON c.id = m.company_id
       WHERE m.user_id = $1
@@ -111,6 +111,7 @@ async function resolveCompany(client, { userId, asked }) {
       gstRegistered: chosen[0].gst_registered,
       // The country's words and form (ledger/tax.js), so no screen writes "GST" or "MIRA" itself.
       tax: require("../ledger/tax").wordsOf(require("../ledger/tax").packCalled(chosen[0].tax_pack || "MV")),
+      trial: require("../ledger/platform").trialOf(chosen[0]),
     },
     // A person may hold more than one role in the same company.
     roles: chosen.map((m) => m.role),
@@ -128,6 +129,14 @@ async function requireCompany(req, res, next) {
     const resolved = await withTransaction((client) =>
       resolveCompany(client, { userId: req.user.id, asked })
     );
+
+    // A trial that has ended leaves the books readable and exportable, never
+    // locked: they are the company's legal records. Nothing new goes in.
+    const t = resolved.company.trial;
+    if (t.ended && !["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+      const on = new Date(t.endsAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+      throw ApiError.forbidden(`The free trial ended on ${on}. Everything can still be read and exported; nothing new can be recorded until it is extended.`);
+    }
 
     req.companyId = resolved.companyId;
     req.company = resolved.company;

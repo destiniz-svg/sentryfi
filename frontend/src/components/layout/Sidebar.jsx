@@ -1,6 +1,7 @@
+import { trialLine } from "./TrialStrip";
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { ChevronRight, LogOut } from "lucide-react";
+import { ChevronRight, LogOut, TerminalSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
@@ -118,6 +119,7 @@ export function Sidebar() {
           <div className="text-[12px] text-[var(--ink-muted)] truncate mt-1">
             {company?.name}
           </div>
+          {trialLine(company) && <div className="text-[12px] font-semibold text-[var(--ink)] truncate mt-0.5">{trialLine(company)}</div>}
         </div>
       </div>
 
@@ -131,6 +133,18 @@ export function Sidebar() {
         {SECTIONS.filter((s) => s.foot).map((s) => (
           <Group key={s.label} s={s} first open={isOpen(s.label)} onToggle={() => toggle(s.label)} can={can} tax={tax} multi={multi} />
         ))}
+        {user?.platformAdmin && (
+          <NavLink
+            to="/developer"
+            title="Developer"
+            className={({ isActive }) =>
+              `flex items-center gap-3 h-11 mx-2 px-3 justify-center lg:justify-start rounded-[12px] text-[14px] ${isActive ? "bg-[var(--ink)] text-[var(--surface)]" : "text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"}`
+            }
+          >
+            <TerminalSquare size={18} aria-hidden="true" />
+            <span className="hidden lg:inline">Developer</span>
+          </NavLink>
+        )}
         <div className="hidden lg:flex items-center gap-2 px-5 pt-3">
           <div className="min-w-0 flex-1">
             <div className="text-[14px] font-semibold truncate">{user?.name || "Account"}</div>

@@ -90,6 +90,7 @@ export default function More() {
           { name: "Cash tins", icon: Wallet, to: "/bank" },
           { name: "Loans", icon: HandCoins, to: "/loans" },
           user?.platformAdmin && { name: "Backups", icon: DatabaseBackup, to: "/settings?tab=backups" },
+          user?.platformAdmin && { name: "Developer", icon: DatabaseBackup, to: "/developer" },
           { name: "Branding and documents", icon: Palette, to: "/branding" },
           { name: "Your assistant", icon: Bot, to: "/settings?tab=assistant" },
           { name: "Settings", icon: Settings, to: "/settings", side: company?.name },

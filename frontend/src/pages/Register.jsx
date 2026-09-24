@@ -35,7 +35,7 @@ export default function Register() {
   return (
     <AuthShell
       headline={<>One place the books are kept.</>}
-      subhead="Bills, cash boxes, the bank and the tax return, in one set of books that add up."
+      subhead="Bills, cash boxes, the bank and the tax return, in one set of books that add up. Free for the first 30 days."
     >
       <motion.div
         initial={{ opacity: 0, y: 12 }}
@@ -51,6 +51,11 @@ export default function Register() {
         </h1>
         <p className="text-[var(--ink-muted)] mt-2 text-[15px]">
           Open your company's books, or join one you have been invited to.
+        </p>
+
+        <p className="mt-5 inline-flex items-center gap-2 bg-[var(--ink)] text-[var(--surface)] px-3 py-2 text-[13.5px] font-semibold">
+          <span className="h-2 w-2 bg-[#F2C300]" aria-hidden="true" />
+          30 days free when you open your books. No card.
         </p>
 
         <form onSubmit={onSubmit} className="mt-9 space-y-4">

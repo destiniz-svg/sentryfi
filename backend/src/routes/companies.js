@@ -27,7 +27,7 @@ router.use(requireAuth);
  * before real money is entered; this is the scaffold that gets there, not the
  * final answer.
  */
-const STARTING_ACCOUNTS = [
+const CORE_ACCOUNTS = [
   ["1100", "Bank", "asset"],
   ["1200", "Cash boxes", "asset"],
   ["1300", "Money owed to us", "asset"],
@@ -36,16 +36,65 @@ const STARTING_ACCOUNTS = [
   ["2200", "{tax} we owe", "liability"],
   ["2300", "Money put in by directors", "liability"],
   ["3100", "Owner's stake", "equity"],
-  ["4100", "Work invoiced", "income"],
-  ["4200", "Equipment rental", "income"],
-  ["5100", "Materials", "expense"],
-  ["5200", "Labour", "expense"],
-  ["5300", "Subcontractors", "expense"],
-  ["5400", "Equipment and fuel", "expense"],
-  ["5500", "Transport and boat freight", "expense"],
-  ["5600", "Site overheads", "expense"],
   ["5900", "Everything else", "expense"],
 ];
+
+/**
+ * What the business sells and spends on, by the industry it said it is in when
+ * it opened its books. Same core for all; only these lines differ, so a hotel
+ * is not handed "Site overheads" and a builder is not handed "Rooms".
+ */
+const INDUSTRY_ACCOUNTS = {
+  construction: [
+    ["4100", "Work invoiced", "income"],
+    ["4200", "Equipment rental", "income"],
+    ["5100", "Materials", "expense"],
+    ["5200", "Labour", "expense"],
+    ["5300", "Subcontractors", "expense"],
+    ["5400", "Equipment and fuel", "expense"],
+    ["5500", "Transport and boat freight", "expense"],
+    ["5600", "Site overheads", "expense"],
+  ],
+  trading: [
+    ["4100", "Sales", "income"],
+    ["5050", "Cost of goods sold", "expense"],
+    ["5200", "Staff", "expense"],
+    ["5500", "Freight, customs and clearing", "expense"],
+    ["5600", "Rent and utilities", "expense"],
+  ],
+  tourism: [
+    ["4100", "Rooms", "income"],
+    ["4200", "Food and drink", "income"],
+    ["4300", "Excursions and transfers", "income"],
+    ["5100", "Food and drink supplies", "expense"],
+    ["5200", "Staff", "expense"],
+    ["5400", "Boats, transfers and fuel", "expense"],
+    ["5600", "Rent and utilities", "expense"],
+    ["5700", "Agent commissions", "expense"],
+  ],
+  services: [
+    ["4100", "Fees invoiced", "income"],
+    ["5200", "Staff", "expense"],
+    ["5300", "Contractors", "expense"],
+    ["5600", "Rent and utilities", "expense"],
+    ["5700", "Software and subscriptions", "expense"],
+  ],
+  retail: [
+    ["4100", "Sales", "income"],
+    ["5050", "Cost of goods sold", "expense"],
+    ["5200", "Staff", "expense"],
+    ["5500", "Delivery", "expense"],
+    ["5600", "Rent and utilities", "expense"],
+  ],
+  other: [
+    ["4100", "Sales", "income"],
+    ["5100", "Purchases", "expense"],
+    ["5200", "Staff", "expense"],
+    ["5600", "Rent and utilities", "expense"],
+  ],
+};
+
+const startingAccounts = (industry) => [...CORE_ACCOUNTS, ...INDUSTRY_ACCOUNTS[industry || "construction"]].sort((a, b) => a[0].localeCompare(b[0]));
 
 /** The companies this person belongs to, and what they are in each. */
 router.get(
@@ -81,6 +130,12 @@ const newCompany = z.object({
   baseCurrency: z.string().trim().length(3).optional(),
   // Which country's tax pack the books keep to (ledger/tax.js): the Maldives by default.
   country: z.enum(["MV", "AE", "GENERIC"]).optional(),
+  // The rest of what onboarding asks (pages/OpenBooks.jsx).
+  registrationNo: z.string().trim().max(60).optional(),
+  industry: z.enum(["construction", "trading", "tourism", "services", "retail", "other"]).optional(),
+  yearStarts: z.number().int().min(1).max(12).optional(),
+  gstSector: z.enum(["general", "tourism", "both"]).optional(),
+  gstPeriod: z.enum(["month", "quarter"]).optional(),
 });
 
 /**
@@ -103,10 +158,19 @@ router.post(
 
     const company = await withTransaction(async (client) => {
       const { rows: companyRows } = await client.query(
-        `INSERT INTO companies (name, tin, gst_number, gst_registered, base_currency, tax_pack)
-         VALUES ($1,$2,$3,COALESCE($4,false),COALESCE($5,'MVR'),$6)
+        `INSERT INTO companies (name, tin, gst_number, gst_registered, base_currency, tax_pack,
+                                registration_no, industry, year_starts, gst_sector, gst_period, plan, trial_ends_at)
+         VALUES ($1,$2,$3,COALESCE($4,false),COALESCE($5,'MVR'),$6,$7,$8,COALESCE($9,1),$10,COALESCE($11,'month'),'trial',
+                 now() + make_interval(days => $12))
          RETURNING id, name, base_currency, gst_registered`,
-        [b.name, b.tin || null, b.gstNumber || null, b.gstRegistered ?? null, b.baseCurrency || pack.currency || null, pack.code]
+        [
+          b.name, b.tin || null, b.gstNumber || null,
+          // A tourism business registers whatever it sells.
+          b.gstSector ? true : b.gstRegistered ?? null,
+          b.baseCurrency ? b.baseCurrency.toUpperCase() : pack.currency || null, pack.code,
+          b.registrationNo || null, b.industry || null, b.yearStarts || null, b.gstSector || null, b.gstPeriod || null,
+          require("../ledger/platform").TRIAL_DAYS,
+        ]
       );
       const created = companyRows[0];
 
@@ -120,7 +184,7 @@ router.post(
         [req.user.id, created.id]
       );
 
-      for (const [code, name, type] of STARTING_ACCOUNTS) {
+      for (const [code, name, type] of startingAccounts(b.industry)) {
         await client.query(
           `INSERT INTO accounts (company_id, code, name, type)
            VALUES ($1,$2,$3,$4::account_t)`,

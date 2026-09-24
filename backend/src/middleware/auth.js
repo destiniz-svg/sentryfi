@@ -29,6 +29,11 @@ async function requireSession(req, res, next) {
     if ((payload.v || 0) !== (user.token_version || 0)) throw ApiError.unauthorized("Session no longer valid");
     delete user.token_version;
 
+    // When they were last here, for the developer dashboard; at most once every five minutes.
+    require("../config/db")
+      .query("UPDATE users SET last_seen_at = now() WHERE id = $1 AND (last_seen_at IS NULL OR last_seen_at < now() - interval '5 minutes')", [user.id])
+      .catch(() => {});
+
     req.user = user;
     next();
   } catch (err) {

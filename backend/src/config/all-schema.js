@@ -41,6 +41,7 @@ const { NWT_SQL } = require("./nwt-schema");
 const { INCOMETAX_SQL } = require("./incometax-schema");
 const { PLACES_SQL } = require("./places-schema");
 const { CONTACT_EXTRAS_SQL } = require("./contact-extras-schema");
+const { PLATFORM_SQL } = require("./platform-schema");
 
 // The database's own day is Malé's, so CURRENT_DATE and date_trunc agree with
 // ledger/today.js: a server in UTC says yesterday until five in the morning.
@@ -51,7 +52,7 @@ END $zone$;`;
 
 const ALL_SQL = [
   ZONE_SQL, SCHEMA_SQL, LEDGER_SQL, BILLS_SQL, ATTACHMENTS_SQL, COUNTERPARTY_SQL, CASH_SQL, SALES_SQL,
-  STATEMENT_SQL, PERIOD_SQL, TAX_SQL, IMPORT_SQL, FX_SQL, PEOPLE_SQL, BACKUP_SQL, ASSETS_SQL, LOANS_SQL, DIMENSIONS_SQL, CURRENCY_SQL, ACCESS_SQL, STOCK_SQL, ADVISER_SQL, SHIPMENT_SQL, PROJECTS_SQL, ORDERS_SQL, RECURRING_SQL, CLAIMS_SQL, PORTAL_SQL, CFO_SQL, PUSH_SQL, DOCUMENTS_SQL, FIELD_SQL, KEYS_SQL, NWT_SQL, INCOMETAX_SQL, PLACES_SQL, CONTACT_EXTRAS_SQL,
+  STATEMENT_SQL, PERIOD_SQL, TAX_SQL, IMPORT_SQL, FX_SQL, PEOPLE_SQL, BACKUP_SQL, ASSETS_SQL, LOANS_SQL, DIMENSIONS_SQL, CURRENCY_SQL, ACCESS_SQL, STOCK_SQL, ADVISER_SQL, SHIPMENT_SQL, PROJECTS_SQL, ORDERS_SQL, RECURRING_SQL, CLAIMS_SQL, PORTAL_SQL, CFO_SQL, PUSH_SQL, DOCUMENTS_SQL, FIELD_SQL, KEYS_SQL, NWT_SQL, INCOMETAX_SQL, PLACES_SQL, CONTACT_EXTRAS_SQL, PLATFORM_SQL,
   // After every table exists: each company's rows point only at its own.
   WALLS_SQL,
   // Last: it has the final word over grants made above.
