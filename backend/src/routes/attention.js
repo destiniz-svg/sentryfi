@@ -305,6 +305,18 @@ async function collect(client, req) {
       });
     }
 
+    // Someone on the team asked this person something, and it is still open.
+    const today = new Date().toISOString().slice(0, 10);
+    for (const a of (await require("../ledger/comments").asks(client, req)).filter((x) => x.status === "open").slice(0, 5)) {
+      found.push({
+        kind: a.dueOn && a.dueOn < today ? "ageing" : "waiting",
+        title: `${a.by} asked you about ${a.title}`,
+        detail: `“${a.body.length > 90 ? `${a.body.slice(0, 89)}…` : a.body}”${a.dueOn ? ` Wanted by ${a.dueOn}.` : ""}`,
+        does: "Answer",
+        href: a.href,
+      });
+    }
+
     found.sort((a, b) => SEVERITY[a.kind] - SEVERITY[b.kind]);
     return found;
 }

@@ -307,7 +307,9 @@ router.get(
            JOIN attachment_blobs b
              ON b.company_id = a.company_id AND b.sha256 = a.sha256
            LEFT JOIN expense_claims c ON c.id = a.claim_id
-          WHERE a.id = $1 AND a.company_id = $2 AND ($3 OR c.claimant_id = $4) AND (a.employee_id IS NULL OR $5)`,
+          WHERE a.id = $1 AND a.company_id = $2 AND ($3 OR c.claimant_id = $4) AND (a.employee_id IS NULL OR $5)
+            -- A comment's files open through its conversation (routes/comments.js).
+            AND a.comment_id IS NULL`,
         [req.params.id, req.companyId, req.can("read"), req.user.id, req.can("run_payroll")]
       );
       return rows[0] || null;

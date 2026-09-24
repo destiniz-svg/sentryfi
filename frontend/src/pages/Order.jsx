@@ -16,6 +16,7 @@ import { useToast } from "@/context/UIContext";
 import { formatDate, today } from "@/lib/utils";
 import { FIELD } from "@/lib/shipments";
 import { ORDER_STATUS } from "@/lib/orders";
+import { Conversation } from "@/components/talk/Conversation";
 
 /**
  * One order: each line ordered, arrived (or gone out) and billed; and the one
@@ -201,6 +202,8 @@ export default function Order() {
           )}
         </div>
       )}
+
+      <Conversation kind={DOC_KIND[o.kind]} id={o.id} />
 
       {open === "deliver" && <Deliver o={o} onClose={() => setOpen(null)} run={run} />}
       {open === "bill" && <Bill o={o} onClose={() => setOpen(null)} run={run} nav={nav} />}

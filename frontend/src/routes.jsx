@@ -87,6 +87,8 @@ const Branding = lazy(() => import("@/pages/Branding"));
 const NewInvoice = lazy(() => import("@/pages/NewInvoice"));
 const Document = lazy(() => import("@/pages/Document"));
 const Approvals = lazy(() => import("@/pages/Approvals"));
+const Inbox = lazy(() => import("@/pages/Inbox"));
+const Talk = lazy(() => import("@/pages/Talk"));
 const Payments = lazy(() => import("@/pages/Payments"));
 const Loans = lazy(() => import("@/pages/Loans"));
 
@@ -206,6 +208,8 @@ export const router = createBrowserRouter([
       { path: "go", element: <Go /> },
       { path: "documents/:kind/:id", element: <Document /> },
       { path: "approvals", element: <Approvals /> },
+      { path: "inbox", element: <Inbox /> },
+      { path: "talk/:kind/:id", element: <Talk /> },
       { path: "payments", element: <Payments /> },
       { path: "loans", element: <Loans /> },
       { path: "figures", element: <Navigate to="/analytics" replace /> },

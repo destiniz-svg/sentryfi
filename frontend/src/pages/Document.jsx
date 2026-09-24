@@ -14,6 +14,7 @@ import { compose, SIZES, KIND_LABEL, templateWith } from "@/lib/documents";
 import { formatDate } from "@/lib/utils";
 import { FIELD } from "@/lib/shipments";
 import { Attachments } from "@/components/documents/Attachments";
+import { Conversation } from "@/components/talk/Conversation";
 
 /**
  * One document, as it is sent: the issued copy once it has gone into the
@@ -26,6 +27,8 @@ const BACK = { invoice: "/invoices", credit_note: "/invoices", quote: "/orders?k
 const QUESTIONED = ["invoice", "quote", "proforma", "retainer"];
 // Documents that carry papers of their own (drawings, timesheets, specs).
 const ATTACHABLE = ["invoice", "quote", "sales_order", "purchase_order", "proforma", "retainer", "credit_note"];
+// Documents the team can talk about (the customer has a thread of their own).
+const TALKED = ["invoice", "credit_note", "quote", "sales_order", "purchase_order", "proforma", "retainer"];
 // Every document with someone to send it to.
 const SENT = ["invoice", "quote", "proforma", "retainer", "sales_order", "delivery_note", "goods_received", "credit_note", "receipt", "statement", "purchase_order"];
 
@@ -107,6 +110,7 @@ export default function Document() {
       <PrintCopy model={model} />
       {ATTACHABLE.includes(kind) && <Attachments kind={kind} id={id} />}
       {QUESTIONED.includes(kind) && <DocumentQuestions kind={kind} id={id} />}
+      {TALKED.includes(kind) && <Conversation kind={kind} id={id} title={QUESTIONED.includes(kind) ? "Team conversation" : "Conversation"} />}
       {emailing && <ShareDocument kind={kind} id={id} number={data.data.number} to={data.data.to} onClose={() => setEmailing(false)} />}
     </div>
   );

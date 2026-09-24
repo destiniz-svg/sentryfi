@@ -22,7 +22,9 @@ const BOARD = new Set(["/dashboard", "/bills", "/cash", "/owed", "/me"]);
 
 // Where someone who feeds the books but does not read them may go: the
 // camera, their tin, and their own account. Everything else is the office's.
-const FIELD = new Set(["/dashboard", "/cash", "/owed", "/me", "/go"]);
+// Their inbox and any conversation they were brought into as well.
+const FIELD = new Set(["/dashboard", "/cash", "/owed", "/me", "/go", "/inbox"]);
+const talking = (path) => path === "/inbox" || path.startsWith("/talk/");
 
 export function AppShell() {
   const location = useLocation();
@@ -58,12 +60,12 @@ export function AppShell() {
     setRecordOpen(false);
   }, [location.pathname]);
 
-  if (field && !FIELD.has(location.pathname)) return <Navigate to="/dashboard" replace />;
+  if (field && !FIELD.has(location.pathname) && !talking(location.pathname)) return <Navigate to="/dashboard" replace />;
 
   // The board's own chrome: always for field staff, and on a phone for the
   // one field tool anybody may hold (a cash tin). Everyone else keeps the app.
   // The expense companion (/go) is its own light app for everyone: no rail, no tab bar.
-  const boardHere = location.pathname === "/go" || (field ? BOARD.has(location.pathname) : phone && (location.pathname === "/cash" || location.pathname === "/owed"));
+  const boardHere = location.pathname === "/go" || (field ? BOARD.has(location.pathname) || talking(location.pathname) : phone && (location.pathname === "/cash" || location.pathname === "/owed"));
   if (boardHere) {
     return (
       <Suspense fallback={<RouteFallback />}>

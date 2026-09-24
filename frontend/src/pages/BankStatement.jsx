@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Check, ChevronDown, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Loader2, MessagesSquare } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -335,7 +335,10 @@ function Line({ line, accounts, refresh, pick }) {
           {line.remark ? ` · ${line.remark}` : ""}
           {line.ref ? ` · ${line.ref}` : ""}
         </div>
-        <div className="tabular text-[15px] font-semibold">{line.amount}</div>
+        <div className="flex items-baseline gap-3">
+          <Link to={`/talk/bank_line/${line.id}`} className="inline-flex items-center gap-1 text-[13px] text-[var(--ink-muted)] hover:text-[var(--ink)] underline-offset-2 hover:underline"><MessagesSquare size={13} aria-hidden="true" /> Discuss</Link>
+          <div className="tabular text-[15px] font-semibold">{line.amount}</div>
+        </div>
       </div>
       {line.flag && <p className="text-[12px] text-[var(--danger)] mt-1">Marked: {line.flag}.</p>}
 
@@ -435,6 +438,7 @@ function Answered({ accountId }) {
             </div>
             <Badge tone={l.moneyIn ? "success" : "neutral"}>{l.moneyIn ? "In" : "Out"}</Badge>
             <div className="tabular text-[15px] font-semibold w-28 text-right">{l.amount}</div>
+            <Link to={`/talk/bank_line/${l.id}`} className="inline-flex items-center gap-1 text-[13px] text-[var(--ink-muted)] hover:text-[var(--ink)] underline-offset-2 hover:underline"><MessagesSquare size={13} aria-hidden="true" /> Discuss</Link>
             <Button
               variant="outline"
               disabled={undo.isPending}

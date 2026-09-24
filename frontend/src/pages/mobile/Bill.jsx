@@ -10,6 +10,7 @@ import { useToast } from "@/context/UIContext";
 import { Badge } from "@/components/ui/Badge";
 import { Money } from "@/components/ui/Money";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { Conversation } from "@/components/talk/Conversation";
 
 /**
  * One bill, opened from Money on a phone or from Bills at the desk: who it is from, what it comes to
@@ -193,6 +194,8 @@ export default function MobileBill() {
           {busy ? "Putting it in the books…" : "Put in the books"}
         </button>
       )}
+
+      <Conversation kind="bill" id={id} className="" />
 
       <Link to="/bills" className="block text-center text-[15px] font-semibold text-[var(--deep)] py-2">
         Everything else, on Bills

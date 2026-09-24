@@ -12,6 +12,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 import { formatDate, today } from "@/lib/utils";
 import { FIELD, Field, monthName } from "@/pages/Payroll";
+import { Conversation } from "@/components/talk/Conversation";
 
 /**
  * One month's pay run, in the order it is done: enter what happened in the
@@ -129,6 +130,7 @@ export default function PayRun() {
         </>
       )}
       <Books run={s} />
+      <Conversation kind="pay_run" id={id} />
       {!draft && !s.owes.some((o) => o.paid) && (
         <div className="mt-6">
           <Button variant="outline" size="sm" className="border-[var(--danger)] text-[var(--danger)]" onClick={() => setReopening(true)}>

@@ -171,11 +171,42 @@ function schedule() {
     } catch (err) {
       console.error(JSON.stringify({ at: "push-schedule", error: err.message }));
     }
+    if (hour >= 8 && hour < 21) await digest(pool).catch((err) => console.error(JSON.stringify({ at: "comment-digest", error: err.message })));
   };
   setTimeout(tick, 150_000).unref();
   setInterval(tick, 60 * 60_000).unref();
 }
 
+/**
+ * The day's round-up by email: mentions, asks and comments a person has not
+ * seen in the app for an hour. At most one a day each, so the app stays the
+ * place to talk and email only catches what would otherwise be missed.
+ */
+async function digest(pool) {
+  const env = require("../config/env");
+  const { rows } = await pool.query(
+    `SELECT n.user_id, n.company_id, u.email, u.name, c.name AS company,
+            json_agg(json_build_object('id', n.id, 'title', n.title, 'body', n.body) ORDER BY n.created_at) AS items
+       FROM notifications n JOIN users u ON u.id = n.user_id JOIN companies c ON c.id = n.company_id
+      WHERE n.kind IN ('mention','ask','comment') AND n.read_at IS NULL AND n.emailed_at IS NULL
+        AND n.created_at < now() - interval '1 hour' AND n.created_at > now() - interval '7 days'
+        AND NOT EXISTS (SELECT 1 FROM notifications x WHERE x.user_id = n.user_id AND x.emailed_at > now() - interval '20 hours')
+      GROUP BY n.user_id, n.company_id, u.email, u.name, c.name`
+  );
+  for (const r of rows) {
+    const items = r.items.slice(0, 10);
+    await require("../services/email").send({
+      to: r.email,
+      subject: `${r.company}: ${r.items.length === 1 ? r.items[0].title : `${r.items.length} things your team said to you`}`,
+      lines: [`Hello ${r.name},`, `While you were away, in ${r.company}:`, ...items.map((i) => `${i.title}: “${i.body}”`), ...(r.items.length > 10 ? [`And ${r.items.length - 10} more.`] : [])],
+      link: { label: "Open Sentryfi", url: `${env.publicUrl}/inbox` },
+    });
+    await pool.query("UPDATE notifications SET emailed_at = now() WHERE id = ANY($1)", [r.items.map((i) => i.id)]);
+  }
+  return rows.length;
+}
+
 module.exports = inbox;
+module.exports.digest = digest;
 module.exports.devices = devices;
 module.exports.schedule = schedule;

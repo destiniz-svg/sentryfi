@@ -59,6 +59,7 @@ const DV = {
   "The CFO": "ސީ.އެފް.އޯ",
   Figures: "އަދަދުތައް",
   Approvals: "ހުއްދަތައް",
+  Inbox: "ލިބުނު މެސެޖުތައް",
   "Buying and selling": "ގަތުމާއި ވިއްކުން",
   Invoices: "އިންވޮއިސްތައް",
   Bills: "ބިލުތައް",

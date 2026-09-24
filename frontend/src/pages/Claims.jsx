@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Loader2, Plus, X } from "lucide-react";
+import { Loader2, MessagesSquare, Plus, X } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -60,6 +61,7 @@ export default function Claims() {
                       {c.number} · {c.claimant}
                     </div>
                     <div className="text-[13px] text-[var(--ink-muted)] truncate">{c.lines.map((l) => l.description).join(", ")}</div>
+                    <div className="mt-1"><Link to={`/talk/claim/${c.id}`} className="inline-flex items-center gap-1 text-[13px] text-[var(--ink-muted)] hover:text-[var(--ink)] underline-offset-2 hover:underline"><MessagesSquare size={13} aria-hidden="true" /> Discuss</Link></div>
                     {c.rejectedWhy && <div className="text-[13px] text-[var(--danger)] mt-1">Why not: {c.rejectedWhy}</div>}
                     {c.receipts?.length > 0 && (
                       <div className="flex flex-wrap gap-x-3 mt-1 text-[13px]">

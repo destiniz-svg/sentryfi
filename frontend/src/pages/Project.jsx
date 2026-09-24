@@ -15,6 +15,7 @@ import { useToast } from "@/context/UIContext";
 import { formatDate, today } from "@/lib/utils";
 import { FIELD } from "@/lib/shipments";
 import { Attachments } from "@/components/documents/Attachments";
+import { Conversation } from "@/components/talk/Conversation";
 
 /**
  * One project: spent, committed, claimed, certified and retained, each open
@@ -406,6 +407,7 @@ export default function Project() {
       {open === "certify" && waiting && <CertifyDialog p={p} claim={waiting} onClose={() => setOpen(null)} run={run} />}
       {open === "release" && <ReleaseDialog p={p} onClose={() => setOpen(null)} run={run} />}
       <Attachments kind="project" id={id} title="Papers: contract, drawings, bill of quantities" />
+      <Conversation kind="project" id={id} />
       {looking && <Entries projectId={id} look={looking} onClose={() => setLooking(null)} />}
     </div>
   );

@@ -16,6 +16,7 @@ import { useToast } from "@/context/UIContext";
 import { formatDate, today } from "@/lib/utils";
 import { BASIS, FIELD } from "@/lib/shipments";
 import { Attachments } from "@/components/documents/Attachments";
+import { Conversation } from "@/components/talk/Conversation";
 
 /**
  * One shipment: the bills that are its goods, which container each came in,
@@ -246,6 +247,7 @@ export default function Shipment() {
       </div>
 
       <Attachments kind="shipment" id={id} title="Papers: bill of lading, packing list, Customs" />
+      <Conversation kind="shipment" id={id} />
       {paying && <PayDirect shipment={s} onClose={() => setPaying(false)} onDone={refresh} />}
     </div>
   );

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bell, AlertTriangle, Clock, CircleDashed, ShieldAlert, Check, Sunrise } from "lucide-react";
+import { Bell, AlertTriangle, Clock, CircleDashed, ShieldAlert, Check, Sunrise, AtSign, CircleHelp, MessagesSquare } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconButton } from "@/components/ui/IconButton";
 import { apiClient } from "@/api/client";
@@ -31,6 +31,9 @@ const LOOK = {
   ageing: { icon: Clock, tone: "bg-[var(--warning)]/14 text-[var(--warning)]" },
   done: { icon: Check, tone: "bg-[var(--success-soft)] text-[var(--success)]" },
   brief: { icon: Sunrise, tone: "bg-[var(--surface-2)] text-[var(--ink)]" },
+  mention: { icon: AtSign, tone: "bg-[var(--accent-soft)] text-[var(--accent-strong)]" },
+  ask: { icon: CircleHelp, tone: "bg-[var(--accent-soft)] text-[var(--accent-strong)]" },
+  comment: { icon: MessagesSquare, tone: "bg-[var(--accent-soft)] text-[var(--accent-strong)]" },
 };
 
 const ago = (at) => {
@@ -164,7 +167,12 @@ export function NotificationsPopover() {
               )}
               {recent.length > 0 && (
                 <div data-testid="inbox">
-                  <div className="px-5 pt-4 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ink-muted)] border-t border-[var(--border)]">What happened</div>
+                  <div className="flex items-center justify-between px-5 pt-3 pb-1 border-t border-[var(--border)]">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ink-muted)]">What happened</span>
+                    <button type="button" onClick={() => (setOpen(false), navigate("/inbox"))} className="h-8 -mr-2 px-2 rounded-full text-[12px] font-medium text-[var(--ink)] hover:bg-[var(--surface-2)]">
+                      Open inbox
+                    </button>
+                  </div>
                   <ul className="divide-y divide-[var(--border)]">
                     {recent.slice(0, 10).map((n) => {
                       const look = LOOK[n.kind] || LOOK.waiting;

@@ -22,6 +22,9 @@ export default function SendHome() {
     queryFn: remembered(`cash:${companyId}`, () => apiClient.get("/cash").then((r) => r.data.boxes)),
     enabled: Boolean(companyId) && can("spend_cash"),
   });
+  // The office asked something: it waits here until it is answered.
+  const { data: asks } = useQuery({ queryKey: ["asks", companyId, "waiting"], queryFn: () => apiClient.get("/comments/asks?view=waiting").then((r) => r.data.asks), enabled: Boolean(companyId), refetchInterval: 60_000 });
+  const open = (asks || []).filter((a) => a.status === "open");
   const waiting = (tins || []).filter((t) => t.yours).flatMap((t) => t.handed || []);
   return (
     <PhoneShell
@@ -33,6 +36,12 @@ export default function SendHome() {
       onSnap={() => setSnapping(true)}
     >
       <WaitingToSend className="mx-5 mt-4" />
+      {open.length > 0 && (
+        <Link to={open.length === 1 ? open[0].href : "/inbox"} className="block mx-5 mt-4 p-4 border-2 border-[var(--ink)]" data-testid="asks-waiting">
+          <div className="font-display text-[22px] font-bold leading-tight">{open.length === 1 ? `${open[0].by} asked you` : `${open.length} questions for you`}</div>
+          <div className="text-[14px] mt-1 line-clamp-2">{open.length === 1 ? `“${open[0].body}”` : "From the office. Tap to answer."}</div>
+        </Link>
+      )}
       {waiting.length > 0 && (
         <Link
           to="/cash"
