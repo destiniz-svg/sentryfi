@@ -180,7 +180,10 @@ describe("the seal", () => {
       // the trial balance still agrees.
       await client.query("RESET ROLE");
       await client.query("SET CONSTRAINTS ALL IMMEDIATE");
-      await client.query("ALTER TABLE journal_lines DISABLE TRIGGER USER");
+      // Triggers off for this session only. ALTER TABLE ... DISABLE TRIGGER
+      // did the same but locked the whole table until the test ended, and
+      // every other test file posting at the time waited until it timed out.
+      await client.query("SET LOCAL session_replication_role = replica");
       await client.query(
         "UPDATE journal_lines SET debit_laari = debit_laari + 3825000 WHERE entry_id = $1 AND debit_laari > 0",
         [entry.id]
@@ -189,7 +192,7 @@ describe("the seal", () => {
         "UPDATE journal_lines SET credit_laari = credit_laari + 3825000 WHERE entry_id = $1 AND credit_laari > 0",
         [entry.id]
       );
-      await client.query("ALTER TABLE journal_lines ENABLE TRIGGER USER");
+      await client.query("SET LOCAL session_replication_role = origin");
       await client.query("SET CONSTRAINTS ALL DEFERRED");
 
       const balance = await verifyTrialBalance(client, { companyId, userId });
