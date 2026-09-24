@@ -20,4 +20,15 @@ function requirePlatformAdmin(req, _res, next) {
   next();
 }
 
-module.exports = { isPlatformAdmin, requirePlatformAdmin };
+/**
+ * The developer portal answers only on its own subdomain (dev.sentryfi.app),
+ * with its own sign-in, so the app customers use carries none of it. Outside
+ * production the host is not checked, so tests and a local server still work.
+ */
+function requirePortalHost(req, _res, next) {
+  const env = require("../config/env");
+  if (env.isProd && String(req.hostname || "").toLowerCase() !== env.portalHost) return next(ApiError.notFound());
+  next();
+}
+
+module.exports = { isPlatformAdmin, requirePlatformAdmin, requirePortalHost };

@@ -1,3 +1,4 @@
+import { PORTAL_URL } from "@/lib/portal";
 import { trialLine } from "./TrialStrip";
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
@@ -134,16 +135,14 @@ export function Sidebar() {
           <Group key={s.label} s={s} first open={isOpen(s.label)} onToggle={() => toggle(s.label)} can={can} tax={tax} multi={multi} />
         ))}
         {user?.platformAdmin && (
-          <NavLink
-            to="/developer"
-            title="Developer"
-            className={({ isActive }) =>
-              `flex items-center gap-3 h-11 mx-2 px-3 justify-center lg:justify-start rounded-[12px] text-[14px] ${isActive ? "bg-[var(--ink)] text-[var(--surface)]" : "text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"}`
-            }
+          <a
+            href={PORTAL_URL}
+            title="Developer portal"
+            className="flex items-center gap-3 h-11 mx-2 px-3 justify-center lg:justify-start rounded-[12px] text-[14px] text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
           >
             <TerminalSquare size={18} aria-hidden="true" />
-            <span className="hidden lg:inline">Developer</span>
-          </NavLink>
+            <span className="hidden lg:inline">Developer portal</span>
+          </a>
         )}
         <div className="hidden lg:flex items-center gap-2 px-5 pt-3">
           <div className="min-w-0 flex-1">

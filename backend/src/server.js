@@ -68,6 +68,8 @@ app.use(
     origin(origin, cb) {
       if (!origin) return cb(null, true); // same-origin and server-to-server
       if (env.clientOrigins.includes(origin)) return cb(null, true);
+      // The developer portal is this same app on its own subdomain.
+      if (origin === `https://${env.portalHost}`) return cb(null, true);
       // A refusal, not a failure: 403 rather than a 500 in the logs.
       return cb(require("./utils/ApiError").forbidden("Origin not allowed"), false);
     },

@@ -47,5 +47,7 @@ module.exports = {
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
   cfoModel: process.env.CFO_MODEL || "claude-haiku-4-5-20251001",
   publicUrl: (process.env.PUBLIC_URL || "https://sentryfi.app").replace(/\/$/, ""),
+  // The developer portal answers only here (routes/platform.js), apart from the app customers use.
+  portalHost: (process.env.PORTAL_HOST || "dev.sentryfi.app").toLowerCase(),
   isProd: process.env.NODE_ENV === "production",
 };

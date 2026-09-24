@@ -4,7 +4,7 @@ const { z } = require("zod");
 const asyncHandler = require("../utils/asyncHandler");
 const ApiError = require("../utils/ApiError");
 const { requireAuth } = require("../middleware/auth");
-const { requirePlatformAdmin } = require("../middleware/platform");
+const { requirePlatformAdmin, requirePortalHost } = require("../middleware/platform");
 const { withTransaction } = require("../config/db");
 const platform = require("../ledger/platform");
 
@@ -13,7 +13,7 @@ const platform = require("../ledger/platform");
  * Anyone else gets a 404, as if it were not here.
  */
 const router = express.Router();
-router.use(requireAuth, requirePlatformAdmin);
+router.use(requirePortalHost, requireAuth, requirePlatformAdmin);
 
 // Errors the ledger raises with a status become the answer the screen shows.
 const run = (fn) =>

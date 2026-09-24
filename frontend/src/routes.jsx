@@ -5,6 +5,7 @@
    it has nothing to say here. */
 import { lazy, Suspense } from "react";
 import { Navigate, createBrowserRouter } from "react-router-dom";
+import { PORTAL_URL } from "@/lib/portal";
 import ErrorPage from "./pages/ErrorPage";
 import { AppShell } from "@/components/layout/AppShell";
 import Landing from "@/pages/Landing";
@@ -75,7 +76,6 @@ const Orders = lazy(() => import("@/pages/Orders"));
 const Order = lazy(() => import("@/pages/Order"));
 const Claims = lazy(() => import("@/pages/Claims"));
 const Cfo = lazy(() => import("@/pages/Cfo"));
-const Developer = lazy(() => import("@/pages/Developer"));
 const Branding = lazy(() => import("@/pages/Branding"));
 const NewInvoice = lazy(() => import("@/pages/NewInvoice"));
 const Document = lazy(() => import("@/pages/Document"));
@@ -148,6 +148,11 @@ function ProtectedShell() {
   return <AppShell />;
 }
 
+function ToPortal() {
+  window.location.replace(PORTAL_URL);
+  return null;
+}
+
 export const router = createBrowserRouter([
   { path: "/", element: <Landing />, errorElement: <ErrorPage /> },
   { path: "/login", element: <Login />, errorElement: <ErrorPage /> },
@@ -179,7 +184,8 @@ export const router = createBrowserRouter([
       { path: "orders/:id", element: <Order /> },
       { path: "claims", element: <Claims /> },
       { path: "cfo", element: <Cfo /> },
-      { path: "developer", element: <Developer /> },
+      // The developer dashboard moved to its own subdomain.
+      { path: "developer", element: <ToPortal /> },
       { path: "branding", element: <Branding /> },
       { path: "practice", element: <Practice /> },
       { path: "go", element: <Go /> },
