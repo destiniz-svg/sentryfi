@@ -87,7 +87,8 @@ export default function Analytics() {
         <>
           <Kpis a={a} look={look} />
           <MonthsCard months={a.months} period={period} onPick={pickMonth} />
-          <div className="grid gap-4 lg:grid-cols-2 items-start">
+          {/* Two columns whenever each can be 420px wide; cards in a row share one height. */}
+          <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(min(100%,420px),1fr))]">
             <Ranked
               title="Where the money came from"
               said={said.incomeBy(a)}
@@ -220,8 +221,9 @@ function Kpis({ a, look }) {
     { label: "Owed to you", v: k.owed.now, note: k.owed.overdueRaw > 0 ? `${k.owed.overdue} overdue` : "nothing overdue", to: "/invoices", tone: k.owed.overdueRaw > 0 },
   ];
   return (
-    <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
-      {tiles.map((t, i) => {
+    // Rows that always fill the width: five across, or three and two, never four and one left alone.
+    <div className="@container flex flex-wrap gap-3">
+      {tiles.map((t) => {
         const body = (
           <>
             <div className="text-[12px] text-[var(--ink-muted)]">{t.label}</div>
@@ -236,7 +238,7 @@ function Kpis({ a, look }) {
             {t.spark && <div className="mt-auto"><Spark values={t.spark} tone={t.bad ? "var(--ink-muted)" : "var(--ink)"} /></div>}
           </>
         );
-        const cls = `flex flex-col justify-start text-left rounded-[20px] bg-[var(--surface)] lift p-4 min-w-0 transition-transform hover:-translate-y-0.5 ${i === 4 ? "col-span-2 lg:col-span-1" : ""}`;
+        const cls = `flex flex-col justify-start text-left rounded-[20px] bg-[var(--surface)] lift p-4 min-w-0 grow basis-[140px] @[560px]:basis-[30%] @[940px]:basis-[15%] transition-transform hover:-translate-y-0.5`;
         return t.to ? (
           <Link key={t.label} to={t.to} className={cls}>{body}</Link>
         ) : (
@@ -327,7 +329,7 @@ function MonthsCard({ months, period, onPick }) {
 function Card({ title, said: line, right, children, id }) {
   return (
     <section aria-labelledby={id} className="rounded-[24px] bg-[var(--surface)] lift p-5 min-w-0">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <h2 id={id} className="text-[16px] font-semibold tracking-[-0.01em]">{title}</h2>
         {right}
       </div>
