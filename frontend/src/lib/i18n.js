@@ -60,6 +60,8 @@ const DV = {
   Figures: "އަދަދުތައް",
   Approvals: "ހުއްދަތައް",
   Inbox: "ލިބުނު މެސެޖުތައް",
+  Customers: "ކަސްޓަމަރުން",
+  Suppliers: "ސަޕްލަޔަރުން",
   "Buying and selling": "ގަތުމާއި ވިއްކުން",
   Invoices: "އިންވޮއިސްތައް",
   Bills: "ބިލުތައް",

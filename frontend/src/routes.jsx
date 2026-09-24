@@ -88,6 +88,8 @@ const NewInvoice = lazy(() => import("@/pages/NewInvoice"));
 const Document = lazy(() => import("@/pages/Document"));
 const Approvals = lazy(() => import("@/pages/Approvals"));
 const Inbox = lazy(() => import("@/pages/Inbox"));
+const Contacts = lazy(() => import("@/pages/Contacts"));
+const Contact = lazy(() => import("@/pages/Contact"));
 const Talk = lazy(() => import("@/pages/Talk"));
 const Payments = lazy(() => import("@/pages/Payments"));
 const Loans = lazy(() => import("@/pages/Loans"));
@@ -209,6 +211,8 @@ export const router = createBrowserRouter([
       { path: "documents/:kind/:id", element: <Document /> },
       { path: "approvals", element: <Approvals /> },
       { path: "inbox", element: <Inbox /> },
+      { path: "contacts", element: <Contacts /> },
+      { path: "contacts/:id", element: <Contact /> },
       { path: "talk/:kind/:id", element: <Talk /> },
       { path: "payments", element: <Payments /> },
       { path: "loans", element: <Loans /> },
@@ -222,7 +226,9 @@ export const router = createBrowserRouter([
       { path: "tax", element: <TaxReturn /> },
       { path: "import", element: <Import /> },
       { path: "bank/:accountId", element: <BankStatement /> },
-      { path: "clients", element: <Navigate to="/invoices" replace /> },
+      { path: "clients", element: <Navigate to="/contacts?side=customers" replace /> },
+      { path: "customers", element: <Navigate to="/contacts?side=customers" replace /> },
+      { path: "suppliers", element: <Navigate to="/contacts?side=suppliers" replace /> },
       { path: "bills", element: <OnPhone board={<PhoneBills />} desk={<Bills />} /> },
       { path: "bills/:id", element: <MobileBill /> },
       { path: "expenses", element: <Navigate to="/bills" replace /> },

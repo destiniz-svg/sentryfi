@@ -132,6 +132,7 @@ app.use("/api/webhooks", require("./routes/webhooks"));
 app.use("/api/documents", require("./routes/documents"));
 app.use("/api/notifications", require("./routes/notifications"));
 app.use("/api/comments", require("./routes/comments"));
+app.use("/api/contacts", require("./routes/contacts"));
 app.use("/api/push", require("./routes/notifications").devices);
 app.use("/api/portal-links", require("./routes/portal"));
 app.use("/api/statements", statementsRouter);

@@ -19,7 +19,7 @@ const ON_PAGE = ["invoice", "quote", "proforma", "retainer"];
 const FIELD = "w-full h-11 px-4 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[15px] outline-none focus:border-[var(--ink)]";
 
 /** Digits of a phone number as WhatsApp takes them: a Maldivian seven-digit number gets 960 in front. */
-function waNumber(phone) {
+export function waNumber(phone) {
   const d = String(phone || "").replace(/\D/g, "");
   if (!d) return "";
   return d.length === 7 ? `960${d}` : d;

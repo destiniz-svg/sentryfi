@@ -52,6 +52,7 @@ const KINDS = {
   },
   pay_run: { name: "Payroll", sql: "SELECT period AS label, created_by AS owner FROM pay_runs WHERE id = $1 AND company_id = $2", href: (id) => `/payroll/runs/${id}`, need: "run_payroll" },
   project: { name: "Project", sql: "SELECT name AS label, NULL::uuid AS owner FROM projects WHERE id = $1 AND company_id = $2", href: (id) => `/projects/${id}` },
+  contact: { name: "", sql: "SELECT name AS label, NULL::uuid AS owner FROM counterparties WHERE id = $1 AND company_id = $2", href: (id) => `/contacts/${id}` },
   shipment: { name: "Shipment", sql: "SELECT reference AS label, created_by AS owner FROM shipments WHERE id = $1 AND company_id = $2", href: (id) => `/shipments/${id}` },
 };
 

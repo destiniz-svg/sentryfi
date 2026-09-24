@@ -1,4 +1,4 @@
-import { Inbox, FileClock, FilePen, FileSignature, Users, Building2, Palette, Banknote, Boxes, Sunrise, CheckCheck, ClipboardList, FileText, HardHat, Ship, Gauge, HandCoins, Landmark, LayoutGrid, Lock, Package, Percent, ReceiptText, Scale, Settings, Upload, Wallet, Wallet2 } from "lucide-react";
+import { Inbox, Contact, Truck, FileClock, FilePen, FileSignature, Users, Building2, Palette, Banknote, Boxes, Sunrise, CheckCheck, ClipboardList, FileText, HardHat, Ship, Gauge, HandCoins, Landmark, LayoutGrid, Lock, Package, Percent, ReceiptText, Scale, Settings, Upload, Wallet, Wallet2 } from "lucide-react";
 
 /**
  * The desk's places, grouped the way business apps group them (Xero,
@@ -24,6 +24,7 @@ export const SECTIONS = [
   {
     label: "Sales",
     items: [
+      { to: "/contacts?side=customers", icon: Contact, label: "Customers", can: "read" },
       { to: "/invoices", icon: FileText, label: "Invoices" },
       { to: "/orders?kind=quote", icon: FileSignature, label: "Quotes" },
       { to: "/advances", icon: FileClock, label: "Advance billing" },
@@ -33,6 +34,7 @@ export const SECTIONS = [
   {
     label: "Purchases",
     items: [
+      { to: "/contacts?side=suppliers", icon: Truck, label: "Suppliers", can: "read" },
       { to: "/bills", icon: ReceiptText, label: "Bills" },
       { to: "/orders?kind=purchase", icon: FilePen, label: "Purchase orders" },
       { to: "/claims", icon: Wallet, label: "Expense claims" },
@@ -107,7 +109,9 @@ const places = () => SECTIONS.flatMap((s) => s.items.map((it) => ({ s, it })));
 /** The place a location is, most specific first: a kind of order before its page. */
 function placeOf(pathname, search) {
   const all = places();
-  return all.find(({ it }) => it.to.includes("?") && isHere(it.to, pathname, search)) || all.find(({ it }) => !it.to.includes("?") && isHere(it.to, pathname)) || all.find(({ it }) => pathname.startsWith(pathOf(it.to) + "/") || pathname === pathOf(it.to));
+  // A page under a place with a query (a supplier under /contacts?side=suppliers) carries that query along.
+  const under = ({ it }) => it.to.includes("?") && pathname.startsWith(pathOf(it.to) + "/") && isHere(it.to, pathOf(it.to), search);
+  return all.find(({ it }) => it.to.includes("?") && isHere(it.to, pathname, search)) || all.find(({ it }) => !it.to.includes("?") && isHere(it.to, pathname)) || all.find(under) || all.find(({ it }) => pathname.startsWith(pathOf(it.to) + "/") || pathname === pathOf(it.to));
 }
 
 /** The group a location belongs to, if any. */

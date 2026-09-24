@@ -16,6 +16,7 @@ import { useAged, useSales, useSalesMutations } from "@/hooks/useSales";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 import { formatDate } from "@/lib/utils";
+import { AgingBar } from "@/components/ui/AgingBar";
 
 /**
  * What customers owe you.
@@ -36,14 +37,6 @@ const TABS = [
   { key: "owed", label: "Owed" },
   { key: "overdue", label: "Overdue" },
   { key: "settled", label: "Settled" },
-];
-
-const BUCKETS = [
-  { key: "current", label: "Not yet due" },
-  { key: "thirty", label: "1–30 days over" },
-  { key: "sixty", label: "31–60" },
-  { key: "ninety", label: "61–90" },
-  { key: "older", label: "Over 90" },
 ];
 
 function daysOver(invoice) {
@@ -140,7 +133,7 @@ export default function Invoices() {
       {/* How much is out there, and how late. Read from the ledger. */}
       {aged && (
         <Card padding="lg" className="mb-4">
-          <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:items-end lg:gap-10">
             <div>
               <div className="text-[13px] font-medium text-[var(--ink-muted)]">Owed to you</div>
               <div className="flex items-baseline gap-1.5 pt-1.5">
@@ -158,20 +151,7 @@ export default function Invoices() {
               </div>
             </div>
 
-            <dl className="grid grid-cols-2 sm:grid-cols-5 gap-x-6 gap-y-3">
-              {BUCKETS.map((b) => (
-                <div key={b.key} className="min-w-[96px]">
-                  <dt className="text-[12px] text-[var(--ink-muted)]">{b.label}</dt>
-                  <dd
-                    className={`tabular text-[15px] font-semibold mt-0.5 ${
-                      aged.buckets[b.key] === "0.00" ? "text-[var(--ink-muted)]" : "text-[var(--ink)]"
-                    }`}
-                  >
-                    {aged.buckets[b.key]}
-                  </dd>
-                </div>
-              ))}
-            </dl>
+            <AgingBar amounts={aged.buckets} laari={aged.bucketsLaari} />
           </div>
         </Card>
       )}
@@ -183,7 +163,7 @@ export default function Invoices() {
             role="tab"
             aria-selected={tab === t.key}
             onClick={() => setTab(t.key)}
-            className={`h-11 px-4 rounded-full text-[13px] border transition-colors ${
+            className={`h-10 px-3.5 sm:h-11 sm:px-4 rounded-full text-[14px] sm:text-[13px] whitespace-nowrap border transition-colors ${
               tab === t.key
                 ? "bg-[var(--ink)] text-[var(--bg)] border-[var(--ink)] font-semibold"
                 : "bg-[var(--surface)] text-[var(--ink-muted)] border-[var(--border)] hover:text-[var(--ink)]"

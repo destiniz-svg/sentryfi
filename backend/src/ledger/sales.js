@@ -835,6 +835,8 @@ async function aged(client, { companyId, asOf }) {
     buckets: Object.fromEntries(
       Object.entries(buckets).map(([k, v]) => [k, formatLaari(v)])
     ),
+    // The same, unformatted, for drawing each age as a share of the whole.
+    bucketsLaari: Object.fromEntries(Object.entries(buckets).map(([k, v]) => [k, v.toString()])),
     total: formatLaari(Object.values(buckets).reduce((a, b) => a + b, 0n)),
   };
 }

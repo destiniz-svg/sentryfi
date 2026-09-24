@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Plus, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
@@ -113,6 +113,8 @@ function split(lineLaari, treatment, bp) {
 export default function NewInvoice() {
   const open = true;
   const navigate = useNavigate();
+  // Opened from a customer's page: their name is already filled in.
+  const [params] = useSearchParams();
   const { companyId } = useCompany();
   const design = useDesign("invoice");
   const [view, setView] = useState("form");
@@ -126,7 +128,7 @@ export default function NewInvoice() {
   const [files, setFiles] = useState([]);
   const [shareFiles, setShareFiles] = useState(false);
   const [form, setForm] = useState(() => ({
-    customerName: "",
+    customerName: params.get("customer") || "",
     // null until somebody types one, so the suggested number fills it without
     // being copied into state — and a number they typed is never overwritten.
     invoiceNo: null,

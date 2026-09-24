@@ -43,7 +43,8 @@ export function TabsTrigger({ value, children, className }) {
       aria-selected={active}
       onClick={() => ctx.onValueChange(value)}
       className={cn(
-        "relative px-4 h-11 text-sm font-medium rounded-full transition-colors",
+        // A little tighter on a phone, so a row of five still fits on one line.
+        "relative px-3.5 h-10 sm:px-4 sm:h-11 text-sm font-medium rounded-full transition-colors whitespace-nowrap",
         "border border-[var(--border)]",
         active ? "text-[var(--bg)] border-[var(--ink)]" : "text-[var(--ink-muted)] hover:text-[var(--ink)]",
         className
