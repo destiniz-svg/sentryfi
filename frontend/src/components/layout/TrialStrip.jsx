@@ -17,7 +17,7 @@ export default function TrialStrip() {
     return (
       <div role="status" className="mb-5 bg-[var(--ink)] text-[var(--surface)] px-4 py-3 text-[14px] leading-[1.45]">
         <strong className="font-semibold">The free trial ended{t.endsAt ? ` on ${niceDay(t.endsAt)}` : ""}.</strong> Everything here can still be read and
-        exported. Nothing new can be recorded until it is extended: write to sentryfi.app@gmail.com.
+        exported. Nothing new can be recorded until it is extended: write to support@sentryfi.app.
       </div>
     );
   }
