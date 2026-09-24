@@ -196,6 +196,39 @@ router.post(
     res.json({ ok: true });
   })
 );
+// Everyone's payslip as a private link: for WhatsApp, and emailed to those with an address when asked.
+router.post(
+  "/runs/:id/send",
+  refused(async (req, res) => {
+    const b = parse(z.object({ email: z.boolean().default(false) }), req.body);
+    const share = require("./share");
+    const lines = await asCompany(req, async (client) => {
+      const { rows } = await client.query("SELECT l.id FROM pay_run_lines l JOIN employees e ON e.id = l.employee_id WHERE l.run_id = $1 AND l.company_id = $2 ORDER BY lower(e.name)", [req.params.id, req.companyId]);
+      const out = [];
+      for (const r of rows) out.push(await share.payslipOf(client, { companyId: req.companyId, lineId: r.id }));
+      return out;
+    });
+    if (!lines.length) throw ApiError.badRequest("There is nobody on this run.");
+    const sent = [];
+    for (const p of lines) {
+      const url = await share.makeLink({ companyId: req.companyId, kind: "payslip", documentId: p.id, userId: req.user.id });
+      let emailed = false;
+      if (b.email && p.email) {
+        try {
+          await share.mailPayslip(p, url, p.email);
+          emailed = true;
+        } catch (err) {
+          console.error(JSON.stringify({ at: "payslip-email", error: err.message }));
+        }
+      }
+      sent.push({ lineId: p.id, name: p.name, phone: p.phone, email: p.email, url, text: `${p.company}: your payslip for ${share.monthName(p.period)}`, emailed });
+    }
+    // Sent is out: people who sign in see theirs too.
+    await asCompany(req, (client) => payroll.publish(client, { companyId: req.companyId, runId: req.params.id }));
+    res.status(201).json({ sent });
+  })
+);
+
 router.post(
   "/runs/:id/pay",
   refused(async (req, res) => {

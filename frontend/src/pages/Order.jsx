@@ -66,7 +66,7 @@ export default function Order() {
       </Link>
       <PageHeader
         title={`${o.number} · ${o.party}`}
-        description={quote ? `Quoted ${formatDate(o.orderedOn)}${o.validUntil ? `, good until ${formatDate(o.validUntil)}` : ""}.` : `${buying ? "Ordered" : "Taken"} ${formatDate(o.orderedOn)} by ${o.orderer || "someone"}${o.approver && buying ? `, approved by ${o.approver}` : ""}${o.project ? `. For ${o.project}` : ""}.`}
+        description={quote ? `Quoted ${formatDate(o.orderedOn)}${o.validUntil ? `, good until ${formatDate(o.validUntil)}` : ""}.` : `${buying ? "Ordered" : "Taken"} ${formatDate(o.orderedOn)} by ${o.orderer || "someone"}${o.approver && buying ? `, approved by ${o.approver}` : ""}${o.supplierConfirmed ? `. Confirmed by ${o.supplierConfirmed.by} (the supplier)${o.supplierConfirmed.expected ? `, to arrive by ${formatDate(o.supplierConfirmed.expected)}` : ""}${o.supplierConfirmed.note ? `: ${o.supplierConfirmed.note}` : ""}` : ""}${o.project ? `. For ${o.project}` : ""}.`}
         actions={
           <>
             <Link to={`/documents/${DOC_KIND[o.kind]}/${o.id}`} className="inline-flex items-center gap-1.5 h-11 px-4 rounded-full border border-[var(--border)] text-[14px] font-medium hover:border-[var(--ink)]" data-testid="order-document">

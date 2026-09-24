@@ -24,12 +24,48 @@ const { today: localToday } = require("../ledger/today");
 
 const hash = (token) => crypto.createHash("sha256").update(String(token || "")).digest("hex");
 const ON_PORTAL = ["invoice", "quote", "proforma", "retainer"];
-const ALONE = ["sales_order", "delivery_note", "goods_received", "credit_note", "receipt", "statement", "purchase_order"];
+const ALONE = ["sales_order", "delivery_note", "goods_received", "credit_note", "receipt", "statement", "purchase_order", "payslip"];
 const LABEL = {
   invoice: "invoice", quote: "quotation", proforma: "proforma invoice", retainer: "retainer invoice", sales_order: "sales order",
   delivery_note: "delivery note", goods_received: "goods received note", credit_note: "credit note", receipt: "receipt",
-  statement: "statement", purchase_order: "purchase order",
+  statement: "statement", purchase_order: "purchase order", payslip: "payslip",
 };
+const monthName = (p) => new Date(p + "-01T00:00:00Z").toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+
+/** A private link to one document, made outside the walls; the token is shown once. */
+async function makeLink({ companyId, kind, documentId, userId }) {
+  const token = crypto.randomBytes(24).toString("base64url");
+  await pool.query("INSERT INTO document_links (company_id, kind, document_id, token_hash, created_by) VALUES ($1,$2,$3,$4,$5)", [companyId, kind, documentId, hash(token), userId]);
+  return env.publicUrl + "/d/" + token;
+}
+
+/** A payslip as a document to send: its line on an approved run, and the person it is for. */
+async function payslipOf(client, { companyId, lineId }) {
+  if (!/^[0-9a-f-]{36}$/i.test(String(lineId))) throw new Error("No such payslip.");
+  const { rows } = await client.query(
+    "SELECT l.id, l.run_id, l.employee_id, r.period, r.status, e.name, e.email, e.phone, c.name AS company " +
+      "FROM pay_run_lines l JOIN pay_runs r ON r.id = l.run_id JOIN employees e ON e.id = l.employee_id JOIN companies c ON c.id = l.company_id " +
+      "WHERE l.id = $1 AND l.company_id = $2",
+    [lineId, companyId]
+  );
+  const p = rows[0];
+  if (!p) throw new Error("No such payslip.");
+  if (p.status !== "approved") throw new Error("Approve the run before sending anyone a payslip.");
+  return p;
+}
+
+/** Emailing someone their payslip link. */
+async function mailPayslip(p, url, to) {
+  await require("../services/email").send({
+    to,
+    subject: "Your payslip for " + monthName(p.period) + ", " + p.company,
+    lines: [
+      p.company + " has sent you your payslip for " + monthName(p.period) + ".",
+      "The link shows every line of your pay and what was kept back, with the year so far. You can print it or save it as a PDF there. It is for you alone.",
+    ],
+    link: { label: "Open your payslip", url },
+  });
+}
 
 // ------------------------------------------------------------------ the company's side
 
@@ -59,6 +95,24 @@ manage.post(
       .safeParse(req.body ?? {});
     if (!p.success) throw ApiError.badRequest(p.error.issues[0].message);
 
+    if (kind === "payslip") {
+      if (!req.can("run_payroll")) throw ApiError.forbidden("Payslips are sent by the payroll office.");
+      let p;
+      try {
+        p = await asCompany(req, (client) => payslipOf(client, { companyId: req.companyId, lineId: req.params.id }));
+      } catch (err) {
+        throw ApiError.badRequest(err.message);
+      }
+      const url = await makeLink({ companyId: req.companyId, kind, documentId: p.id, userId: req.user.id });
+      const text = p.company + ": your payslip for " + monthName(p.period);
+      if (p.data?.how === "email" || req.body?.how === "email") {
+        const to = req.body?.to || p.email;
+        if (!to) throw ApiError.badRequest("What is " + p.name + "'s email address?");
+        await mailPayslip(p, url, to);
+        return res.status(201).json({ url, text, to });
+      }
+      return res.status(201).json({ url, text });
+    }
     const token = crypto.randomBytes(24).toString("base64url");
     let found;
     try {
@@ -113,7 +167,9 @@ manage.delete(
   asyncHandler(async (req, res) => {
     if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) throw ApiError.notFound("No such document.");
     // Checked inside the walls first: the document is this company's.
-    await asCompany(req, (client) => documents.show(client, { companyId: req.companyId, kind: req.params.kind, documentId: req.params.id })).catch(() => {
+    await asCompany(req, (client) =>
+      req.params.kind === "payslip" ? payslipOf(client, { companyId: req.companyId, lineId: req.params.id }) : documents.show(client, { companyId: req.companyId, kind: req.params.kind, documentId: req.params.id })
+    ).catch(() => {
       throw ApiError.notFound("No such document.");
     });
     const { rowCount } = await pool.query("UPDATE document_links SET revoked_at = now() WHERE company_id = $1 AND kind = $2 AND document_id = $3 AND revoked_at IS NULL", [req.companyId, req.params.kind, req.params.id]);
@@ -137,7 +193,15 @@ publicRouter.get(
     let doc;
     try {
       doc = await asCompany({ companyId: link.company_id, user: { id: link.created_by } }, async (client) => {
+        if (link.kind === "payslip") {
+          const p = await payslipOf(client, { companyId: link.company_id, lineId: link.document_id });
+          return { payslip: await require("../ledger/payroll").payslip(client, { companyId: link.company_id, runId: p.run_id, employeeId: p.employee_id }) };
+        }
         const shown = await documents.show(client, { companyId: link.company_id, kind: link.kind, documentId: link.document_id });
+        if (link.kind === "purchase_order") {
+          const { rows: o } = await client.query("SELECT supplier_confirmed_at, supplier_confirmed_by, supplier_expected_on::text AS expected, supplier_note FROM orders WHERE id = $1", [link.document_id]);
+          shown.confirmation = o[0]?.supplier_confirmed_at ? { at: o[0].supplier_confirmed_at, by: o[0].supplier_confirmed_by, expected: o[0].expected, note: o[0].supplier_note } : null;
+        }
         await require("../services/push").tell(client, {
           companyId: link.company_id, userIds: [link.created_by], kind: "done",
           title: `${shown.data.to?.name || "Someone"} opened ${LABEL[link.kind]} ${shown.data.number}`,
@@ -153,5 +217,39 @@ publicRouter.get(
   })
 );
 
+/** A supplier confirms a purchase order from its link: by name, with when it will come. */
+const writing = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: "draft-7", legacyHeaders: false, keyGenerator: (req, res) => ipKeyGenerator(req, res) });
+publicRouter.post(
+  "/:token/confirm",
+  writing,
+  asyncHandler(async (req, res) => {
+    const p = z
+      .object({ name: z.string().trim().min(2, "Say who is confirming.").max(120), expectedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "A date is YYYY-MM-DD.").nullish(), note: z.string().trim().max(600).nullish() })
+      .safeParse(req.body ?? {});
+    if (!p.success) throw ApiError.badRequest(p.error.issues[0].message);
+    const { rows } = await pool.query("SELECT id, company_id, kind, document_id, created_by FROM document_links WHERE token_hash = $1 AND revoked_at IS NULL", [hash(req.params.token)]);
+    const link = rows[0];
+    if (!link || link.kind !== "purchase_order") throw ApiError.notFound("This link has been turned off, or is not for an order.");
+    await asCompany({ companyId: link.company_id, user: { id: link.created_by } }, async (client) => {
+      const { rows: o } = await client.query(
+        "UPDATE orders SET supplier_confirmed_at = now(), supplier_confirmed_by = $3, supplier_expected_on = $4, supplier_note = $5 " +
+          "WHERE id = $1 AND company_id = $2 AND kind = 'purchase' AND supplier_confirmed_at IS NULL AND cancelled_at IS NULL RETURNING number",
+        [link.document_id, link.company_id, p.data.name, p.data.expectedOn || null, p.data.note || null]
+      );
+      if (!o.length) throw ApiError.badRequest("This order is confirmed already, or has been cancelled.");
+      await require("../services/push").tell(client, {
+        companyId: link.company_id, userIds: [link.created_by], kind: "done", title: p.data.name + " confirmed " + o[0].number,
+        body: p.data.expectedOn ? "Expected " + p.data.expectedOn + "." + (p.data.note ? " " + p.data.note : "") : p.data.note || "The supplier has the order.",
+        href: "/orders/" + link.document_id,
+      });
+    });
+    res.json({ ok: true });
+  })
+);
+
 module.exports = manage;
 module.exports.publicRouter = publicRouter;
+module.exports.makeLink = makeLink;
+module.exports.payslipOf = payslipOf;
+module.exports.mailPayslip = mailPayslip;
+module.exports.monthName = monthName;

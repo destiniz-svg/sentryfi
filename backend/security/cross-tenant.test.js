@@ -1283,3 +1283,32 @@ describe("sending a document", () => {
     noLeak(page, "OTHER-CUSTOMER-A", "SECRET-QUOTE-LINE");
   });
 });
+
+describe("payslips, confirmations and customer emails by link", () => {
+  it("a payslip link needs the payroll right, shows that one payslip, and B cannot make one", async () => {
+    const lineId = (await db.query("SELECT id FROM pay_run_lines WHERE run_id = $1 AND employee_id = $2", [A.runId, A.employeeId])).rows[0].id;
+    denied(await call(B, "POST", `/share/payslip/${lineId}`, { body: { how: "link" } }));
+    denied(await call(B, "POST", `/share/payslip/${lineId}`, { body: { how: "link" }, company: A.companyId }));
+    denied(await call(B, "POST", `/payroll/runs/${A.runId}/send`, { body: {} }));
+    const made = await call(A, "POST", `/share/payslip/${lineId}`, { body: { how: "link" } });
+    expect(made.status).toBe(201);
+    const token = made.json.url.split("/d/")[1];
+    const seen = await call({ cookie: null }, "GET", `/shared/${token}`);
+    expect(seen.status).toBe(200);
+    expect(seen.json.kind).toBe("payslip");
+    expect(seen.text).toContain("SECRET-EMPLOYEE-A");
+    // A payslip link cannot confirm an order.
+    denied(await call({ cookie: null }, "POST", `/shared/${token}/confirm`, { body: { name: "Mallory" } }));
+    await call(A, "DELETE", `/share/payslip/${lineId}`);
+    denied(await call({ cookie: null }, "GET", `/shared/${token}`));
+  });
+
+  it("B cannot read or change A's customer emails", async () => {
+    denied(await call(B, "GET", "/customer-mail", { company: A.companyId }));
+    denied(await call(B, "PUT", "/customer-mail", { company: A.companyId, body: { monthlyStatements: true, reminders: true } }));
+    const r = await call(B, "PUT", "/customer-mail", { body: { monthlyStatements: true, reminders: false } });
+    expect(r.status).toBe(200);
+    const a = (await db.query("SELECT monthly_statements FROM customer_mail_settings WHERE company_id = $1", [A.companyId])).rows[0];
+    expect(a?.monthly_statements ?? false).toBe(false);
+  });
+});

@@ -113,6 +113,7 @@ app.use("/api/stock", require("./routes/stock"));
 app.use("/api/payroll", require("./routes/payroll"));
 app.use("/api/advances", require("./routes/advances"));
 app.use("/api/share", require("./routes/share"));
+app.use("/api/customer-mail", require("./routes/customerMail"));
 app.use("/api/shipments", require("./routes/shipments"));
 app.use("/api/projects", require("./routes/projects"));
 app.use("/api/orders", require("./routes/orders"));
@@ -184,6 +185,7 @@ async function start() {
       require("./routes/recurring").schedule();
       require("./routes/cfo").schedule();
       require("./routes/notifications").schedule();
+      require("./routes/customerMail").schedule();
     });
   } catch (err) {
     console.error("Failed to start server:", err.message);

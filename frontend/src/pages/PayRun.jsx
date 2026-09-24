@@ -635,27 +635,17 @@ function Owe({ run, o, payFrom, rules, next, onDone }) {
 }
 
 function Payslips({ run, onDone }) {
-  const toast = useToast();
-  async function publish() {
-    try {
-      await apiClient.post(`/payroll/runs/${run.id}/publish`);
-      onDone();
-      toast.success("Payslips are out", "Everyone who signs in to Sentryfi sees theirs under My payslips.");
-    } catch (ex) {
-      toast.error("Not sent", ex.message);
-    }
-  }
+  const [sending, setSending] = useState(false);
   return (
     <section className="mt-6" aria-labelledby="slips">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <h2 id="slips" className="text-[16px] font-semibold">Payslips</h2>
-        {run.publishedAt ? (
-          <span className="text-[13px] text-[var(--success)] flex items-center gap-1.5"><Check size={14} /> Out since {formatDate(run.publishedAt)}</span>
-        ) : (
-          <Button variant="outline" size="sm" onClick={publish}>
-            <Send size={14} /> Give everyone their payslip
+        <span className="flex items-center gap-3">
+          {run.publishedAt && <span className="text-[13px] text-[var(--success)] flex items-center gap-1.5"><Check size={14} /> Out since {formatDate(run.publishedAt)}</span>}
+          <Button variant="outline" size="sm" onClick={() => setSending(true)}>
+            <Send size={14} /> {run.publishedAt ? "Send payslips again" : "Send everyone their payslip"}
           </Button>
-        )}
+        </span>
       </div>
       <Card padding="none" className="overflow-hidden">
         <ul className="divide-y divide-[var(--border)]">
@@ -673,7 +663,84 @@ function Payslips({ run, onDone }) {
           ))}
         </ul>
       </Card>
+      {sending && <SendPayslips run={run} onClose={() => setSending(false)} onDone={onDone} />}
     </section>
+  );
+}
+
+/** Digits WhatsApp takes: a Maldivian seven-digit number gets 960 in front. */
+const wa = (phone) => {
+  const d = String(phone || "").replace(/\D/g, "");
+  return d.length === 7 ? `960${d}` : d;
+};
+
+/**
+ * Everyone's payslip as a private link: most people on a site or a resort do
+ * not sign in to anything, so each gets theirs on WhatsApp (to their number),
+ * by email where there is an address, or as a link to pass on.
+ */
+function SendPayslips({ run, onClose, onDone }) {
+  const toast = useToast();
+  const [sent, setSent] = useState(null);
+  const [busy, setBusy] = useState(null);
+  const [copied, setCopied] = useState(null);
+  const withEmail = run.lines.filter((l) => l.person.email).length;
+  async function make(email) {
+    setBusy(email ? "email" : "links");
+    try {
+      const r = await apiClient.post(`/payroll/runs/${run.id}/send`, { email });
+      setSent(r.data.sent);
+      onDone();
+      const mailed = r.data.sent.filter((x) => x.emailed).length;
+      toast.success(mailed ? `${mailed} emailed` : "Links made", "Send the rest on WhatsApp below. Anyone who signs in also sees theirs under My payslips.");
+    } catch (ex) {
+      toast.error("Not sent", ex.message);
+    } finally {
+      setBusy(null);
+    }
+  }
+  return (
+    <Modal open onClose={onClose} title={`${monthName(run.period)} payslips`} description="Each person gets a private link to their own payslip, to read, print or keep." size="lg">
+      {!sent ? (
+        <div className="grid gap-3">
+          <p className="text-[14px] text-[var(--ink-muted)]">
+            {run.lines.length} {run.lines.length === 1 ? "person" : "people"}; {withEmail} with an email address, {run.lines.filter((l) => l.person.phone).length} with a phone number.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="accent" onClick={() => make(true)} disabled={Boolean(busy) || !withEmail}>
+              {busy === "email" && <Loader2 size={14} className="animate-spin" />} Email {withEmail}, and make links for the rest
+            </Button>
+            <Button variant="outline" onClick={() => make(false)} disabled={Boolean(busy)}>
+              {busy === "links" && <Loader2 size={14} className="animate-spin" />} Just make the links
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <ul className="divide-y divide-[var(--border)] -mx-1" data-testid="payslip-links">
+          {sent.map((x) => (
+            <li key={x.lineId} className="px-1 py-2.5 flex items-center gap-2">
+              <span className="flex-1 min-w-0">
+                <span className="block text-[15px] truncate">{x.name}</span>
+                <span className="block text-[12px] text-[var(--ink-muted)]">{x.emailed ? `Emailed to ${x.email}` : x.phone ? x.phone : "No phone or email on file"}</span>
+              </span>
+              <Button variant="outline" size="sm" onClick={() => window.open(`https://wa.me/${wa(x.phone)}?text=${encodeURIComponent(`${x.text}\n${x.url}`)}`, "_blank", "noopener")}>
+                WhatsApp
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(x.url).catch(() => {});
+                  setCopied(x.lineId);
+                }}
+              >
+                {copied === x.lineId ? "Copied" : "Copy"}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Modal>
   );
 }
 

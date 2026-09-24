@@ -325,7 +325,7 @@ async function loadRun(client, { companyId, runId }) {
   const owed = await advanceBalances(client, { companyId });
   const out = lines.map((l) => {
     const row = byId.get(l.employee_id);
-    const person = { id: row.id, name: row.name, jobTitle: row.job_title, nationality: row.nationality, employeeNo: row.employee_no, projectId: row.project_id, bankAccount: row.bank_account, bankName: row.bank_name, serviceCharge: row.service_charge, tin: row.tin, idNumber: row.id_number, wpsPersonId: row.wps_person_id, wpsRoutingCode: row.wps_routing_code };
+    const person = { id: row.id, name: row.name, jobTitle: row.job_title, nationality: row.nationality, employeeNo: row.employee_no, projectId: row.project_id, bankAccount: row.bank_account, bankName: row.bank_name, serviceCharge: row.service_charge, tin: row.tin, idNumber: row.id_number, wpsPersonId: row.wps_person_id, wpsRoutingCode: row.wps_routing_code, email: row.email, phone: row.phone };
     if (run.status === "approved") return { lineId: l.id, person, inputs: l.inputs, slip: l.slip, frozen: true };
     const slip = R.payslip({ pack: c.pack, period: run.period, employee: employeeOf(row, items), inputs: inputsOf(l.inputs), company: c });
     const o = owed.get(row.id);
@@ -639,12 +639,13 @@ async function payslip(client, { companyId, runId, employeeId }) {
     [companyId, employeeId, s.period.slice(0, 4), s.period]
   );
   const { rows: co } = await client.query("SELECT name, tin FROM companies WHERE id = $1", [companyId]);
-  const people = await client.query("SELECT joined_on, id_number, tin FROM employees WHERE id = $1", [employeeId]);
+  const people = await client.query("SELECT joined_on, id_number, tin, email, phone FROM employees WHERE id = $1", [employeeId]);
   const owed = (await advanceBalances(client, { companyId })).get(employeeId);
   return {
     company: { name: co[0].name, tin: co[0].tin || null },
     period: s.period, payDate: s.payDate, status: s.status, currency: s.currency, pack: s.pack,
-    person: { ...line.person, joinedOn: iso(people.rows[0].joined_on), idNumber: people.rows[0].id_number, tin: people.rows[0].tin },
+    lineId: line.lineId,
+    person: { ...line.person, joinedOn: iso(people.rows[0].joined_on), idNumber: people.rows[0].id_number, tin: people.rows[0].tin, email: people.rows[0].email, phone: people.rows[0].phone },
     slip: line.slip,
     ytd: plain({ gross: BigInt(ytd[0].gross), tax: BigInt(ytd[0].tax), pension: BigInt(ytd[0].pension), net: BigInt(ytd[0].net) }),
     advanceOwed: owed ? F(owed.owed) : null,

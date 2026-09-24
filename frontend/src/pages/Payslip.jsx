@@ -1,5 +1,7 @@
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, ChevronRight, Printer } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, ChevronRight, Printer, Share2 } from "lucide-react";
+import { ShareDocument } from "@/components/documents/Share";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -33,11 +35,38 @@ const PRINT = `@media print{
 export default function Payslip({ mine = false }) {
   const { runId, employeeId } = useParams();
   const { companyId } = useCompany();
+  const [sending, setSending] = useState(false);
   const url = mine ? `/payroll/mine/${runId}` : `/payroll/runs/${runId}/slips/${employeeId}`;
   const { data: p, isLoading, error } = useQuery({ queryKey: ["payroll", companyId, "slip", url], queryFn: () => apiClient.get(url).then((r) => r.data), enabled: Boolean(companyId) });
 
   if (error) return <Card padding="lg"><p className="text-[14px]">{error.message}</p></Card>;
   if (isLoading || !p) return <Skeleton className="h-[640px] rounded-3xl max-w-3xl" />;
+  return (
+    <div className="max-w-3xl">
+      <style>{PRINT}</style>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4 print:hidden">
+        <Link to={mine ? "/payslips" : `/payroll/runs/${runId}`} className="inline-flex items-center gap-1.5 text-[14px] text-[var(--ink-muted)] hover:text-[var(--ink)]">
+          <ArrowLeft size={15} /> {mine ? "My payslips" : `${monthName(p.period)} payroll`}
+        </Link>
+        <div className="flex gap-2">
+          {!mine && p.lineId && p.status === "approved" && (
+            <Button variant="outline" onClick={() => setSending(true)}>
+              <Share2 size={15} /> Send
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => window.print()}>
+            <Printer size={15} /> Print or save as PDF
+          </Button>
+        </div>
+      </div>
+      <PayslipView p={p} />
+      {sending && <ShareDocument kind="payslip" id={p.lineId} number={`${p.person.name}'s payslip`} to={{ name: p.person.name, email: p.person.email, phone: p.person.phone }} onClose={() => setSending(false)} />}
+    </div>
+  );
+}
+
+/** A payslip drawn: the office's copy, the person's own, and the one behind a private link. */
+export function PayslipView({ p }) {
   const s = p.slip;
   const who = p.person;
   const facts = [
@@ -52,17 +81,6 @@ export default function Payslip({ mine = false }) {
   ].filter(([, v]) => v);
 
   return (
-    <div className="max-w-3xl">
-      <style>{PRINT}</style>
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4 print:hidden">
-        <Link to={mine ? "/payslips" : `/payroll/runs/${runId}`} className="inline-flex items-center gap-1.5 text-[14px] text-[var(--ink-muted)] hover:text-[var(--ink)]">
-          <ArrowLeft size={15} /> {mine ? "My payslips" : `${monthName(p.period)} payroll`}
-        </Link>
-        <Button variant="outline" onClick={() => window.print()}>
-          <Printer size={15} /> Print or save as PDF
-        </Button>
-      </div>
-
       <article className="payslip rounded-3xl bg-[var(--surface)] lift overflow-hidden" aria-label={`Payslip for ${who.name}, ${monthName(p.period)}`}>
         <header className="px-7 pt-7 pb-5 flex flex-wrap items-start justify-between gap-4 border-b border-[var(--border)]">
           <div>
@@ -122,7 +140,6 @@ export default function Payslip({ mine = false }) {
           Figures in {p.currency}. {p.pack === "MV" ? "Tax is worked out on pay after your own pension, band by band, as MIRA sets." : ""} Ask the payroll office about anything on it.
         </footer>
       </article>
-    </div>
   );
 }
 

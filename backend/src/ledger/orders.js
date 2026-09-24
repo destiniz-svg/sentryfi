@@ -294,6 +294,7 @@ function show(s) {
     status: s.status,
     orderer: s.order.orderer,
     approver: s.order.approver,
+    supplierConfirmed: s.order.supplier_confirmed_at ? { at: s.order.supplier_confirmed_at, by: s.order.supplier_confirmed_by, expected: s.order.supplier_expected_on, note: s.order.supplier_note } : null,
     total: f(s.total),
     delivered: f(s.lines.reduce((a, l) => a + times(l.price, l.deliveredUnits), 0n)),
     billed: f(s.lines.reduce((a, l) => a + times(l.price, l.billedUnits), 0n)),
