@@ -38,9 +38,10 @@ const COMPANY_HEADER = "x-company-id";
 const CAN = {
   administrator: [
     "read", "record", "approve", "adjust", "close", "manage_cash", "read_trail",
-    "manage_people", "manage_settings",
+    "manage_people", "manage_settings", "run_payroll",
   ],
-  accountant: ["read", "record", "approve", "adjust", "close", "manage_cash", "read_trail"],
+  // Salaries are private: only these two see and run payroll.
+  accountant: ["read", "record", "approve", "adjust", "close", "manage_cash", "read_trail", "run_payroll"],
   manager: ["read", "record"],
   approver: ["read", "approve"],
   viewer: ["read"],

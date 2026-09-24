@@ -4,7 +4,8 @@ const { SCHEMA_SQL } = require("./schema");
 
 const pool = new Pool({
   connectionString: env.databaseUrl,
-  ssl: process.env.DATABASE_SSL_NO_VERIFY === "1"
+  // DATABASE_SSL=off only for a throwaway Postgres on this machine, which has no SSL.
+  ssl: process.env.DATABASE_SSL === "off" ? false : process.env.DATABASE_SSL_NO_VERIFY === "1"
     ? { rejectUnauthorized: false }
     : { rejectUnauthorized: true },
   max: 10,

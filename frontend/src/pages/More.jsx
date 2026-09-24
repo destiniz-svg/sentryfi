@@ -73,6 +73,8 @@ export default function More() {
           { name: "The expenses app", icon: Receipt, to: "/go" },
           can("approve") && { name: "Approvals", icon: CheckCheck, to: "/approvals" },
           can("record") && { name: "Payments", icon: Banknote, to: "/payments" },
+          can("run_payroll") && { name: "Payroll", icon: Users, to: "/payroll" },
+          { name: "My payslips", icon: FileText, to: "/payslips" },
           { name: "Items", icon: Boxes, to: "/stock" },
           { name: "Shipments", icon: Ship, to: "/shipments" },
           { name: "Fixed assets", icon: Package, to: "/assets" },

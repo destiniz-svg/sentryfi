@@ -1155,3 +1155,47 @@ describe("withholding tax, from B", () => {
     expect((await db.query("SELECT nwt_category FROM counterparties WHERE id = $1", [aSupplier])).rows[0].nwt_category).toBe(null);
   });
 });
+
+describe("payroll", () => {
+  beforeAll(async () => {
+    const p = await call(A, "POST", "/payroll/people", { body: { name: "SECRET-EMPLOYEE-A", nationality: "MV", joinedOn: "2026-01-01", basic: "31313.13" } });
+    expect(p.status).toBe(201);
+    A.employeeId = p.json.id;
+    const r = await call(A, "POST", "/payroll/runs", { body: { period: "2026-09" } });
+    expect(r.status).toBe(201);
+    A.runId = r.json.id;
+    expect((await call(A, "POST", `/payroll/runs/${A.runId}/approve`)).status).toBe(200);
+  });
+
+  it("from B: shows none of A's people, runs or pay, and changes nothing", async () => {
+    noLeak(await call(B, "GET", "/payroll"), "SECRET-EMPLOYEE-A", "31,313.13");
+    denied(await call(B, "GET", "/payroll", { company: A.companyId }));
+    for (const [m, url, body] of [
+      ["GET", `/payroll/runs/${A.runId}`],
+      ["GET", `/payroll/runs/${A.runId}/slips/${A.employeeId}`],
+      ["GET", `/payroll/runs/${A.runId}/files/bank`],
+      ["POST", `/payroll/runs/${A.runId}/reopen`, { reason: "probe" }],
+      ["PUT", `/payroll/people/${A.employeeId}`, { name: "x", joinedOn: "2026-01-01", basic: "1" }],
+      ["GET", `/payroll/mine/${A.runId}`],
+    ]) {
+      const r = await call(B, m, url, { body });
+      expect([400, 403, 404]).toContain(r.status);
+      noLeak(r, "SECRET-EMPLOYEE-A", "31,313.13");
+    }
+    expect((await db.query("SELECT status FROM pay_runs WHERE id = $1", [A.runId])).rows[0].status).toBe("approved");
+  });
+
+  it("inside A: a viewer or manager is refused, and the journal holds only totals", async () => {
+    await db.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1, $2, 'viewer')", [A.companyId, B.user.id]);
+    try {
+      const r = await call(B, "GET", "/payroll", { company: A.companyId });
+      expect(r.status).toBe(403);
+      noLeak(r, "SECRET-EMPLOYEE-A");
+      // Not linked to anyone on the payroll: no payslips of their own.
+      expect((await call(B, "GET", "/payroll/mine", { company: A.companyId })).json.slips).toEqual([]);
+      noLeak(await call(B, "GET", "/journal", { company: A.companyId }), "SECRET-EMPLOYEE-A");
+    } finally {
+      await db.query("DELETE FROM memberships WHERE company_id = $1 AND user_id = $2", [A.companyId, B.user.id]);
+    }
+  });
+});

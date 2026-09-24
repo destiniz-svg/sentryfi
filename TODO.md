@@ -192,7 +192,7 @@ The phases below say *what*; this says *when*. Set 23 September 2026. Each sprin
 **Retail till.** A day's takings from a point of sale arrive as one balanced entry per till per day. *(was step 26a)*
 **Done when:** nobody retypes a till's day from a spreadsheet.
 
-**Payroll.** Gross to net, deductions per country, payslips, the filings that follow. Waits for the tax engine to be real everywhere it is sold. *(was step 25)*
+**Payroll.** Gross to net, deductions per country, payslips, the filings that follow. Waits for the tax engine to be real everywhere it is sold. *(was step 25)* *Built 24 Sep 2026 for the Maldives and the UAE: people with allowances and agreed deductions, advances repaid by instalment, a month's run entered in a grid (unpaid days, overtime, bonus, service charge shared by days, leave), checked against last month and the law (minimum wage, deduction caps, negative pay, final pay), approved into one entry of totals, then wages, EWT (MIRA 601) and pension (Koshaaru) paid and filed with their files (UAE: the WPS salary file), and payslips given out. Rules and sources in docs/domain/payroll.md. Still to come: leave requests and balances as their own module, the annual EWT reconciliation, emailing payslips, and the exact MIRA 601 and Koshaaru file layouts once confirmed.*
 **Done when:** a payslip posts a correct entry and the filings it produces are accepted.
 
 **Leases and hire purchase.** What a lease puts on the balance sheet and through the P&L, for companies whose auditors apply IFRS 16. *(was step 26a)*

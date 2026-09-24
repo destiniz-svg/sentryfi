@@ -86,3 +86,18 @@ Sentryfi keeps tax back from payments to suppliers marked as non-resident, owes 
 ## Income tax, the year's view (added 24 September 2026)
 
 The tax page regroups the year's profit onto return lines (revenue, other income, cost of sales, staff costs, rent, interest, other expenses), adds back depreciation and anything marked not deductible (fines by default), sets gains and losses on selling assets apart, and estimates tax at 15% of what is left. **To confirm:** the return's actual lines (the MIRA income tax return for a company), the capital allowances that replace depreciation and at what rates, whether gains on selling assets are taxed, which costs are not deductible (entertainment, private use, fines), the rate and any threshold, and the year end if it is not 31 December.
+
+## Payroll (added 24 September 2026)
+
+Sentryfi runs payroll by the rules in `docs/domain/payroll.md`, kept as dated data in `backend/src/ledger/payrollRules.js`. **To confirm before a first run is filed:**
+- For the Maldives:
+  - The EWT bands and that the employee's pension comes off first.
+  - The MRPS rates and pensionable wage.
+  - The MIRA 601 information sheet's columns.
+  - The Koshaaru contribution file format.
+  - The minimum wage tiers and how business size is decided.
+  - The service charge admin fee cap.
+- For the UAE:
+  - The WPS SIF layout for the company's bank.
+  - The GPSSA shares and whether the government share still applies.
+  - The gratuity day rate.
