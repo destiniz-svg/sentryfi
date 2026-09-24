@@ -236,9 +236,9 @@ export default function Invoices() {
             {rows.map((inv) => (
               <div
                 key={inv.id}
-                className="grid grid-cols-2 xl:grid-cols-[minmax(0,1.4fr)_120px_110px_110px_150px_236px] gap-x-4 gap-y-1 px-5 py-4 items-center"
+                className="grid grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,1.4fr)_120px_110px_110px_150px_236px] gap-x-4 gap-y-1.5 px-5 py-4 items-center"
               >
-                <div className="min-w-0 col-span-2 xl:col-span-1">
+                <div className="min-w-0 order-1 xl:order-none">
                   <div className="text-sm font-semibold text-[var(--ink)] truncate">
                     {inv.customerId ? (
                       <Link to={`/documents/statement/${inv.customerId}`} title={`${inv.customer}'s statement`} className="hover:underline underline-offset-2">
@@ -253,7 +253,7 @@ export default function Invoices() {
                   {inv.missingPurchaseOrder && inv.status !== "draft" && !inv.settled && <div className="text-xs text-[var(--warning)]">No purchase order</div>}
                 </div>
 
-                <Link to={`/documents/invoice/${inv.id}`} className="text-sm tabular text-[var(--ink)] underline decoration-[var(--border)] underline-offset-4 hover:decoration-[var(--ink)]">
+                <Link to={`/documents/invoice/${inv.id}`} className="order-3 xl:order-none justify-self-start text-sm tabular text-[var(--ink)] underline decoration-[var(--border)] underline-offset-4 hover:decoration-[var(--ink)]">
                   {inv.invoiceNo}
                 </Link>
 
@@ -261,11 +261,11 @@ export default function Invoices() {
                   {inv.dueDate ? formatDate(inv.dueDate) : "—"}
                 </div>
 
-                <div>
+                <div className="order-4 xl:order-none justify-self-end xl:justify-self-auto">
                   <Badge tone={inv.state.tone}>{inv.state.label}</Badge>
                 </div>
 
-                <div className="text-sm tabular text-right">
+                <div className="order-2 xl:order-none text-sm tabular text-right self-start xl:self-auto">
                   <div className="font-semibold text-[var(--ink)]">
                     {inv.foreign ? (
                       <>
@@ -282,7 +282,7 @@ export default function Invoices() {
                   )}
                 </div>
 
-                <div className="col-span-2 xl:col-span-1 justify-self-end flex items-center gap-1.5">
+                <div className="order-5 xl:order-none col-span-2 xl:col-span-1 justify-self-end flex flex-wrap items-center gap-1.5 empty:hidden">
                   {mayRecord && inv.status === "draft" && !inv.voided && (
                     <>
                       <Button variant="outline" onClick={() => onPost(inv)} disabled={posting === inv.id}>

@@ -205,12 +205,7 @@ export default function Landing() {
         <div className="relative mx-auto max-w-[1180px] px-6 pt-16 pb-14 grid lg:grid-cols-[1.05fr_auto] gap-14 items-center">
           <div>
             <Reveal>
-              <span className="inline-flex items-center gap-2 h-8 px-3 rounded-full bg-white border border-[#E6E7EA] text-[12px] font-semibold tracking-[.1em] uppercase text-[#806400]">
-                Maldives native
-              </span>
-            </Reveal>
-            <Reveal delay={0.05}>
-              <h1 className="mt-5 text-[clamp(44px,6.4vw,76px)] leading-[0.98] font-bold tracking-[-.035em]">
+              <h1 className="text-[clamp(44px,6.4vw,76px)] leading-[0.98] font-bold tracking-[-.035em]">
                 Snap it.<br />Record it.<br />
                 <span
                   style={{

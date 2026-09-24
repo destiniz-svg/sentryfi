@@ -1,204 +1,136 @@
 import { motion, useReducedMotion } from "framer-motion";
 
 /**
- * The phone board, drawn rather than photographed. Every figure is illustrative
- * and the board says so, because PRODUCT.md forbids passing invented numbers off
- * as real ones. The band counts up once on entry; the ruled row slides in after
- * it, which is the same two-beat the real app plays when a bill posts.
+ * The phone's Home, drawn rather than photographed, in the app's own refined
+ * register: a greeting, the one black card for cash and how long it lasts,
+ * what needs a person, and money out by month above a floating tab bar. Every
+ * figure and name is illustrative and the drawing says so, because PRODUCT.md
+ * forbids passing invented numbers off as real ones.
  */
 
-const rows = [
-  ["18 Sep", "Moonreef Hotels", "Money in · advance", "+250,000", true],
-  ["17 Sep", "Road Development Corp.", "Excavator rental", "+42,000", true],
-  ["16 Sep", "Fuel Supplies Maldives", "Diesel · site cash box", "−6,120", false],
+const INK = "#141414";
+const MUTED = "#5C5B55";
+const ACCENT = "#F2C300";
+const FONT = "Barlow, sans-serif";
+
+const needs = [
+  { dot: ACCENT, pill: "Costs money", title: "Q3 GST return due in 4 days", sub: "MVR 18,240 to pay" },
+  { dot: "#C62B20", pill: "Getting old", title: "Palmway Apartments, 21 days late", sub: "MVR 39,336 still owed" },
 ];
 
-const codes = [
-  ["Materials", 100],
-  ["Labour", 53],
-  ["Subcontractors", 34],
-  ["Everything else", 40],
+const months = [
+  ["Apr", 52],
+  ["May", 64],
+  ["Jun", 48],
+  ["Jul", 71],
+  ["Aug", 58],
+  ["Sep", 80],
 ];
 
 export default function PhoneMock() {
   const still = useReducedMotion();
+  const rise = (delay) => (still ? {} : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.5, delay, ease: [0.2, 0.8, 0.2, 1] } });
 
   return (
     <div
       className="relative mx-auto"
       style={{ width: 300, height: 600 }}
       role="img"
-      aria-label="The Sentryfi phone board, showing what has been spent this month, where it went, and the latest movements. Figures are illustrative."
+      aria-label="The Sentryfi phone Home: cash and how long it lasts, what needs you, and money out by month. Figures are illustrative."
     >
       <div
         className="absolute inset-0 overflow-hidden"
-        style={{
-          borderRadius: 34,
-          background: "#FFFFFF",
-          border: "8px solid #141414",
-          boxShadow: "0 30px 70px rgba(20,20,20,.28)",
-        }}
+        style={{ borderRadius: 38, background: "#F4F3EF", border: `8px solid ${INK}`, boxShadow: "0 30px 70px rgba(20,20,20,.28)" }}
       >
-        {/* band */}
-        <div style={{ background: "#F2C300", color: "#141414", padding: "26px 18px 16px" }}>
-          <div
-            style={{
-              font: "600 11px Barlow, sans-serif",
-              letterSpacing: ".14em",
-              textTransform: "uppercase",
-            }}
-          >
-            Spent this month
-          </div>
-          <div className="flex items-baseline gap-2" style={{ paddingTop: 4 }}>
-            <span style={{ font: "500 15px Barlow, sans-serif" }}>MVR</span>
-            <motion.span
-              className="tabular-nums"
-              style={{ font: "600 40px/1 Barlow, sans-serif", letterSpacing: "-.02em" }}
-              initial={still ? false : { opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.15 }}
-            >
-              412,880
-            </motion.span>
-          </div>
-          <div style={{ font: "500 12px Barlow, sans-serif", paddingTop: 4 }}>
-            MVR 1,284,650 in bank and cash
-          </div>
-        </div>
+        {/* greeting */}
+        <div style={{ padding: "22px 16px 10px", font: `600 17px ${FONT}`, color: INK, letterSpacing: "-.01em" }}>Good morning, Aisha</div>
 
-        {/* where it went */}
-        <div style={{ padding: "14px 18px 4px" }}>
-          <div
-            style={{
-              font: "600 10px Barlow, sans-serif",
-              letterSpacing: ".14em",
-              textTransform: "uppercase",
-              color: "#70767E",
-            }}
-          >
-            Where it went
-          </div>
-          {codes.map(([name, pct], i) => (
-            <div key={name} className="flex items-center gap-2" style={{ padding: "6px 0" }}>
-              <span
-                style={{ font: "500 12px Barlow, sans-serif", width: 96, flexShrink: 0 }}
-                className="truncate"
-              >
-                {name}
-              </span>
-              <span
-                style={{ height: 6, borderRadius: 99, background: "#F1F2F4", flex: 1 }}
-              >
-                <motion.span
-                  style={{ display: "block", height: 6, borderRadius: 99, background: "#141414" }}
-                  initial={still ? false : { width: 0 }}
-                  animate={{ width: `${pct}%` }}
-                  transition={{ duration: 0.7, delay: 0.3 + i * 0.09, ease: [0.2, 0.8, 0.2, 1] }}
-                />
-              </span>
+        {/* the one black card */}
+        <motion.div {...rise(0.1)} style={{ margin: "0 12px", borderRadius: 20, background: INK, color: "#FFFFFF", padding: "16px 16px 14px" }} className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div style={{ font: `500 11px ${FONT}`, opacity: 0.7 }}>Cash and bank now</div>
+            <div className="tabular-nums" style={{ font: `600 25px/1.1 ${FONT}`, letterSpacing: "-.02em", marginTop: 6 }}>
+              <span style={{ font: `500 11px ${FONT}`, opacity: 0.6, marginRight: 4, verticalAlign: "0.4em" }}>MVR</span>
+              1,284,650
             </div>
-          ))}
-        </div>
-
-        {/* the rule */}
-        <div style={{ padding: "10px 18px 0" }}>
-          <div
-            style={{
-              font: "600 10px Barlow, sans-serif",
-              letterSpacing: ".14em",
-              textTransform: "uppercase",
-              color: "#70767E",
-              paddingBottom: 2,
-            }}
-          >
-            Latest recorded
+            <div style={{ font: `500 11px ${FONT}`, color: ACCENT, marginTop: 10 }}>↗ 118,400 up in 30 days</div>
           </div>
-          {rows.map(([date, who, what, amount, isIn], i) => (
-            <motion.div
-              key={who}
-              className="grid items-center"
-              style={{
-                gridTemplateColumns: "42px minmax(0,1fr) 78px",
-                columnGap: 8,
-                minHeight: 50,
-                padding: "7px 0",
-                borderTop: "1px solid #E6E7EA",
-              }}
-              initial={still ? false : { opacity: 0, x: 16 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.55 + i * 0.1 }}
-            >
-              <span style={{ font: "600 10px Barlow, sans-serif", color: "#70767E" }}>{date}</span>
-              <span className="min-w-0">
-                <span
-                  className="block truncate"
-                  style={{ font: "600 12px Barlow, sans-serif" }}
-                >
-                  {who}
-                </span>
-                <span
-                  className="block truncate"
-                  style={{ font: "400 11px Barlow, sans-serif", color: "#70767E" }}
-                >
-                  {what}
-                </span>
-              </span>
-              <span
-                className="tabular-nums"
-                style={{
-                  font: "600 13px Barlow, sans-serif",
-                  textAlign: "right",
-                  paddingRight: 8,
-                  borderRight: "2px solid #141414",
-                  alignSelf: "stretch",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "flex-end",
-                  color: isIn ? "#167A41" : "#C62B20",
-                }}
-              >
-                {amount}
-              </span>
-            </motion.div>
-          ))}
-        </div>
+          <div style={{ textAlign: "right", flexShrink: 0 }}>
+            <div style={{ font: `500 11px ${FONT}`, opacity: 0.7 }}>It lasts</div>
+            <div style={{ font: `600 16px ${FONT}`, marginTop: 6 }}>7.4 months</div>
+            <div style={{ height: 5, width: 64, borderRadius: 99, background: "rgba(255,255,255,.15)", marginTop: 10, marginLeft: "auto", overflow: "hidden" }}>
+              <motion.div
+                style={{ height: 5, borderRadius: 99, background: ACCENT }}
+                initial={still ? false : { width: 0 }}
+                animate={{ width: "100%" }}
+                transition={{ duration: 0.8, delay: 0.4, ease: [0.2, 0.8, 0.2, 1] }}
+              />
+            </div>
+          </div>
+        </motion.div>
 
-        {/* shutter */}
-        <div
-          className="absolute flex items-center justify-center"
-          style={{ left: 0, right: 0, bottom: 18 }}
-        >
-          <motion.span
-            className="flex items-center justify-center"
-            style={{
-              width: 68,
-              height: 68,
-              borderRadius: 999,
-              background: "#F2C300",
-              boxShadow: "0 10px 24px rgba(20,20,20,.3)",
-            }}
-            initial={still ? false : { scale: 0.85, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.45, delay: 0.85, ease: [0.2, 0.8, 0.2, 1] }}
-          >
-            <span
-              className="flex items-center justify-center"
-              style={{ width: 52, height: 52, borderRadius: 999, background: "#141414", color: "#F2C300" }}
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
-                <circle cx="12" cy="13" r="3.5" />
-              </svg>
-            </span>
-          </motion.span>
+        {/* needs you */}
+        <div style={{ padding: "16px 16px 8px", font: `600 14px ${FONT}`, color: INK }}>
+          Needs you <span style={{ color: MUTED, fontWeight: 400 }}>2</span>
+        </div>
+        {needs.map((n, i) => (
+          <motion.div key={n.title} {...rise(0.3 + i * 0.1)} style={{ margin: "0 12px 8px", borderRadius: 16, background: "#FFFFFF", padding: "11px 12px", boxShadow: "0 6px 18px -10px rgba(20,20,20,.25)" }}>
+            <div className="flex items-center" style={{ gap: 6, font: `500 11px ${FONT}`, color: MUTED }}>
+              <span style={{ width: 6, height: 6, borderRadius: 99, background: n.dot }} aria-hidden="true" />
+              {n.pill}
+            </div>
+            <div className="truncate" style={{ font: `600 13px ${FONT}`, color: INK, marginTop: 3 }}>{n.title}</div>
+            <div style={{ font: `400 11px ${FONT}`, color: MUTED, marginTop: 1 }}>{n.sub}</div>
+          </motion.div>
+        ))}
+
+        {/* money out by month */}
+        <motion.div {...rise(0.5)} style={{ margin: "6px 12px 0", borderRadius: 16, background: "#FFFFFF", padding: "12px 12px 10px", boxShadow: "0 6px 18px -10px rgba(20,20,20,.25)" }}>
+          <div className="flex items-baseline justify-between" style={{ font: `600 12px ${FONT}`, color: INK }}>
+            Money out
+            <span style={{ font: `500 11px ${FONT}`, color: MUTED }}>6 months</span>
+          </div>
+          <div className="flex items-end justify-between" style={{ height: 58, marginTop: 8, gap: 8 }}>
+            {months.map(([m, h], i) => (
+              <div key={m} className="flex flex-col items-center" style={{ flex: 1, gap: 4 }}>
+                <motion.span
+                  style={{ display: "block", width: "100%", borderRadius: 5, background: i === months.length - 1 ? ACCENT : INK, opacity: i === months.length - 1 ? 1 : 0.8 }}
+                  initial={still ? false : { height: 0 }}
+                  animate={{ height: (h / 100) * 44 }}
+                  transition={{ duration: 0.6, delay: 0.6 + i * 0.06, ease: [0.2, 0.8, 0.2, 1] }}
+                />
+                <span style={{ font: `500 9px ${FONT}`, color: MUTED }}>{m}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* the floating tab bar, with the record button at its centre */}
+        <div className="absolute flex items-center justify-around" style={{ left: 14, right: 14, bottom: 14, height: 54, borderRadius: 99, background: "#FFFFFF", boxShadow: "0 10px 26px -10px rgba(20,20,20,.35)", padding: "0 10px" }}>
+          {["Home", "Money", "", "Owed", "More"].map((t, i) =>
+            i === 2 ? (
+              <motion.span
+                key="record"
+                className="flex items-center justify-center"
+                style={{ width: 46, height: 46, borderRadius: 99, background: ACCENT, color: INK, marginTop: -18, boxShadow: "0 8px 18px rgba(20,20,20,.28)" }}
+                initial={still ? false : { scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.45, delay: 0.85, ease: [0.2, 0.8, 0.2, 1] }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </motion.span>
+            ) : (
+              <span key={t} style={{ font: `${i === 0 ? 600 : 500} 10px ${FONT}`, color: i === 0 ? INK : MUTED }}>
+                {t}
+              </span>
+            )
+          )}
         </div>
       </div>
 
-      <span
-        className="absolute left-0 right-0 text-center"
-        style={{ bottom: -26, font: "500 11px Barlow, sans-serif", color: "#70767E" }}
-      >
+      <span className="absolute left-0 right-0 text-center" style={{ bottom: -26, font: `500 11px ${FONT}`, color: "#70767E" }}>
         Figures are illustrative
       </span>
     </div>
