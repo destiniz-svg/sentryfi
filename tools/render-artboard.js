@@ -120,12 +120,12 @@ function render(src, scope) {
 
 // ---- the panels to render ----------------------------------------------------
 const heldSample = [{
-  who: 'Fuel Supplies Maldives', vendor: 'Fuel Supplies Maldives', note: 'Waiting to be read',
-  amount: 6120, date: '16 Sep', paidFrom: 'Site cash box · Hotel', category: 'Fuel', billNo: 'FS-2291'
+  who: 'Fuel supplier', vendor: 'Fuel supplier', note: 'Waiting to be read',
+  amount: 6120, date: '16 Sep', paidFrom: 'Site cash box · Hotel', category: 'Fuel', billNo: ''
 }];
 const billSample = {
-  who: 'State Trading Organisation', what: 'Materials · Hotel', amount: 3450,
-  date: '14 Sep', paidFrom: 'BML · MVR ····4471', billNo: 'INV-12345', dir: 'out'
+  who: 'Materials supplier', what: 'Materials · Hotel', amount: 3450,
+  date: '14 Sep', paidFrom: 'BML MVR', billNo: '', dir: 'out'
 };
 
 const panels = [

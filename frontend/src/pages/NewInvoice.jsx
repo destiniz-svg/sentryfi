@@ -393,7 +393,7 @@ export default function NewInvoice() {
                 id="inv-customer"
                 value={form.customerName}
                 onChange={set("customerName")}
-                placeholder="Road Development Corporation Ltd"
+                placeholder="Who the invoice is to"
                 className={FIELD}
                 autoComplete="off"
               />

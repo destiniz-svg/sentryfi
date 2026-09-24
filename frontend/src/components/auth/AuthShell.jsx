@@ -40,9 +40,9 @@ export function AuthShell({ children, headline, subhead }) {
  * from anyone's books.
  */
 const ROWS = [
-  { label: "Lily Enterprises", meta: "Cement, 20t · 15 Sep", amount: "−4,250.50" },
-  { label: "Moonreef Hotels", meta: "Transfer in · 14 Sep", amount: "+80,000.00" },
-  { label: "Maldive Gas", meta: "Bottled gas · 12 Sep", amount: "−1,120.00" },
+  { label: "Cement supplier", meta: "Cement, 20t · 15 Sep", amount: "−4,250.50" },
+  { label: "Hotel customer", meta: "Transfer in · 14 Sep", amount: "+80,000.00" },
+  { label: "Gas supplier", meta: "Bottled gas · 12 Sep", amount: "−1,120.00" },
 ];
 
 function BoardPanel({ headline, subhead }) {

@@ -32,7 +32,7 @@ a{color:#141414}a:hover{color:#6B7078}
   <div style="position: absolute; inset: 0; display: flex; flex-direction: column;">
     <div style="display: flex; align-items: center; gap: 8px; padding: 56px 20px 12px;">
       <button onClick="{{noop}}" style="display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0; background: none; border: 0; color: #141414; font: 700 18px 'Barlow Condensed', sans-serif; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer;">
-        <span>Altura Pvt Ltd</span>
+        <span>Your company</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
       </button>
       <span style="font: 700 11px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; color: #FFFFFF; background: #141414; padding: 3px 6px;">Owner</span>
@@ -440,7 +440,7 @@ a{color:#141414}a:hover{color:#6B7078}
 
                 <sc-if value="{{isDuplicate}}" hint-placeholder-val="{{false}}">
                   <div class="{{dupeStripClass}}" style="{{dupeStripStyle}}">
-                    <div style="font: 600 15px/1.35 Barlow, sans-serif;">We already have a bill from State Trading Organisation for the same amount on the same day.</div>
+                    <div style="font: 600 15px/1.35 Barlow, sans-serif;">We already have a bill from Materials supplier for the same amount on the same day.</div>
                     <div style="display: flex; gap: 8px;">
                       <button onClick="{{openDupe}}" style="{{dupeOpenBtnStyle}}">Look at that bill</button>
                       <button onClick="{{notDuplicate}}" style="{{dupeKeepBtnStyle}}">Not the same</button>
@@ -462,9 +462,9 @@ a{color:#141414}a:hover{color:#6B7078}
                       <div style="display: flex; flex-direction: column; gap: 3px; border-left: 2px solid #141414; padding-left: 10px;">
                         <div style="font: 700 11px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase;">Already recorded</div>
                         <div style="font: 700 22px/1 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums;">3,450.00</div>
-                        <div style="font: 600 13px Barlow, sans-serif;">State Trading Organisation</div>
+                        <div style="font: 600 13px Barlow, sans-serif;">Materials supplier</div>
                         <div style="font: 400 13px Barlow, sans-serif;">14 Sep</div>
-                        <div style="font: 700 13px Barlow, sans-serif;">No. INV-12290</div>
+                        <div style="font: 700 13px Barlow, sans-serif;"></div>
                       </div>
                     </div>
                     <div style="font: 600 14px/1.35 Barlow, sans-serif;">Same supplier, same day, same amount. Only the bill number is different.</div>
@@ -1004,10 +1004,10 @@ class Component extends DCLogic {
       flashOn: false,
       blank: false,
       amount: '3,450.00',
-      vendor: 'State Trading Organisation',
-      paidFrom: 'BML · MVR ····4471',
+      vendor: 'Materials supplier',
+      paidFrom: 'BML MVR',
       category: 'Materials',
-      billNo: 'INV-12345',
+      billNo: '',
       amountEditing: false,
       amountSettled: false,
       billEditing: false,
@@ -1051,10 +1051,10 @@ class Component extends DCLogic {
       officeBoxLeft: 14200,
       officeBoxCounted: '11 Sep',
       entries: [
-        { date: '18 Sep', who: 'Steva Enterprises', what: 'Money in · advance · Hotel', amount: 250000, dir: 'in', paidFrom: 'BML · MVR ····4471', billNo: 'ADV-0031' },
-        { date: '17 Sep', who: 'Road Development Corp.', what: 'Excavator rental · Sept', amount: 42000, dir: 'in', paidFrom: 'BML · MVR ····4471', billNo: 'RDC-2209' },
-        { date: '16 Sep', who: 'Fuel Supplies Maldives', what: 'Diesel, 400 litres · Hotel', amount: 6120, dir: 'out', code: 'Everything else', paidFrom: 'Site cash box · Hotel', billNo: 'FS-2291' },
-        { date: '15 Sep', who: 'Villa Hakatha', what: 'Cement, 120 bags · Hotel', amount: 28400, dir: 'out', code: 'Materials', paidFrom: 'BML · MVR ····4471', billNo: 'VH-7740' },
+        { date: '18 Sep', who: 'Your other company', what: 'Money in · advance · Hotel', amount: 250000, dir: 'in', paidFrom: 'BML MVR', billNo: 'ADV-0031' },
+        { date: '17 Sep', who: 'Road works customer', what: 'Excavator rental · Sept', amount: 42000, dir: 'in', paidFrom: 'BML MVR', billNo: 'RDC-2209' },
+        { date: '16 Sep', who: 'Fuel supplier', what: 'Diesel, 400 litres · Hotel', amount: 6120, dir: 'out', code: 'Everything else', paidFrom: 'Site cash box · Hotel', billNo: '' },
+        { date: '15 Sep', who: 'Cement supplier', what: 'Cement, 120 bags · Hotel', amount: 28400, dir: 'out', code: 'Materials', paidFrom: 'BML MVR', billNo: 'VH-7740' },
         { date: '15 Sep', who: 'MTCC Ferry', what: 'Boat freight · Hotel', amount: 3900, dir: 'out', code: 'Everything else', paidFrom: 'Office cash box', billNo: 'MTCC-1183' }
       ]
     };
@@ -1199,10 +1199,10 @@ class Component extends DCLogic {
     const base = {
       blank: false,
       amount: '3,450.00',
-      vendor: 'State Trading Organisation',
-      paidFrom: 'BML · MVR ····4471',
+      vendor: 'Materials supplier',
+      paidFrom: 'BML MVR',
       category: 'Materials',
-      billNo: 'INV-12345',
+      billNo: '',
       amountEditing: false,
       amountSettled: false,
       billEditing: false,
@@ -1327,9 +1327,9 @@ class Component extends DCLogic {
       }))
     }));
 
-    const banks = ['BML · MVR ····4471', 'BML · USD ····9902', 'MIB · MVR ····1120'];
+    const banks = ['BML MVR', 'BML · USD ', 'MIB MVR'];
     const boxes = ['Site cash box · Hotel', 'Office cash box'];
-    const suppliers = ['State Trading Organisation', 'Villa Hakatha', 'Fuel Supplies Maldives', 'MTCC Ferry'];
+    const suppliers = ['Materials supplier', 'Cement supplier', 'Fuel supplier', 'MTCC Ferry'];
     const codes = ['Materials', 'Labour', 'Subcontractors', 'Equipment', 'Fuel', 'Transport and boat freight', 'Site overheads'];
     const usual = { Materials: 1, Labour: 1, Fuel: 1 };
     const optStyle = (on) => 'display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 52px; padding: 0 10px; border: 0; border-top: 1px solid #E6E7EA; color: #141414; text-align: left; cursor: pointer; font: 600 15px Barlow, sans-serif; background: ' + (on ? '#F2C300' : 'none') + ';';

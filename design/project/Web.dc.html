@@ -40,7 +40,7 @@ body{margin:0;background:var(--ground);font-family:Barlow,"Helvetica Neue",Arial
       <svg width="34" height="34" viewBox="0 0 96 96" role="img" aria-label="Sentryfi"><circle cx="48" cy="48" r="34" fill="#F2C300"></circle><circle cx="48" cy="48" r="34" fill="none" stroke="#141414" stroke-width="6"></circle><path d="M17.6 58 H78.4" stroke="#141414" stroke-width="7"></path><path d="M48 26 V58" stroke="#141414" stroke-width="7"></path></svg>
       <span style="display: flex; flex-direction: column;">
         <span style="font: 600 20px/1.1 Barlow, sans-serif; letter-spacing: -0.02em;">Sentryfi</span>
-        <span style="font: 500 12px Barlow, sans-serif; color: var(--concrete);">Altura Pvt Ltd</span>
+        <span style="font: 500 12px Barlow, sans-serif; color: var(--concrete);">Your company</span>
       </span>
     </div>
 
@@ -58,7 +58,7 @@ body{margin:0;background:var(--ground);font-family:Barlow,"Helvetica Neue",Arial
     <div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 12px 8px 0; border-top: 1px solid var(--line);">
       <span style="width: 34px; height: 34px; border-radius: 9999px; background: var(--signal-soft); color: var(--signal-deep); display: flex; align-items: center; justify-content: center; font: 600 13px Barlow, sans-serif;">AT</span>
       <span style="display: flex; flex-direction: column; min-width: 0;">
-        <span style="font: 600 14px Barlow, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Abdulla Thinan</span>
+        <span style="font: 600 14px Barlow, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">the owner</span>
         <span style="font: 400 12px Barlow, sans-serif; color: var(--concrete);">Owner</span>
       </span>
     </div>
@@ -186,7 +186,7 @@ body{margin:0;background:var(--ground);font-family:Barlow,"Helvetica Neue",Arial
               <div style="display: flex; align-items: center; gap: 12px; height: 62px; padding: 0 14px; margin-top: 12px; background: var(--sunk); border: 1px solid var(--line); border-radius: var(--rs);">
                 <span style="width: 36px; height: 36px; border-radius: 9999px; background: var(--signal-soft); color: var(--signal-deep); display: flex; align-items: center; justify-content: center; font: 600 13px Barlow, sans-serif;">RD</span>
                 <span style="display: flex; flex-direction: column; min-width: 0;">
-                  <span style="font: 600 14px Barlow, sans-serif;">Road Development Corporation</span>
+                  <span style="font: 600 14px Barlow, sans-serif;">Road works customer</span>
                   <span style="font: 400 12px Barlow, sans-serif; color: var(--concrete);">TIN 1110219GST501</span>
                 </span>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--concrete)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left: auto;"><path d="M6 9l6 6 6-6"></path></svg>
@@ -259,7 +259,7 @@ body{margin:0;background:var(--ground);font-family:Barlow,"Helvetica Neue",Arial
             <div style="background: var(--board); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--lift); padding: 24px; flex-grow: 1;">
               <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding-bottom: 18px;">
                 <span style="display: flex; flex-direction: column;">
-                  <span style="font: 600 18px Barlow, sans-serif;">Altura Pvt Ltd</span>
+                  <span style="font: 600 18px Barlow, sans-serif;">Your company</span>
                   <span style="font: 400 12px/1.5 Barlow, sans-serif; color: var(--concrete);">6F, G. Velimaa, Majeedhee Magu<br>Male', Maldives</span>
                 </span>
                 <span style="text-align: right;">
@@ -271,7 +271,7 @@ body{margin:0;background:var(--ground);font-family:Barlow,"Helvetica Neue",Arial
               <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 16px 0;">
                 <span style="display: flex; flex-direction: column; gap: 3px;">
                   <span style="font: 500 11px Barlow, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint);">Billed to</span>
-                  <span style="font: 600 14px Barlow, sans-serif;">Road Development Corporation</span>
+                  <span style="font: 600 14px Barlow, sans-serif;">Road works customer</span>
                   <span style="font: 400 12px Barlow, sans-serif; color: var(--concrete);">MSL Building, Orchid Magu, Male'</span>
                 </span>
                 <span style="display: flex; flex-direction: column; gap: 6px;">
@@ -414,18 +414,18 @@ class Component extends DCLogic {
     const avatar = 'width: 34px; height: 34px; border-radius: 9999px; background: var(--sunk); color: var(--concrete); display: flex; align-items: center; justify-content: center; font: 600 12px Barlow, sans-serif; flex-shrink: 0;';
 
     const invoiceRows = [
-      ['Road Development Corp.', 'Excavator rental · Sept', 'RD', 'ALT/INV-000029', '25 Sep', 'sent', 97200, 'out'],
-      ['Road Development Corp.', 'Excavator rental · July', 'RD', 'ALT/INV-000028', '25 Jul', 'paid', 97200, 'out'],
-      ['Steva Hotels Pvt Ltd', 'Progress claim 3 · Hotel', 'SH', 'ALT/INV-000027', '18 Sep', 'overdue', 412500, 'out'],
-      ['Road Development Corp.', 'Excavator rental · May', 'RD', 'ALT/INV-000026', '25 May', 'paid', 97200, 'out'],
-      ['Steva Enterprises', 'Equipment hire', 'SE', 'ALT/INV-000025', '02 Sep', 'draft', 18400, 'out']
+      ['Road works customer', 'Excavator rental · Sept', 'RD', 'ALT/INV-000029', '25 Sep', 'sent', 97200, 'out'],
+      ['Road works customer', 'Excavator rental · July', 'RD', 'ALT/INV-000028', '25 Jul', 'paid', 97200, 'out'],
+      ['Your other company Hotels Pvt Ltd', 'Progress claim 3 · Hotel', 'SH', 'ALT/INV-000027', '18 Sep', 'overdue', 412500, 'out'],
+      ['Road works customer', 'Excavator rental · May', 'RD', 'ALT/INV-000026', '25 May', 'paid', 97200, 'out'],
+      ['Your other company', 'Equipment hire', 'SE', 'ALT/INV-000025', '02 Sep', 'draft', 18400, 'out']
     ];
     const expenseRows = [
-      ['State Trading Organisation', 'Materials · Hotel', 'ST', 'INV-12345', '14 Sep', 'paid', 3450, 'out'],
+      ['Materials supplier', 'Materials · Hotel', 'ST', '', '14 Sep', 'paid', 3450, 'out'],
       ['Island Zone Construction', 'Subcontractors · no GST', 'IZ', '244', '30 Aug', 'paid', 4250, 'out'],
-      ['Fuel Supplies Maldives', 'Fuel · site cash box', 'FS', 'FS-2291', '16 Sep', 'paid', 6120, 'out'],
-      ['Sonee Hardware', 'Materials · Hotel', 'SH', 'SH-8821', '19 Jul', 'paid', 132840, 'out'],
-      ['Maalhos Council', 'Site overheads · billed to Steva', 'MC', 'INV-1389', '04 Sep', 'sent', 60, 'out']
+      ['Fuel supplier', 'Fuel · site cash box', 'FS', '', '16 Sep', 'paid', 6120, 'out'],
+      ['Hardware supplier', 'Materials · Hotel', 'SH', 'SH-8821', '19 Jul', 'paid', 132840, 'out'],
+      ['Maalhos Council', 'Site overheads · billed to your other company', 'MC', 'INV-1389', '04 Sep', 'sent', 60, 'out']
     ];
     const src = isExpenses ? expenseRows : invoiceRows;
 
@@ -436,8 +436,8 @@ class Component extends DCLogic {
     const rawChecks = [
       { id: 'noline', title: 'Two bills carry no GST line at all', note: 'Island Zone and the Maalhos Council are not registered. MVR 4,310.00 correctly left out of input tax.', open: false, clearLabel: 'Left out' },
       { id: 'nobill', title: 'Six site cash spends have no bill', note: 'MVR 3,180.00 against the project, no input tax claimed.', open: false, clearLabel: 'Left out' },
-      { id: 'quote', title: 'A quotation is sitting in the bills list', note: 'State Trading 4200149171 is an offer with a valid-to date, not a payable.', open: true, btn: 'Open it' },
-      { id: 'inter', title: 'One bill is addressed to another company', note: 'INV-1389/2026/0449 is billed to Steva and was paid from Altura.', open: true, btn: 'Fix it' },
+      { id: 'quote', title: 'A quotation is sitting in the bills list', note: 'A supplier document is an offer with a valid-to date, not a payable.', open: true, btn: 'Open it' },
+      { id: 'inter', title: 'One bill is addressed to another company', note: 'One bill is addressed to one company but was paid from the other.', open: true, btn: 'Fix it' },
       { id: 'waiting', title: 'Three bills are still waiting to be read', note: 'Snapped on site, not yet extracted. Any of them moves the input tax figure.', open: true, btn: 'Open queue' }
     ];
     const checks = rawChecks.map((c) => {
@@ -454,7 +454,7 @@ class Component extends DCLogic {
     const clear = openChecks === 0;
 
     const titles = {
-      'Dashboard': ['Dashboard', 'What Altura has spent and earned this month'],
+      'Dashboard': ['Dashboard', 'What your company has spent and earned this month'],
       'Invoices': ['Invoices', 'What customers owe you'],
       'Invoice editor': ['New invoice', 'A number is assigned when you save'],
       'Expenses': ['Expenses', 'Every bill and site cash spend'],

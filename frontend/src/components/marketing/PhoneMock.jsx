@@ -15,7 +15,7 @@ const FONT = "Barlow, sans-serif";
 
 const needs = [
   { dot: ACCENT, pill: "Costs money", title: "Q3 GST return due in 4 days", sub: "MVR 18,240 to pay" },
-  { dot: "#C62B20", pill: "Getting old", title: "Palmway Apartments, 21 days late", sub: "MVR 39,336 still owed" },
+  { dot: "#C62B20", pill: "Getting old", title: "Apartments customer, 21 days late", sub: "MVR 39,336 still owed" },
 ];
 
 const months = [
@@ -43,7 +43,7 @@ export default function PhoneMock() {
         style={{ borderRadius: 38, background: "#F4F3EF", border: `8px solid ${INK}`, boxShadow: "0 30px 70px rgba(20,20,20,.28)" }}
       >
         {/* greeting */}
-        <div style={{ padding: "22px 16px 10px", font: `600 17px ${FONT}`, color: INK, letterSpacing: "-.01em" }}>Good morning, Aisha</div>
+        <div style={{ padding: "22px 16px 10px", font: `600 17px ${FONT}`, color: INK, letterSpacing: "-.01em" }}>Good morning</div>
 
         {/* the one black card */}
         <motion.div {...rise(0.1)} style={{ margin: "0 12px", borderRadius: 20, background: INK, color: "#FFFFFF", padding: "16px 16px 14px" }} className="flex items-start justify-between gap-3">

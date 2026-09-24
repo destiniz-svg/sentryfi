@@ -636,7 +636,7 @@ export function RecordBill({ open, onClose, start }) {
             id="bill-supplier"
             value={form.supplierName}
             onChange={set("supplierName")}
-            placeholder="Lily Enterprises"
+            placeholder="Who the bill is from"
             className={fieldClass("supplierName")}
           />
         </Field>

@@ -95,7 +95,7 @@ export default function OpenBooks() {
               id="company-name"
               value={form.name}
               onChange={set("name")}
-              placeholder="Coralmark Builders Pvt Ltd"
+              placeholder="Your company's registered name"
               autoFocus
               className="w-full h-12 px-4 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[15px] text-[var(--ink)] placeholder:text-[var(--ink-muted)] outline-none focus:border-[var(--ink)] focus:ring-[3px] focus:ring-[var(--ink)]/15"
             />

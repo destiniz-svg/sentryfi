@@ -23,13 +23,13 @@ a{color:#141414}a:hover{color:#6B7078}
   <nav class="on-board" aria-label="Sections" style="border-right: 2px solid #141414; display: flex; flex-direction: column; padding: 24px 0;">
     <div style="display: flex; align-items: center; gap: 10px; padding: 0 20px 24px;">
       <svg width="36" height="36" viewBox="0 0 96 96" role="img" aria-label="Sentryfi"><circle cx="48" cy="48" r="34" fill="#F2C300"></circle><circle cx="48" cy="48" r="34" fill="none" stroke="#141414" stroke-width="6"></circle><path d="M17.6 58 H78.4" stroke="#141414" stroke-width="7"></path><path d="M48 26 V58" stroke="#141414" stroke-width="7"></path></svg>
-      <span style="display: flex; flex-direction: column; gap: 2px;"><span style="font: 600 24px/1 Barlow, sans-serif; letter-spacing: -0.03em;">Sentryfi</span><span style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #6B7078;">Altura Pvt Ltd</span></span>
+      <span style="display: flex; flex-direction: column; gap: 2px;"><span style="font: 600 24px/1 Barlow, sans-serif; letter-spacing: -0.03em;">Sentryfi</span><span style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #6B7078;">Your company</span></span>
     </div>
     <sc-for list="{{navItems}}" as="n">
       <a href="{{n.href}}" aria-current="{{n.current}}" style="{{n.style}}">{{n.label}}</a>
     </sc-for>
     <div style="margin-top: auto; padding: 16px 20px 0; display: flex; flex-direction: column; gap: 4px;">
-      <div style="font: 600 14px Barlow, sans-serif;">Aminath Shifa</div>
+      <div style="font: 600 14px Barlow, sans-serif;">Site supervisor</div>
       <div style="font: 700 12px 'Barlow Condensed', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #6B7078;">Accountant / CFO</div>
     </div>
   </nav>
@@ -37,7 +37,7 @@ a{color:#141414}a:hover{color:#6B7078}
   <main style="display: flex; flex-direction: column; min-width: 0; overflow: hidden;">
     <div style="display: flex; align-items: flex-end; gap: 16px; padding: 24px 28px 14px; border-bottom: 2px solid #141414;">
       <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
-        <h1 style="margin: 0; font: 700 34px/1 'Barlow Condensed', sans-serif; text-transform: uppercase;">Bank · BML MVR ····4471</h1>
+        <h1 style="margin: 0; font: 700 34px/1 'Barlow Condensed', sans-serif; text-transform: uppercase;">Bank · BML MVR</h1>
         <span style="font: 400 14px Barlow, sans-serif; color: #6B7078;">{{periodLine}}</span>
       </span>
       <span class="on-ink" style="{{statusStyle}}">{{statusText}}</span>
@@ -170,16 +170,16 @@ class Component extends DCLogic {
     const auto = imported - needs;
 
     const raw = [
-      { id: 'a', date: '19 Jul', who: 'SONEE HARDWARE PRIVATE LIMITED', detail: 'Card purchase · Male, no reference', amount: -132840,
-        guess: 'Sonee Hardware', why: 'Same supplier, same amount, bill snapped 19 Jul', strong: true },
-      { id: 'b', date: '16 Sep', who: 'MOHAMED NAFIZ', detail: 'Transfer out · reference not on any bill', amount: -450,
+      { id: 'a', date: '19 Jul', who: 'HARDWARE SUPPLIER', detail: 'Card purchase · Male, no reference', amount: -132840,
+        guess: 'Hardware supplier', why: 'Same supplier, same amount, bill snapped 19 Jul', strong: true },
+      { id: 'b', date: '16 Sep', who: 'STAFF MEMBER', detail: 'Transfer out · reference not on any bill', amount: -450,
         guess: 'Transport and boat freight', why: 'Matches a site cash note, not a bill', strong: false },
-      { id: 'c', date: '05 Sep', who: 'ALIA INVESTMENTS PVT LTD', detail: 'Transfer out · remark AS/SIQ/26/30052', amount: -1900.8,
-        guess: 'Alia Investments', why: 'Remark looks like a bill number we have not seen', strong: false },
-      { id: 'd', date: '16 Apr', who: 'MUNI ENTERPRISES PVT LTD', detail: 'Transfer in · no remark', amount: 108900,
+      { id: 'c', date: '05 Sep', who: 'PROPERTY CUSTOMER', detail: 'Transfer out · remark AS/SIQ/26/30052', amount: -1900.8,
+        guess: 'Property customer', why: 'Remark looks like a bill number we have not seen', strong: false },
+      { id: 'd', date: '16 Apr', who: 'TRADING SUPPLIER', detail: 'Transfer in · no remark', amount: 108900,
         guess: 'Money in · needs a source', why: 'Large credit with nothing to match it to', strong: false },
-      { id: 'e', date: '08 Jan', who: 'KEY WORLD INTERNATIONAL PVT LTD', detail: 'Card purchase · no reference', amount: -426.5,
-        guess: 'Key World International', why: 'Same supplier, amount within a laari', strong: true }
+      { id: 'e', date: '08 Jan', who: 'EQUIPMENT SUPPLIER', detail: 'Card purchase · no reference', amount: -426.5,
+        guess: 'Equipment supplier', why: 'Same supplier, amount within a laari', strong: true }
     ];
 
     const rows = raw.map((r) => {
@@ -271,7 +271,7 @@ class Component extends DCLogic {
         { n: '1', name: 'Posting date', sample: '2026/01/01 · year first' },
         { n: '2', name: 'Value date', sample: '2026/01/01' },
         { n: '3', name: 'Type', sample: 'Transfer Debit · eight kinds seen' },
-        { n: '4', name: 'Reference', sample: 'BLAZ525729582342 · the match key' },
+        { n: '4', name: 'Reference', sample: 'The bank reference · the match key' },
         { n: '5', name: 'Bank reference', sample: 'FT26001369XH · not useful' },
         { n: '6', name: 'Timestamp', sample: '01-01-2026 · day first, unlike 1 and 2' },
         { n: '7', name: 'Counterparty', sample: 'Name for transfers, merchant for cards' },
