@@ -476,22 +476,23 @@ function FilingStrip() {
     if (m % 3 === 0 && d >= midnight) next = { m, d };
   }
   const daysLeft = next ? Math.round((next.d - midnight) / 86400000) : null;
-  const [lit, setLit] = useState(still ? now : -1);
+  const [lit, setLit] = useState(-1);
   const ref = useRef(null);
 
+  // Runs every time the strip comes into view, so it is not spent before anyone looks.
+  // Only colours change, nothing moves, so it runs with reduced motion too, in slower steps.
   useEffect(() => {
-    if (still) return undefined;
     let t;
     const io = new IntersectionObserver(([e]) => {
-      if (!e.isIntersecting) return;
-      io.disconnect();
+      clearInterval(t);
+      if (!e.isIntersecting) return setLit(-1);
       let i = -1;
       t = setInterval(() => {
         i += 1;
         setLit(i);
         if (i >= now) clearInterval(t);
-      }, 110);
-    }, { threshold: 0.5 });
+      }, still ? 160 : 110);
+    }, { threshold: 0.6 });
     if (ref.current) io.observe(ref.current);
     return () => {
       io.disconnect();
