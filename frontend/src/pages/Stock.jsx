@@ -41,13 +41,15 @@ export default function Stock() {
   const [counting, setCounting] = useState(null);
   const [opening, setOpening] = useState(null);
   const [looking, setLooking] = useState(null);
+  const [moving, setMoving] = useState(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["stock", companyId],
-    queryFn: () => apiClient.get("/stock").then((r) => r.data.items),
+    queryFn: () => apiClient.get("/stock").then((r) => r.data),
     enabled: Boolean(companyId),
   });
-  const list = (data || []).filter((i) => !i.archived);
+  const list = (data?.items || []).filter((i) => !i.archived);
+  const places = data?.places || [{ id: null, name: "Main store" }];
 
   return (
     <div>
@@ -90,6 +92,7 @@ export default function Stock() {
               </div>
             </Card>
           </div>
+          <Places places={places} canAdd={can("record")} onDone={refresh} />
           <Card padding="none" className="overflow-hidden">
             <div className="hidden xl:grid grid-cols-[minmax(0,1.6fr)_110px_120px_130px_130px_230px] gap-4 px-5 py-3 border-b border-[var(--border)] text-[12px] font-medium text-[var(--ink-muted)]">
               <span>Item</span>
@@ -115,6 +118,7 @@ export default function Stock() {
                   </button>
                   <div className="text-[14px] xl:text-right tabular">
                     {i.onHand} <span className="text-[var(--ink-muted)]">{i.unit}</span>
+                    {i.places && <span className="block text-[12px] text-[var(--ink-muted)]">{i.places.map((p) => `${p.name} ${p.onHand}`).join(" · ")}</span>}
                     {i.low && <span className="ml-1.5 inline-block rounded-full bg-[var(--warning)]/15 text-[var(--warning)] text-[11px] font-semibold px-2 py-0.5">Low</span>}
                   </div>
                   <div className="text-[14px] text-right text-[var(--ink-muted)]">
@@ -147,6 +151,11 @@ export default function Stock() {
                         <Button variant="outline" size="sm" onClick={() => setCounting(i)}>
                           Count
                         </Button>
+                        {places.length > 1 && n(i.onHand) > 0 && (
+                          <Button variant="ghost" size="sm" onClick={() => setMoving(i)}>
+                            Move
+                          </Button>
+                        )}
                       </>
                     )}
                   </div>
@@ -158,7 +167,8 @@ export default function Stock() {
       )}
 
       {adding && <AddItem onClose={() => setAdding(false)} onDone={refresh} />}
-      {counting && <Count item={counting} onClose={() => setCounting(null)} onDone={refresh} />}
+      {counting && <Count item={counting} places={places} onClose={() => setCounting(null)} onDone={refresh} />}
+      {moving && <Move item={moving} places={places} onClose={() => setMoving(null)} onDone={refresh} />}
       {opening && <Opening item={opening} onClose={() => setOpening(null)} onDone={refresh} />}
       {looking && <History item={looking} onClose={() => setLooking(null)} />}
     </div>
@@ -243,8 +253,9 @@ function AddItem({ onClose, onDone }) {
   );
 }
 
-function Count({ item, onClose, onDone }) {
+function Count({ item, places = [{ id: null, name: "Main store" }], onClose, onDone }) {
   const toast = useToast();
+  const [where, setWhere] = useState("");
   const [counted, setCounted] = useState("");
   const [on, setOn] = useState(today());
   const [unitCost, setUnitCost] = useState("");
@@ -258,7 +269,7 @@ function Count({ item, onClose, onDone }) {
     e.preventDefault();
     setErr("");
     try {
-      const r = await go.mutateAsync({ counted, on, unitCost: unitCost || null, note: note || null });
+      const r = await go.mutateAsync({ counted, on, unitCost: unitCost || null, note: note || null, placeId: where || null });
       if (r.queued) {
         toast.success("Kept on this phone", "The count goes into the books by itself when there is signal.");
         return onClose();
@@ -275,6 +286,17 @@ function Count({ item, onClose, onDone }) {
   return (
     <Modal open onClose={onClose} as="form" onSubmit={onSubmit} title={`Count ${item.name}`} description={`The books say ${item.onHand} ${item.unit}. Enter what is really there.`}>
       <div className="grid gap-4">
+        {places.length > 1 && (
+          <Field label="Counted at">
+            <select id="count-place" value={where} onChange={(e) => setWhere(e.target.value)} className={FIELD}>
+              {places.map((p) => (
+                <option key={p.id || "main"} value={p.id || ""}>
+                  {p.name}{item.places ? ` (the books say ${item.places.find((x) => x.id === p.id)?.onHand || "0"})` : ""}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
         <div className="grid sm:grid-cols-2 gap-4">
           <Field label={`Counted, in ${item.unit}`}>
             <input id="count-qty" value={counted} onChange={(e) => setCounted(e.target.value)} inputMode="decimal" placeholder={item.onHand} className={`${FIELD} tabular`} />
@@ -413,6 +435,115 @@ function History({ item, onClose }) {
           ))}
         </ul>
       )}
+    </Modal>
+  );
+}
+
+/** Where stock is kept: the main store and any places named, and naming one more. */
+function Places({ places, canAdd, onDone }) {
+  const toast = useToast();
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function add(e) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await apiClient.post("/stock/places", { name });
+      toast.success(`${name.trim()} added`, "Move stock there from any item, and count it there.");
+      setName("");
+      onDone();
+    } catch (ex) {
+      toast.error("Not added", ex.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-2 mb-4" data-testid="stock-places">
+      <span className="text-[13px] text-[var(--ink-muted)] mr-1">Kept at</span>
+      {places.map((p) => (
+        <span key={p.id || "main"} className="h-9 px-3.5 inline-flex items-center rounded-full bg-[var(--surface)] lift text-[13px] font-medium">
+          {p.name}
+        </span>
+      ))}
+      {canAdd && (
+        <form onSubmit={add} className="inline-flex items-center gap-1.5">
+          <input aria-label="A new place" value={name} onChange={(e) => setName(e.target.value)} placeholder="Add a place, like the yard" className="h-9 px-3.5 w-52 max-w-full rounded-full border border-[var(--border)] bg-[var(--surface)] text-[13px] outline-none focus:border-[var(--ink)]" />
+          {name.trim().length >= 2 && (
+            <Button size="sm" variant="outline" disabled={busy} type="submit">
+              Add
+            </Button>
+          )}
+        </form>
+      )}
+    </div>
+  );
+}
+
+/** Taking stock from one place to another. Nothing is posted: only where it is changes. */
+function Move({ item, places, onClose, onDone }) {
+  const toast = useToast();
+  const held = (id) => (item.places ? item.places.find((p) => p.id === id)?.onHand || "0" : id === null ? item.onHand : "0");
+  const [from, setFrom] = useState(places.find((p) => n(held(p.id)) > 0)?.id || "");
+  const [to, setTo] = useState(places.find((p) => (p.id || "") !== (places.find((x) => n(held(x.id)) > 0)?.id || ""))?.id || "");
+  const [quantity, setQuantity] = useState("");
+  const [on, setOn] = useState(today());
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function onSubmit(e) {
+    e.preventDefault();
+    setErr("");
+    setBusy(true);
+    try {
+      const r = await apiClient.post(`/stock/${item.id}/transfer`, { fromPlaceId: from || null, toPlaceId: to || null, quantity, on });
+      toast.success(`${r.data.moved} ${item.unit} of ${item.name} moved`, `From ${r.data.from} to ${r.data.to}. Its value is unchanged.`);
+      onDone();
+      onClose();
+    } catch (ex) {
+      setErr(ex.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const option = (p) => (
+    <option key={p.id || "main"} value={p.id || ""}>
+      {p.name} ({held(p.id)} {item.unit})
+    </option>
+  );
+  return (
+    <Modal open onClose={onClose} as="form" onSubmit={onSubmit} title={`Move ${item.name}`} description="From one place to another. What it is worth does not change, so nothing goes into the books.">
+      <div className="grid gap-4">
+        <div className="grid sm:grid-cols-2 gap-4">
+          <Field label="From">
+            <select id="move-from" value={from} onChange={(e) => setFrom(e.target.value)} className={FIELD}>
+              {places.map(option)}
+            </select>
+          </Field>
+          <Field label="To">
+            <select id="move-to" value={to} onChange={(e) => setTo(e.target.value)} className={FIELD}>
+              {places.map(option)}
+            </select>
+          </Field>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <Field label={`How many, in ${item.unit}`}>
+            <input id="move-qty" value={quantity} onChange={(e) => setQuantity(e.target.value)} inputMode="decimal" placeholder={held(from || null)} className={`${FIELD} tabular`} />
+          </Field>
+          <Field label="Moved on">
+            <input id="move-on" type="date" value={on} onChange={(e) => setOn(e.target.value)} className={FIELD} />
+          </Field>
+        </div>
+        {err && <p role="alert" className="text-[14px] text-[var(--danger)]">{err}</p>}
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" type="button" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="accent" type="submit" disabled={busy || !quantity.trim() || (from || "") === (to || "")}>
+            {busy && <Loader2 size={14} className="animate-spin" />}
+            Move it
+          </Button>
+        </div>
+      </div>
     </Modal>
   );
 }

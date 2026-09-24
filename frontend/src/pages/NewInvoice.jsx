@@ -169,7 +169,9 @@ export default function NewInvoice() {
   // price, and posting takes it out of stock at its average cost.
   const { data: stockItems } = useQuery({
     queryKey: ["stock", companyId],
-    queryFn: () => apiClient.get("/stock").then((r) => r.data.items),
+    // The same cache as the Stock page, so the same shape: the items are picked out here.
+    queryFn: () => apiClient.get("/stock").then((r) => r.data),
+    select: (d) => d.items,
     enabled: Boolean(companyId) && open,
   });
   const forSale = (stockItems || []).filter((i) => !i.archived);

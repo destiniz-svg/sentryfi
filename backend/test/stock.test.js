@@ -259,3 +259,35 @@ describe("a bill dated before sales already costed", () => {
       expect((await verifyChain(client, { companyId: shop.companyId, userId: shop.userId })).ok).toBe(true);
     }));
 });
+
+describe("stock kept in more than one place", () => {
+  it("moves between places without touching its value, sells from the main store first, and counts at a place", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      const cement = await shop.item("Cement");
+      await shop.buy([{ itemId: cement, quantity: "10", amount: "1000.00" }]); // into the main store, 100.00 each
+      const yard = await stock.addPlace(client, { companyId, userId, name: "The yard" });
+      await expect(stock.addPlace(client, { companyId, userId, name: "the Yard" })).rejects.toThrow(/already a place/);
+
+      const valueBefore = await shop.tied();
+      await stock.transfer(client, { companyId, userId, itemId: cement, fromPlaceId: null, toPlaceId: yard.id, quantity: "6", on: "2026-09-12" });
+      expect(await shop.tied()).toBe(valueBefore); // where it is changed, not what it is worth
+      await expect(stock.transfer(client, { companyId, userId, itemId: cement, fromPlaceId: null, toPlaceId: yard.id, quantity: "5", on: "2026-09-12" })).rejects.toThrow(/Only 4 bag/);
+
+      // Selling 8 takes the 4 in the main store, then 4 from the yard, at the one average cost.
+      await shop.sell([{ itemId: cement, quantity: 8, unitPrice: "200.00" }]);
+      const held = await shop.held(cement);
+      expect(held.onHand).toBe("2");
+      expect(held.places).toEqual([{ id: yard.id, name: "The yard", onHand: "2" }]);
+      expect(await shop.tied()).toBe(20000n);
+
+      // Counted 1 at the yard: one short, at average cost.
+      const c = await stock.count(client, { companyId, userId, itemId: cement, counted: "1", on: "2026-09-25", placeId: yard.id });
+      expect(c.difference).toBe("-1");
+      expect((await shop.held(cement)).value).toBe("100.00");
+
+      const h = await stock.history(client, { companyId, itemId: cement });
+      expect(h.find((x) => x.kind === "moved").note).toBe("From Main store to The yard");
+    }));
+});

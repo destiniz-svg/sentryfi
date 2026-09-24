@@ -565,6 +565,17 @@ describe("A's stock, from B", () => {
     expect((await call(A, "GET", "/stock")).json.items.find((i) => i.id === itemA)).toMatchObject({ name: "SECRET-ITEM-A", onHand: "10", archived: false });
   });
 
+  it("B cannot move it between places, see A's places, or move its own stock to one of A's", async () => {
+    const yard = await call(A, "POST", "/stock/places", { body: { name: "SECRET-YARD-A" } });
+    expect(yard.status).toBe(201);
+    denied(await call(B, "POST", `/stock/${itemA}/transfer`, { body: { fromPlaceId: null, toPlaceId: yard.json.id, quantity: "1", on: "2026-09-02" } }));
+    noLeak(await call(B, "GET", "/stock"), "SECRET-YARD-A");
+    const mine = await call(B, "POST", "/stock", { body: { name: "B cement", unit: "bag" } });
+    await call(B, "POST", `/stock/${mine.json.item.id}/opening`, { body: { quantity: "5", unitCost: "10", on: "2026-09-01" } });
+    denied(await call(B, "POST", `/stock/${mine.json.item.id}/transfer`, { body: { fromPlaceId: null, toPlaceId: yard.json.id, quantity: "1", on: "2026-09-02" } }));
+    expect((await call(A, "GET", "/stock")).json.items.find((i) => i.id === itemA).onHand).toBe("10");
+  });
+
   it("B cannot buy it on B's bill or sell it on B's invoice", async () => {
     const bill = await call(B, "POST", "/bills", { body: { supplierName: "B's supplier", amount: "100", gstTreatment: "none_unregistered", issueDate: "2026-09-03" } });
     expect(bill.status).toBe(201);

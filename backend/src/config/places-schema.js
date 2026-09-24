@@ -1,0 +1,54 @@
+/**
+ * Where stock is kept. A company names its places (the yard, a site store);
+ * a stock movement says which place it happened at, and no place means the
+ * main store, so every movement before places existed is where it always was.
+ * Moving stock between places changes where it is, not what it is worth, so
+ * it is its own record with no journal entry: value stays company-wide at
+ * average cost (ledger/stock.js).
+ */
+const PLACES_SQL = `
+CREATE TABLE IF NOT EXISTS stock_places (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id   UUID NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
+  name         TEXT NOT NULL,
+  archived_at  TIMESTAMPTZ,
+  created_by   UUID NOT NULL REFERENCES users(id),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS stock_places_name_idx ON stock_places(company_id, lower(name));
+
+ALTER TABLE stock_moves ADD COLUMN IF NOT EXISTS place_id UUID REFERENCES stock_places(id);
+
+CREATE TABLE IF NOT EXISTS stock_transfers (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id    UUID NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
+  item_id       UUID NOT NULL REFERENCES stock_items(id),
+  from_place_id UUID REFERENCES stock_places(id),
+  to_place_id   UUID REFERENCES stock_places(id),
+  quantity      NUMERIC(18,4) NOT NULL CHECK (quantity > 0),
+  moved_on      DATE NOT NULL,
+  note          TEXT,
+  created_by    UUID NOT NULL REFERENCES users(id),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT transfer_somewhere_else CHECK (from_place_id IS DISTINCT FROM to_place_id)
+);
+CREATE INDEX IF NOT EXISTS stock_transfers_item_idx ON stock_transfers(company_id, item_id);
+
+DO $$
+DECLARE t TEXT;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['stock_places','stock_transfers'] LOOP
+    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+    EXECUTE format('DROP POLICY IF EXISTS company_isolation ON %I', t);
+    EXECUTE format($p$CREATE POLICY company_isolation ON %I
+      USING (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid)
+      WITH CHECK (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid)$p$, t);
+  END LOOP;
+END $$;
+GRANT SELECT, INSERT, UPDATE ON stock_places TO sentryfi_app;
+-- A move between places is history too: added, never changed.
+GRANT SELECT, INSERT ON stock_transfers TO sentryfi_app;
+`;
+
+module.exports = { PLACES_SQL };

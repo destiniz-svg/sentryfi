@@ -48,8 +48,8 @@ router.get(
   "/",
   requireCan("read"),
   asyncHandler(async (req, res) => {
-    const items = await asCompany(req, (client) => stock.list(client, { companyId: req.companyId }));
-    res.json({ items });
+    const out = await asCompany(req, async (client) => ({ items: await stock.list(client, { companyId: req.companyId }), places: await stock.places(client, { companyId: req.companyId }) }));
+    res.json(out);
   })
 );
 
@@ -115,7 +115,30 @@ router.get(
   })
 );
 
-const countBody = z.object({ counted: qty, on: dateText, unitCost: money.nullish(), note: z.string().trim().max(300).nullish() });
+const place = z.string().uuid("Which place?").nullish();
+const countBody = z.object({ counted: qty, on: dateText, unitCost: money.nullish(), note: z.string().trim().max(300).nullish(), placeId: place });
+
+// Where stock is kept, and moving it between places.
+router.post(
+  "/places",
+  requireCan("record"),
+  refused(async (req, res) => {
+    const parsed = z.object({ name: z.string().trim().min(2, "Give the place a name.").max(80) }).safeParse(req.body ?? {});
+    if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
+    res.status(201).json(await asCompany(req, (client) => stock.addPlace(client, { companyId: req.companyId, userId: req.user.id, name: parsed.data.name })));
+  })
+);
+
+const transferBody = z.object({ fromPlaceId: place, toPlaceId: place, quantity: qty, on: dateText, note: z.string().trim().max(300).nullish() });
+router.post(
+  "/:id/transfer",
+  requireCan("record"),
+  refused(async (req, res) => {
+    const parsed = transferBody.safeParse(req.body ?? {});
+    if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
+    res.status(201).json(await asCompany(req, (client) => stock.transfer(client, { companyId: req.companyId, userId: req.user.id, itemId: req.params.id, ...parsed.data })));
+  })
+);
 router.post(
   "/:id/count",
   requireCan("record"),
@@ -129,7 +152,7 @@ router.post(
   })
 );
 
-const openingBody = z.object({ quantity: qty, unitCost: money, on: dateText });
+const openingBody = z.object({ quantity: qty, unitCost: money, on: dateText, placeId: place });
 router.post(
   "/:id/opening",
   requireCan("record"),

@@ -74,6 +74,25 @@ async function holding(client, { companyId, itemId }) {
   return { item: rows[0], units: fromDb(sum[0].q), value: BigInt(sum[0].v) };
 }
 
+const MAIN = "main";
+const placeKey = (id) => id || MAIN;
+
+/**
+ * How many of an item are at each place: its movements there, plus what was
+ * moved in, less what was moved out. Keyed by place id, "main" for the main store.
+ */
+async function atPlaces(client, { companyId, itemId }) {
+  const { rows } = await client.query(
+    `SELECT place, SUM(q) AS q FROM (
+       SELECT place_id AS place, quantity AS q FROM stock_moves WHERE company_id = $1 AND item_id = $2
+       UNION ALL SELECT to_place_id, quantity FROM stock_transfers WHERE company_id = $1 AND item_id = $2
+       UNION ALL SELECT from_place_id, -quantity FROM stock_transfers WHERE company_id = $1 AND item_id = $2
+     ) x GROUP BY place`,
+    [companyId, itemId]
+  );
+  return new Map(rows.map((r) => [placeKey(r.place), fromDb(r.q)]));
+}
+
 /** The value of taking `units` out of what is held, at its average cost. */
 function costOut(held, units) {
   if (units > held.units) {
@@ -88,11 +107,11 @@ function costOut(held, units) {
 
 async function recordMove(client, m) {
   await client.query(
-    `INSERT INTO stock_moves (company_id, item_id, moved_on, kind, quantity, value_laari, sale_net_laari, entry_id, bill_id, invoice_id, note, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+    `INSERT INTO stock_moves (company_id, item_id, moved_on, kind, quantity, value_laari, sale_net_laari, entry_id, bill_id, invoice_id, note, created_by, place_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
     [
       m.companyId, m.itemId, m.on, m.kind, unitsText(m.units), m.value.toString(),
-      m.saleNet === undefined ? null : m.saleNet.toString(), m.entryId, m.billId || null, m.invoiceId || null, m.note || null, m.userId,
+      m.saleNet === undefined ? null : m.saleNet.toString(), m.entryId, m.billId || null, m.invoiceId || null, m.note || null, m.userId, m.placeId || null,
     ]
   );
 }
@@ -141,17 +160,41 @@ async function invoiceCost(client, { companyId, userId, invoice, lines }) {
   const stockAcc = await account(client, companyId, ACCOUNTS.stock);
   const cogsAcc = await account(client, companyId, ACCOUNTS.cogs);
   const held = new Map();
+  const places = new Map();
   const moves = [];
   const entryLines = [];
   for (const l of sold) {
     if (!held.has(l.item_id)) held.set(l.item_id, await holding(client, { companyId, itemId: l.item_id }));
+    if (!places.has(l.item_id)) places.set(l.item_id, await atPlaces(client, { companyId, itemId: l.item_id }));
     const h = held.get(l.item_id);
     const units = fromDb(l.quantity);
     if (units <= 0n) throw new Error(`A line selling ${h.item.name} needs a quantity.`);
     const cost = costOut(h, units);
     h.units -= units;
     h.value -= cost;
-    moves.push({ itemId: l.item_id, units: -units, value: -cost, saleNet: BigInt(l.net_laari) });
+    // Where it leaves from: the main store first, then the place holding most.
+    // The cost is shared by units, the last part taking what rounding leaves.
+    const at = places.get(l.item_id);
+    const order = [...at.entries()].filter(([, q]) => q > 0n).sort(([a, qa], [b, qb]) => (a === MAIN ? -1 : b === MAIN ? 1 : qb > qa ? 1 : qb < qa ? -1 : 0));
+    let left = units;
+    let costLeft = cost;
+    const parts = [];
+    for (const [place, q] of order) {
+      if (left <= 0n) break;
+      const take = q < left ? q : left;
+      parts.push([place, take]);
+      left -= take;
+    }
+    if (left > 0n) parts.push([MAIN, left]); // held overall but not placed: from the main store
+    parts.forEach(([place, take], i) => {
+      const partCost = i === parts.length - 1 ? costLeft : (cost * take) / units;
+      costLeft -= partCost;
+      at.set(place, (at.get(place) || 0n) - take);
+      moves.push({ itemId: l.item_id, units: -take, value: -partCost, saleNet: (BigInt(l.net_laari) * take) / units, placeId: place === MAIN ? null : place });
+    });
+    // what rounding leaves of the sale's net goes to the last part
+    const netParts = moves.slice(-parts.length).reduce((a, m) => a + m.saleNet, 0n);
+    moves[moves.length - 1].saleNet += BigInt(l.net_laari) - netParts;
     if (cost > 0n) {
       const memo = `${unitsText(units)} ${h.item.unit} ${h.item.name}`;
       entryLines.push({ accountId: cogsAcc, debit: cost, projectId: l.project_id, dimensionIds: invoice.dimension_ids, memo });
@@ -270,11 +313,14 @@ async function recost(client, { companyId, userId, itemId, since, why }) {
  * or put in at average cost (or the cost given, when there is none yet), and
  * the value goes to 5870 so shrinkage is seen, not buried.
  */
-async function count(client, { companyId, userId, itemId, counted, on, unitCost, note }) {
+async function count(client, { companyId, userId, itemId, counted, on, unitCost, note, placeId }) {
   await assumeIdentity(client, { companyId, userId });
   const held = await holding(client, { companyId, itemId });
+  if (placeId) await place(client, { companyId, placeId });
+  // Counted at one place, against what the books say is there.
+  const there = (await atPlaces(client, { companyId, itemId })).get(placeKey(placeId)) || 0n;
   const target = /^0*(\.0*)?$/.test(String(counted ?? "").trim()) && String(counted ?? "").trim() !== "" ? 0n : toUnits(counted);
-  const diff = target - held.units;
+  const diff = target - there;
   if (diff === 0n) throw new Error(`The books already say ${unitsText(target)} ${held.item.unit}. Nothing to change.`);
   let value;
   if (diff < 0n) value = -costOut(held, -diff);
@@ -286,7 +332,7 @@ async function count(client, { companyId, userId, itemId, counted, on, unitCost,
   if (value === 0n) throw new Error("That difference is worth nothing at this cost, so there is nothing to record.");
   const stockAcc = await account(client, companyId, ACCOUNTS.stock);
   const countedAcc = await account(client, companyId, ACCOUNTS.counted);
-  const memo = `Counted ${unitsText(target)} ${held.item.unit} ${held.item.name}; the books said ${unitsText(held.units)}`;
+  const memo = `Counted ${unitsText(target)} ${held.item.unit} ${held.item.name}; the books said ${unitsText(there)}`;
   const abs = value < 0n ? -value : value;
   const entry = await postEntry(client, {
     companyId, userId, date: on, source: "stock", narrative: memo,
@@ -295,12 +341,12 @@ async function count(client, { companyId, userId, itemId, counted, on, unitCost,
         ? [{ accountId: countedAcc, debit: abs, memo }, { accountId: stockAcc, credit: abs, memo }]
         : [{ accountId: stockAcc, debit: abs, memo }, { accountId: countedAcc, credit: abs, memo }],
   });
-  await recordMove(client, { companyId, userId, itemId, on, kind: "counted", units: diff, value, entryId: entry.id, note: note || null });
+  await recordMove(client, { companyId, userId, itemId, on, kind: "counted", units: diff, value, entryId: entry.id, note: note || null, placeId: placeId || null });
   return { entry, difference: unitsText(diff), value };
 }
 
 /** Stock a company already had before Sentryfi, at what it cost. */
-async function opening(client, { companyId, userId, itemId, quantity, unitCost, on }) {
+async function opening(client, { companyId, userId, itemId, quantity, unitCost, on, placeId }) {
   await assumeIdentity(client, { companyId, userId });
   const held = await holding(client, { companyId, itemId });
   const units = toUnits(quantity);
@@ -313,8 +359,50 @@ async function opening(client, { companyId, userId, itemId, quantity, unitCost, 
     companyId, userId, date: on, source: "stock", narrative: memo,
     lines: [{ accountId: stockAcc, debit: value, memo }, { accountId: openingAcc, credit: value, memo }],
   });
-  await recordMove(client, { companyId, userId, itemId, on, kind: "opening", units, value, entryId: entry.id });
+  await recordMove(client, { companyId, userId, itemId, on, kind: "opening", units, value, entryId: entry.id, placeId: placeId || null });
   return { entry, value };
+}
+
+// ------------------------------------------------------------------ places
+
+async function place(client, { companyId, placeId }) {
+  const { rows } = await client.query("SELECT id, name FROM stock_places WHERE id = $1 AND company_id = $2 AND archived_at IS NULL", [placeId, companyId]);
+  if (!rows[0]) throw new Error("That place is not in these books.");
+  return rows[0];
+}
+
+/** The places stock is kept, the main store first. */
+async function places(client, { companyId }) {
+  const { rows } = await client.query("SELECT id, name FROM stock_places WHERE company_id = $1 AND archived_at IS NULL ORDER BY lower(name)", [companyId]);
+  return [{ id: null, name: "Main store" }, ...rows];
+}
+
+async function addPlace(client, { companyId, userId, name }) {
+  const clean = String(name || "").trim();
+  if (clean.length < 2) throw new Error("Give the place a name, like the yard or a site store.");
+  if (/^main( store)?$/i.test(clean)) throw new Error("The main store is already there.");
+  const { rows: dup } = await client.query("SELECT 1 FROM stock_places WHERE company_id = $1 AND lower(name) = lower($2)", [companyId, clean]);
+  if (dup.length) throw new Error(`There is already a place called ${clean}.`);
+  const { rows } = await client.query("INSERT INTO stock_places (company_id, name, created_by) VALUES ($1,$2,$3) RETURNING id, name", [companyId, clean, userId]);
+  return rows[0];
+}
+
+/** Stock taken from one place to another: where it is changes, what it is worth does not. */
+async function transfer(client, { companyId, userId, itemId, fromPlaceId, toPlaceId, quantity, on, note }) {
+  await assumeIdentity(client, { companyId, userId });
+  if ((fromPlaceId || null) === (toPlaceId || null)) throw new Error("It is already there.");
+  const held = await holding(client, { companyId, itemId });
+  const from = fromPlaceId ? await place(client, { companyId, placeId: fromPlaceId }) : { name: "Main store" };
+  const to = toPlaceId ? await place(client, { companyId, placeId: toPlaceId }) : { name: "Main store" };
+  const units = toUnits(quantity);
+  if (units <= 0n) throw new Error("How many are moving?");
+  const there = (await atPlaces(client, { companyId, itemId })).get(placeKey(fromPlaceId)) || 0n;
+  if (units > there) throw new Error(`Only ${unitsText(there)} ${held.item.unit} of ${held.item.name} ${there === SCALE ? "is" : "are"} at ${from.name}.`);
+  await client.query(
+    "INSERT INTO stock_transfers (company_id, item_id, from_place_id, to_place_id, quantity, moved_on, note, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
+    [companyId, itemId, fromPlaceId || null, toPlaceId || null, unitsText(units), on, note ? String(note).trim() : null, userId]
+  );
+  return { moved: unitsText(units), from: from.name, to: to.name };
 }
 
 // ------------------------------------------------------------------ reading
@@ -333,6 +421,22 @@ async function list(client, { companyId }) {
       GROUP BY i.id ORDER BY lower(i.name)`,
     [companyId]
   );
+  const kept = await places(client, { companyId });
+  const byPlace = new Map();
+  if (kept.length > 1) {
+    const { rows: at } = await client.query(
+      `SELECT item, place, SUM(q) AS q FROM (
+         SELECT item_id AS item, place_id AS place, quantity AS q FROM stock_moves WHERE company_id = $1
+         UNION ALL SELECT item_id, to_place_id, quantity FROM stock_transfers WHERE company_id = $1
+         UNION ALL SELECT item_id, from_place_id, -quantity FROM stock_transfers WHERE company_id = $1
+       ) x GROUP BY item, place`,
+      [companyId]
+    );
+    for (const r of at) {
+      if (!byPlace.has(r.item)) byPlace.set(r.item, new Map());
+      byPlace.get(r.item).set(placeKey(r.place), fromDb(r.q));
+    }
+  }
   return rows.map((r) => {
     const units = fromDb(r.on_hand);
     const value = BigInt(r.value);
@@ -355,6 +459,7 @@ async function list(client, { companyId }) {
       costOfSales: formatLaari(cost),
       margin: formatLaari(sales - cost),
       marginPercent: sales > 0n ? Number(((sales - cost) * 1000n) / sales) / 10 : null,
+      places: kept.length > 1 ? kept.map((p) => ({ id: p.id, name: p.name, onHand: unitsText(byPlace.get(r.id)?.get(placeKey(p.id)) || 0n) })).filter((p) => p.onHand !== "0") : null,
     };
   });
 }
@@ -370,7 +475,17 @@ async function history(client, { companyId, itemId }) {
       ORDER BY m.moved_on DESC, m.created_at DESC`,
     [companyId, itemId]
   );
-  return rows.map((r) => ({
+  const { rows: moved } = await client.query(
+    `SELECT t.moved_on, t.quantity, t.note, COALESCE(f.name, 'Main store') AS from_name, COALESCE(p.name, 'Main store') AS to_name
+       FROM stock_transfers t LEFT JOIN stock_places f ON f.id = t.from_place_id LEFT JOIN stock_places p ON p.id = t.to_place_id
+      WHERE t.company_id = $1 AND t.item_id = $2`,
+    [companyId, itemId]
+  );
+  const moves = moved.map((t) => ({
+    on: t.moved_on, kind: "moved", quantity: unitsText(fromDb(t.quantity)), value: "0.00", saleNet: null,
+    note: `From ${t.from_name} to ${t.to_name}${t.note ? `: ${t.note}` : ""}`, entryNo: null, document: null,
+  }));
+  return [...moves, ...rows.map((r) => ({
     on: r.moved_on,
     kind: r.kind,
     quantity: unitsText(fromDb(r.quantity)),
@@ -379,7 +494,7 @@ async function history(client, { companyId, itemId }) {
     note: r.note,
     entryNo: String(r.entry_no),
     document: r.bill_no ? `Bill ${r.bill_no}` : r.invoice_no || null,
-  }));
+  }))].sort((a, b) => String(b.on) < String(a.on) ? -1 : String(b.on) > String(a.on) ? 1 : 0);
 }
 
-module.exports = { ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history };
+module.exports = { ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history, atPlaces, places, addPlace, transfer };
