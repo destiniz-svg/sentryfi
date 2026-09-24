@@ -402,6 +402,26 @@ async function commit(client, { companyId, userId, system, text, transactions: g
     if (!parties.has(k)) parties.set(k, (await findOrCreate(client, { companyId, userId, name: p.name, kind: p.kind, exact: true })).party.id);
     return parties.get(k);
   };
+  // Tags become dimensions and a project stays a project, found or made by name.
+  const dims = new Map();
+  const dimOf = async (name) => {
+    const k = name.toLowerCase();
+    if (!dims.has(k)) {
+      const { rows } = await client.query("SELECT id FROM dimensions WHERE company_id = $1 AND kind = $2 AND lower(name) = lower($3)", [companyId, "other", name]);
+      dims.set(k, rows[0]?.id || (await client.query("INSERT INTO dimensions (company_id, kind, name) VALUES ($1,$2,$3) RETURNING id", [companyId, "other", name])).rows[0].id);
+    }
+    return dims.get(k);
+  };
+  const projects = new Map();
+  const projectOf = async (name) => {
+    if (!name) return undefined;
+    const k = name.toLowerCase();
+    if (!projects.has(k)) {
+      const { rows } = await client.query("SELECT id FROM projects WHERE company_id = $1 AND lower(name) = lower($2) LIMIT 1", [companyId, name]);
+      projects.set(k, rows[0]?.id || (await client.query("INSERT INTO projects (company_id, name) VALUES ($1,$2) RETURNING id", [companyId, name])).rows[0].id);
+    }
+    return projects.get(k);
+  };
   let posted = 0;
   for (const t of batch) {
     // One at a time: the same customer on two lines is found once, not made twice.
@@ -414,6 +434,8 @@ async function commit(client, { companyId, userId, system, text, transactions: g
         memo: l.memo,
         counterpartyId: await partyOf(l.party),
         fc: l.fc,
+        dimensionIds: l.dims ? await Promise.all(l.dims.map(dimOf)) : undefined,
+        projectId: await projectOf(l.project),
       });
     }
     const entry = await postEntry(client, {

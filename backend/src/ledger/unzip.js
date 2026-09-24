@@ -6,7 +6,7 @@
  */
 const zlib = require("zlib");
 
-function unzip(buffer, { maxBytes = 60 * 1024 * 1024 } = {}) {
+function unzip(buffer, { maxBytes = 60 * 1024 * 1024, binary = false } = {}) {
   const b = Buffer.from(buffer);
   // The end-of-central-directory record, searched for from the end.
   let eocd = -1;
@@ -39,7 +39,8 @@ function unzip(buffer, { maxBytes = 60 * 1024 * 1024 } = {}) {
     total += data.length;
     if (total > maxBytes) throw new Error("That zip is larger than a backup should be.");
     if (size && data.length !== size) throw new Error(`${name} did not unpack to its own size.`);
-    files[name.split("/").pop()] = data.toString("utf8").replace(/^﻿/, "");
+    // Text for the CSVs; the bytes themselves for files like photographs and PDFs.
+    files[name.split("/").pop()] = binary ? data : data.toString("utf8").replace(/^﻿/, "");
   }
   return files;
 }

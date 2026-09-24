@@ -30,6 +30,9 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sentryfi-pg-"));
     password: "postgres",
     port: PORT,
     persistent: false,
+    // UTF-8, as the live database is: a Windows default (WIN1252) cannot hold
+    // characters real names carry, like a non-breaking hyphen.
+    initdbFlags: ["--encoding=UTF8", "--locale=C"],
     // The server log is full of the ledger correctly refusing things the tests
     // ask it to do. It is noise here; the test report is the signal.
     onLog: () => {},

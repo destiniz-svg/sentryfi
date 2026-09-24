@@ -96,6 +96,25 @@ describe("a Zoho Books backup", () => {
     expect(at(jr, GST_IN)[0].debit).toBe(800n);
   });
 
+  it("keeps a line's reporting tags and project, and reads contacts, estimates and orders as records", () => {
+    const tagged = convert({
+      ...files,
+      "Expense.csv": csv([
+        ["Expense Reference ID", "Entry Number", "Expense Date", "Expense Account", "Paid Through", "Currency Code", "Exchange Rate", "Is Inclusive Tax", "Tax Amount", "Expense Amount", "Total", "Reference#", "Vendor", "Expense Description", "Project Name", "BOAT"],
+        ["E1", "1", "2026-01-10", "Office Supplies", "Petty Cash", "MVR", "1", "false", "0", "50.00", "50.00", "R1", "Corner Shop", "Rope", "Jetty works", "BOAT"],
+      ]),
+      "Contacts.csv": csv([["Display Name", "Company Name", "EmailID", "MobilePhone", "Billing Address", "Billing City", "Payment Terms", "Credit Limit", "Status"], ["Harbour Cafe", "Harbour Cafe Pvt Ltd", "hello@example.test", "7000000", "1 Harbour Road", "Male", "30", "5000", "Active"]]),
+      "Estimate.csv": csv([["Estimate ID", "Estimate Number", "Estimate Date", "Estimate Status", "Customer Name", "Item Name", "Quantity", "Item Price", "Account"], ["Q1", "QT-9", "2026-01-02", "accepted", "Harbour Cafe", "Service", "2", "40.00", "Sales"]]),
+      "Purchase_Order.csv": csv([["Purchase Order ID", "Purchase Order Number", "Purchase Order Date", "Purchase Order Status", "Vendor Name", "Item Name", "QuantityOrdered", "Item Price", "Account"], ["PO1", "PO-7", "2026-01-03", "billed", "Paper Supplier", "Paper", "5", "100.00", "Office Supplies"]]),
+    });
+    const ex = by(tagged, "Expense")[0];
+    expect(at(ex, "Office Supplies")[0]).toMatchObject({ dims: ["BOAT"], project: "Jetty works" });
+    expect(tagged.records.tags).toEqual(["BOAT"]);
+    expect(tagged.records.contacts[0]).toMatchObject({ name: "Harbour Cafe", email: "hello@example.test", phone: "7000000", address: "1 Harbour Road, Male", paymentTermsDays: 30, creditLimit: 500000n });
+    expect(tagged.records.quotes[0]).toMatchObject({ number: "QT-9", status: "accepted", lines: [{ quantity: "2", unitPrice: 4000n }] });
+    expect(tagged.records.purchaseOrders[0]).toMatchObject({ number: "PO-7", status: "billed" });
+  });
+
   it("reads Zoho's three decimal places", () => {
     expect([laari("1689.330"), laari("-12.5"), laari("0.005"), laari("")]).toEqual([168933n, -1250n, 1n, 0n]);
   });

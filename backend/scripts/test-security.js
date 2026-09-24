@@ -14,7 +14,7 @@ const EmbeddedPostgres = require("node:module").createRequire(path.join(ROOT, "b
 const PORT = 54391;
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sentryfi-sec-"));
 (async () => {
-  const pg = new EmbeddedPostgres({ databaseDir: dir, user: "postgres", password: "postgres", port: PORT, persistent: false, onLog: () => {}, onError: () => {} });
+  const pg = new EmbeddedPostgres({ databaseDir: dir, user: "postgres", password: "postgres", port: PORT, persistent: false, initdbFlags: ["--encoding=UTF8", "--locale=C"], onLog: () => {}, onError: () => {} });
   let code = 1;
   try {
     await pg.initialise();

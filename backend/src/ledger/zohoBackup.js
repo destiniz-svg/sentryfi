@@ -99,6 +99,26 @@ function line(account, amount, side, extra = {}) {
   return { account, debit, credit: debit ? 0n : abs, ...extra };
 }
 
+/**
+ * Zoho writes each reporting tag as a column of its own, headed by the tag's
+ * option and holding that same name on each line it applies to. A column like
+ * that is a tag; every other column is a field.
+ */
+function tagColumns(list) {
+  if (!list.length) return [];
+  return Object.keys(list[0]).filter((h) => {
+    const v = list.map((r) => r[h]).filter(Boolean);
+    return v.length > 0 && v.every((x) => x === h);
+  });
+}
+const tagsOf = (row, cols) => cols.filter((c) => row[c]);
+/** A line's tags and project, when it has any. */
+const markOf = (row, cols) => {
+  const dims = tagsOf(row, cols);
+  const project = row["Project Name"] || null;
+  return { ...(dims.length ? { dims } : {}), ...(project ? { project } : {}) };
+};
+
 function convert(files) {
   const get = (name) => rows(files[name]);
   const chart = get("Chart_of_Accounts.csv");
@@ -169,7 +189,9 @@ function convert(files) {
 
   // ---- bills
   const billRate = new Map();
-  for (const [id, ls] of group(get("Bill.csv"), "Bill ID")) {
+  const billRows = get("Bill.csv");
+  const billTags = tagColumns(billRows);
+  for (const [id, ls] of group(billRows, "Bill ID")) {
     const h = ls[0];
     if (/draft|void/i.test(h["Bill Status"])) continue;
     const cur = h["Currency Code"] || BASE;
@@ -183,7 +205,7 @@ function convert(files) {
       const net = laari(l["Item Total"]);
       const tax = laari(l["Tax Amount"]);
       sum += net + tax;
-      lines.push(line(l.Account, inBase(net, cur, rate), "debit", { memo: l["Item Name"] || l.Description || null }));
+      lines.push(line(l.Account, inBase(net, cur, rate), "debit", { memo: l["Item Name"] || l.Description || null, ...markOf(l, billTags) }));
       lines.push(line(GST_IN, inBase(tax, cur, rate), "debit"));
     }
     const extra = laari(h.Adjustment) - laari(h["Entity Discount Amount"]);
@@ -221,7 +243,9 @@ function convert(files) {
   }
 
   // ---- expenses
-  for (const [id, ls] of group(get("Expense.csv"), "Expense Reference ID")) {
+  const expenseRows = get("Expense.csv");
+  const expenseTags = tagColumns(expenseRows);
+  for (const [id, ls] of group(expenseRows, "Expense Reference ID")) {
     const h = ls[0];
     const cur = h["Currency Code"] || BASE;
     const rate = h["Exchange Rate"] || "1";
@@ -233,7 +257,7 @@ function convert(files) {
       const amount = laari(l["Expense Amount"]);
       const net = l["Is Inclusive Tax"] === "true" ? amount - tax : amount;
       sum += net + tax;
-      lines.push(line(l["Expense Account"], inBase(net, cur, rate), "debit", { memo: l["Expense Description"] || l.Vendor || null }));
+      lines.push(line(l["Expense Account"], inBase(net, cur, rate), "debit", { memo: l["Expense Description"] || l.Vendor || null, ...markOf(l, expenseTags) }));
       lines.push(line(GST_IN, inBase(tax, cur, rate), "debit"));
     }
     if (sum !== total) problems.push(`Expense ${h["Entry Number"]}: its lines do not add up to its total`);
@@ -257,7 +281,9 @@ function convert(files) {
   });
 
   // ---- manual journals
-  for (const [id, ls] of group(get("Journal.csv"), "Journal ID")) {
+  const journalRows = get("Journal.csv");
+  const journalTags = tagColumns(journalRows);
+  for (const [id, ls] of group(journalRows, "Journal ID")) {
     const h = ls[0];
     if (!/published/i.test(h.Status || "Published")) continue;
     const lines = [];
@@ -268,7 +294,7 @@ function convert(files) {
       const credit = laari(l.Credit);
       const party = l["Contact Name"] && (l.Account === AR || l.Account === AP) ? { party: { name: l["Contact Name"], kind: l.Account === AR ? "customer" : "supplier" } } : {};
       const amt = debit || credit;
-      lines.push(line(l.Account, inBase(amt, cur, rate), debit ? "debit" : "credit", { ...party, ...fcOn(l.Account, cur, amt, rate), memo: l.Description || null }));
+      lines.push(line(l.Account, inBase(amt, cur, rate), debit ? "debit" : "credit", { ...party, ...fcOn(l.Account, cur, amt, rate), memo: l.Description || null, ...markOf(l, journalTags) }));
       // The tax on a line is a line of its own in Zoho's ledger, on the same side.
       const tax = laari(l["Tax Amount"]);
       if (tax) lines.push(line(debit ? GST_IN : GST_OUT, inBase(tax, cur, rate), debit ? "debit" : "credit"));
@@ -282,6 +308,53 @@ function convert(files) {
   for (const [, ls] of group(get("Bill.csv"), "Bill ID")) if (!/draft|void/i.test(ls[0]["Bill Status"])) balances.bills.push({ number: ls[0]["Bill Number"], vendor: ls[0]["Vendor Name"], currency: ls[0]["Currency Code"], balance: laari(ls[0].Balance) });
 
   const counted = (name) => rows(files[name]).length;
+  const address = (r) => [r["Billing Address"], r["Billing Street2"], r["Billing City"], r["Billing State"], r["Billing Country"]].filter(Boolean).join(", ") || null;
+  const person = new Map(get("Contact_Persons.csv").filter((p) => p["Is Primary"] !== "false").map((p) => [p["Customer Name"], p]));
+  const contact = (r, kind) => {
+    const p = person.get(r["Display Name"]) || {};
+    return {
+      name: r["Display Name"] || r["Contact Name"],
+      kind,
+      email: r.EmailID || p.EmailID || null,
+      phone: r.MobilePhone || r.Phone || p.MobilePhone || p.Phone || null,
+      address: address(r),
+      notes: [r.Notes, r["Company Name"] && r["Company Name"] !== r["Display Name"] ? `Registered as ${r["Company Name"]}` : null].filter(Boolean).join(" ") || null,
+      paymentTermsDays: r["Payment Terms"] !== "" && Number.isFinite(Number(r["Payment Terms"])) ? Number(r["Payment Terms"]) : null,
+      creditLimit: laari(r["Credit Limit"]) || null,
+      active: !/inactive/i.test(r.Status || ""),
+    };
+  };
+  const orderLines = (ls, qtyKey) =>
+    ls.map((l, i) => ({
+      position: i,
+      description: l["Item Name"] || l["Item Desc"] || l.Description || "Item",
+      account: l.Account || null,
+      quantity: String(Number(l[qtyKey] || l.Quantity || 1) || 1),
+      unit: l["Usage unit"] || null,
+      unitPrice: laari(l["Item Price"] || l.Rate || "0"),
+    }));
+  const records = {
+    contacts: [...get("Contacts.csv").map((r) => contact(r, "customer")), ...get("Vendors.csv").map((r) => contact(r, "supplier"))],
+    quotes: [...group(get("Estimate.csv"), "Estimate ID").values()].map((ls) => {
+      const h = ls[0];
+      const st = String(h["Estimate Status"] || "").toLowerCase();
+      return {
+        key: `estimate|${h["Estimate ID"]}`, number: h["Estimate Number"], date: h["Estimate Date"], validUntil: h["Expiry Date"] || null,
+        party: h["Customer Name"], status: /accept|invoic/.test(st) ? "accepted" : /declin/.test(st) ? "declined" : st,
+        note: [h.Notes, h["Terms & Conditions"]].filter(Boolean).join("\n\n"), lines: orderLines(ls, "Quantity"),
+      };
+    }),
+    purchaseOrders: [...group(get("Purchase_Order.csv"), "Purchase Order ID").values()].map((ls) => {
+      const h = ls[0];
+      const st = String(h["Purchase Order Status"] || "").toLowerCase();
+      return {
+        key: `purchaseorder|${h["Purchase Order ID"]}`, number: h["Purchase Order Number"], date: h["Purchase Order Date"], expectedOn: h["Delivery Date"] || null,
+        party: h["Vendor Name"], status: st, note: [h["Delivery Instructions"], h["Terms & Conditions"]].filter(Boolean).join("\n\n"), lines: orderLines(ls, "QuantityOrdered"),
+      };
+    }),
+    tags: [...new Set([...billTags, ...expenseTags, ...journalTags])],
+    projects: get("Projects.csv").map((p) => ({ name: p["Project Name"], customer: p["Customer Name"] || null, contract: laari(p["Project Cost"]) || null, budget: laari(p["Budget Amount"] || p["Cost Budget"]) || null })),
+  };
   // Two documents Zoho gave the same key (it happens with references): each keeps its own, numbered.
   const seen = new Map();
   for (const t of out) {
@@ -294,9 +367,10 @@ function convert(files) {
     types,
     problems,
     balances,
+    records,
     contacts: { customers: counted("Contacts.csv"), suppliers: counted("Vendors.csv") },
     notBroughtIn: Object.fromEntries(
-      ["Estimate.csv", "Purchase_Order.csv", "Item.csv", "Projects.csv", "Activity Logs.csv", "Credit_Note.csv", "Vendor_Credits.csv", "Fixed_Asset.csv", "Recurring_Invoice.csv", "Sales_Order.csv"].map((n) => [n.replace(".csv", ""), counted(n)]).filter(([, n]) => n > 0)
+      ["Item.csv", "Activity Logs.csv", "Credit_Note.csv", "Vendor_Credits.csv", "Fixed_Asset.csv", "Recurring_Invoice.csv", "Sales_Order.csv"].map((n) => [n.replace(".csv", ""), counted(n)]).filter(([, n]) => n > 0)
     ),
   };
 }

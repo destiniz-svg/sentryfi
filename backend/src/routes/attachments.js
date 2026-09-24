@@ -124,6 +124,53 @@ router.get(
   })
 );
 
+/** An order's papers, and an imported entry's: what came across with them. */
+for (const [path, column] of [["/orders/:id", "order_id"], ["/entries/:id", "entry_id"]]) {
+  router.get(
+    path,
+    requireCan("read"),
+    asyncHandler(async (req, res) => {
+      if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) throw ApiError.notFound("Not in these books");
+      const rows = await asCompany(req, async (client) => {
+        const { rows: found } = await client.query(
+          `SELECT id, filename, content_type, byte_size, uploaded_at FROM attachments WHERE company_id = $1 AND ${column} = $2 ORDER BY uploaded_at`,
+          [req.companyId, req.params.id]
+        );
+        return found;
+      });
+      res.json({ attachments: rows });
+    })
+  );
+}
+
+/** Every file brought in from another system, with what it is filed against. */
+router.get(
+  "/imported",
+  requireCan("read"),
+  asyncHandler(async (req, res) => {
+    const rows = await asCompany(req, async (client) => {
+      const { rows: found } = await client.query(
+        `SELECT a.id, a.filename, a.content_type, a.byte_size, a.uploaded_at,
+                o.id AS order_id, o.number AS order_number, e.entry_no, e.narrative
+           FROM attachments a
+           LEFT JOIN orders o ON o.id = a.order_id
+           LEFT JOIN journal_entries e ON e.id = a.entry_id
+          WHERE a.company_id = $1 AND (a.order_id IS NOT NULL OR a.entry_id IS NOT NULL)
+          ORDER BY a.uploaded_at DESC LIMIT 500`,
+        [req.companyId]
+      );
+      return found;
+    });
+    res.json({
+      attachments: rows.map((r) => ({
+        id: r.id, filename: r.filename, contentType: r.content_type, size: Number(r.byte_size),
+        filedAgainst: r.order_number ? `Purchase order ${r.order_number}` : r.entry_no ? `Entry ${r.entry_no}: ${String(r.narrative || "").replace(/^From \w+: /, "")}` : null,
+        orderId: r.order_id,
+      })),
+    });
+  })
+);
+
 /** What paper a bill has. Never the bytes — those come one at a time. */
 router.get(
   "/bills/:id",

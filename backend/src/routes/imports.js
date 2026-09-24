@@ -161,4 +161,41 @@ router.post(
   })
 );
 
+/** After the books: the contacts' details, estimates as quotes, purchase orders, the project's figures. */
+router.post(
+  "/zoho-backup/records",
+  requireCan("adjust"),
+  express.json({ limit: "40mb" }),
+  asyncHandler(async (req, res) => {
+    const { r } = backup(req);
+    try {
+      res.status(201).json(await asCompany(req, (client) => require("../ledger/zohoRecords").bring(client, { companyId: req.companyId, userId: req.user.id, records: r.records })));
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
+/** The backup's attachments zip: each file filed against the document its name carries. */
+router.post(
+  "/zoho-backup/attachments",
+  requireCan("adjust"),
+  express.json({ limit: "60mb" }),
+  asyncHandler(async (req, res) => {
+    const zip = String(req.body?.zip || "");
+    if (!zip) throw ApiError.badRequest("Choose the attachments zip Zoho exported.");
+    let files;
+    try {
+      files = unzip(Buffer.from(zip, "base64"), { binary: true });
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+    try {
+      res.status(201).json(await asCompany(req, (client) => require("../ledger/zohoFiles").file(client, { companyId: req.companyId, userId: req.user.id, files })));
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
 module.exports = router;

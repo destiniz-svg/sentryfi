@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Loader2, Upload } from "lucide-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -86,7 +86,11 @@ export default function Import() {
         ).then((res) => res.data);
         total = { posted: total.posted + r.posted, unbalanced: r.unbalanced };
         setProgress({ done: total.posted, of });
-        if (!r.remaining || !r.posted) return total;
+        if (!r.remaining || !r.posted) {
+          // A backup's records post nothing and come after the books: contacts, quotes, orders, the project.
+          if (source?.kind === "backup") total.records = await apiClient.post("/imports/zoho-backup/records", { zip: source.zip }).then((res) => res.data);
+          return total;
+        }
       }
     },
     onSettled: () => setProgress(null),
@@ -119,6 +123,28 @@ export default function Import() {
     setSource(src);
     bring.reset();
     look.mutate(src);
+  }
+
+  const [filing, setFiling] = useState(false);
+  const [filedResult, setFiledResult] = useState(null);
+  async function onFiles(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setFiling(true);
+    try {
+      const zip = await new Promise((ok, fail) => {
+        const r = new FileReader();
+        r.onload = () => ok(String(r.result).split(",")[1]);
+        r.onerror = () => fail(r.error);
+        r.readAsDataURL(file);
+      });
+      setFiledResult(await apiClient.post("/imports/zoho-backup/attachments", { zip }).then((r) => r.data));
+    } catch (ex) {
+      toast.error("The files were not filed", ex.message);
+    } finally {
+      setFiling(false);
+    }
   }
 
   async function onChart(e) {
@@ -165,7 +191,13 @@ export default function Import() {
     try {
       const r = await bring.mutateAsync(mapping);
       queryClient.invalidateQueries();
-      toast.success(`${r.posted} ${r.posted === 1 ? "transaction" : "transactions"} brought in`, r.unbalanced ? `${r.unbalanced} did not balance and were left out.` : "Every one balanced.");
+      toast.success(
+        `${r.posted} ${r.posted === 1 ? "transaction" : "transactions"} brought in`,
+        [
+          r.unbalanced ? `${r.unbalanced} did not balance and were left out.` : "Every one balanced.",
+          r.records ? `${r.records.contactsMade + r.records.contactsFilled} contacts made or filled in, ${r.records.quotes} quotes, ${r.records.purchaseOrders} purchase orders.` : "",
+        ].filter(Boolean).join(" ")
+      );
       look.mutate(source);
     } catch (ex) {
       toast.error("Nothing was brought in", ex.message);
@@ -196,6 +228,18 @@ export default function Import() {
           In Zoho Books: Settings, Export data, Backup, then download the zip. It brings in every invoice, bill, expense, payment, transfer and journal, with each customer and supplier, checked against the backup's own totals. Nothing is written until you say so.
         </p>
         <input id="import-backup" type="file" accept=".zip,application/zip" onChange={onBackup} className={FIELD + " w-full max-w-md mt-3 h-11 py-1.5 file:mr-3 file:h-8 file:rounded-full file:border-0 file:bg-[var(--surface-2)] file:px-4 file:text-[14px] file:font-medium file:text-[var(--ink)] file:cursor-pointer"} />
+        <div className="mt-4 pt-4 border-t border-[var(--border)]">
+          <div className="text-[14px] font-medium">Its attachments</div>
+          <p className="text-[13px] text-[var(--ink-muted)] mt-0.5">Zoho exports these as a second zip. Bring the backup in first; each file is then filed against the document its name carries.</p>
+          <input id="import-attachments" type="file" accept=".zip,application/zip" onChange={onFiles} disabled={filing} className={FIELD + " w-full max-w-md mt-2 h-11 py-1.5 file:mr-3 file:h-8 file:rounded-full file:border-0 file:bg-[var(--surface-2)] file:px-4 file:text-[14px] file:font-medium file:text-[var(--ink)] file:cursor-pointer"} />
+          {filedResult && (
+            <p className="text-[13px] mt-2" data-testid="files-result">
+              {filedResult.filed} filed.
+              {filedResult.unmatched.length > 0 && <span className="text-[var(--ink-muted)]"> {filedResult.unmatched.length} could not be matched, because their names carry no document number: {filedResult.unmatched.map((u) => u.name).join(", ")}.</span>}
+            </p>
+          )}
+          <ImportedFiles key={filedResult ? filedResult.filed : 0} />
+        </div>
         {source?.kind === "backup" && p?.notBroughtIn && (
           <p className="text-[13px] text-[var(--ink-muted)] mt-3">
             {p.problems?.length ? <span className="block text-[var(--danger)]">{p.problems.length} {p.problems.length === 1 ? "document does" : "documents do"} not agree with the backup's own totals: {p.problems.slice(0, 3).join("; ")}.</span> : <span className="block">Every document agrees with the backup's own totals.</span>}
@@ -371,5 +415,23 @@ export default function Import() {
         </div>
       )}
     </div>
+  );
+}
+
+/** Files brought in from another system, each with what it is filed against. */
+function ImportedFiles() {
+  const { data } = useQuery({ queryKey: ["importedFiles"], queryFn: () => apiClient.get("/attachments/imported").then((r) => r.data.attachments) });
+  if (!data?.length) return null;
+  return (
+    <ul className="mt-3 divide-y divide-[var(--border)] text-[13px]">
+      {data.map((a) => (
+        <li key={a.id} className="py-2 flex flex-wrap items-baseline justify-between gap-x-3">
+          <a href={`/api/attachments/${a.id}/file`} target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2 truncate max-w-full">
+            {a.filename}
+          </a>
+          <span className="text-[var(--ink-muted)]">{a.filedAgainst}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
