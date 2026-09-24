@@ -12,6 +12,7 @@
  */
 const { assumeIdentity } = require("./post");
 const { toLaari, formatLaari } = require("./money");
+const { niceDate } = require("./gstReturn");
 const sales = require("./sales");
 
 const EVERY = { week: "every week", month: "every month", quarter: "every three months", year: "every year" };
@@ -67,7 +68,7 @@ async function runDue(client, { companyId, userId, today }) {
     for (let i = 0; i < 53 && next <= on && (!r.ends_text || next <= r.ends_text); i++) {
       const { invoice } = await sales.raise(client, {
         companyId, userId, counterpartyId: r.counterparty_id, issueDate: next, gstTreatment: r.gst_treatment, projectId: r.project_id,
-        subject: `${r.name}, from ${next}`,
+        subject: `${r.name}, from ${niceDate(next)}`,
         lines: r.lines,
       });
       await client.query("UPDATE sales_invoices SET recurring_id = $2 WHERE id = $1", [invoice.id, r.id]);
