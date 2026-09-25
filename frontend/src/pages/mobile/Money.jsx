@@ -6,7 +6,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 import { Money as Amount } from "@/components/ui/Money";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { byDay, DayHeader, EmptyState, laariText, MoneyRow, Segments } from "@/components/mobile/parts";
+import { Days, EmptyState, laariText, MoneyRow, Segments } from "@/components/mobile/parts";
 
 /**
  * Money, in the main app on a phone: bills and invoices as one place with two
@@ -69,17 +69,6 @@ function Total({ label, amount, sub }) {
       </div>
     </div>
   );
-}
-
-function Days({ rows, dateOf, render }) {
-  return byDay(rows, dateOf).map((g) => (
-    <section key={g.key}>
-      <DayHeader date={g.date} />
-      <div className="rounded-2xl border border-[var(--border)] overflow-hidden divide-y divide-[var(--border)]">
-        {g.rows.map(render)}
-      </div>
-    </section>
-  ));
 }
 
 function BillList() {

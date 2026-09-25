@@ -17,6 +17,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 import { formatDate } from "@/lib/utils";
 import { AgingBar } from "@/components/ui/AgingBar";
+import { Days, MoneyRow } from "@/components/mobile/parts";
 
 /**
  * What customers owe you.
@@ -202,7 +203,43 @@ export default function Invoices() {
           <p className="text-[15px] text-[var(--ink-muted)]">Nothing here.</p>
         </Card>
       ) : (
-        <Card padding="none" className="overflow-hidden">
+        <>
+        {/* Phone and tablet: the Money list, one card a day, the next step a swipe away. */}
+        <div className="lg:hidden">
+          {mayRecord && <p className="text-[13px] text-[var(--ink-muted)] px-1">Swipe an invoice left for its next step.</p>}
+          <Days
+            rows={rows}
+            dateOf={(i) => i.issueDate}
+            render={(inv) => (
+              <MoneyRow
+                key={inv.id}
+                to={`/documents/invoice/${inv.id}`}
+                who={inv.customer || "Nobody named yet"}
+                line={[
+                  inv.invoiceNo,
+                  inv.missingPurchaseOrder && inv.status !== "draft" && !inv.settled ? "No purchase order" : inv.subject,
+                  !inv.settled && inv.status === "posted" && inv.outstanding !== inv.gross ? `${inv.outstanding} left` : null,
+                ].filter(Boolean).join(" · ")}
+                amount={inv.gross}
+                pill={inv.state}
+                action={
+                  inv.status === "draft" && !inv.voided
+                    ? mayRecord && [
+                        { label: "Put in the books", run: () => onPost(inv), busy: posting === inv.id },
+                        { label: "Discard", run: () => setDiscarding(inv) },
+                      ]
+                    : inv.status === "posted" && !inv.settled
+                      ? [
+                          mayRecord && { label: "Money in", run: () => setReceiving(inv) },
+                          mayCredit && { label: "Credit note", run: () => setCrediting(inv) },
+                        ]
+                      : null
+                }
+              />
+            )}
+          />
+        </div>
+        <Card padding="none" className="overflow-hidden hidden lg:block">
           <div className="hidden xl:grid grid-cols-[minmax(0,1.4fr)_120px_110px_110px_150px_236px] gap-x-4 px-5 py-3 border-b border-[var(--border)] text-[12px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
             <span>Who</span>
             <span>Number</span>
@@ -291,6 +328,7 @@ export default function Invoices() {
             ))}
           </div>
         </Card>
+        </>
       )}
 
       <ReceiveMoney key={receiving?.id || "none"} invoice={receiving} onClose={() => setReceiving(null)} />

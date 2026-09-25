@@ -18,6 +18,7 @@ import { useBills, useBillMutations } from "@/hooks/useBills";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 import { formatDate } from "@/lib/utils";
+import { Days, MoneyRow } from "@/components/mobile/parts";
 
 /**
  * What is owed, and what still needs a person.
@@ -146,7 +147,42 @@ export default function Bills() {
           }
         />
       ) : (
-        <Card padding="none" className="overflow-hidden">
+        <>
+        {/* Phone and tablet: the Money list, one card a day, the next step a swipe away. */}
+        <div className="lg:hidden">
+          {canRecord && <p className="text-[13px] text-[var(--ink-muted)] px-1">Swipe a bill left for its next step.</p>}
+          <Days
+            rows={bills}
+            dateOf={(b) => b.issue_date || b.received_at}
+            render={(bill) => {
+              const isVoid = Boolean(bill.voided_at);
+              const status = STATUS[bill.status] || STATUS.draft;
+              return (
+                <MoneyRow
+                  key={bill.id}
+                  to={`/bills/${bill.id}`}
+                  who={bill.supplier_name || "Nobody named yet"}
+                  line={[bill.bill_no, bill.tax_laari !== "0" && !isVoid ? `incl. ${bill.tax} GST` : null, bill.gst_treatment === "unknown" && !isVoid ? "Say how its GST was quoted" : null].filter(Boolean).join(" · ")}
+                  amount={bill.gross}
+                  struck={isVoid}
+                  pill={isVoid ? { tone: "neutral", label: "Void" } : status}
+                  action={
+                    canRecord && !isVoid
+                      ? bill.status === "posted"
+                        ? [{ label: "Take it back out", run: () => onReverse(bill), busy: reversing === bill.id }]
+                        : [
+                            { label: "Put in the books", run: () => onPost(bill), busy: posting === bill.id },
+                            { label: "What it was for", run: () => setSplitting(bill) },
+                            { label: "Void it", run: () => setVoiding(bill) },
+                          ]
+                      : null
+                  }
+                />
+              );
+            }}
+          />
+        </div>
+        <Card padding="none" className="overflow-hidden hidden lg:block">
           <div className="hidden xl:grid grid-cols-[minmax(0,1.4fr)_120px_150px_minmax(0,1fr)_344px] gap-4 px-5 py-3 border-b border-[var(--border)] text-[12px] text-[var(--ink-muted)] font-medium">
             <span>Supplier</span>
             <span>Dated</span>
@@ -242,6 +278,7 @@ export default function Bills() {
             })}
           </div>
         </Card>
+        </>
       )}
 
       <RecordBill open={recording} onClose={() => setRecording(false)} />

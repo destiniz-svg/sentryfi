@@ -17,6 +17,17 @@
  */
 const RELEASES = [
   {
+    version: "1.19",
+    date: "2026-09-25",
+    title: "One list, everywhere you hold it",
+    summary: "Invoices, bills and orders on a phone or tablet now read like Money: one card a day, and the next step a swipe away.",
+    items: [
+      { area: "Sales", kind: "improved", title: "Invoices by day, with a swipe", body: "On a phone or tablet, invoices run by day. Swipe one left to put it in the books, take money in, or write a credit note.", href: "/invoices" },
+      { area: "Purchases", kind: "improved", title: "Bills by day, with a swipe", body: "Swipe a bill left to put it in the books, say what it was for, or void it.", href: "/bills" },
+      { area: "Purchases", kind: "improved", title: "Orders and quotes by day", body: "Orders and quotes are grouped by the day they were made, newest first.", href: "/orders" },
+    ],
+  },
+  {
     version: "1.18.1",
     date: "2026-09-25",
     title: "See what you type on a phone",

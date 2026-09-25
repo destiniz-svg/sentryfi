@@ -97,20 +97,41 @@ export function MoneyRow({ who, line, amount, pill, to, action, struck }) {
   ) : (
     body
   );
-  if (!action) return main;
+  // One next step, or several: the first in yellow, the rest beside it.
+  const acts = [action].flat().filter(Boolean);
+  if (!acts.length) return main;
   return (
     <div className="flex overflow-x-auto snap-x snap-mandatory no-bar">
       {main}
-      <button
-        type="button"
-        onClick={action.run}
-        disabled={action.busy}
-        className="snap-end shrink-0 w-[132px] bg-[var(--accent)] text-[var(--on-accent)] text-[14px] font-semibold px-3 leading-tight disabled:opacity-60"
-      >
-        {action.busy ? "Working…" : action.label}
-      </button>
+      {acts.map((a, i) => (
+        <button
+          key={a.label}
+          type="button"
+          onClick={a.run}
+          disabled={a.busy}
+          className={`${i === acts.length - 1 ? "snap-end " : ""}shrink-0 w-[120px] text-[14px] font-semibold px-3 leading-tight disabled:opacity-60 ${
+            i === 0 ? "bg-[var(--accent)] text-[var(--on-accent)]" : "bg-[var(--surface-2)] text-[var(--ink)] border-l border-[var(--border)]"
+          }`}
+        >
+          {a.busy ? "Working…" : a.label}
+        </button>
+      ))}
     </div>
   );
+}
+
+/** Rows under a header per day, each day one card. */
+export function Days({ rows, dateOf, render }) {
+  // Newest day first, whatever order the list came in; a day is never split in two.
+  const sorted = [...rows].sort((a, b) => String(dateOf(b) || "").localeCompare(String(dateOf(a) || "")));
+  return byDay(sorted, dateOf).map((g) => (
+    <section key={g.key}>
+      <DayHeader date={g.date} />
+      <div className="rounded-2xl border border-[var(--border)] overflow-hidden divide-y divide-[var(--border)]">
+        {g.rows.map(render)}
+      </div>
+    </section>
+  ));
 }
 
 /** An empty list that teaches: what goes here, and the one way to start. */
