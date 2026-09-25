@@ -140,7 +140,7 @@ beforeAll(async () => {
   A.topupId = (await call(A, "POST", `/cash/${A.boxId}/topup`, { body: { amount: "50" } })).json.id;
 
   // A bank account with one statement line
-  const bank = await call(A, "POST", "/bank", { body: { name: "SECRET-BANK-A" } });
+  const bank = await call(A, "POST", "/bank", { body: { name: "SECRET-BANK-A", accountNo: "7700000001" } });
   A.bankId = bank.json.account.id;
   const { rows } = await db.query(
     `INSERT INTO bank_statement_lines (company_id, account_id, posted_on, kind, who, credit_laari, row_hash)
@@ -161,7 +161,7 @@ beforeAll(async () => {
   // B needs something of its own to act on
   const bBox = await call(B, "POST", "/cash", { body: { name: "Tin B" } });
   B.boxId = bBox.json.box.id;
-  B.bankId = (await call(B, "POST", "/bank", { body: { name: "Bank B" } })).json.account.id;
+  B.bankId = (await call(B, "POST", "/bank", { body: { name: "Bank B", accountNo: "7700000002" } })).json.account.id;
   A.tag = tag;
 }, 120_000);
 
@@ -238,6 +238,7 @@ describe("A's invoices, from B", () => {
     noLeak(await call(B, "GET", "/sales/aged"), "SECRET-CUSTOMER-A", "555.55");
     noLeak(await call(B, "GET", "/sales/money-accounts"), A.bankId);
     expect((await call(B, "GET", `/sales/${A.invoiceId}/returnable`)).json.items || []).toEqual([]);
+    denied(await call(B, "GET", `/sales/${A.invoiceId}/copy`));
   });
   it("cannot be posted, credited, discarded or paid", async () => {
     denied(await call(B, "POST", `/sales/${A.draftInvoice}/post`));

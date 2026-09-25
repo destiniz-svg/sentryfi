@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Package, Plus, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -99,7 +99,7 @@ export default function Orders() {
           </div>
         </Card>
       )}
-      {adding && <NewOrder kind={kind} onClose={() => setAdding(false)} />}
+      {adding && <NewOrder kind={kind} from={params.get("from")} onClose={() => setAdding(false)} />}
     </div>
   );
 }
@@ -107,7 +107,7 @@ export default function Orders() {
 const blankLine = () => ({ itemId: "", description: "", accountId: "", quantity: "1", unit: "", unitPrice: "" });
 const VALIDITY_CHOICES = [7, 15, 30, 60];
 
-function NewOrder({ kind, onClose }) {
+function NewOrder({ kind, from, onClose }) {
   const nav = useNavigate();
   const qc = useQueryClient();
   const { companyId } = useCompany();
@@ -118,7 +118,7 @@ function NewOrder({ kind, onClose }) {
   const [party, setParty] = useState(null);
   // The guided way through, as on an invoice: who, items one at a time, when,
   // anything else, then the order itself. Closing a step leaves the form below.
-  const [flow, setFlow] = useState("who");
+  const [flow, setFlow] = useState(from ? null : "who");
   const phone = usePhone();
   const side = kind === "purchase" ? "purchase" : "sale";
   const [f, setF] = useState({ orderedOn: today(), projectId: "", expectedOn: "", note: "", validUntil: "" });
@@ -126,6 +126,15 @@ function NewOrder({ kind, onClose }) {
   const [pickFor, setPickFor] = useState(null);
   const { data: stockItems } = useQuery({ queryKey: ["stock", companyId], queryFn: () => apiClient.get("/stock").then((r) => r.data), select: (d) => d.items, enabled: Boolean(companyId) });
   const [err, setErr] = useState("");
+  // Duplicate: another order's party, lines and project, today's date, a new
+  // number. Nothing is saved until the person saves it.
+  const { data: source } = useQuery({ queryKey: ["orders", companyId, "copy", from], queryFn: () => apiClient.get(`/orders/${from}`).then((r) => r.data), enabled: Boolean(from) });
+  useEffect(() => {
+    if (!source) return;
+    setParty(source.partyId ? { id: source.partyId, name: source.party } : { id: null, name: source.party });
+    setLines(source.lines.map((l) => ({ ...blankLine(), itemId: l.itemId || "", description: l.description || "", accountId: l.accountId || "", quantity: String(l.quantity).replace(/,/g, ""), unit: l.unit || "", unitPrice: String(l.price).replace(/,/g, "") })));
+    setF((x) => ({ ...x, projectId: source.projectId || "", note: source.note || "" }));
+  }, [source]);
   const save = useMutation({ mutationFn: (body) => apiClient.post("/orders", body).then((r) => r.data) });
   const setLine = (i, patch) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const total = lines.reduce((a, l) => a + n(l.quantity) * n(l.unitPrice), 0);
@@ -176,6 +185,11 @@ function NewOrder({ kind, onClose }) {
         <Loader2 size={18} className="animate-spin text-[var(--ink-muted)]" />
       ) : (
         <div className="grid gap-4">
+          {source && (
+            <p className="text-[14px] rounded-xl bg-[var(--surface-2)] px-4 py-3" data-testid="copy-of">
+              A copy of {source.number}, dated today with a new number. Check each line before you save.
+            </p>
+          )}
           <Step n={1} id="order-step-who" title={kind === "purchase" ? "Who is it from?" : "Who is it for?"} done={at > 1} active={at === 1}>
             <PartyPicker kind={partyKind} value={party} onChange={(p) => (setParty(p), setFlow("items"))} open={flow === "who"} setOpen={(v) => setFlow((x) => (v ? "who" : x === "who" ? null : x))} />
           </Step>

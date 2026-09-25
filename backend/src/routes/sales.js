@@ -182,6 +182,57 @@ router.get(
   })
 );
 
+/**
+ * What a new invoice copied from this one starts with: who, what, and on
+ * which terms. Never its number, dates or customer reference, which belong to
+ * the one it came from. Nothing is saved until a person saves the copy.
+ */
+router.get(
+  "/:id/copy",
+  requireCan("read"),
+  asyncHandler(async (req, res) => {
+    if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) throw ApiError.notFound("No such invoice.");
+    const found = await asCompany(req, async (client) => {
+      const { rows } = await client.query(
+        `SELECT s.invoice_no, s.counterparty_id, c.name AS customer, c.payment_terms_days, c.email, s.subject, s.notes,
+                s.gst_treatment, s.currency, s.fx_rate, s.fc_gross, s.project_id, s.dimension_ids
+           FROM sales_invoices s LEFT JOIN counterparties c ON c.id = s.counterparty_id
+          WHERE s.id = $1 AND s.company_id = $2`,
+        [req.params.id, req.companyId]
+      );
+      if (!rows[0]) return null;
+      const { rows: lines } = await client.query(
+        `SELECT description, quantity::text AS quantity, uom, unit_price_laari, discount_bp, item_id
+           FROM sales_invoice_lines WHERE invoice_id = $1 AND company_id = $2 ORDER BY position`,
+        [req.params.id, req.companyId]
+      );
+      return { s: rows[0], lines };
+    });
+    if (!found) throw ApiError.notFound("That invoice is not in these books.");
+    const { s, lines } = found;
+    const foreign = s.fc_gross !== null && s.fc_gross !== undefined;
+    res.json({
+      from: s.invoice_no,
+      customer: { id: s.counterparty_id, name: s.customer, termsDays: s.payment_terms_days ?? null, email: s.email },
+      subject: s.subject,
+      notes: s.notes,
+      gstTreatment: s.gst_treatment,
+      currency: foreign ? String(s.currency).trim() : null,
+      fxRate: foreign && s.fx_rate ? String(Number(s.fx_rate)) : null,
+      projectId: s.project_id,
+      dimensionIds: s.dimension_ids || [],
+      discountPercent: lines[0]?.discount_bp ? lines[0].discount_bp / 100 : null,
+      lines: lines.map((l) => ({
+        description: l.description,
+        quantity: String(Number(l.quantity)),
+        uom: l.uom || "",
+        rate: money(l.unit_price_laari).replace(/,/g, ""),
+        itemId: l.item_id,
+      })),
+    });
+  })
+);
+
 /** The number this company's next invoice would carry. */
 router.get(
   "/next-number",

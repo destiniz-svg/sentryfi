@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, Copy, FileText, Loader2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -83,6 +83,11 @@ export default function Order() {
             <Link to={`/documents/${DOC_KIND[o.kind]}/${o.id}`} className="inline-flex items-center gap-1.5 h-11 px-4 rounded-full border border-[var(--border)] text-[14px] font-medium hover:border-[var(--ink)]" data-testid="order-document">
               <FileText size={15} /> {quote ? "The quotation" : buying ? "The purchase order" : "The sales order"}
             </Link>
+            {(buying ? can("order") || can("record") : can("record")) && (
+              <Button variant="outline" onClick={() => nav(`/orders?kind=${o.kind}&new=1&from=${o.id}`)} data-testid="duplicate">
+                <Copy size={15} /> Duplicate
+              </Button>
+            )}
             {quote && ["quoted", "expired"].includes(o.status) && can("record") && (
               <>
                 <Button variant="outline" disabled={act.isPending} onClick={() => run(`/orders/${id}/decline`, {}, () => ["Declined", "Kept, so you can see what was lost and why."])}>

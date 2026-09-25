@@ -88,7 +88,7 @@ The phases below say *what*; this says *when*. Set 23 September 2026. Each sprin
 21. The expense companion app.
 
 **Sprint 6 — Selling and buying, finished; stock in every place.** Set 26 September 2026 from the research in the Claude Doc (https://claude.ai/artifact/Eei6JPwaFbTZGyvvVDyQmp). In this order, smallest and most-used first:
-22. **Duplicate** any quote, invoice, bill or order.
+22. **Duplicate** any quote, invoice, bill or order. *Done 26 Sep 2026:* invoices, quotes, sales and purchase orders, from the document or the order page; the form arrives filled in and nothing is saved until a person saves (tools/duplicate.js). Bills repeat under item 24.
 23. **An accepted quote drafts its invoice**, and the office is told; a person always sends it (owner's decision). Then **billing a job in parts**, by percentage or milestone, with what is left shown on the quote.
 24. **Costs passed on**: a bill line or claim marked for a customer waits on their next invoice. **Repeating bills** (rent, internet) are drafted on schedule for a person to post.
 25. **Stock places for real**: store, godown, outlet, site, factory, vehicle; a person in charge of each; a site tied to its project. Bills and deliveries receive into a named place, not only the main store.

@@ -129,7 +129,7 @@ export default function NewInvoice() {
   // The guided way through: customer, items one at a time, GST, terms, the
   // rest, then the invoice itself. Closing any step leaves the page form, with
   // everything so far kept, to finish by hand.
-  const [flow, setFlow] = useState(params.get("customer") ? null : "who");
+  const [flow, setFlow] = useState(params.get("customer") || params.get("from") ? null : "who");
   const phone = usePhone();
   const [terms, setTerms] = useState(null);
   const [keepTerms, setKeepTerms] = useState(false);
@@ -172,6 +172,25 @@ export default function NewInvoice() {
   }));
   const [lines, setLines] = useState([blankLine()]);
   const [err, setErr] = useState("");
+
+  // Duplicate: another invoice's customer, lines and terms, today's date and a
+  // new number. Its customer reference is theirs for that one, so it stays behind.
+  const { data: source } = useQuery({ queryKey: ["invoice-copy", companyId, params.get("from")], queryFn: () => apiClient.get(`/sales/${params.get("from")}/copy`).then((r) => r.data), enabled: Boolean(companyId && params.get("from")) });
+  useEffect(() => {
+    if (!source) return;
+    if (source.customer.name) choose(source.customer, false);
+    setForm((x) => ({
+      ...x,
+      subject: source.subject || "",
+      notes: source.notes || "",
+      gstTreatment: source.gstTreatment || x.gstTreatment,
+      discount: source.discountPercent ? String(source.discountPercent) : "",
+      currency: source.currency || "",
+      fxRate: source.fxRate || "",
+      tags: { projectId: source.projectId || null, dimensionIds: source.dimensionIds || [] },
+    }));
+    setLines(source.lines.map((l) => ({ ...blankLine(), ...l, itemId: l.itemId || "" })));
+  }, [source]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Never a cached number: a stale one is a number somebody else may already
   // have used, and the save would be refused over it.
@@ -434,6 +453,11 @@ export default function NewInvoice() {
       </div>
       <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6 items-start">
         <div className={cn("grid gap-4 min-w-0", view === "preview" && "hidden lg:grid")}>
+          {source && (
+            <p className="text-[14px] rounded-xl bg-[var(--surface-2)] px-4 py-3" data-testid="copy-of">
+              A copy of {source.from}, dated today with a new number. Check each line, and add the customer's reference if they gave one.
+            </p>
+          )}
           <FromWords
             onFill={(r) => {
               setForm((x) => ({

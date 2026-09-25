@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Printer, FileDown, ShieldCheck, Share2 } from "lucide-react";
+import { ArrowLeft, Copy, Printer, FileDown, ShieldCheck, Share2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Questions } from "@/components/documents/Questions";
 import { ShareDocument } from "@/components/documents/Share";
@@ -33,9 +33,17 @@ const TALKED = ["invoice", "credit_note", "quote", "sales_order", "purchase_orde
 // Every document with someone to send it to.
 const SENT = ["invoice", "quote", "proforma", "retainer", "sales_order", "delivery_note", "goods_received", "credit_note", "receipt", "statement", "purchase_order"];
 
+// Documents that can start the next one: the same form, filled in from this one.
+const DUPLICATE = {
+  invoice: (id) => `/invoices/new?from=${id}`,
+  quote: (id) => `/orders?kind=quote&new=1&from=${id}`,
+  sales_order: (id) => `/orders?kind=sale&new=1&from=${id}`,
+  purchase_order: (id) => `/orders?kind=purchase&new=1&from=${id}`,
+};
+
 export default function Document() {
   const { kind, id } = useParams();
-  const { companyId } = useCompany();
+  const { companyId, can } = useCompany();
   const { data, isLoading, error } = useQuery({
     queryKey: ["document", companyId, kind, id],
     queryFn: () => apiClient.get(`/documents/${kind}/${id}`).then((r) => r.data),
@@ -81,6 +89,11 @@ export default function Document() {
           <Button variant="outline" onClick={() => setEmailing(true)} data-testid="share-document">
             <Share2 size={15} /> Send
           </Button>
+        )}
+        {DUPLICATE[kind] && (can("record") || (kind === "purchase_order" && can("order"))) && (
+          <Link to={DUPLICATE[kind](id)} className="inline-flex items-center gap-1.5 h-11 px-4 rounded-full border border-[var(--border)] text-[14px] font-medium hover:border-[var(--ink)]" data-testid="duplicate">
+            <Copy size={15} /> Duplicate
+          </Link>
         )}
         <Button variant="outline" onClick={() => window.print()}>
           <FileDown size={15} /> PDF

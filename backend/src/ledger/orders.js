@@ -297,7 +297,7 @@ function show(s) {
     delivered: f(s.lines.reduce((a, l) => a + times(l.price, l.deliveredUnits), 0n)),
     billed: f(s.lines.reduce((a, l) => a + times(l.price, l.billedUnits), 0n)),
     lines: s.lines.map((l) => ({
-      id: l.id, description: l.description, item: l.item_name, account: l.account_name, unit: l.unit,
+      id: l.id, description: l.description, item: l.item_name, itemId: l.item_id, account: l.account_name, accountId: l.account_id, unit: l.unit,
       quantity: stock.unitsText(l.units), delivered: stock.unitsText(l.deliveredUnits), billed: stock.unitsText(l.billedUnits),
       price: f(l.price), amount: f(times(l.price, l.units)),
     })),

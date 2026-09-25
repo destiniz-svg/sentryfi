@@ -17,6 +17,16 @@
  */
 const RELEASES = [
   {
+    version: "1.28.0",
+    date: "2026-09-26",
+    title: "Duplicate",
+    summary: "Start a quote, invoice or order from one you already made: the same customer and lines, a new number, today's date.",
+    items: [
+      { area: "Sales", kind: "new", title: "Duplicate an invoice or quote", body: "Duplicate on any invoice, quote or sales order opens a new one filled in from it. Nothing is saved until you check it and save; the customer's reference and the dates are left for you.", href: "/invoices" },
+      { area: "Buying", kind: "new", title: "Duplicate a purchase order", body: "Order the same things from the same supplier again from the order's page or its document.", href: "/orders?kind=purchase" },
+    ],
+  },
+  {
     version: "1.27.4",
     date: "2026-09-26",
     title: "Customers always get the current page",
