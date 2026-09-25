@@ -17,6 +17,15 @@
  */
 const RELEASES = [
   {
+    version: "1.27.4",
+    date: "2026-09-26",
+    title: "Customers always get the current page",
+    summary: "A link you send now always opens the current version of the page, never an older copy kept on the customer's phone.",
+    items: [
+      { area: "Sales", kind: "fixed", title: "Links open the current page", body: "A customer's page, a shared document, an invitation or a password reset could open from a copy the phone kept from an earlier visit, running older code than the server, such as a quote's Accept that asked for a name before the fix. They now always load fresh.", href: "/orders?kind=quote" },
+    ],
+  },
+  {
     version: "1.27.3",
     date: "2026-09-26",
     title: "Accepting a quote in one tap",

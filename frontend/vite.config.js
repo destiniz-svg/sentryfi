@@ -56,7 +56,11 @@ export default defineConfig({
         // Every navigation falls back to the shell, so a deep link opened with
         // no signal lands in the app rather than on an error page.
         navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/api\//],
+        // Pages for people outside the company (a customer's portal, a shared
+        // document, a check of an issued copy, an invitation) always come from
+        // the network: they are opened once from a link, never installed, and
+        // must never run code older than the server they talk to.
+        navigateFallbackDenylist: [/^\/api\//, /^\/portal\//, /^\/d\//, /^\/v\//, /^\/join\//, /^\/reset\//, /^\/verify\//],
         globPatterns: ["**/*.{js,css,html,svg,woff2}"],
         // Never cache the books.
         runtimeCaching: [
