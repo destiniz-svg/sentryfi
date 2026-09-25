@@ -17,6 +17,15 @@
  */
 const RELEASES = [
   {
+    version: "1.16",
+    date: "2026-09-25",
+    title: "What's new, easier to read",
+    summary: "The latest release up top, filters in two tidy rows, and every change opens with one tap.",
+    items: [
+      { area: "App", kind: "improved", title: "What's new, easier to read", body: "The newest release leads in its own card. Areas sit in one row you swipe sideways, and each change is a row you tap to open where it lives.", href: "/whats-new" },
+    ],
+  },
+  {
     version: "1.15",
     date: "2026-09-25",
     title: "Settings, reorganised",

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Search, X } from "lucide-react";
+import { ChevronRight, Search, Sparkles, TrendingUp, Wrench, X } from "lucide-react";
 import { apiClient } from "@/api/client";
 import { cn, formatDate } from "@/lib/utils";
 
@@ -16,9 +16,9 @@ import { cn, formatDate } from "@/lib/utils";
  */
 const SEEN = "sentryfi.seen-version";
 const KIND = {
-  new: { label: "New", tone: "bg-[var(--ink)] text-[var(--bg)]" },
-  improved: { label: "Improved", tone: "bg-[var(--accent-soft)] text-[var(--accent-strong)]" },
-  fixed: { label: "Fixed", tone: "bg-[var(--surface-2)] text-[var(--ink-muted)] border border-[var(--border)]" },
+  new: { label: "New", Icon: Sparkles, tone: "bg-[var(--accent-soft)] text-[var(--accent-strong)]" },
+  improved: { label: "Improved", Icon: TrendingUp, tone: "bg-[var(--surface-2)] text-[var(--ink)]" },
+  fixed: { label: "Fixed", Icon: Wrench, tone: "bg-[var(--surface-2)] text-[var(--ink-muted)]" },
 };
 const parts = (v) => String(v || "0").split(".").map(Number);
 const newer = (a, b) => {
@@ -75,60 +75,59 @@ export default function WhatsNew({ outside = false }) {
     .filter((r) => r.items.length);
   const found = shown.reduce((a, r) => a + r.items.length, 0);
 
+  const filtered = words || area !== "All" || kind !== "all";
+  const latest = releases[0]?.version;
+
   return (
     <div className={cn("mx-auto w-full", outside ? "max-w-[1120px] px-4 sm:px-6 py-8" : "max-w-[1120px]")}>
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-display text-[32px] sm:text-[40px] font-bold tracking-tight leading-none">What&apos;s new</h1>
-          <p className="text-[15px] text-[var(--ink-muted)] mt-2 max-w-[60ch]">Every change to Sentryfi, newest first. {outside ? "Everything here is live for every company." : "Each one opens where it lives."}</p>
-        </div>
+      <header>
+        <h1 className="font-display text-[32px] sm:text-[40px] font-bold tracking-tight leading-none">What&apos;s new</h1>
+        <p className="text-[15px] text-[var(--ink-muted)] mt-2 max-w-[60ch]">Every change to Sentryfi, newest first. {outside ? "Everything here is live for every company." : "Tap one to open it."}</p>
         {data && (
-          <div className="flex flex-wrap items-center gap-2">
+          <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px] text-[var(--ink-muted)]">
+            <span className="tabular whitespace-nowrap" title="The version, and the exact build this server runs">
+              {outside ? "Now on" : "You're on"} <b className="font-semibold text-[var(--ink)]">Sentryfi {data.current.version}</b> · build {data.current.build}
+            </span>
             {unseen > 0 && !outside && (
-              <span className="h-8 px-3 rounded-full bg-[var(--accent)] text-[var(--on-accent)] text-[13px] font-semibold inline-flex items-center" data-testid="unseen">
+              <span className="h-7 px-3 rounded-full bg-[var(--accent)] text-[var(--on-accent)] font-semibold inline-flex items-center whitespace-nowrap" data-testid="unseen">
                 {unseen} new since you last looked
               </span>
             )}
-            <span className="h-8 px-3 rounded-full border border-[var(--border)] bg-[var(--surface)] text-[13px] inline-flex items-center gap-1.5 tabular" title="The version, and the exact build this server runs">
-              Sentryfi <b className="font-semibold">{data.current.version}</b>
-              <span className="text-[var(--ink-muted)]">· build {data.current.build}</span>
-            </span>
-          </div>
+          </p>
         )}
       </header>
 
-      <div className="mt-6 flex flex-col gap-3">
-        <label className="relative max-w-[520px]">
+      <div className="mt-6 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+        <label className="relative">
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--ink-muted)]" aria-hidden="true" />
-          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search what changed: payroll, GST, WhatsApp…" aria-label="Search what changed" className="w-full h-11 pl-11 pr-4 rounded-full border border-[var(--border)] bg-[var(--surface)] text-[15px] outline-none focus:border-[var(--ink)] placeholder:text-[var(--ink-muted)]" />
+          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search: payroll, GST, WhatsApp…" aria-label="Search what changed" className="w-full h-11 pl-11 pr-4 rounded-full border border-[var(--border)] bg-[var(--surface)] text-[15px] outline-none focus:border-[var(--ink)] placeholder:text-[var(--ink-muted)]" />
         </label>
-        <div className="flex flex-wrap items-center gap-2">
-          <div role="group" aria-label="Area" className="flex flex-wrap gap-2">
-            {areas.map(([a, n]) => (
-              <button key={a} type="button" aria-pressed={area === a} onClick={() => setArea(a)} className={cn("h-9 px-3.5 rounded-full border text-[14px] whitespace-nowrap inline-flex items-center gap-1.5", area === a ? "bg-[var(--ink)] text-[var(--bg)] border-[var(--ink)] font-semibold" : "bg-[var(--surface)] border-[var(--border)] text-[var(--ink-muted)] hover:text-[var(--ink)]")}>
-                {a} <span className="tabular text-[12px] opacity-70">{n}</span>
-              </button>
-            ))}
-          </div>
-          <div role="group" aria-label="Kind of change" className="flex gap-1 p-1 rounded-full bg-[var(--surface-2)] sm:ml-auto">
-            {[["all", "All"], ["new", "New"], ["improved", "Improved"], ["fixed", "Fixed"]].map(([k, label]) => (
-              <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)} className={cn("h-8 px-3 rounded-full text-[13px] font-medium", kind === k ? "bg-[var(--surface)] text-[var(--ink)] shadow-sm" : "text-[var(--ink-muted)] hover:text-[var(--ink)]")}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-        {(words || area !== "All" || kind !== "all") && (
-          <p className="text-[13px] text-[var(--ink-muted)]" aria-live="polite" data-testid="filter-count">
-            {found} {found === 1 ? "change" : "changes"} in {shown.length} {shown.length === 1 ? "release" : "releases"}.{" "}
-            <button type="button" onClick={() => (setQ(""), setArea("All"), setKind("all"))} className="inline-flex items-center gap-1 underline underline-offset-2 hover:text-[var(--ink)]">
-              <X size={12} /> Show everything
+        <div role="group" aria-label="Kind of change" className="grid grid-cols-4 gap-1 p-1 rounded-full bg-[var(--surface-2)]">
+          {[["all", "All"], ["new", "New"], ["improved", "Improved"], ["fixed", "Fixed"]].map(([k, label]) => (
+            <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)} className={cn("h-9 px-3 rounded-full text-[13px] font-medium", kind === k ? "bg-[var(--surface)] text-[var(--ink)] shadow-sm" : "text-[var(--ink-muted)] hover:text-[var(--ink)]")}>
+              {label}
             </button>
-          </p>
-        )}
+          ))}
+        </div>
       </div>
+      {/* One row of areas, swiped sideways on a phone rather than stacked. */}
+      <div role="group" aria-label="Area" className="mt-3 -mx-4 px-4 sm:mx-0 sm:px-0 flex gap-2 overflow-x-auto no-bar">
+        {areas.map(([a, n]) => (
+          <button key={a} type="button" aria-pressed={area === a} onClick={() => setArea(a)} className={cn("shrink-0 h-9 px-3.5 rounded-full border text-[14px] whitespace-nowrap inline-flex items-center gap-1.5", area === a ? "bg-[var(--ink)] text-[var(--bg)] border-[var(--ink)] font-semibold" : "bg-[var(--surface)] border-[var(--border)] text-[var(--ink-muted)] hover:text-[var(--ink)]")}>
+            {a} <span className="tabular text-[12px] opacity-70">{n}</span>
+          </button>
+        ))}
+      </div>
+      {filtered && (
+        <p className="mt-3 text-[13px] text-[var(--ink-muted)]" aria-live="polite" data-testid="filter-count">
+          {found} {found === 1 ? "change" : "changes"} in {shown.length} {shown.length === 1 ? "release" : "releases"}.{" "}
+          <button type="button" onClick={() => (setQ(""), setArea("All"), setKind("all"))} className="inline-flex items-center gap-1 underline underline-offset-2 hover:text-[var(--ink)]">
+            <X size={12} /> Show everything
+          </button>
+        </p>
+      )}
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-[180px_minmax(0,1fr)]">
+      <div className="mt-6 grid gap-8 lg:grid-cols-[160px_minmax(0,1fr)]">
         {/* The rule down the side: every version, a tick each, jump to it. */}
         <nav aria-label="Versions" className="hidden lg:block">
           <ol className="sticky top-24 border-l-2 border-[var(--ink)] pl-0">
@@ -148,47 +147,64 @@ export default function WhatsNew({ outside = false }) {
           </ol>
         </nav>
 
-        <div className="grid gap-6 min-w-0" data-testid="releases">
+        <div className="grid gap-5 min-w-0" data-testid="releases">
           {!data ? (
             <div className="h-64 rounded-[20px] bg-[var(--surface)] animate-pulse" />
           ) : !shown.length ? (
             <p className="rounded-[20px] bg-[var(--surface)] lift px-5 py-10 text-center text-[15px] text-[var(--ink-muted)]">Nothing matches that. Try another word, or show everything.</p>
           ) : (
-            shown.map((r) => (
-              <section key={r.version} id={`v${r.version}`} aria-labelledby={`h-${r.version}`} className="scroll-mt-24 rounded-[20px] bg-[var(--surface)] lift overflow-hidden">
-                <div className="px-5 sm:px-6 pt-5 pb-4 border-b border-[var(--border)] grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 items-baseline">
-                  <span className="font-display text-[34px] sm:text-[40px] font-bold leading-none tabular">{r.version}</span>
-                  <div className="min-w-0">
-                    <h2 id={`h-${r.version}`} className="text-[18px] font-semibold leading-snug">
-                      {r.title}
-                      {isNewToYou(r.version) && <span className="ml-2 align-middle h-6 px-2 rounded-full bg-[var(--accent-soft)] text-[var(--accent-strong)] text-[12px] font-semibold inline-flex items-center">New to you</span>}
-                    </h2>
-                    <p className="text-[13px] text-[var(--ink-muted)] mt-0.5">
-                      {formatDate(r.date)} · {r.summary}
+            shown.map((r) => {
+              // The newest release, unfiltered, is the one black card on the page.
+              const hero = r.version === latest && !filtered;
+              return (
+                <section key={r.version} id={`v${r.version}`} aria-labelledby={`h-${r.version}`} className="scroll-mt-24 rounded-[20px] bg-[var(--surface)] lift overflow-hidden">
+                  <div className={cn("px-5 sm:px-6 pt-5 pb-4", hero ? "bg-[var(--ink)] text-[var(--bg)]" : "border-b border-[var(--border)]")}>
+                    <p className={cn("flex flex-wrap items-center gap-2 text-[13px] tabular", hero ? "opacity-70" : "text-[var(--ink-muted)]")}>
+                      <span className="font-display text-[15px] font-bold">{r.version}</span>
+                      <span aria-hidden="true">·</span>
+                      {formatDate(r.date)}
+                      {hero && <span aria-hidden="true">· Latest</span>}
                     </p>
+                    <h2 id={`h-${r.version}`} className={cn("font-display font-bold tracking-tight leading-tight mt-1", hero ? "text-[26px] sm:text-[30px]" : "text-[21px]")}>
+                      {r.title}
+                      {isNewToYou(r.version) && <span className="ml-2 align-middle h-6 px-2 rounded-full bg-[var(--accent)] text-[var(--on-accent)] text-[12px] font-semibold tracking-normal inline-flex items-center">New to you</span>}
+                    </h2>
+                    <p className={cn("text-[14px] leading-relaxed mt-1 max-w-[68ch]", hero ? "opacity-80" : "text-[var(--ink-muted)]")}>{r.summary}</p>
                   </div>
-                </div>
-                <ul className="divide-y divide-[var(--border)]">
-                  {r.items.map((it) => (
-                    <li key={it.title} className="px-5 sm:px-6 py-4 grid gap-x-4 gap-y-1.5 sm:grid-cols-[92px_minmax(0,1fr)_auto] items-start">
-                      <span className="flex sm:flex-col gap-2 sm:gap-1 items-center sm:items-start">
-                        <span className={cn("h-6 px-2.5 rounded-full text-[12px] font-semibold inline-flex items-center", KIND[it.kind].tone)}>{KIND[it.kind].label}</span>
-                        <span className="text-[12px] text-[var(--ink-muted)]">{it.area}</span>
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-[15px] font-semibold">{it.title}</span>
-                        <span className="block text-[14px] text-[var(--ink-muted)] leading-relaxed mt-0.5 max-w-[68ch]">{it.body}</span>
-                      </span>
-                      {!outside && it.area !== "Website" && (
-                        <Link to={it.href} className="justify-self-start sm:justify-self-end inline-flex items-center gap-1 h-9 px-3 rounded-full text-[13px] font-medium text-[var(--deep)] hover:bg-[var(--surface-2)] whitespace-nowrap">
-                          Open it <ArrowRight size={14} />
-                        </Link>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))
+                  <ul className="divide-y divide-[var(--border)]">
+                    {r.items.map((it) => {
+                      const K = KIND[it.kind];
+                      const body = (
+                        <>
+                          <span className={cn("h-10 w-10 shrink-0 rounded-full grid place-items-center", K.tone)} aria-hidden="true">
+                            <K.Icon size={17} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[12px] text-[var(--ink-muted)]">
+                              {K.label} · {it.area}
+                            </span>
+                            <span className="block text-[15px] font-semibold leading-snug">{it.title}</span>
+                            <span className="block text-[14px] text-[var(--ink-muted)] leading-relaxed mt-0.5 max-w-[68ch]">{it.body}</span>
+                          </span>
+                        </>
+                      );
+                      return (
+                        <li key={it.title}>
+                          {!outside && it.area !== "Website" ? (
+                            <Link to={it.href} className="flex items-start gap-3.5 px-5 sm:px-6 py-4 hover:bg-[var(--surface-2)] transition-colors">
+                              {body}
+                              <ChevronRight size={18} className="shrink-0 self-center text-[var(--ink-muted)]" aria-label="Open" />
+                            </Link>
+                          ) : (
+                            <div className="flex items-start gap-3.5 px-5 sm:px-6 py-4">{body}</div>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              );
+            })
           )}
         </div>
       </div>
