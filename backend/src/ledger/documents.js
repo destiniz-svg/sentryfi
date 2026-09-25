@@ -58,7 +58,7 @@ async function invoiceData(client, { companyId, id: invoiceId }) {
   const s = rows[0];
   if (!s) throw new Error("That invoice is not in these books.");
   const { rows: lines } = await client.query(
-    `SELECT l.description, l.quantity::text AS quantity, l.uom, l.unit_price_laari, l.net_laari, l.tax_laari, l.fc_net, i.code AS item_code
+    `SELECT l.description, l.quantity::text AS quantity, l.uom, l.unit_price_laari, l.net_laari, l.tax_laari, l.fc_net, l.discount_bp, i.code AS item_code
        FROM sales_invoice_lines l LEFT JOIN stock_items i ON i.id = l.item_id
       WHERE l.invoice_id = $1 ORDER BY l.position`,
     [invoiceId]
@@ -82,7 +82,8 @@ async function invoiceData(client, { companyId, id: invoiceId }) {
     gstRatePercent: s.gst_rate_bp === null ? null : s.gst_rate_bp / 100,
     lines: lines.map((l) => ({
       code: l.item_code || null,
-      description: l.description,
+      // A discount is said on the line, so the amount after it still reads true.
+      description: l.discount_bp ? `${l.description} (less ${l.discount_bp / 100}%)` : l.description,
       quantity: String(Number(l.quantity)),
       unit: l.uom,
       // In another currency the line is in that currency: what the customer sees.

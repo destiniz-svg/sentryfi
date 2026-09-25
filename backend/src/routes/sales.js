@@ -52,6 +52,7 @@ const newInvoice = z.object({
         quantity: z.number().default(1),
         uom: z.string().trim().max(20).nullish(),
         unitPrice: amount.optional(),
+        discountPercent: z.coerce.number().min(0).max(100).nullish(),
         amount: amount.optional(),
         accountId: z.string().uuid().nullish(),
         projectId: z.string().uuid().nullish(),

@@ -139,6 +139,7 @@ export default function NewInvoice() {
     // being copied into state — and a number they typed is never overwritten.
     invoiceNo: null,
     purchaseOrder: "",
+    discount: "",
     subject: "",
     issueDate: today(),
     dueDate: today(30),
@@ -205,10 +206,13 @@ export default function NewInvoice() {
     );
   };
 
+  const discountPct = Math.min(100, Math.max(0, Number(String(form.discount || "").replace(/[,%]/g, "")) || 0));
   const priced = lines.map((l) => {
     const rate = laari(l.rate);
     const qty = Number(String(l.quantity).replace(/,/g, ""));
-    const amount = rate !== null && qty > 0 ? Math.round(rate * qty) : null;
+    const before = rate !== null && qty > 0 ? Math.round(rate * qty) : null;
+    // The discount comes off each line before GST, as the server does it.
+    const amount = before !== null && discountPct > 0 ? before - Math.round((before * Math.round(discountPct * 100)) / 10000) : before;
     return { ...l, amount };
   });
   const usable = priced.filter((l) => l.amount && l.amount > 0);
@@ -259,6 +263,7 @@ export default function NewInvoice() {
           quantity: Number(String(l.quantity).replace(/,/g, "")),
           uom: l.uom.trim() || null,
           unitPrice: show(laari(l.rate)).replace(/,/g, ""),
+          discountPercent: discountPct || null,
           itemId: l.itemId || null,
         })),
       });
@@ -324,7 +329,7 @@ export default function NewInvoice() {
               ]
           ).map((l) => ({
             code: null,
-            description: l.description.trim(),
+            description: discountPct && l.amount ? `${l.description.trim()} (less ${discountPct}%)` : l.description.trim(),
             quantity: String(l.quantity),
             unit: l.uom.trim(),
             rate: laari(l.rate) !== null ? show(laari(l.rate)) : "",
@@ -606,14 +611,21 @@ export default function NewInvoice() {
                 </div>
               ))}
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setLines((all) => [...all, blankLine()])}
-              className="mt-2"
-            >
-              <Plus size={16} /> Add a line
-            </Button>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Button type="button" variant="ghost" onClick={() => setLines((all) => [...all, blankLine()])}>
+                <Plus size={16} /> Add a line
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => setLines((all) => [...all.filter((l) => l.description.trim() || l.rate), { ...blankLine(), description: "Delivery", uom: "trip" }])}>
+                <Plus size={16} /> Add delivery
+              </Button>
+              <label className="ml-auto flex items-center gap-2 text-[14px]">
+                Discount
+                <span className="relative">
+                  <input aria-label="Discount, percent" value={form.discount} onChange={set("discount")} inputMode="decimal" placeholder="0" className={`${FIELD} w-24 pr-7 tabular text-right`} />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--ink-muted)] pointer-events-none">%</span>
+                </span>
+              </label>
+            </div>
           </fieldset>
 
           <fieldset>

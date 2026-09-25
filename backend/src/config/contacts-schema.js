@@ -47,6 +47,9 @@ CREATE INDEX IF NOT EXISTS attachments_party_idx ON attachments(counterparty_id)
 -- against Opening balances (3900).
 ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS opening BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE bills ADD COLUMN IF NOT EXISTS opening BOOLEAN NOT NULL DEFAULT false;
+
+-- A discount on a line, in hundredths of a percent, taken off before GST.
+ALTER TABLE sales_invoice_lines ADD COLUMN IF NOT EXISTS discount_bp INTEGER CHECK (discount_bp BETWEEN 0 AND 10000);
 `;
 
 module.exports = { CONTACTS_SQL };

@@ -151,10 +151,14 @@ async function raise(client, {
     // at 3,000 invoiced three days: 9,000 instead of 7,500. Half-days are
     // ordinary on a rental invoice. The quantity is carried to four places
     // (the column holds four) and the product rounded half up.
-    const amount =
+    const gross0 =
       line.amount !== undefined
         ? toLaari(line.amount)
         : timesQuantity(unit, quantity);
+    // A discount comes off before GST, so the tax is on what is actually charged.
+    const discountBp = line.discountPercent ? Math.round(Number(line.discountPercent) * 100) : 0;
+    if (!(discountBp >= 0 && discountBp <= 10000)) throw new Error("A discount is between 0 and 100 percent.");
+    const amount = discountBp ? gross0 - (gross0 * BigInt(discountBp) + 5000n) / 10000n : gross0;
     const split = splitTax(amount, gstTreatment, rateBp);
     net += split.net;
     tax += split.tax;
@@ -166,6 +170,7 @@ async function raise(client, {
       quantity,
       uom: line.uom ? String(line.uom).trim() : item ? item.unit : null,
       unitPriceLaari: unit,
+      discountBp: discountBp || null,
       netLaari: split.net,
       taxLaari: split.tax,
       accountId: line.accountId || item?.income_account_id || income?.id || null,
@@ -241,8 +246,8 @@ async function raise(client, {
     await client.query(
       `INSERT INTO sales_invoice_lines
          (invoice_id, company_id, description, quantity, uom, unit_price_laari,
-          net_laari, tax_laari, account_id, project_id, position, fc_net, item_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+          net_laari, tax_laari, account_id, project_id, position, fc_net, item_id, discount_bp)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
       [
         invoice.id,
         companyId,
@@ -257,6 +262,7 @@ async function raise(client, {
         line.position,
         line.fcNet === undefined ? null : line.fcNet.toString(),
         line.itemId,
+        line.discountBp,
       ]
     );
   }
