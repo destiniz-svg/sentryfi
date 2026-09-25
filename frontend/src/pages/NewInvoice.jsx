@@ -19,6 +19,8 @@ import { apiClient } from "@/api/client";
 import { PendingAttachments, uploadPending } from "@/components/documents/Attachments";
 import { UnitInput } from "@/components/ui/UnitInput";
 import { ItemPicker, PartyPicker, Step, TermsPicker, dueFrom, termsLabel } from "@/components/forms/Pickers";
+import { Modal } from "@/components/ui/Modal";
+import { usePhone } from "@/lib/phone";
 
 /**
  * Raising an invoice.
@@ -124,8 +126,11 @@ export default function NewInvoice() {
   const { raise } = useSalesMutations();
   // Who, then what, then on which terms: each answer moves on to the next question.
   const [party, setParty] = useState(null);
-  const [partyOpen, setPartyOpen] = useState(!params.get("customer"));
-  const [itemsOpen, setItemsOpen] = useState(false);
+  // The guided way through: customer, items one at a time, GST, terms, the
+  // rest, then the invoice itself. Closing any step leaves the page form, with
+  // everything so far kept, to finish by hand.
+  const [flow, setFlow] = useState(params.get("customer") ? null : "who");
+  const phone = usePhone();
   const [terms, setTerms] = useState(null);
   const [keepTerms, setKeepTerms] = useState(false);
   const firstLine = useRef(null);
@@ -137,6 +142,7 @@ export default function NewInvoice() {
     if (!name || party || !contactList) return;
     const c = contactList.contacts.find((x) => x.name.toLowerCase() === name.toLowerCase());
     choose(c ? { id: c.id, name: c.name, termsDays: c.termsDays ?? null, email: c.email } : { id: null, name, termsDays: null }, false);
+    setFlow("items");
   }, [contactList]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fresh every time it opens: the page remounts it with a new key, so there
@@ -210,12 +216,10 @@ export default function NewInvoice() {
     setKeepTerms(false);
     if (!advance) return;
     go("step-what");
-    if (!lines.some((l) => l.description.trim())) setTimeout(() => setItemsOpen(true), 400);
-    else setTimeout(() => firstLine.current?.focus(), 400);
+    setFlow("items");
   }
-  function addItem(item) {
-    setLines((all) => [...all.filter((l) => l.description.trim() || l.rate), { ...blankLine(), itemId: item.id, description: item.name, uom: item.unit || "", rate: item.salePrice || "" }]);
-    if (!form.dueDate) go("step-terms");
+  function addLine(item, { quantity, uom, rate }) {
+    setLines((all) => [...all.filter((l) => l.description.trim() || l.rate), { ...blankLine(), itemId: item.id, description: item.name, quantity, uom, rate }]);
   }
   const setIssued = (e) => {
     const issueDate = e.target.value;
@@ -256,8 +260,12 @@ export default function NewInvoice() {
   const ready = form.customerName.trim() && usable.length > 0 && form.dueDate && rateOk;
   const at = !form.customerName.trim() ? 1 : !usable.length ? 2 : !form.dueDate ? 3 : 4;
 
-  async function onSubmit(e) {
+  function onSubmit(e) {
     e.preventDefault();
+    save();
+  }
+
+  async function save() {
     setErr("");
     if (!ready) return setErr(commitment);
 
@@ -437,7 +445,7 @@ export default function NewInvoice() {
           />
 
           <Step n={1} id="step-who" title="Who is it for?" done={at > 1} active={at === 1}>
-            <PartyPicker kind="customer" value={party} onChange={(p) => choose(p)} open={partyOpen} setOpen={setPartyOpen} />
+            <PartyPicker kind="customer" value={party} onChange={(p) => choose(p)} open={flow === "who"} setOpen={(v) => setFlow((f) => (v ? "who" : f === "who" ? null : f))} />
           </Step>
 
           <Step n={2} id="step-what" title="Which items or services?" done={at > 2} active={at === 2} summary={usable.length ? `${usable.length} ${usable.length === 1 ? "line" : "lines"} · ${unit} ${show(gross)}` : null}>
@@ -457,7 +465,7 @@ export default function NewInvoice() {
               ))}
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Button type="button" variant="outline" onClick={() => setItemsOpen(true)} data-testid="add-item">
+              <Button type="button" variant="outline" onClick={() => setFlow("items")} data-testid="add-item">
                 <Package size={16} /> Find or add an item
               </Button>
               <Button type="button" variant="ghost" onClick={() => setLines((all) => [...all, blankLine()])}>
@@ -474,7 +482,6 @@ export default function NewInvoice() {
                 </span>
               </label>
             </div>
-            <ItemPicker open={itemsOpen} setOpen={setItemsOpen} items={forSale} onPick={addItem} />
 
             <div className="mt-4 pt-4 border-t border-[var(--border)]">
               <div role="radiogroup" aria-label="GST" className="flex flex-wrap items-center gap-2">
@@ -603,9 +610,141 @@ export default function NewInvoice() {
           </div>
         </div>
       </div>
+
+      <ItemPicker
+        open={flow === "items"}
+        setOpen={(v) => setFlow((f) => (v ? "items" : f === "items" ? null : f))}
+        items={forSale}
+        onAdd={addLine}
+        basket={
+          usable.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-[var(--border)]" data-testid="basket">
+              <ul className="grid gap-1 max-h-[22dvh] overflow-y-auto">
+                {priced.map((l, i) =>
+                  l.amount ? (
+                    <li key={i} className="flex items-center gap-2 text-[14px]">
+                      <span className="min-w-0 flex-1 truncate">
+                        {l.description} <span className="text-[var(--ink-muted)] tabular">· {l.quantity} {l.uom} × {show(laari(l.rate))}</span>
+                      </span>
+                      <span className="tabular">{show(l.amount)}</span>
+                      <button type="button" onClick={() => setLines((all) => (all.length > 1 ? all.filter((_, j) => j !== i) : [blankLine()]))} aria-label={`Take ${l.description} off`} className="h-8 w-8 shrink-0 rounded-full grid place-items-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)]">
+                        <X size={14} />
+                      </button>
+                    </li>
+                  ) : null
+                )}
+              </ul>
+              <Button type="button" variant="accent" className="w-full mt-3" onClick={() => setFlow("tax")} data-testid="flow-next">
+                {usable.length} {usable.length === 1 ? "item" : "items"} · {unit} {show(totals.net)} · Next: GST
+              </Button>
+            </div>
+          )
+        }
+      />
+
+      <Modal open={flow === "tax"} onClose={() => setFlow(null)} title="How is GST charged?" variant={phone ? "sheet" : "card"}>
+        <div role="radiogroup" aria-label="GST" className="grid gap-2">
+          {TAX.map((c) => (
+            <button key={c.value} type="button" role="radio" aria-checked={form.gstTreatment === c.value} onClick={() => setForm((x) => ({ ...x, gstTreatment: c.value }))}
+              className={cn("rounded-2xl border p-3 text-left", form.gstTreatment === c.value ? "bg-[var(--ink)] text-[var(--bg)] border-[var(--ink)]" : "border-[var(--border)] hover:border-[var(--ink)]")}>
+              <span className="block text-[15px] font-semibold">{c.label}</span>
+              <span className={cn("block text-[13px]", form.gstTreatment === c.value ? "opacity-75" : "text-[var(--ink-muted)]")}>{c.hint}</span>
+            </button>
+          ))}
+        </div>
+        <label className="mt-4 flex items-center justify-between gap-3 text-[14px] font-medium">
+          Discount on every line
+          <span className="relative">
+            <input aria-label="Discount, percent" value={form.discount} onChange={set("discount")} inputMode="decimal" placeholder="0" className={`${FIELD} w-24 pr-7 tabular text-right`} />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--ink-muted)] pointer-events-none">%</span>
+          </span>
+        </label>
+        <dl className="mt-4 text-[15px] tabular">
+          <div className="flex justify-between py-1">
+            <dt className="text-[var(--ink-muted)]">Before GST</dt>
+            <dd>{show(totals.net)}</dd>
+          </div>
+          <div className="flex justify-between py-1">
+            <dt className="text-[var(--ink-muted)]">GST {rateBp === null ? "…" : `${rateBp / 100}%`}</dt>
+            <dd>{show(totals.tax)}</dd>
+          </div>
+          <div className="flex justify-between py-2 border-t border-[var(--ink)] font-semibold">
+            <dt>Total</dt>
+            <dd>{unit} {show(gross)}</dd>
+          </div>
+        </dl>
+        <FlowButtons back={() => setFlow("items")} next={() => setFlow("terms")} label="Next: terms" />
+      </Modal>
+
+      <Modal open={flow === "terms"} onClose={() => setFlow(null)} title="When is it due?" variant={phone ? "sheet" : "card"}>
+        <TermsPicker
+          issued={form.issueDate}
+          terms={terms}
+          due={form.dueDate}
+          party={party}
+          keep={keepTerms}
+          onKeep={can("record") ? setKeepTerms : null}
+          onChange={({ terms: t, due }) => (setTerms(t), setForm((x) => ({ ...x, dueDate: due || "" })))}
+        />
+        <FlowButtons back={() => setFlow("tax")} next={() => setFlow("more")} label="Next" disabled={!form.dueDate} />
+      </Modal>
+
+      <Modal open={flow === "more"} onClose={() => setFlow(null)} title="Anything else on it?" description="All of it can be left empty." variant={phone ? "sheet" : "card"}>
+        <div className="grid gap-4">
+          <Field label="Their purchase order" htmlFor="flow-po">
+            <input id="flow-po" value={form.purchaseOrder} onChange={set("purchaseOrder")} placeholder="PO-RDC-2026-003151" className={`${FIELD} tabular`} />
+          </Field>
+          <Field label="What it covers" htmlFor="flow-subject">
+            <input id="flow-subject" value={form.subject} onChange={set("subject")} placeholder="September 2026, 30 days" className={FIELD} />
+          </Field>
+          <Field label="A note to the customer" htmlFor="flow-notes">
+            <textarea id="flow-notes" value={form.notes} onChange={set("notes")} rows={2} maxLength={2000} className={`${FIELD} h-auto py-3 leading-relaxed`} />
+          </Field>
+          {!form.currency && can("record") && moneyAccounts.length > 0 && (
+            <div role="radiogroup" aria-label="Has it been paid?" className="grid grid-cols-2 gap-2">
+              {[[false, "On credit"], [true, "Paid now"]].map(([v, label]) => (
+                <button key={label} type="button" role="radio" aria-checked={paid === v} onClick={() => (setPaid(v), v && !paidInto && setPaidInto(moneyAccounts[0].id))} className={cn("h-11 rounded-full border text-[14px]", paid === v ? "bg-[var(--ink)] text-[var(--bg)] border-[var(--ink)] font-semibold" : "border-[var(--border)] text-[var(--ink-muted)]")}>
+                  {label}
+                </button>
+              ))}
+              {paid && (
+                <select aria-label="Received into" value={paidInto} onChange={(e) => setPaidInto(e.target.value)} className={`${FIELD} col-span-2`}>
+                  {moneyAccounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+          {err && (
+            <p role="alert" className="text-[13px] text-[var(--danger)]">
+              {err}
+            </p>
+          )}
+        </div>
+        <FlowButtons back={() => setFlow("terms")} next={save} busy={raise.isPending} label={ready ? `Create invoice · ${unit} ${show(gross)}` : commitment} disabled={!ready} testid="flow-create" />
+      </Modal>
     </form>
   );
 }
+
+/** Back and on, at the foot of each step of the guided way through. */
+function FlowButtons({ back, next, label, disabled, busy, testid = "flow-next" }) {
+  return (
+    <div className="flex gap-2 justify-end mt-5">
+      <Button type="button" variant="outline" onClick={back}>
+        Back
+      </Button>
+      <Button type="button" variant="accent" onClick={next} disabled={disabled || busy} data-testid={testid}>
+        {busy && <Loader2 size={14} className="animate-spin" />}
+        {label}
+      </Button>
+    </div>
+  );
+}
+
 
 function Field({ label, htmlFor, hint, children }) {
   return (

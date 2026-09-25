@@ -45,13 +45,14 @@ function PickList({ open, onClose, title, ...rest }) {
   );
 }
 
-function PickBody({ title, placeholder, rows, render, onPick, create, loading, empty = "Nobody here yet. Type a name to add them." }) {
+function PickBody({ title, placeholder, rows, render, onPick, create, loading, top, footer, empty = "Nobody here yet. Type a name to add them." }) {
   const [q, setQ] = useState("");
   const words = q.trim().toLowerCase();
   const shown = useMemo(() => (words ? rows.filter((r) => r.name.toLowerCase().includes(words)) : rows).slice(0, 60), [rows, words]);
   const exact = rows.some((r) => r.name.toLowerCase() === words);
   return (
     <>
+      {top}
       <label className="relative block">
         <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--ink-muted)]" aria-hidden="true" />
         <input autoFocus type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={placeholder} aria-label={placeholder}
@@ -78,6 +79,7 @@ function PickBody({ title, placeholder, rows, render, onPick, create, loading, e
         ))}
         {!loading && !shown.length && !words && <li className="px-2 py-6 text-center text-[14px] text-[var(--ink-muted)]">{empty}</li>}
       </ul>
+      {footer}
     </>
   );
 }
@@ -157,27 +159,54 @@ export function PartyPicker({ kind = "customer", value, onChange, open, setOpen 
  * Saved items, products and services, to add as lines. One that is not there
  * yet is added on the spot, kept in the item list, and put on the line.
  */
-export function ItemPicker({ open, setOpen, items, onPick, side = "sale" }) {
+export function ItemPicker({ open, setOpen, items, onPick, onAdd, basket, side = "sale" }) {
   const [draft, setDraft] = useState(null);
-  const close = () => (setOpen(false), setDraft(null));
+  // With onAdd, the list stays open: an item asks how many and at what rate,
+  // goes on, and the list comes back for the next one.
+  const [chosen, setChosen] = useState(null);
+  const [kind, setKind] = useState("all");
+  const close = () => (setOpen(false), setDraft(null), setChosen(null));
   const phone = usePhone();
-  if (draft) {
+  const take = (it) => (onAdd ? setChosen(it) : (onPick(it), close()));
+  if (chosen) {
     return (
-      <Modal open={open} onClose={close} title={`Add “${draft}”`} description="Kept in your items, so next time it is one tap." variant={phone ? "sheet" : "card"} size="lg">
-        <NewItem name={draft} side={side} onBack={() => setDraft(null)} onSaved={(it) => (onPick(it), close())} />
+      <Modal open={open} onClose={close} title={chosen.name} description={chosen.kind === "service" ? "A service" : chosen.kind === "bundle" ? "A bundle" : "A product"} variant={phone ? "sheet" : "card"} size="md">
+        <QtyRate item={chosen} side={side} onBack={() => setChosen(null)} onAdd={(line) => (onAdd(chosen, line), setChosen(null))} />
       </Modal>
     );
   }
+  if (draft) {
+    return (
+      <Modal open={open} onClose={close} title={`Add “${draft}”`} description="Kept in your items, so next time it is one tap." variant={phone ? "sheet" : "card"} size="lg">
+        <NewItem name={draft} side={side} onBack={() => setDraft(null)} onSaved={(it) => (setDraft(null), take(it))} />
+      </Modal>
+    );
+  }
+  const both = items.some((i) => i.kind === "service") && items.some((i) => i.kind !== "service");
+  const rows = kind === "all" ? items : items.filter((i) => (kind === "service") === (i.kind === "service"));
   return (
     <PickList
       open={open}
       onClose={close}
-      title="Add an item or service"
+      title={onAdd ? "What goes on it?" : "Add an item or service"}
       placeholder="Search items and services"
-      rows={items}
+      rows={rows}
+      top={
+        both && (
+          <div role="radiogroup" aria-label="Which kind" className="grid grid-cols-3 gap-1 p-1 mb-3 rounded-full bg-[var(--surface-2)]">
+            {[["all", "All"], ["product", "Products"], ["service", "Services"]].map(([k, label]) => (
+              <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)}
+                className={cn("h-9 rounded-full text-[14px] font-medium", kind === k ? "bg-[var(--surface)] text-[var(--ink)] shadow-sm" : "text-[var(--ink-muted)]")}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )
+      }
+      footer={basket}
       create={{ label: "A new item or service, kept for next time", onCreate: setDraft }}
       empty="No items yet. Type what it is to add it."
-      onPick={(it) => (onPick(it), close())}
+      onPick={take}
       render={(it) => (
         <>
           <span className="h-10 w-10 shrink-0 rounded-full overflow-hidden grid place-items-center bg-[var(--surface-2)]">{it.photo ? <img src={it.photo} alt="" className="h-full w-full object-cover" /> : <Package size={17} />}</span>
@@ -251,6 +280,51 @@ function NewItem({ name, side, onBack, onSaved }) {
         <button type="button" onClick={save} disabled={busy || !f.name.trim()} data-testid="new-item-save" className="h-11 px-5 rounded-full bg-[var(--accent)] text-[var(--on-accent)] text-[15px] font-semibold inline-flex items-center gap-2 disabled:opacity-50">
           {busy && <Loader2 size={16} className="animate-spin" />} Save and add
         </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * How many, and at what rate: one item on its way onto a document. The rate
+ * starts at the item's usual price; the amount is worked out as it is typed.
+ */
+function QtyRate({ item, side, onBack, onAdd }) {
+  const usual = (side === "purchase" ? item.buyPrice : item.salePrice) || "";
+  const [f, setF] = useState({ quantity: "1", uom: item.unit || "", rate: String(usual).replace(/,/g, "") });
+  const qty = Number(String(f.quantity).replace(/,/g, ""));
+  const rate = Number(String(f.rate).replace(/,/g, ""));
+  const ok = qty > 0 && f.rate !== "" && rate >= 0;
+  const step = (d) => setF((x) => ({ ...x, quantity: String(Math.max(1, (Number(x.quantity) || 0) + d)) }));
+  const add = () => ok && onAdd({ quantity: String(qty), uom: f.uom.trim(), rate: f.rate.trim() });
+  return (
+    // Not a <form>, for the same reason as NewItem.
+    <div className="grid gap-4" data-testid="qty-rate" onKeyDown={(e) => e.key === "Enter" && e.target.tagName === "INPUT" && (e.preventDefault(), add())}>
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] gap-3">
+        <div className="grid gap-1.5 min-w-0">
+          <span className="text-[13px] font-medium" aria-hidden="true">Quantity</span>
+          <span className="flex items-center gap-1">
+            <button type="button" onClick={() => step(-1)} aria-label="One less" className="h-11 w-11 shrink-0 rounded-full border border-[var(--border)] text-[18px] hover:border-[var(--ink)]">−</button>
+            <input autoFocus value={f.quantity} onChange={(e) => setF({ ...f, quantity: e.target.value })} onFocus={(e) => e.target.select()} inputMode="decimal" aria-label="Quantity" className={cn(FIELD, "px-2 text-center tabular")} />
+            <button type="button" onClick={() => step(1)} aria-label="One more" className="h-11 w-11 shrink-0 rounded-full border border-[var(--border)] text-[18px] hover:border-[var(--ink)]">+</button>
+          </span>
+        </div>
+        <label className="grid gap-1.5 min-w-0">
+          <span className="text-[13px] font-medium">Unit</span>
+          <UnitInput label="Unit" value={f.uom} onChange={(uom) => setF({ ...f, uom })} placeholder="day" className={FIELD} />
+        </label>
+      </div>
+      <label className="grid gap-1.5">
+        <span className="text-[13px] font-medium">{side === "purchase" ? "Cost" : "Rate"}{f.uom ? ` a ${f.uom}` : ""}</span>
+        <input value={f.rate} onChange={(e) => setF({ ...f, rate: e.target.value })} inputMode="decimal" placeholder="0.00" aria-label="Rate" className={cn(FIELD, "tabular")} />
+      </label>
+      <div className="flex items-baseline justify-between border-t border-[var(--border)] pt-3">
+        <span className="text-[14px] text-[var(--ink-muted)]">Amount</span>
+        <span className="text-[20px] font-semibold tabular">{ok ? (qty * rate).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}</span>
+      </div>
+      <div className="flex gap-2 justify-end">
+        <button type="button" onClick={onBack} className="h-11 px-5 rounded-full border border-[var(--border)] text-[15px] font-medium hover:border-[var(--ink)]">Back</button>
+        <button type="button" onClick={add} disabled={!ok} data-testid="qty-add" className="h-11 px-5 rounded-full bg-[var(--accent)] text-[var(--on-accent)] text-[15px] font-semibold disabled:opacity-50">Add to it</button>
       </div>
     </div>
   );

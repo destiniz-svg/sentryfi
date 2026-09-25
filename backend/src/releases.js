@@ -17,6 +17,16 @@
  */
 const RELEASES = [
   {
+    version: "1.24",
+    date: "2026-09-25",
+    title: "An invoice, one question at a time",
+    summary: "Choose the customer, add items one by one, then GST, terms and anything else, and the invoice opens ready.",
+    items: [
+      { area: "Sales", kind: "new", title: "Add items one after another", body: "Pick products or services, say how many and at what rate, and the list comes back for the next. What is on it so far shows below, with its total.", href: "/invoices/new" },
+      { area: "Sales", kind: "improved", title: "GST, terms, then done", body: "After the items it asks how GST is charged, when it is due, and anything else like their PO. Create invoice saves it and opens it. The number and date fill themselves.", href: "/invoices/new" },
+    ],
+  },
+  {
     version: "1.23",
     date: "2026-09-25",
     title: "One list for bills and invoices, every step in view",
