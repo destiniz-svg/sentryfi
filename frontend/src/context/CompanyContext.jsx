@@ -109,6 +109,8 @@ export function CompanyProvider({ children }) {
       company: ctx?.company || null,
       companyId,
       roles: ctx?.roles || [],
+      /** What each role may do; sent only to those who manage people. */
+      roleCan: ctx?.roleCan || null,
       /** Ask by capability, never by role name. */
       can: (action) => Boolean(ctx?.can?.[action]),
       /** The ordinary first-run state, not an error. */

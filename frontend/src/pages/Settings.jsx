@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { CustomerMailSection } from "@/components/settings/CustomerMail";
 import { NumberingSection } from "@/components/settings/NumberingSection";
-import { Sun, Moon, Check, ArrowLeft, ChevronRight, Building2, Users, Percent, Hash, Mail, Tags, Building, KeyRound, DatabaseBackup, UserRound, SunMoon, Lock } from "lucide-react";
+import { Sun, Moon, Check, ArrowLeft, ChevronRight, Building2, Users, Percent, Hash, Mail, Tags, Building, KeyRound, DatabaseBackup, UserRound, SunMoon, Lock, Zap } from "lucide-react";
+import { MyShortcutsSection, RoleShortcutsSection } from "@/components/settings/ShortcutsSection";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -283,13 +284,22 @@ const GROUPS = [
     items: [
       ["profile", "Account", "Your name, email and signed-in devices", UserRound, null],
       ["appearance", "Appearance", "Light or dark", SunMoon, null],
+      ["shortcuts", "Record shortcuts", "What sits on the phone's Record button", Zap, null],
       ["password", "Password", "Change it, and sign out everywhere else", Lock, null],
     ],
   },
 ];
 const PANELS = {
   company: () => <CompanySection />,
-  people: () => <PeopleSection />,
+  people: () => (
+    <div className="space-y-6">
+      <PeopleSection />
+      <div className="max-w-2xl">
+        <RoleShortcutsSection />
+      </div>
+    </div>
+  ),
+  shortcuts: () => <MyShortcutsSection />,
   companies: () => <CompaniesSection />,
   backups: () => <BackupsSection />,
   tracking: () => <TrackingSection />,

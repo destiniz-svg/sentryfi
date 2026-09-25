@@ -7,6 +7,10 @@ const PLATFORM_SQL = `
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ;
 -- The shortcuts a person keeps on the phone's Record sheet, in order. Null is the usual set.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS shortcuts TEXT[];
+-- Which Record shortcuts each role may use, set by an administrator: { role: [key, ...] }.
+-- A role not named here may use every shortcut its permissions allow.
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS shortcut_rules JSONB NOT NULL DEFAULT '{}'::jsonb;
+GRANT UPDATE (shortcut_rules) ON companies TO sentryfi_app;
 
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS industry TEXT
   CHECK (industry IN ('construction','trading','tourism','services','retail','other'));

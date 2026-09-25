@@ -17,6 +17,17 @@
  */
 const RELEASES = [
   {
+    version: "1.27.1",
+    date: "2026-09-26",
+    title: "Shortcuts in Settings, and by role",
+    summary: "Change your Record shortcuts in Settings too, and an administrator decides which shortcuts each role may have.",
+    items: [
+      { area: "Settings", kind: "new", title: "Record shortcuts in Settings", body: "Settings, under You, has your Record shortcuts: the same list as the Edit on the Record sheet.", href: "/settings?tab=shortcuts" },
+      { area: "Settings", kind: "new", title: "Which shortcuts each role gets", body: "In Settings, People, an administrator can untick a shortcut for a role, and it leaves the Record button of everyone in it. A role is only ever offered what its permissions allow.", href: "/settings?tab=people" },
+      { area: "Phone", kind: "fixed", title: "Site staff can photograph bills from Record", body: "Photograph a bill and Say it now show for everyone who may put a bill in, including site staff, and Type in a bill and Claim expenses are on the sheet from the start.", href: "/dashboard" },
+    ],
+  },
+  {
     version: "1.27",
     date: "2026-09-26",
     title: "Your own Record shortcuts",

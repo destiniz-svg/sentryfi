@@ -337,6 +337,26 @@ router.post(
   })
 );
 
+/**
+ * Which Record shortcuts each role may use. A role left out may use every
+ * shortcut its permissions allow; the screens behind each shortcut still check
+ * permissions themselves, so this shapes the sheet and is not the lock.
+ */
+router.put(
+  "/current/shortcut-rules",
+  requireCompany,
+  requireCan("manage_people"),
+  asyncHandler(async (req, res) => {
+    const key = z.string().regex(/^[a-z][a-z-]{0,39}$/);
+    const parsed = z.partialRecord(z.enum(Object.keys(CAN)), z.array(key).max(30)).safeParse(req.body?.rules ?? {});
+    if (!parsed.success) throw ApiError.badRequest("Those shortcut rules are not in the right shape.");
+    const rules = await asCompany(req, async (client) =>
+      (await client.query("UPDATE companies SET shortcut_rules = $2 WHERE id = $1 RETURNING shortcut_rules", [req.companyId, parsed.data])).rows[0].shortcut_rules
+    );
+    res.json({ rules });
+  })
+);
+
 /** What the signed-in person may do here, so the screens can stop guessing. */
 router.get(
   "/current",
@@ -359,6 +379,8 @@ router.get(
       can: Object.fromEntries(
         [...new Set(Object.values(CAN).flat())].map((action) => [action, req.can(action)])
       ),
+      // What each role may do, for the screen that sets which shortcuts a role gets.
+      roleCan: req.can("manage_people") ? CAN : undefined,
     });
   })
 );
