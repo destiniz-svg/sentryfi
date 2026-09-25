@@ -160,8 +160,40 @@ async function undoBillStock(client, { companyId, userId, billId, entryId, on })
  * after the other.
  */
 async function invoiceCost(client, { companyId, userId, invoice, lines }) {
-  const withItem = lines.filter((l) => l.item_id);
+  let withItem = lines.filter((l) => l.item_id);
   if (!withItem.length) return { entryLines: [], record: async () => {} };
+  // A bundle sells its parts: each leaves stock at its own cost, the bundle's
+  // price shared over them by what they cost, so each part's margin reads true.
+  const { rows: bundled } = await client.query(
+    "SELECT p.bundle_id, p.item_id, p.quantity::text AS quantity FROM bundle_parts p WHERE p.company_id = $1 AND p.bundle_id = ANY($2::uuid[])",
+    [companyId, [...new Set(withItem.map((l) => l.item_id))]]
+  );
+  if (bundled.length) {
+    const out = [];
+    for (const l of withItem) {
+      const parts = bundled.filter((p) => p.bundle_id === l.item_id);
+      if (!parts.length) {
+        out.push(l);
+        continue;
+      }
+      const sold = fromDb(l.quantity);
+      const each = [];
+      for (const p of parts) {
+        const h = await holding(client, { companyId, itemId: p.item_id });
+        const units = (fromDb(p.quantity) * sold) / SCALE;
+        const avg = h.units > 0n ? (h.value * SCALE) / h.units : 0n;
+        each.push({ p, units, weight: (avg * units) / SCALE });
+      }
+      const total = each.reduce((a, e) => a + e.weight, 0n);
+      let netLeft = BigInt(l.net_laari);
+      each.forEach((e, i) => {
+        const share = i === each.length - 1 ? netLeft : total > 0n ? (BigInt(l.net_laari) * e.weight) / total : BigInt(l.net_laari) / BigInt(each.length);
+        netLeft -= share;
+        out.push({ ...l, item_id: e.p.item_id, quantity: unitsText(e.units), net_laari: share.toString() });
+      });
+    }
+    withItem = out;
+  }
   // A service or an uncounted product sells by name and price only.
   const { rows: counted } = await client.query(
     "SELECT id FROM stock_items WHERE company_id = $1 AND id = ANY($2::uuid[]) AND counted",
@@ -427,7 +459,8 @@ async function transfer(client, { companyId, userId, itemId, fromPlaceId, toPlac
 async function list(client, { companyId }) {
   const { rows } = await client.query(
     `SELECT i.id, i.name, i.code, i.unit, i.sale_price_laari, i.archived_at, i.reorder_at,
-            i.kind, i.counted, i.sells, i.buys, i.buy_price_laari, i.income_account_id, i.cost_account_id,
+            i.kind, i.counted, i.sells, i.buys, i.buy_price_laari, i.income_account_id, i.cost_account_id, i.photo,
+            (SELECT json_agg(json_build_object('itemId', p.item_id, 'quantity', trim(to_char(p.quantity, 'FM999999990.####'), '.'))) FROM bundle_parts p WHERE p.bundle_id = i.id) AS parts,
             COALESCE(SUM(m.quantity), 0) AS on_hand,
             COALESCE(SUM(m.value_laari), 0) AS value,
             COALESCE(SUM(m.sale_net_laari) FILTER (WHERE m.kind IN ('sold','returned')), 0) AS sales,
@@ -465,6 +498,8 @@ async function list(client, { companyId }) {
       code: r.code,
       unit: r.unit,
       kind: r.kind,
+      photo: r.photo || null,
+      parts: r.parts || [],
       counted: r.counted,
       sells: r.sells,
       buys: r.buys,

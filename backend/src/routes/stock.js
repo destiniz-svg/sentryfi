@@ -24,7 +24,11 @@ const itemBody = z.object({
   name: z.string().trim().min(1, "Give it a name.").max(160),
   code: z.string().trim().max(40).nullish(),
   unit: z.string().trim().min(1).max(20).default("each"),
-  kind: z.enum(["product", "service"]).default("product"),
+  kind: z.enum(["product", "service", "bundle"]).default("product"),
+  // A bundle's parts: the items it is made of and how many of each.
+  parts: z.array(z.object({ itemId: z.string().uuid(), quantity: qty })).max(30).optional(),
+  // A small photograph, made small on the phone before it is sent.
+  photo: z.string().max(300000).regex(/^data:image\/(jpeg|png|webp);base64,/, "A photo is a JPEG, PNG or WebP image.").nullish(),
   counted: z.boolean().optional(),
   sells: z.boolean().default(true),
   buys: z.boolean().default(true),
@@ -43,6 +47,8 @@ const laari = (v) => (v === null || v === undefined || v === "" ? null : toLaari
  */
 async function settle(client, companyId, it, was) {
   if (it.kind === "service") it.counted = false;
+  // A bundle is sold, never bought or counted: its parts are.
+  if (it.kind === "bundle") Object.assign(it, { counted: false, sells: true, buys: false });
   if (!it.sells && !it.buys) throw ApiError.badRequest("Say whether you sell it, buy it, or both.");
   for (const [key, type, word] of [["income_account_id", "income", "income"], ["cost_account_id", "expense", "costs"]]) {
     if (!it[key]) continue;
@@ -54,6 +60,19 @@ async function settle(client, companyId, it, was) {
     if (Number(rows[0].q) !== 0) throw ApiError.badRequest(`${was.name} still has ${Number(rows[0].q)} ${was.unit} on hand. Sell or count it down to nothing before you stop counting it.`);
   }
   return it;
+}
+
+/** A bundle's parts and an item's photo, when sent. Parts are counted or uncounted products, never another bundle. */
+async function dress(client, companyId, itemId, kind, b) {
+  if (b.photo !== undefined) await client.query("UPDATE stock_items SET photo = $3 WHERE id = $1 AND company_id = $2", [itemId, companyId, b.photo || null]);
+  if (kind !== "bundle") return;
+  if (b.parts === undefined) return;
+  const parts = b.parts.filter((p) => Number(p.quantity) > 0);
+  if (!parts.length) throw ApiError.badRequest("A bundle is made of at least one item.");
+  const { rows } = await client.query("SELECT id, kind FROM stock_items WHERE company_id = $1 AND id = ANY($2::uuid[])", [companyId, parts.map((p) => p.itemId)]);
+  if (rows.length !== new Set(parts.map((p) => p.itemId)).size || rows.some((r) => r.kind === "bundle" || r.id === itemId)) throw ApiError.badRequest("A bundle is made of this company's products, not other bundles.");
+  await client.query("DELETE FROM bundle_parts WHERE company_id = $1 AND bundle_id = $2", [companyId, itemId]);
+  for (const p of parts) await client.query("INSERT INTO bundle_parts (company_id, bundle_id, item_id, quantity) VALUES ($1,$2,$3,$4)", [companyId, itemId, p.itemId, reorderText(p.quantity)]);
 }
 
 /** A reorder level as the database keeps it: a number, zero or above, to four places. */
@@ -113,6 +132,7 @@ router.post(
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id, name, code, unit, kind, counted`,
         [req.companyId, b.name, b.code || null, b.unit, laari(b.salePrice), laari(b.buyPrice), it.kind, it.counted, it.sells, it.buys, it.income_account_id, it.cost_account_id, req.user.id]
       );
+      await dress(client, req.companyId, rows[0].id, it.kind, b);
       return rows[0];
     });
     res.status(201).json({ item });
@@ -124,7 +144,7 @@ router.patch(
   requireCan("record"),
   refused(async (req, res) => {
     // No defaults on a change: a field not sent stays as it is (unit used to fall back to "each").
-    const parsed = itemBody.extend({ unit: z.string().trim().min(1).max(20), kind: z.enum(["product", "service"]), sells: z.boolean(), buys: z.boolean() }).partial().extend({ archived: z.boolean().optional(), reorderAt: z.union([z.string().trim(), z.number()]).transform(String).nullish() }).safeParse(req.body ?? {});
+    const parsed = itemBody.extend({ unit: z.string().trim().min(1).max(20), kind: z.enum(["product", "service", "bundle"]), sells: z.boolean(), buys: z.boolean() }).partial().extend({ archived: z.boolean().optional(), reorderAt: z.union([z.string().trim(), z.number()]).transform(String).nullish() }).safeParse(req.body ?? {});
     if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
     const b = parsed.data;
     const done = await asCompany(req, async (client) => {
@@ -156,6 +176,7 @@ router.patch(
           !it.counted ? null : has("reorderAt") ? (b.reorderAt === null || b.reorderAt === "" ? null : reorderText(b.reorderAt)) : was.reorder_at,
         ]
       );
+      await dress(client, req.companyId, req.params.id, it.kind, b);
       return true;
     });
     if (!done) throw ApiError.notFound("That item is not in these books.");

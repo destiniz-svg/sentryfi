@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Loader2, Plus, Wrench } from "lucide-react";
+import { Box, Camera, Loader2, Package, Plus, Wrench, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -47,7 +47,7 @@ const FILTERS = [
 
 // What an item is, in a few words: the second line under its name.
 function about(i) {
-  const what = i.kind === "service" ? "Service" : i.counted ? "Counted" : "Product, not counted";
+  const what = i.kind === "service" ? "Service" : i.kind === "bundle" ? `Bundle of ${i.parts?.length || 0}` : i.counted ? "Counted" : "Product, not counted";
   const prices = [i.sells && i.salePrice && `sells at MVR ${i.salePrice} a ${i.unit}`, i.buys && i.buyPrice && `buys at MVR ${i.buyPrice}`].filter(Boolean);
   return [i.code, what, ...prices].filter(Boolean).join(" · ");
 }
@@ -143,9 +143,13 @@ export default function Stock() {
                   className="grid grid-cols-2 xl:grid-cols-[minmax(0,1.6fr)_110px_120px_130px_130px_230px] gap-x-4 gap-y-1 px-5 py-4 items-center"
                 >
                   <button type="button" onClick={() => (i.counted ? setLooking(i) : can("record") && setEditing(i))} className="min-w-0 col-span-2 xl:col-span-1 text-left flex items-start gap-3">
-                    <span className="mt-0.5 h-8 w-8 shrink-0 rounded-full bg-[var(--surface-2)] inline-flex items-center justify-center text-[var(--ink-muted)]" aria-hidden="true">
-                      {i.kind === "service" ? <Wrench size={15} /> : <Box size={15} />}
-                    </span>
+                    {i.photo ? (
+                      <img src={i.photo} alt="" className="mt-0.5 h-10 w-10 shrink-0 rounded-xl object-cover bg-[var(--surface-2)]" />
+                    ) : (
+                      <span className="mt-0.5 h-8 w-8 shrink-0 rounded-full bg-[var(--surface-2)] inline-flex items-center justify-center text-[var(--ink-muted)]" aria-hidden="true">
+                        {i.kind === "service" ? <Wrench size={15} /> : i.kind === "bundle" ? <Package size={15} /> : <Box size={15} />}
+                      </span>
+                    )}
                     <span className="min-w-0">
                       <span className="block text-[15px] font-semibold truncate hover:underline">{i.name}</span>
                       <span className="block text-[13px] text-[var(--ink-muted)] truncate">{about(i)}</span>
@@ -214,7 +218,7 @@ export default function Stock() {
         </>
       )}
 
-      {editing && <ItemForm item={editing.id ? editing : null} accounts={accounts} onClose={() => setEditing(null)} onDone={refresh} />}
+      {editing && <ItemForm item={editing.id ? editing : null} items={all} accounts={accounts} onClose={() => setEditing(null)} onDone={refresh} />}
       {counting && <Count item={counting} places={places} onClose={() => setCounting(null)} onDone={refresh} />}
       {moving && <Move item={moving} places={places} onClose={() => setMoving(null)} onDone={refresh} />}
       {opening && <Opening item={opening} onClose={() => setOpening(null)} onDone={refresh} />}
@@ -299,7 +303,25 @@ function Side({ label, on, onChange, children }) {
 const money = (v) => (v ? String(v).replace(/,/g, "") : "");
 
 /** Adding an item, or changing one: what it is, whether it is counted, and how it is sold and bought. */
-function ItemForm({ item, accounts, onClose, onDone }) {
+/** A photograph made small on the phone: at most 320px across, as a JPEG, before it is sent. */
+function shrink(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 320 / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * k);
+      c.height = Math.round(img.height * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(img.src);
+      resolve(c.toDataURL("image/jpeg", 0.8));
+    };
+    img.onerror = () => reject(new Error("That picture could not be read."));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function ItemForm({ item, items = [], accounts, onClose, onDone }) {
   const toast = useToast();
   const [f, setF] = useState(() => ({
     kind: item?.kind || "product",
@@ -313,6 +335,8 @@ function ItemForm({ item, accounts, onClose, onDone }) {
     buys: item ? item.buys : true,
     buyPrice: money(item?.buyPrice),
     costAccountId: item?.costAccountId || "",
+    parts: item?.parts?.length ? item.parts.map((p) => ({ ...p })) : [{ itemId: "", quantity: "1" }],
+    photo: item?.photo || null,
   }));
   const [err, setErr] = useState("");
   const put = (patch) => setF((x) => ({ ...x, ...patch }));
@@ -321,6 +345,8 @@ function ItemForm({ item, accounts, onClose, onDone }) {
     mutationFn: (body) => (item ? apiClient.patch(`/stock/${item.id}`, body) : apiClient.post("/stock", body)).then((r) => r.data),
   });
   const service = f.kind === "service";
+  const bundle = f.kind === "bundle";
+  const partChoices = items.filter((x) => x.kind !== "bundle" && x.id !== item?.id);
   const stockHeld = item?.counted && n(item.onHand) !== 0;
 
   async function onSubmit(e) {
@@ -339,6 +365,8 @@ function ItemForm({ item, accounts, onClose, onDone }) {
         buys: f.buys,
         buyPrice: f.buys ? f.buyPrice || null : null,
         costAccountId: f.buys && (service || !f.counted) ? f.costAccountId || null : null,
+        photo: f.photo,
+        ...(bundle ? { parts: f.parts.filter((p) => p.itemId && Number(p.quantity) > 0) } : {}),
       });
       onDone();
       toast.success(item ? `${f.name.trim()} changed` : `${f.name.trim()} added`, f.sells ? "Pick it on invoice lines, and its price and account fill in." : "Pick it on bills and orders.");
@@ -358,8 +386,21 @@ function ItemForm({ item, accounts, onClose, onDone }) {
           options={[
             ["product", "A product", "A thing you buy or sell", Box],
             ["service", "A service", "Work or time you charge or pay for", Wrench],
+            ["bundle", "A bundle", "Several items sold together as one", Package],
           ]}
         />
+        <div className="flex items-center gap-3">
+          {f.photo ? <img src={f.photo} alt="" className="h-16 w-16 rounded-2xl object-cover bg-[var(--surface-2)]" /> : <span className="h-16 w-16 rounded-2xl bg-[var(--surface-2)] inline-flex items-center justify-center text-[var(--ink-muted)]" aria-hidden="true"><Camera size={20} /></span>}
+          <label className="h-10 px-4 rounded-full border border-[var(--border)] text-[14px] font-medium inline-flex items-center gap-2 cursor-pointer hover:bg-[var(--surface-2)]">
+            {f.photo ? "Change the photo" : "Add a photo"}
+            <input type="file" accept="image/*" className="sr-only" aria-label="Photo of the item" onChange={async (e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) { try { put({ photo: await shrink(file) }); } catch (ex) { setErr(ex.message); } } }} />
+          </label>
+          {f.photo && (
+            <button type="button" onClick={() => put({ photo: null })} aria-label="Remove the photo" className="h-10 w-10 rounded-full inline-flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)]">
+              <X size={16} />
+            </button>
+          )}
+        </div>
         <div className="grid sm:grid-cols-[minmax(0,1fr)_140px_140px] gap-4">
           <Field label="Name">
             <input id="item-name" value={f.name} onChange={set("name")} placeholder={service ? "Excavator hire, with operator" : "Cement, 50 kg bag"} className={FIELD} />
@@ -371,7 +412,32 @@ function ItemForm({ item, accounts, onClose, onDone }) {
             <input id="item-code" value={f.code} onChange={set("code")} placeholder={service ? "HIRE-EX" : "CEM-50"} className={FIELD} />
           </Field>
         </div>
-        {!service && (
+        {bundle && (
+          <fieldset className="grid gap-2">
+            <legend className="text-sm font-medium mb-1.5">Made of</legend>
+            {f.parts.map((p, i) => (
+              <div key={i} className="grid grid-cols-[minmax(0,1fr)_96px_auto] gap-2">
+                <select aria-label={`Part ${i + 1}`} value={p.itemId} onChange={(e) => put({ parts: f.parts.map((x, j) => (j === i ? { ...x, itemId: e.target.value } : x)) })} className={FIELD}>
+                  <option value="">Choose an item</option>
+                  {partChoices.map((x) => (
+                    <option key={x.id} value={x.id}>
+                      {x.name}
+                    </option>
+                  ))}
+                </select>
+                <input aria-label={`Part ${i + 1}: how many`} value={p.quantity} onChange={(e) => put({ parts: f.parts.map((x, j) => (j === i ? { ...x, quantity: e.target.value } : x)) })} inputMode="decimal" className={`${FIELD} tabular text-right`} />
+                <button type="button" aria-label={`Remove part ${i + 1}`} onClick={() => put({ parts: f.parts.length === 1 ? [{ itemId: "", quantity: "1" }] : f.parts.filter((_, j) => j !== i) })} className="h-11 w-11 rounded-full inline-flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)]">
+                  <X size={15} />
+                </button>
+              </div>
+            ))}
+            <button type="button" onClick={() => put({ parts: [...f.parts, { itemId: "", quantity: "1" }] })} className="justify-self-start text-[14px] font-medium text-[var(--deep)] underline underline-offset-4">
+              Another item in it
+            </button>
+            <p className="text-[13px] text-[var(--ink-muted)]">Sold as one line at its own price; each item in it leaves stock at its own cost.</p>
+          </fieldset>
+        )}
+        {!service && !bundle && (
           <div>
             <span className="text-sm font-medium block mb-1.5">Keep count of it?</span>
             <Choice
@@ -401,7 +467,7 @@ function ItemForm({ item, accounts, onClose, onDone }) {
             </select>
           </Field>
         </Side>
-        <Side label="You buy it" on={f.buys} onChange={(buys) => put({ buys })}>
+        {!bundle && <Side label="You buy it" on={f.buys} onChange={(buys) => put({ buys })}>
           <Field label="Cost (optional)">
             <input id="item-buy-price" value={f.buyPrice} onChange={set("buyPrice")} inputMode="decimal" placeholder="0.00" className={`${FIELD} tabular`} />
           </Field>
@@ -419,7 +485,7 @@ function ItemForm({ item, accounts, onClose, onDone }) {
           ) : (
             <p className="text-[13px] text-[var(--ink-muted)] self-center">Goes into stock on hand, and into cost of sales as each one is sold.</p>
           )}
-        </Side>
+        </Side>}
       </div>
       <Failure err={err} />
       <Actions onClose={onClose} busy={save.isPending} disabled={!f.name.trim() || (!f.sells && !f.buys)}>

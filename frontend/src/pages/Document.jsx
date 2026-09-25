@@ -14,6 +14,7 @@ import { compose, SIZES, KIND_LABEL, templateWith } from "@/lib/documents";
 import { formatDate } from "@/lib/utils";
 import { FIELD } from "@/lib/shipments";
 import { Attachments } from "@/components/documents/Attachments";
+import { LateFee } from "@/components/sales/LateFee";
 import { Conversation } from "@/components/talk/Conversation";
 
 /**
@@ -75,6 +76,7 @@ export default function Document() {
             </option>
           ))}
         </select>
+        {kind === "invoice" && data.data.to?.name && <LateFee invoiceId={id} number={data.data.number} customer={data.data.to.name} />}
         {SENT.includes(kind) && (kind !== "invoice" || data.issuedCopy) && data.data.to?.name && (
           <Button variant="outline" onClick={() => setEmailing(true)} data-testid="share-document">
             <Share2 size={15} /> Send

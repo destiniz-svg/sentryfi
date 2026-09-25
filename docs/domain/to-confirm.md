@@ -115,3 +115,9 @@ Sentryfi treats GST as due when an advance is paid, because the time of supply i
 - Whether MIRA expects a tax invoice (or a receipt carrying GST) to be issued when an advance is received.
 - Which sheet of the Output Tax Statement advances and their reversals belong on (OtherTransactions is assumed).
 - If the rate changes between the advance and the invoice, whether the advance's share keeps the old rate. Sentryfi charges the invoice's rate on all of it and reverses the advance at its own rate.
+
+## Late payment fees: is GST charged on them?
+
+Added 25 September 2026. A company can now charge a late fee on an overdue invoice (a new invoice, "Late payment fee on INV-…"). Whether GST applies is chosen each time: no GST (the fee as compensation for late payment, outside the supply) or GST at the invoice's rate (the fee as part of the consideration for the supply). Nothing is charged automatically until this is settled.
+
+**Answered by:** a licensed Maldivian accountant, against MIRA's treatment of late payment charges (the GST Act's meaning of consideration, and any MIRA public ruling on penalties and interest). **Settles:** which way the "Charge a late fee" form defaults, and whether fees may be raised automatically.
