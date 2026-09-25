@@ -5,6 +5,8 @@
  */
 const PLATFORM_SQL = `
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ;
+-- The shortcuts a person keeps on the phone's Record sheet, in order. Null is the usual set.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS shortcuts TEXT[];
 
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS industry TEXT
   CHECK (industry IN ('construction','trading','tourism','services','retail','other'));

@@ -41,7 +41,8 @@ export default function Contacts() {
   const [filter, setFilter] = useState("all");
   const [q, setQ] = useState("");
   const [sort, setSort] = useState("owed");
-  const [adding, setAdding] = useState(false);
+  // ?new=1 is a Record shortcut: the form opens at once.
+  const [adding, setAdding] = useState(() => params.get("new") === "1");
   const { data, isLoading } = useQuery({ queryKey: ["contacts", companyId], queryFn: () => apiClient.get("/contacts").then((r) => r.data), enabled: Boolean(companyId) });
 
   const word = suppliers ? "supplier" : "customer";

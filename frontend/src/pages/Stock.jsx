@@ -56,7 +56,8 @@ function about(i) {
 export default function Stock() {
   const { companyId, can } = useCompany();
   const refresh = useRefresh();
-  const [editing, setEditing] = useState(null); // {} to add, an item to change
+  // {} to add, an item to change. ?new=1 is a Record shortcut: the form opens at once.
+  const [editing, setEditing] = useState(() => (new URLSearchParams(window.location.search).get("new") === "1" ? {} : null));
   const [counting, setCounting] = useState(null);
   const [opening, setOpening] = useState(null);
   const [looking, setLooking] = useState(null);

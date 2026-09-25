@@ -26,7 +26,8 @@ import { useOutbox } from "@/context/OutboxContext";
 
 export default function Claims() {
   const { companyId } = useCompany();
-  const [adding, setAdding] = useState(false);
+  // ?new=1 is a Record shortcut: the form opens at once.
+  const [adding, setAdding] = useState(() => new URLSearchParams(window.location.search).get("new") === "1");
   const { data, isLoading } = useQuery({ queryKey: ["claims", companyId], queryFn: () => apiClient.get("/claims").then((r) => r.data.claims), enabled: Boolean(companyId) });
 
   return (

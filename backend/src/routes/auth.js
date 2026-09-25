@@ -276,6 +276,16 @@ router.patch(
 );
 
 router.patch(
+  "/shortcuts",
+  requireAuth,
+  validate(z.object({ shortcuts: z.array(z.string().regex(/^[a-z][a-z-]{0,39}$/)).max(20).nullable() })),
+  asyncHandler(async (req, res) => {
+    const row = await User.setShortcuts(req.user.id, req.body.shortcuts && [...new Set(req.body.shortcuts)]);
+    res.json({ shortcuts: row.shortcuts });
+  })
+);
+
+router.patch(
   "/password",
   authLimiter,
   requireAuth,

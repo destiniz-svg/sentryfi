@@ -17,6 +17,16 @@
  */
 const RELEASES = [
   {
+    version: "1.27",
+    date: "2026-09-26",
+    title: "Your own Record shortcuts",
+    summary: "Choose what sits on the phone's Record button under Photograph and Say it, in your own order, and it follows you to every device.",
+    items: [
+      { area: "Phone", kind: "new", title: "Shortcuts you choose", body: "Tap Record, then Edit beside Shortcuts. Add a quote, a purchase order, a claim, a new customer, supplier or item, or a bill typed in, take off what you never use, and put them in your order. Photograph a bill and Say it always stay at the top.", href: "/dashboard" },
+      { area: "Phone", kind: "improved", title: "Straight into the form", body: "A shortcut opens the form itself, not the list it lives in.", href: "/dashboard" },
+    ],
+  },
+  {
     version: "1.26.2",
     date: "2026-09-26",
     title: "The conversation beside the document",

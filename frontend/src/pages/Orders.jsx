@@ -31,7 +31,8 @@ export default function Orders() {
   const { companyId, can } = useCompany();
   const [params, setParams] = useSearchParams();
   const kind = ["sale", "quote"].includes(params.get("kind")) ? params.get("kind") : "purchase";
-  const [adding, setAdding] = useState(false);
+  // ?new=1 is a Record shortcut: the form opens at once.
+  const [adding, setAdding] = useState(() => params.get("new") === "1");
   const { data, isLoading } = useQuery({
     queryKey: ["orders", companyId, kind],
     queryFn: () => apiClient.get(`/orders?kind=${kind}`).then((r) => r.data.orders),

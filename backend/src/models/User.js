@@ -1,7 +1,7 @@
 const bcrypt = require("bcrypt");
 const { query, queryOne } = require("../config/db");
 
-const PUBLIC_COLS = "id, email, name, created_at, updated_at, token_version, email_verified_at";
+const PUBLIC_COLS = "id, email, name, created_at, updated_at, token_version, email_verified_at, shortcuts";
 
 function hashPassword(plain) {
   return bcrypt.hash(plain, 12);
@@ -57,7 +57,13 @@ async function updatePassword(id, passwordHash) {
   );
 }
 
+/** The Record sheet's shortcuts, in order; null goes back to the usual set. */
+async function setShortcuts(id, shortcuts) {
+  return queryOne("UPDATE users SET shortcuts = $2 WHERE id = $1 RETURNING shortcuts", [id, shortcuts]);
+}
+
 module.exports = {
+  setShortcuts,
   bumpTokenVersion,
   markVerified,
   PUBLIC_COLS,
