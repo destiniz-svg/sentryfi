@@ -40,6 +40,13 @@ CREATE OR REPLACE FUNCTION same_party(a UUID, b UUID) RETURNS BOOLEAN
 -- A business's own papers: trade licence, contract, TRN certificate.
 ALTER TABLE attachments ADD COLUMN IF NOT EXISTS counterparty_id UUID REFERENCES counterparties(id);
 CREATE INDEX IF NOT EXISTS attachments_party_idx ON attachments(counterparty_id) WHERE counterparty_id IS NOT NULL;
+
+-- What a customer owed, or a supplier was owed, before these books began: kept
+-- as an invoice or bill of its own, so it ages, sits on the statement and is
+-- paid like any other, but it is not a sale, a purchase or GST. It is posted
+-- against Opening balances (3900).
+ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS opening BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE bills ADD COLUMN IF NOT EXISTS opening BOOLEAN NOT NULL DEFAULT false;
 `;
 
 module.exports = { CONTACTS_SQL };

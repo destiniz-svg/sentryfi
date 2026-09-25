@@ -82,6 +82,21 @@ router.post(
   })
 );
 
+/** What they owed, or were owed, before these books began. */
+router.post(
+  "/:id/opening",
+  requireCan("record"),
+  asyncHandler(async (req, res) => {
+    const p = z.object({ side: z.enum(["customer", "supplier"]), amount: z.union([z.string(), z.number()]).transform((v) => String(v).replace(/,/g, "")), on: z.string() }).safeParse(req.body ?? {});
+    if (!p.success) throw ApiError.badRequest("Say how much, which way, and as at which day.");
+    try {
+      res.status(201).json(await asCompany(req, (client) => contacts.setOpening(client, { companyId: req.companyId, userId: req.user.id, id: req.params.id, ...p.data })));
+    } catch (err) {
+      throw err.statusCode ? err : ApiError.badRequest(err.message);
+    }
+  })
+);
+
 /** Two records that are one business: this one kept, the other folded into it. */
 router.post(
   "/:id/merge",

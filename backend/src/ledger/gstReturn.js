@@ -167,7 +167,7 @@ async function build(client, { companyId, key }) {
     `SELECT s.invoice_no AS no, s.issue_date::text AS dated, s.net_laari, s.tax_laari,
             s.gst_treatment::text AS treatment, c.name AS customer, COALESCE(c.tin, c.gst_number) AS tin, 1 AS sign
        FROM sales_invoices s LEFT JOIN counterparties c ON c.id = s.counterparty_id
-      WHERE s.company_id = $1 AND s.status = 'posted' AND s.voided_at IS NULL
+      WHERE s.company_id = $1 AND s.status = 'posted' AND s.voided_at IS NULL AND NOT s.opening
         AND s.issue_date BETWEEN $2 AND $3
      UNION ALL
      SELECT n.note_no, n.issue_date::text, n.net_laari, n.tax_laari,

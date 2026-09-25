@@ -59,6 +59,7 @@ export function ContactForm({ contact, side = "customers", onClose, onSaved }) {
     notes: d.notes || "",
   });
   const [more, setMore] = useState(Boolean(contact));
+  const [owedBefore, setOwedBefore] = useState("");
   const [tag, setTag] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -73,6 +74,9 @@ export function ContactForm({ contact, side = "customers", onClose, onSaved }) {
     const body = { ...f, paymentTermsDays: f.paymentTermsDays === "" ? null : Number(f.paymentTermsDays), creditLimit: f.creditLimit || null, force };
     try {
       const id = contact ? (await apiClient.patch(`/contacts/${contact.id}`, body), contact.id) : (await apiClient.post("/contacts", body)).data.id;
+      if (!contact && Number(String(owedBefore).replace(/,/g, "")) > 0) {
+        await apiClient.post(`/contacts/${id}/opening`, { side: f.customer ? "customer" : "supplier", amount: owedBefore, on: new Date().toISOString().slice(0, 10) }).catch((ex) => toast.error("Added, but the opening balance was not set", ex.message));
+      }
       qc.invalidateQueries({ queryKey: ["contacts", companyId] });
       toast.success(contact ? "Saved" : `${f.name.trim()} added`);
       onSaved?.(id);
@@ -133,6 +137,11 @@ export function ContactForm({ contact, side = "customers", onClose, onSaved }) {
                 </Field>
               )}
             </div>
+            {!contact && (
+              <Field label={f.customer ? "Already owes you, MVR (optional)" : "You already owe them, MVR (optional)"} hint="From before Sentryfi. It is kept apart from sales and purchases, and never counts for GST.">
+                <input value={owedBefore} onChange={(e) => setOwedBefore(e.target.value)} inputMode="decimal" placeholder="0.00" className={`${FIELD} tabular sm:max-w-[240px]`} />
+              </Field>
+            )}
             <Field label="Address">
               <textarea value={f.address} onChange={set("address")} rows={2} className={`${FIELD} h-auto py-2.5`} />
             </Field>

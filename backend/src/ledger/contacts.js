@@ -149,8 +149,8 @@ async function show(client, { companyId, id }) {
     [companyId, id, localToday()]
   );
   const { rows: year } = await client.query(
-    `SELECT COALESCE((SELECT SUM(gross_laari) FROM sales_invoices WHERE company_id = $1 AND same_party(counterparty_id, $2) AND status = 'posted' AND voided_at IS NULL AND issue_date >= $3::date - 365), 0) AS sold,
-            COALESCE((SELECT SUM(gross_laari) FROM bills WHERE company_id = $1 AND same_party(counterparty_id, $2) AND status = 'posted' AND voided_at IS NULL AND COALESCE(issue_date, received_at::date) >= $3::date - 365), 0) AS bought,
+    `SELECT COALESCE((SELECT SUM(gross_laari) FROM sales_invoices WHERE company_id = $1 AND same_party(counterparty_id, $2) AND status = 'posted' AND voided_at IS NULL AND NOT opening AND issue_date >= $3::date - 365), 0) AS sold,
+            COALESCE((SELECT SUM(gross_laari) FROM bills WHERE company_id = $1 AND same_party(counterparty_id, $2) AND status = 'posted' AND voided_at IS NULL AND NOT opening AND COALESCE(issue_date, received_at::date) >= $3::date - 365), 0) AS bought,
             COALESCE((SELECT SUM(amount_laari) FROM receipts WHERE company_id = $1 AND same_party(counterparty_id, $2) AND voided_at IS NULL AND received_on >= $3::date - 365), 0) AS received`,
     [companyId, id, localToday()]
   );
@@ -165,6 +165,11 @@ async function show(client, { companyId, id }) {
     [companyId, id]
   );
 
+  const { rows: openings } = await client.query(
+    `SELECT 'customer' AS side, gross_laari, issue_date::text AS on FROM sales_invoices WHERE company_id = $1 AND same_party(counterparty_id, $2) AND opening AND voided_at IS NULL
+     UNION ALL SELECT 'supplier', gross_laari, issue_date::text FROM bills WHERE company_id = $1 AND same_party(counterparty_id, $2) AND opening AND voided_at IS NULL`,
+    [companyId, id]
+  );
   const { rows: people } = await client.query(
     "SELECT id, name, role, phone, email, for_accounts FROM contact_people WHERE company_id = $1 AND same_party(counterparty_id, $2) AND removed_at IS NULL ORDER BY for_accounts DESC, created_at",
     [companyId, id]
@@ -186,6 +191,7 @@ async function show(client, { companyId, id }) {
       paymentTermsDays: c.payment_terms_days, creditLimit: c.credit_limit_laari != null ? f(c.credit_limit_laari) : null,
       notes: c.notes, tags: c.tags, alsoKnownAs: c.also_known_as,
       mergedIn: fam.map((x) => x.name),
+      opening: Object.fromEntries(openings.map((o) => [o.side, { amount: f(o.gross_laari), on: o.on }])),
       // The last four digits only: enough to recognise, not enough to misuse from a screenshot.
       bankAccounts: (c.bank_accounts || []).map((a) => `····${String(a).replace(/\s/g, "").slice(-4)}`),
     },
@@ -388,4 +394,48 @@ async function merge(client, { companyId, keepId, loseId }) {
   return keepId;
 }
 
-module.exports = { list, show, create, update, lookalikes, settleDoubt, savePerson, activity, merge };
+/**
+ * What they owed, or were owed, before these books began. One per side per
+ * contact: an invoice (OB-0001) or a bill, posted against Opening balances
+ * (3900), with no tax. It then ages, is paid and sits on statements like any
+ * other, and no sales, purchase or GST figure counts it.
+ */
+async function setOpening(client, { companyId, userId, id, side, amount, on }) {
+  const c = await party(client, { companyId, id });
+  const laari = toLaari(amount);
+  if (laari <= 0n) throw ApiError.badRequest("How much was owed?");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(on || ""))) throw ApiError.badRequest("As at which day?");
+  const stock = require("./stock");
+  const opening = await stock.account(client, companyId, stock.ACCOUNTS.opening);
+  if (side === "customer") {
+    const { rows: had } = await client.query("SELECT 1 FROM sales_invoices WHERE company_id = $1 AND counterparty_id = $2 AND opening AND voided_at IS NULL", [companyId, id]);
+    if (had.length) throw ApiError.conflict(`${c.name} already has an opening balance.`);
+    const { rows: last } = await client.query("SELECT invoice_no FROM sales_invoices WHERE company_id = $1 AND invoice_no LIKE 'OB-%' ORDER BY length(invoice_no) DESC, invoice_no DESC LIMIT 1", [companyId]);
+    const n = last.length ? Number(last[0].invoice_no.replace(/\D/g, "")) + 1 : 1;
+    const sales = require("./sales");
+    const { invoice } = await sales.raise(client, {
+      companyId, userId, counterpartyId: id, invoiceNo: `OB-${String(n).padStart(4, "0")}`, subject: "Opening balance", issueDate: on, dueDate: on, gstTreatment: "none_unregistered",
+      lines: [{ description: "Owed before these books began", quantity: 1, unitPrice: formatLaari(laari).replace(/,/g, ""), accountId: opening }],
+    });
+    await client.query("UPDATE sales_invoices SET opening = true WHERE id = $1 AND company_id = $2", [invoice.id, companyId]);
+    await sales.post(client, { companyId, userId, invoiceId: invoice.id });
+    if (!c.kind.includes("customer")) await client.query("UPDATE counterparties SET kind = array_append(kind, 'customer'::cp_t) WHERE id = $1 AND company_id = $2", [id, companyId]);
+    return { kind: "invoice", id: invoice.id };
+  }
+  if (side === "supplier") {
+    const { rows: had } = await client.query("SELECT 1 FROM bills WHERE company_id = $1 AND counterparty_id = $2 AND opening AND voided_at IS NULL", [companyId, id]);
+    if (had.length) throw ApiError.conflict(`${c.name} already has an opening balance.`);
+    const { rows } = await client.query(
+      `INSERT INTO bills (company_id, counterparty_id, bill_no, issue_date, due_date, net_laari, tax_laari, gross_laari, gst_treatment, status, opening, received_by)
+       VALUES ($1,$2,'Opening balance',$3,$3,$4,0,$4,'none_unregistered','draft',true,$5) RETURNING id`,
+      [companyId, id, on, laari.toString(), userId]
+    );
+    const code = async (k) => (await client.query("SELECT id FROM accounts WHERE company_id = $1 AND code = $2", [companyId, k])).rows[0]?.id;
+    await require("./bills").postBill(client, { companyId, userId, billId: rows[0].id, accounts: { expense: opening, payable: await code("2100"), taxReclaimable: await code("1400") } });
+    if (!c.kind.includes("supplier")) await client.query("UPDATE counterparties SET kind = array_append(kind, 'supplier'::cp_t) WHERE id = $1 AND company_id = $2", [id, companyId]);
+    return { kind: "bill", id: rows[0].id };
+  }
+  throw ApiError.badRequest("Owed by them, or to them?");
+}
+
+module.exports = { setOpening, list, show, create, update, lookalikes, settleDoubt, savePerson, activity, merge };

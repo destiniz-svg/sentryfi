@@ -19,7 +19,7 @@ const REPORTS = {
                  COALESCE((SELECT SUM(n.gross_laari) FROM credit_notes n WHERE n.company_id = $1 AND n.counterparty_id IS NOT DISTINCT FROM s.counterparty_id AND n.issue_date BETWEEN $2 AND $3), 0) AS credited,
                  SUM(s.gross_laari) - COALESCE((SELECT SUM(n.gross_laari) FROM credit_notes n WHERE n.company_id = $1 AND n.counterparty_id IS NOT DISTINCT FROM s.counterparty_id AND n.issue_date BETWEEN $2 AND $3), 0) AS total
             FROM sales_invoices s LEFT JOIN counterparties c ON c.id = s.counterparty_id
-           WHERE s.company_id = $1 AND s.status = 'posted' AND s.voided_at IS NULL AND s.issue_date BETWEEN $2 AND $3
+           WHERE s.company_id = $1 AND s.status = 'posted' AND s.voided_at IS NULL AND NOT s.opening AND s.issue_date BETWEEN $2 AND $3
            GROUP BY s.counterparty_id, c.name ORDER BY total DESC`,
     totals: ["count", "net", "tax", "credited", "total"],
   },
@@ -31,7 +31,7 @@ const REPORTS = {
                  MAX(COALESCE(l.uom, i.unit)) AS unit, SUM(l.net_laari) AS net
             FROM sales_invoice_lines l JOIN sales_invoices s ON s.id = l.invoice_id
             LEFT JOIN stock_items i ON i.id = l.item_id
-           WHERE s.company_id = $1 AND s.status = 'posted' AND s.voided_at IS NULL AND s.issue_date BETWEEN $2 AND $3
+           WHERE s.company_id = $1 AND s.status = 'posted' AND s.voided_at IS NULL AND NOT s.opening AND s.issue_date BETWEEN $2 AND $3
            GROUP BY COALESCE(i.name, NULLIF(btrim(l.description), ''), 'Other') ORDER BY net DESC`,
     totals: ["net"],
   },
@@ -41,7 +41,7 @@ const REPORTS = {
     columns: [{ key: "name", label: "Supplier" }, { key: "count", label: "Bills", num: true }, money("net", "Before tax"), money("tax", "Tax"), money("total", "Total")],
     sql: `SELECT COALESCE(c.name, 'No supplier') AS name, count(b.id)::int AS count, SUM(b.net_laari) AS net, SUM(b.tax_laari) AS tax, SUM(b.gross_laari) AS total
             FROM bills b LEFT JOIN counterparties c ON c.id = b.counterparty_id
-           WHERE b.company_id = $1 AND b.status = 'posted' AND b.voided_at IS NULL AND COALESCE(b.issue_date, b.received_at::date) BETWEEN $2 AND $3
+           WHERE b.company_id = $1 AND b.status = 'posted' AND b.voided_at IS NULL AND NOT b.opening AND COALESCE(b.issue_date, b.received_at::date) BETWEEN $2 AND $3
            GROUP BY b.counterparty_id, c.name ORDER BY total DESC`,
     totals: ["count", "net", "tax", "total"],
   },

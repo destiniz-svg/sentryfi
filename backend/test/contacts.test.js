@@ -94,4 +94,27 @@ describe("contacts", () => {
       const { findOrCreate } = await import("../src/ledger/counterparties");
       expect((await findOrCreate(client, { companyId, userId, name: "Moon Reef Hotel Pvt Ltd", kind: "customer" })).party.id).toBe(keep);
     }));
+
+  it("keeps what was owed before the books began: owed and aged, never a sale, a purchase or GST", () =>
+    inRollback(async (client) => {
+      const { companyId, userId } = await aCompanyWith(client);
+      await client.query("INSERT INTO accounts (company_id, code, name, type) VALUES ($1,'1300','Owed to us','asset'), ($1,'4100','Sales','income'), ($1,'2200','GST we owe','liability')", [companyId]);
+      const resort = await contacts.create(client, { companyId, body: { name: "Lagoon View Resort", customer: true } });
+      const cement = await contacts.create(client, { companyId, body: { name: "Island Cement", supplier: true } });
+      await contacts.setOpening(client, { companyId, userId, id: resort, side: "customer", amount: "5000", on: "2026-06-30" });
+      await contacts.setOpening(client, { companyId, userId, id: cement, side: "supplier", amount: "2000.50", on: "2026-06-30" });
+      await expect(contacts.setOpening(client, { companyId, userId, id: resort, side: "customer", amount: "1", on: "2026-06-30" })).rejects.toMatchObject({ statusCode: 409 });
+      const { contacts: all } = await contacts.list(client, { companyId });
+      expect(all.find((c) => c.id === resort).receivable).toBe("5,000.00");
+      expect(all.find((c) => c.id === cement).payable).toBe("2,000.50");
+      const shown = await contacts.show(client, { companyId, id: resort });
+      expect(shown.open.invoices.map((i) => i.number)).toEqual(["OB-0001"]);
+      expect(shown.money.soldYear).toBe("0.00");
+      const reports = await import("../src/ledger/reports");
+      expect((await reports.run(client, { companyId, key: "sales-by-customer", from: "2026-01-01", to: "2026-12-31" })).rows).toEqual([]);
+      const { unpaid } = await import("../src/ledger/payments");
+      expect((await unpaid(client, { companyId })).map((u) => u.owed)).toEqual(["2,000.50"]);
+      const { rows } = await client.query("SELECT a.code, SUM(l.credit_laari - l.debit_laari)::text AS c FROM journal_lines l JOIN accounts a ON a.id = l.account_id WHERE a.company_id = $1 AND a.code IN ('3900','4100') GROUP BY a.code", [companyId]);
+      expect(rows).toEqual([{ code: "3900", c: "299950" }]);
+    }));
 });

@@ -193,6 +193,7 @@ export default function Contact() {
         </TabsContent>
         <TabsContent value="details" className="mt-4">
           <Details c={c} />
+          {can("record") && <Opening c={c} onDone={refresh} />}
           <Attachments kind="contact" id={c.id} title="Papers: trade licence, contract, TRN certificate" />
           {can("record") && <Merge c={c} onDone={refresh} />}
         </TabsContent>
@@ -414,6 +415,8 @@ function Details({ c }) {
     // Names that came with a merge are listed under Merged in, not twice.
     d.alsoKnownAs?.filter((x) => !d.mergedIn?.includes(x)).length && ["Also written as", d.alsoKnownAs.filter((x) => !d.mergedIn?.includes(x)).join(", ")],
     d.mergedIn?.length && ["Merged in", d.mergedIn.join(", ")],
+    d.opening?.customer && ["Owed to you before Sentryfi", `MVR ${d.opening.customer.amount}, as at ${formatDate(d.opening.customer.on)}`],
+    d.opening?.supplier && ["Owed to them before Sentryfi", `MVR ${d.opening.supplier.amount}, as at ${formatDate(d.opening.supplier.on)}`],
   ].filter(Boolean);
   return (
     <dl className="rounded-[20px] bg-[var(--surface)] lift divide-y divide-[var(--border)] overflow-hidden">
@@ -570,5 +573,65 @@ function Merge({ c, onDone }) {
         </Modal>
       )}
     </div>
+  );
+}
+
+/**
+ * What they owed, or were owed, the day the books began here. Set once per
+ * side; it then ages and is paid like any invoice or bill, and never counts as
+ * a sale, a purchase or GST.
+ */
+function Opening({ c, onDone }) {
+  const toast = useToast();
+  const sides = [c.customer && !c.details.opening?.customer && "customer", c.supplier && !c.details.opening?.supplier && "supplier"].filter(Boolean);
+  const [side, setSide] = useState(null);
+  const [amount, setAmount] = useState("");
+  const [on, setOn] = useState(new Date().toISOString().slice(0, 10));
+  const [busy, setBusy] = useState(false);
+  if (!sides.length) return null;
+  async function save(e) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await apiClient.post(`/contacts/${c.id}/opening`, { side, amount, on });
+      toast.success("Opening balance set", side === "customer" ? "It is on their account as OB-, owed from that day." : "It is on what you owe them, ready to pay.");
+      setSide(null);
+      setAmount("");
+      onDone();
+    } catch (ex) {
+      toast.error("Not set", ex.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (!side)
+    return (
+      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2">
+        {sides.map((s) => (
+          <button key={s} type="button" onClick={() => setSide(s)} className="text-[14px] font-medium text-[var(--deep)] underline underline-offset-4">
+            {s === "customer" ? "They owed you from before Sentryfi? Set it" : "You owed them from before Sentryfi? Set it"}
+          </button>
+        ))}
+      </div>
+    );
+  return (
+    <form onSubmit={save} className="mt-4 rounded-[20px] bg-[var(--surface)] lift p-5 grid sm:grid-cols-[minmax(0,1fr)_180px_auto] gap-3 items-end">
+      <label className="grid gap-1.5">
+        <span className="text-[13px] font-medium">{side === "customer" ? "They owed you, MVR" : "You owed them, MVR"}</span>
+        <input autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" placeholder="0.00" className={`${FIELD} tabular`} />
+      </label>
+      <label className="grid gap-1.5">
+        <span className="text-[13px] font-medium">As at</span>
+        <input type="date" value={on} onChange={(e) => setOn(e.target.value)} className={FIELD} />
+      </label>
+      <div className="flex gap-2">
+        <Button type="button" variant="outline" onClick={() => setSide(null)}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={busy || !(Number(String(amount).replace(/,/g, "")) > 0)}>
+          Set it
+        </Button>
+      </div>
+    </form>
   );
 }
