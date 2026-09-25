@@ -191,8 +191,15 @@ async function start() {
       require("./routes/cfo").schedule();
       require("./routes/notifications").schedule();
       require("./routes/customerMail").schedule();
-      // A new release is announced once, a little after the first server starts with it.
-      setTimeout(() => require("./services/releases").announce(require("./config/db").pool).then((n) => n && console.log(JSON.stringify({ at: "release", told: n }))).catch((err) => console.error(JSON.stringify({ at: "release", error: err.message }))), 30_000).unref();
+      // Releases reach the bell in a weekly round-up; a headline release goes straight away.
+      {
+        const r = require("./services/releases");
+        const pool = require("./config/db").pool;
+        const log = (what) => (n) => n && console.log(JSON.stringify({ at: what, told: n }));
+        const fail = (err) => console.error(JSON.stringify({ at: "release", error: err.message }));
+        setTimeout(() => r.headlines(pool).then(log("release-headline")).catch(fail), 30_000).unref();
+        setInterval(() => r.roundUp(pool).then(log("release-week")).catch(fail), 60 * 60_000).unref();
+      }
     });
   } catch (err) {
     console.error("Failed to start server:", err.message);

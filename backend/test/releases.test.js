@@ -5,7 +5,11 @@
 import { describe, it, expect, afterAll } from "vitest";
 import { inRollback, aCompanyWith, closePool } from "./setup";
 import { RELEASES } from "../src/releases";
-import { announce } from "../src/services/releases";
+import { roundUp, headlines, weekOf, needOf } from "../src/services/releases";
+
+// The role table sits beside the server settings, which refuse to load without these.
+process.env.DATABASE_URL ||= process.env.TEST_DATABASE_URL || "postgres://unused:unused@127.0.0.1:5432/unused";
+process.env.JWT_SECRET ||= "releases-test-secret-long-enough-to-pass-validation";
 
 afterAll(closePool);
 
@@ -26,15 +30,29 @@ describe("releases", () => {
     });
   });
 
-  it("announces the newest release once, to everyone in every company", () =>
+  it("rounds the week up once, telling each person only what their role can use", () =>
     inRollback(async (client) => {
       const { companyId, userId } = await aCompanyWith(client);
-      await client.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1,$2,'administrator')", [companyId, userId]);
-      await client.query("DELETE FROM release_announcements WHERE version = $1", [RELEASES[0].version]);
+      const site = (await client.query("INSERT INTO users (name, email, password_hash) VALUES ('Ali', $1, 'x') RETURNING id", [`ali+${Math.random()}@sentryfi.invalid`])).rows[0].id;
+      await client.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1,$2,'administrator'), ($1,$3,'site_staff')", [companyId, userId, site]);
+      await client.query("DELETE FROM release_announcements");
       const quiet = { pushTo: async () => 0 };
-      expect(await announce(client, { push: quiet })).toBeGreaterThanOrEqual(1);
-      expect(await announce(client, { push: quiet })).toBe(0);
-      const { rows } = await client.query("SELECT kind, title, href FROM notifications WHERE user_id = $1 AND company_id = $2", [userId, companyId]);
-      expect(rows).toEqual([{ kind: "release", title: `New in Sentryfi ${RELEASES[0].version}: ${RELEASES[0].title}`, href: `/whats-new#v${RELEASES[0].version}` }]);
+      expect(await headlines(client, { push: quiet })).toBe(0);
+      // Not Sunday morning yet: nothing.
+      expect(await roundUp(client, { now: new Date("2026-09-26T08:00:00Z"), push: quiet })).toBe(0);
+      const sunday = new Date("2026-09-27T05:00:00Z"); // 10:00 in Malé
+      expect(weekOf(sunday)).toEqual({ key: "2026-W39", due: true });
+      expect(await roundUp(client, { now: sunday, push: quiet })).toBeGreaterThanOrEqual(2);
+      expect(await roundUp(client, { now: sunday, push: quiet })).toBe(0);
+      const note = async (u) => (await client.query("SELECT title, href FROM notifications WHERE user_id = $1 AND company_id = $2 AND kind = 'release'", [u, companyId])).rows;
+      const owner = await note(userId);
+      const ali = await note(site);
+      const count = (t) => Number(t.match(/(\d+) change/)[1]);
+      expect(owner).toHaveLength(1);
+      expect(ali).toHaveLength(1);
+      expect(count(ali[0].title)).toBeLessThan(count(owner[0].title));
+      expect(owner[0].href).toBe(`/whats-new#v${RELEASES[0].version}`);
+      expect(needOf({ area: "Team", href: "/payroll" })).toBe("run_payroll");
+      expect(needOf({ area: "Website", href: "/" })).toBe(false);
     }));
 });

@@ -10,6 +10,9 @@ import { RecordBill } from "@/components/bills/RecordBill";
 import { RouteFallback } from "@/components/ui/RouteFallback";
 import { usePhone } from "@/lib/phone";
 import { useCompany } from "@/context/CompanyContext";
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "@/api/client";
+import { markOpened } from "@/lib/newMarks";
 
 /**
  * The screens that carry the phone board's own chrome.
@@ -41,6 +44,11 @@ export function AppShell() {
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [location.pathname]);
+  // A place opened is no longer marked new in the menu.
+  const { data: releases } = useQuery({ queryKey: ["releases"], queryFn: () => apiClient.get("/releases").then((r) => r.data), staleTime: 300_000 });
+  useEffect(() => {
+    if (releases) markOpened(location, releases.releases);
+  }, [location.pathname, location.search, releases]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     function onKey(e) {

@@ -12,6 +12,7 @@ import { SECTIONS, sectionOf, isHere } from "@/lib/sections";
 import { ROLE_TEXT } from "@/lib/roles";
 import AILogo from "./AILogo";
 import { useT } from "@/lib/i18n";
+import { useNewMarks } from "@/lib/newMarks";
 
 /**
  * The desk's rail (DESIGN.md, "The desk register, rebuilt").
@@ -27,7 +28,7 @@ import { useT } from "@/lib/i18n";
 const LABEL = "text-[15px] font-medium whitespace-nowrap";
 const KEY = "sentryfi.rail";
 
-function Item({ to, icon: Icon, label: english }) {
+function Item({ to, icon: Icon, label: english, isNew }) {
   const { t } = useT();
   const { pathname, search } = useLocation();
   const label = t(english);
@@ -44,8 +45,17 @@ function Item({ to, icon: Icon, label: english }) {
           here ? "bg-[var(--ink)] text-[var(--bg)]" : "text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
       )}
     >
-      <Icon size={19} strokeWidth={2} aria-hidden="true" className="shrink-0" />
+      <span className="relative shrink-0">
+        <Icon size={19} strokeWidth={2} aria-hidden="true" />
+        {/* Changed in a recent release and not opened here since. */}
+        {isNew && !here && <span className="lg:hidden absolute -top-1 -right-1 h-2 w-2 rounded-full bg-[var(--accent)] ring-2 ring-[var(--surface)]" aria-hidden="true" />}
+      </span>
       <span className={cn(LABEL, "hidden lg:inline truncate")}>{label}</span>
+      {isNew && !here && (
+        <span className="hidden lg:inline-flex ml-auto h-5 px-1.5 rounded-full bg-[var(--accent-soft)] text-[var(--accent-strong)] text-[11px] font-semibold items-center" title="Changed since you last opened it">
+          New
+        </span>
+      )}
     </Link>
   );
 }
@@ -75,6 +85,7 @@ function useFolded() {
 
 function Group({ s, first, open, onToggle, can, tax, multi }) {
   const { t } = useT();
+  const isNew = useNewMarks();
   // "All your companies" only for someone who keeps more than one set of books.
   const items = s.items.filter((it) => (!it.can || can(it.can)) && (!it.multi || multi));
   if (!items.length) return null;
@@ -88,14 +99,18 @@ function Group({ s, first, open, onToggle, can, tax, multi }) {
         aria-controls={id}
         className="hidden lg:flex w-full items-center justify-between h-9 px-6 text-[13px] font-semibold text-[var(--ink-muted)] hover:text-[var(--ink)]"
       >
-        {t(s.label)}
+        <span className="inline-flex items-center gap-1.5">
+          {t(s.label)}
+          {/* A folded section still says it holds something new. */}
+          {!open && items.some((it) => isNew(it.to)) && <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" aria-label="has something new" />}
+        </span>
         <ChevronRight size={14} aria-hidden="true" className={cn("transition-transform duration-200", open && "rotate-90")} />
       </button>
       {!first && <div className="lg:hidden mx-4 my-2 border-t border-[var(--border)]" aria-hidden="true" />}
       {/* Folded on a wide rail only: the icon rail on a tablet is short enough to show everything. */}
       <div id={id} className={cn(!open && "lg:hidden")}>
         {items.map((it) => (
-          <Item key={it.to} {...it} label={it.to === "/tax" && tax !== "GST" ? `${tax} return` : it.label} />
+          <Item key={it.to} {...it} isNew={isNew(it.to)} label={it.to === "/tax" && tax !== "GST" ? `${tax} return` : it.label} />
         ))}
       </div>
     </div>

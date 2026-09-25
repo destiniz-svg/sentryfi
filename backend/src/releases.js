@@ -9,8 +9,24 @@
  *
  * Each item: area (where it lives), kind (new, improved or fixed), a title and
  * one or two plain sentences, and where it opens in the app.
+ *
+ * The bell hears about releases in a weekly round-up. Mark a release
+ * `headline: true` only for something big enough to announce the day it
+ * ships. An item may say `need` (a capability, or null for everyone) when
+ * where it opens does not already say who it concerns.
  */
 const RELEASES = [
+  {
+    version: "1.14",
+    date: "2026-09-25",
+    title: "Release news in a weekly round-up",
+    summary: "What changed now reaches you once a week, only what concerns you, and new places are marked in the menu.",
+    items: [
+      { area: "App", kind: "improved", title: "A weekly round-up", body: "Instead of a note for every release, one notification each Sunday with what changed that week. Big releases still arrive the day they ship.", href: "/whats-new" },
+      { area: "App", kind: "improved", title: "Only what concerns you", body: "You hear about changes your role can use: payroll news reaches those who run payroll, not everyone.", href: "/inbox" },
+      { area: "App", kind: "new", title: "New in the menu", body: "A small mark beside places in the menu that changed since you last opened them.", href: "/whats-new" },
+    ],
+  },
   {
     version: "1.13",
     date: "2026-09-25",
