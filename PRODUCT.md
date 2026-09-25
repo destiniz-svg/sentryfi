@@ -91,16 +91,21 @@ Each one is switched on per company and invisible when it is off. None of them m
 **Money, beyond the core**
 
 - **Quotes and orders, both ways.** A quote a customer accepts becomes a sales order and then an invoice; a purchase order goes out, the delivery is received against it, and the supplier's bill is matched to both before it is paid. Nobody types the same figures three times, and a short delivery is caught before the money leaves.
-- **Stock.** What is on hand, what it cost to land here, what it is worth, and what a sale of it earned. Counted, adjusted with a reason, and valued the same way every month.
-- **Imports, and what a container really costs.** A shipment gathers everything that arrives against it over the weeks it takes — the supplier's invoice in its own currency, freight, insurance, customs duty, the clearing agent, the bank's charges on the transfer, inland transport — and spreads them across the goods to give a true cost per unit. It knows which of those belong in the cost of the goods and which do not, tells the owner what has not arrived yet, and says plainly how much more than the invoice price the goods actually cost. Asked for on 22 September 2026: this is the thing an importing business most often gets wrong, and it is wrong in the direction of thinking it is making money.
-- **Repeat billing.** Invoices that issue themselves on a schedule, retainers, and a reminder ladder for what is late — the ordinary way a small business collects money.
+  - **Duplicate anything.** Any quote, invoice, bill or order can start the next one: same customer or another, today's date, a new number.
+  - **Bill a job in parts.** A large quote is invoiced by percentage or by milestone, and the quote shows what has been billed and what is left.
+  - **An accepted quote never sends its own invoice.** *Decided 26 September 2026.* When a customer accepts, the invoice is drafted and the office is told. A person checks it and sends it.
+- **Stock.** What is on hand, where it is, what it cost to land here, what it is worth, and what a sale of it earned. Counted, adjusted with a reason, and valued the same way every month. How stock behaves in every kind of place is set out under "Stock, wherever it lives" below.
+- **Imports, and what a container really costs.** A shipment gathers everything that arrives against it over the weeks it takes — the supplier's invoice in its own currency, freight, insurance, customs duty, the clearing agent, the bank's charges on the transfer, inland transport — and spreads them across the goods to give a true cost per unit. It knows which of those belong in the cost of the goods and which do not, tells the owner what has not arrived yet, and says plainly how much more than the invoice price the goods actually cost. Asked for on 22 September 2026: this is the thing an importing business most often gets wrong, and it is wrong in the direction of thinking it is making money. Each line on the Customs declaration carries its HS code and its duty, so duty goes to the goods it was charged on and is not spread by value. No accounting product does this yet.
+- **Repeat billing, both ways.** Invoices that issue themselves on a schedule, retainers, and a reminder ladder for what is late — the ordinary way a small business collects money. Rent, internet and other bills that arrive the same way every month are drafted on schedule too, for a person to post.
 - **Expense claims.** Money a person spent out of their own pocket, with the photograph, approved and paid back. The cash tin covers a float; this covers everyone without one.
+- **Costs passed on.** A bill line or a claim can be marked "charge to the customer". It then waits on that customer's next invoice, with or without a markup, so nothing billable is forgotten.
 - **Time.** Hours against a project or a job, charged out or costed in, and the same hours feeding payroll where payroll is on.
 - **Approvals and limits.** What a person may commit without asking, what needs a second name, and the record of who said yes.
 - **Budgets and the year ahead.** A budget per account or dimension, budget against actual on every report, and a cash forecast built from what is already owed and owing.
 - **Paying suppliers.** A payment run: what is due, what is selected, one file or one transfer, and the bank line matched back automatically.
-- **Getting paid.** A payment link on an invoice, and the receipt recorded when it clears. Card and bank rails differ by country and are part of the country pack.
+- **Getting paid.** A payment link on an invoice, and the receipt recorded when it clears. Card and bank rails differ by country and are part of the country pack. **In the Maldives: Bank of Maldives, including paying from its wallet app, and MIB.** *Decided 26 September 2026.* A payment that clears becomes a receipt, ready for a person to confirm.
 - **A door for the customer.** A page a customer opens to see what they have been invoiced, what they have paid, and what is still owed, to download an invoice, to pay it, and to raise a query against a line. The same for a supplier: what we have of theirs, and what we have paid. It is the company's own records shown outward, not a second set.
+- **Between two Sentryfi companies.** An invoice one Sentryfi company sends to another arrives in the buyer's books as a draft bill, already read. It is never posted by itself. Nobody types it in, and nobody on either side has to photograph it.
 
 **Industry packs**
 
@@ -108,7 +113,7 @@ Each one is switched on per company and invisible when it is off. None of them m
 - **Procurement.** Purchase requests, orders, goods received, three-way matching, spending limits and approvals.
 - **Construction.** Bills of quantity, variations, progress claims, retention, certified work, work in progress.
 - **Equipment and rental.** Machine register, utilisation, hours, fuel and maintenance cost, machine-level profitability, rate cards.
-- **Inventory and fuel.** Quantity-based stock, landed cost, margin per unit, opening plus purchases less sales equals closing.
+- **Inventory and fuel.** Quantity-based stock, landed cost, margin per unit, opening plus purchases less sales equals closing, kept in every kind of place (see "Stock, wherever it lives").
 - **Hospitality.** Rooms, occupancy, ADR and RevPAR, food and beverage, guest deposits, agent commissions. In the Maldives this covers guesthouses, liveaboards and resorts, which are three different businesses with one tax regime.
 - **Retail and the till.** A day's takings from a point of sale arriving as one balanced entry per day per till, not as a spreadsheet somebody retypes.
 - **Petty cash.** Boxes held by named people, spending with or without a bill, counts, top-ups, reimbursement. *Done 22 September 2026.*
@@ -120,6 +125,36 @@ Each one is switched on per company and invisible when it is off. None of them m
 - **Group and consolidation.** Several companies, intercompany balances that eliminate, and one set of statements for the group. Altura is already a group; most of the businesses buying this are.
 - **The accountant's view.** The same books in the words an accountant uses, with the journal, the trail and the working papers behind each figure, and a practice signing off several clients from one place.
 - **Reports of their own.** The standard statements, plus a report somebody builds once, saves, and has emailed to them every month.
+
+## Stock, wherever it lives
+
+Asked for on 26 September 2026. It serves every industry: a contractor with materials on a remote island, a hardware shop with outlets and a godown, a factory turning raw material into goods, and an importer whose container is still at the port. The owner wants to know five things, in this order:
+
+1. **What came in**: this week, from whom, into which place.
+2. **What is where**: each place with its quantity and value.
+3. **What it is worth**: the total, and how it agrees with the books.
+4. **What moved**: transfers, issues to jobs, sales and returns.
+5. **What looks wrong**: short counts, stock with no movement, and anything still in transit too long.
+
+That snapshot is the first screen. Every figure opens onto the moves behind it.
+
+**Places are real places.** A place is a store, godown, outlet, site, factory or vehicle, and each has a person in charge. A site can belong to a project. Goods at sea or on a boat to an island sit **in transit**, and they are counted and valued there.
+
+**The moves, in plain words:**
+
+| Move | What happens | Who confirms |
+|---|---|---|
+| Receive | A bill or delivery brings goods into a named place. | The person at that place. |
+| Send | Goods leave one place and are in transit. | The sender. |
+| Arrive | The other place receives them. Any shortfall is shown and needs a reason. | The receiver, on a phone. |
+| Use on a job | Goods are issued to a project or department, and their cost goes with them. | Whoever takes them. |
+| Make | A recipe turns raw material into finished goods, with the waste it allows. | The factory. |
+| Count | A count covers one place at a time. Differences are shown before anything posts. | Whoever counted it, then a manager. |
+
+**Also kept:** a second unit where one is bought and another is sold (a box of 12, a bag and a kilo), and batch and expiry dates where they matter.
+
+**Set up by asking, not by forms.** The AI interviews the owner in plain words: "Do you keep goods anywhere other than the shop?" "Do you send goods to site?" From the answers it switches on only the features this business needs, and names the places. Day to day, a person can say "sent 40 bags of cement to the Maalhos site". The AI drafts the move and shows why, and a person confirms it. No accounting product offers this yet; the closest connects to an outside assistant.
+
 
 ## Where it is sold, and in what edition
 
@@ -139,7 +174,7 @@ A pack is data and layouts, never ledger code:
 - What a compliant invoice must show, and how the number is made.
 - Filing periods, due dates, and the form or statement layout the authority wants.
 - Withholding taxes, reverse charge, and any tax on paying somebody abroad.
-- Electronic invoicing where it is mandated — Peppol in Europe and Singapore, ViDA as it arrives, ZATCA in Saudi Arabia, MyInvois in Malaysia, the IRP in India. A pack declares the format and the clearance step; the entry behind it is the same balanced entry as any other.
+- Electronic invoicing where it is mandated — Peppol in Europe and Singapore, ViDA as it arrives, ZATCA in Saudi Arabia, MyInvois in Malaysia, the IRP in India. A pack declares the format and the clearance step; the entry behind it is the same balanced entry as any other. **UAE e-invoicing is on hold**, and so is choosing an accredited provider for it. *Decided 26 September 2026.* The UAE VAT pack itself stays.
 - Payroll: the deductions, the ceilings, the payslip and the filings.
 - The statement formats and the vocabulary a local accountant expects.
 
@@ -363,6 +398,7 @@ Recorded 19 September 2026. The repository is the source of truth: pushing to `m
 4. **The phone captures, the server keeps.** Offline capture queues; nothing on the device is the record of truth.
 5. **Maldives first, configurable always.** Tax rates, periods, forms, and industry profiles are data keyed by effective date, so MIRA changes and new industries are configuration, not rewrites.
 6. **Humans sign off on money and tax.** A licensed Maldivian accountant confirms the chart of accounts, the funding treatment, and the first filings. A security reviewer signs off before real money flows.
+7. **Ask, don't assume. Draft, don't send.** Many owners are not trained in accounts, and the product is built for them. The AI asks in plain words when it is unsure. What it prepares is a draft with its reason beside it, and a person posts it or sends it. This covers an invoice from an accepted quote, a bill from another Sentryfi company, a stock move said out loud, and a repeating bill. Set 26 September 2026.
 
 ## Accessibility & Inclusion
 
