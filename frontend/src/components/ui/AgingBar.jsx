@@ -29,7 +29,7 @@ export function AgingBar({ amounts, laari, tone = "light", className }) {
   const muted = tone === "dark" ? "text-white/65" : "text-[var(--ink-muted)]";
   return (
     <div className={cn("w-full", className)}>
-      <div className={cn("flex h-2.5 w-full overflow-hidden rounded-full gap-[2px]", tone === "dark" ? "bg-white/10" : "bg-[var(--surface-2)]")} role="img" aria-label={AGES.map((a, i) => `${a.label} ${amounts?.[a.key]}`).join(", ")}>
+      <div className={cn("flex h-2.5 w-full overflow-hidden rounded-full gap-[2px]", tone === "dark" ? "bg-white/10" : "bg-[var(--surface-2)]")} role="img" aria-label={AGES.map((a) => `${a.label} ${amounts?.[a.key]}`).join(", ")}>
         {total > 0 &&
           values.map((v, i) =>
             v > 0 ? <span key={AGES[i].key} className={cn("h-full first:rounded-l-full last:rounded-r-full", shade[i])} style={{ width: `${Math.max(2, (v / total) * 100)}%` }} /> : null

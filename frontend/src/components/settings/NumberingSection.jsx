@@ -28,7 +28,7 @@ export function NumberingSection() {
     try {
       const r = await apiClient.put(`/numbering/${k.kind}`, { start: edits[k.kind] ?? k.start });
       toast.success(`${k.label}: next is ${r.data.next}`);
-      setEdits(({ [k.kind]: _, ...rest }) => rest);
+      setEdits((e) => { const rest = { ...e }; delete rest[k.kind]; return rest; });
       qc.invalidateQueries({ queryKey: key });
     } catch (ex) {
       toast.error("Not saved", ex.message);

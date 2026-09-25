@@ -36,7 +36,7 @@ const plain = (laari) => (Number(laari) / 100).toLocaleString("en-US", { maximum
 export default function Contacts() {
   const { companyId, can } = useCompany();
   const nav = useNavigate();
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const suppliers = params.get("side") === "suppliers";
   const [filter, setFilter] = useState("all");
   const [q, setQ] = useState("");
