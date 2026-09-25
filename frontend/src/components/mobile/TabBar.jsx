@@ -39,7 +39,7 @@ export function TabBar({ onRecord }) {
       )}
       <nav
         aria-label="Main"
-        className="mx-4 flex items-center justify-between gap-1 rounded-full bg-[var(--surface)] lift p-1.5"
+        className="mx-4 min-[520px]:mx-auto min-[520px]:max-w-[480px] flex items-center justify-between gap-1 rounded-full bg-[var(--surface)] lift p-1.5"
         style={{ marginBottom: "max(14px, env(safe-area-inset-bottom))" }}
       >
         {TABS.map((t) =>

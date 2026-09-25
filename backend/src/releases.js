@@ -17,6 +17,16 @@
  */
 const RELEASES = [
   {
+    version: "1.25.2",
+    date: "2026-09-25",
+    title: "Fits an unfolded phone",
+    summary: "On a foldable opened out, cards no longer run off the right edge, and the tab bar stays a comfortable size.",
+    items: [
+      { area: "Everywhere", kind: "fixed", title: "Cards stay on the screen", body: "A long name or a wide control could push a whole card past the right edge on a foldable opened out, as on the withholding tax section. Every list and card now fits the screen it is on.", href: "/tax" },
+      { area: "Everywhere", kind: "fixed", title: "A tab bar that does not stretch", body: "On a wider phone screen the bar along the bottom stays centred at thumb size instead of spreading edge to edge.", href: "/" },
+    ],
+  },
+  {
     version: "1.25.1",
     date: "2026-09-25",
     title: "The button takes you to what is missing",

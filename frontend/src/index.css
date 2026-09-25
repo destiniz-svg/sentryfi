@@ -676,6 +676,17 @@ input[type="date"]::-webkit-date-and-time-value {
   a.underline:hover { color: var(--deep-strong); }
 }
 
+/* A grid with no columns of its own gets one that fits the screen. Left to
+   itself its one column is as wide as its widest content, so a long supplier
+   name or a wide control pushed a whole card past the edge on an unfolded
+   foldable, and the page's own clipping hid the rest. Any grid-cols-*
+   utility still wins: this is the base layer. */
+@layer base {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* ------------------------------------------------------------------
    The main app on a phone (DESIGN.md, "The phone, refined"): white cards
    lifted off the ground by a long soft shadow instead of a border, one
