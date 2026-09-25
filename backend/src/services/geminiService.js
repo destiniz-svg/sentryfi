@@ -3,6 +3,7 @@ const { GoogleGenAI } = require("@google/genai");
 const env = require("../config/env");
 const { billSchema, billValidator, billPrompt, spokenPrompt, questionsFrom } = require("./billExtraction");
 const ApiError = require("../utils/ApiError");
+const { itemTaxSchema, itemTaxValidator, itemTaxPrompt } = require("./itemTax");
 
 const ai = env.geminiApiKey
   ? new GoogleGenAI({ apiKey: env.geminiApiKey })
@@ -183,7 +184,18 @@ async function parseSpoken({ buffer, mimeType, companyName }) {
   return { extracted, questions: questionsFrom(extracted) };
 }
 
+/** An item's GST class from its name. See services/itemTax.js. */
+async function itemTax(item) {
+  requireAI();
+  const text = await generate({
+    contents: [{ role: "user", parts: [{ text: itemTaxPrompt(item) }] }],
+    config: { responseMimeType: "application/json", responseSchema: itemTaxSchema, temperature: 0 },
+  });
+  return itemTaxValidator.parse(JSON.parse(text));
+}
+
 module.exports = {
+  itemTax,
   available: () => Boolean(ai),
   generate,
   parseBill,

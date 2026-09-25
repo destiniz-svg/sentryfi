@@ -17,6 +17,17 @@
  */
 const RELEASES = [
   {
+    version: "1.26",
+    date: "2026-09-25",
+    title: "Each item knows its GST",
+    summary: "Items are standard, zero-rated or exempt, and an invoice or bill takes its GST from the items on it.",
+    items: [
+      { area: "Items", kind: "new", title: "GST on every item", body: "Say whether an item is standard, zero-rated or exempt, as MIRA asks each good or service to be classed. Leave it as Not sure and it is worked out from the item's name, and marked as a suggestion until you pick one.", href: "/stock" },
+      { area: "Sales", kind: "new", title: "GST follows the items", body: "Rice and flour on an invoice make it zero-rated without asking. Items of different classes on one invoice or bill are pointed out, so they go on separate ones.", href: "/invoices/new" },
+      { area: "Bills", kind: "new", title: "Zero-rated and exempt bills", body: "A bill can now be recorded as zero-rated or exempt, as well as with GST included, added on top, or none.", href: "/bills" },
+    ],
+  },
+  {
     version: "1.25.2",
     date: "2026-09-25",
     title: "Fits an unfolded phone",

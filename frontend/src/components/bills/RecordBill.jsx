@@ -15,7 +15,7 @@ import { useUndo } from "@/context/UndoContext";
 import { today } from "@/lib/utils";
 import { prepareForReading } from "@/lib/image";
 import { TagPicker } from "@/components/ui/TagPicker";
-import { Basket, FlowButtons, ItemPicker, PartyPicker, TermsPicker, dueFrom } from "@/components/forms/Pickers";
+import { Basket, FlowButtons, ItemPicker, ItemsTaxNote, PartyPicker, TermsPicker, dueFrom, taxFromItems } from "@/components/forms/Pickers";
 import { useNavigate } from "react-router-dom";
 import { taxApi } from "@/api/tax";
 
@@ -52,6 +52,8 @@ const TAX_CHOICES = [
     label: "No GST charged",
     hint: "The supplier is not registered, so there is nothing to claim back.",
   },
+  { value: "zero_rated", label: "Zero-rated", hint: "Taxable at 0%: rice, flour, diesel and the like." },
+  { value: "exempt", label: "Exempt", hint: "Outside GST: rent, electricity, water." },
   {
     value: "unknown",
     label: "I am not sure",
@@ -115,6 +117,8 @@ export function RecordBill({ open, onClose, start }) {
     const net = form.gstTreatment === "inclusive" ? line - Math.round((line * rateBp) / (10000 + rateBp)) : line;
     return { ...l, line, gross: line + inTax, net };
   });
+  // The stored item, not the one picked: its GST class may have been worked out since.
+  const fromItems = taxFromItems(items.map((l) => (stockItems || []).find((i) => i.id === l.item.id) || l.item), form.gstTreatment, "inclusive");
   const itemsGross = priced.reduce((a, l) => a + l.gross, 0);
   const itemsLine = priced.reduce((a, l) => a + l.line, 0);
   const laariShown = (c) => (c / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -949,7 +953,7 @@ export function RecordBill({ open, onClose, start }) {
           <Basket
             lines={priced.map((l, i) => ({ key: i, label: l.item.name, detail: `${l.quantity} ${l.uom} × ${laariShown(cents(l.rate))}`, amount: laariShown(l.line) }))}
             onRemove={(i) => setItems((all) => all.filter((_, j) => j !== i))}
-            onNext={() => setFlow("tax")}
+            onNext={() => (setForm((f) => ({ ...f, gstTreatment: fromItems.treatment })), setFlow("tax"))}
             nextLabel={`${items.length} ${items.length === 1 ? "item" : "items"} · MVR ${laariShown(itemsLine)} · Next: GST`}
           />
         }
@@ -965,6 +969,7 @@ export function RecordBill({ open, onClose, start }) {
             </button>
           ))}
         </div>
+        <ItemsTaxNote from={fromItems} doc="bill" />
         <p className="mt-4 flex justify-between text-[15px] font-semibold tabular border-t border-[var(--ink)] pt-2">
           <span>The bill comes to</span>
           <span>MVR {laariShown(itemsGross)}</span>

@@ -160,6 +160,8 @@ export function PartyPicker({ kind = "customer", value, onChange, open, setOpen 
  * yet is added on the spot, kept in the item list, and put on the line.
  */
 export function ItemPicker({ open, setOpen, items, onPick, onAdd, basket, side = "sale" }) {
+  const { companyId } = useCompany();
+  const qc = useQueryClient();
   const [draft, setDraft] = useState(null);
   // With onAdd, the list stays open: an item asks how many and at what rate,
   // goes on, and the list comes back for the next one.
@@ -167,7 +169,9 @@ export function ItemPicker({ open, setOpen, items, onPick, onAdd, basket, side =
   const [kind, setKind] = useState("all");
   const close = () => (setOpen(false), setDraft(null), setChosen(null));
   const phone = usePhone();
-  const take = (it) => (onAdd ? setChosen(it) : (onPick(it), close()));
+  // An item nobody has classed for GST is worked out while its quantity is typed.
+  const classify = (it) => !it.tax && apiClient.post(`/stock/${it.id}/tax`).then((r) => r.data.tax && qc.invalidateQueries({ queryKey: ["stock", companyId] }), () => {});
+  const take = (it) => (classify(it), onAdd ? setChosen(it) : (onPick(it), close()));
   if (chosen) {
     return (
       <Modal open={open} onClose={close} title={chosen.name} description={chosen.kind === "service" ? "A service" : chosen.kind === "bundle" ? "A bundle" : "A product"} variant={phone ? "sheet" : "card"} size="md">
@@ -213,7 +217,7 @@ export function ItemPicker({ open, setOpen, items, onPick, onAdd, basket, side =
           <span className="min-w-0">
             <span className="block text-[15px] font-medium truncate">{it.name}</span>
             <span className="block text-[13px] text-[var(--ink-muted)] truncate">
-              {[(side === "purchase" ? it.buyPrice : it.salePrice) ? `${side === "purchase" ? it.buyPrice : it.salePrice} a ${it.unit || "unit"}` : null, it.counted ? `${it.onHand} on hand` : it.kind === "service" ? "Service" : it.kind === "bundle" ? "Bundle" : null].filter(Boolean).join(" · ")}
+              {[(side === "purchase" ? it.buyPrice : it.salePrice) ? `${side === "purchase" ? it.buyPrice : it.salePrice} a ${it.unit || "unit"}` : null, it.counted ? `${it.onHand} on hand` : it.kind === "service" ? "Service" : it.kind === "bundle" ? "Bundle" : null, it.tax !== "standard" && TAX_WORD[it.tax]].filter(Boolean).join(" · ")}
             </span>
           </span>
         </>
@@ -281,6 +285,48 @@ function NewItem({ name, side, onBack, onSaved }) {
           {busy && <Loader2 size={16} className="animate-spin" />} Save and add
         </button>
       </div>
+    </div>
+  );
+}
+
+export const TAX_WORD = { standard: "Standard GST", zero_rated: "Zero-rated", exempt: "Exempt" };
+
+/**
+ * The GST treatment a document's items call for. One class across the items
+ * sets it; standard keeps the inclusive or exclusive already chosen, and an
+ * unregistered supplier charges none whatever the items are. Items of
+ * different classes cannot share one document, and one nobody has classed
+ * is left to the person.
+ */
+export function taxFromItems(items, current, standard = "exclusive") {
+  const known = items.filter((i) => i?.tax);
+  const classes = [...new Set(known.map((i) => i.tax))];
+  const out = { treatment: current, mixed: classes.length > 1 ? known : null, unknown: items.filter((i) => i && !i.tax), known };
+  if (classes.length !== 1 || current === "none_unregistered") return out;
+  const c = classes[0];
+  out.treatment = c !== "standard" ? c : ["inclusive", "exclusive"].includes(current) ? current : standard;
+  return out;
+}
+
+/** What the items say about GST, under the choice on the Tax step. */
+export function ItemsTaxNote({ from, doc = "invoice" }) {
+  if (!from.known.length && !from.unknown.length) return null;
+  const names = (list) => list.map((i) => i.name).join(", ");
+  return (
+    <div className="mt-3 grid gap-1 text-[13px]" data-testid="items-tax">
+      {from.mixed ? (
+        <p role="alert" className="text-[var(--danger)]">
+          {Object.entries(TAX_WORD).map(([k, w]) => ({ w, list: from.mixed.filter((i) => i.tax === k) })).filter((g) => g.list.length).map((g) => `${g.w}: ${names(g.list)}`).join(". ")}. One {doc} carries one GST class: put them on separate ones.
+        </p>
+      ) : (
+        from.known.length > 0 && (
+          <p className="text-[var(--ink-muted)]">
+            The items are {TAX_WORD[from.known[0].tax].toLowerCase()}
+            {from.known.some((i) => i.taxBy === "ai") && ` (suggested: ${from.known.find((i) => i.taxBy === "ai").taxWhy || "from the item names"})`}.
+          </p>
+        )
+      )}
+      {from.unknown.length > 0 && <p className="text-[var(--ink-muted)]">Not yet classed for GST: {names(from.unknown)}. Set it in Items.</p>}
     </div>
   );
 }

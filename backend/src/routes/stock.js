@@ -7,6 +7,7 @@ const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
 const { toLaari } = require("../ledger/money");
 const stock = require("../ledger/stock");
+const gemini = require("../services/geminiService");
 
 /**
  * Items: products and services. A counted product is stock: what is on hand
@@ -36,6 +37,8 @@ const itemBody = z.object({
   buyPrice: money.nullish(),
   incomeAccountId: id,
   costAccountId: id,
+  // Its GST class, as a person says it; null clears it for the model to work out.
+  tax: z.enum(["standard", "zero_rated", "exempt"]).nullish(),
 });
 const laari = (v) => (v === null || v === undefined || v === "" ? null : toLaari(v).toString());
 
@@ -139,6 +142,7 @@ router.post(
         [req.companyId, b.name, b.code || null, b.unit, laari(b.salePrice), laari(b.buyPrice), it.kind, it.counted, it.sells, it.buys, it.income_account_id, it.cost_account_id, req.user.id]
       );
       await dress(client, req.companyId, rows[0].id, it.kind, b);
+      if (b.tax) await client.query("UPDATE stock_items SET tax = $2, tax_by = 'you' WHERE id = $1", [rows[0].id, b.tax]);
       return rows[0];
     });
     res.status(201).json({ item });
@@ -183,10 +187,25 @@ router.patch(
         ]
       );
       await dress(client, req.companyId, req.params.id, it.kind, b);
+      if (has("tax")) await client.query("UPDATE stock_items SET tax = $3, tax_by = $4, tax_why = NULL WHERE id = $1 AND company_id = $2", [req.params.id, req.companyId, b.tax || null, b.tax ? "you" : null]);
       return true;
     });
     if (!done) throw ApiError.notFound("That item is not in these books.");
     res.json({ ok: true });
+  })
+);
+
+// The model works out an item's GST class when nobody has said it. Without a
+// model on the server the answer is what is already known.
+router.post(
+  "/:id/tax",
+  requireCan("record"),
+  refused(async (req, res) => {
+    const out = await asCompany(req, (client) =>
+      stock.guessTax(client, { companyId: req.companyId, itemId: req.params.id, ask: gemini.available() ? gemini.itemTax : null })
+    );
+    if (!out) throw ApiError.notFound("That item is not in these books.");
+    res.json(out);
   })
 );
 

@@ -18,7 +18,7 @@ import { toDateInput } from "@/lib/utils";
 import { apiClient } from "@/api/client";
 import { PendingAttachments, uploadPending } from "@/components/documents/Attachments";
 import { UnitInput } from "@/components/ui/UnitInput";
-import { Basket, FlowButtons, ItemPicker, PartyPicker, Step, TermsPicker, dueFrom, termsLabel } from "@/components/forms/Pickers";
+import { Basket, FlowButtons, ItemPicker, ItemsTaxNote, PartyPicker, Step, TermsPicker, dueFrom, taxFromItems, termsLabel } from "@/components/forms/Pickers";
 import { Modal } from "@/components/ui/Modal";
 import { usePhone } from "@/lib/phone";
 
@@ -236,6 +236,7 @@ export default function NewInvoice() {
     return { ...l, amount };
   });
   const usable = priced.filter((l) => l.amount && l.amount > 0);
+  const fromItems = taxFromItems(usable.map((l) => l.itemId && (stockItems || []).find((i) => i.id === l.itemId)).filter(Boolean), form.gstTreatment);
   const totals = usable.reduce(
     (t, l) => {
       const s = split(l.amount, form.gstTreatment, rateBp ?? 0);
@@ -625,7 +626,7 @@ export default function NewInvoice() {
           <Basket
             lines={priced.map((l, i) => ({ key: i, amount: l.amount, label: l.description, detail: `${l.quantity} ${l.uom} × ${laari(l.rate) !== null ? show(laari(l.rate)) : ""}` })).filter((l) => l.amount).map((l) => ({ ...l, amount: show(l.amount) }))}
             onRemove={(i) => setLines((all) => (all.length > 1 ? all.filter((_, j) => j !== i) : [blankLine()]))}
-            onNext={() => setFlow("tax")}
+            onNext={() => (setForm((x) => ({ ...x, gstTreatment: fromItems.treatment })), setFlow("tax"))}
             nextLabel={`${usable.length} ${usable.length === 1 ? "item" : "items"} · ${unit} ${show(totals.net)} · Next: GST`}
           />
         }
@@ -641,6 +642,7 @@ export default function NewInvoice() {
             </button>
           ))}
         </div>
+        <ItemsTaxNote from={fromItems} />
         <label className="mt-4 flex items-center justify-between gap-3 text-[14px] font-medium">
           Discount on every line
           <span className="relative">

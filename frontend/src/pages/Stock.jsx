@@ -338,6 +338,7 @@ function ItemForm({ item, items = [], accounts, onClose, onDone }) {
     costAccountId: item?.costAccountId || "",
     parts: item?.parts?.length ? item.parts.map((p) => ({ ...p })) : [{ itemId: "", quantity: "1" }],
     photo: item?.photo || null,
+    tax: item?.tax || "",
   }));
   const [err, setErr] = useState("");
   const put = (patch) => setF((x) => ({ ...x, ...patch }));
@@ -367,6 +368,8 @@ function ItemForm({ item, items = [], accounts, onClose, onDone }) {
         buyPrice: f.buys ? f.buyPrice || null : null,
         costAccountId: f.buys && (service || !f.counted) ? f.costAccountId || null : null,
         photo: f.photo,
+        // Sent only when picked, so saving does not turn a suggestion into your answer.
+        ...(f.taxPicked ? { tax: f.tax || null } : {}),
         ...(bundle ? { parts: f.parts.filter((p) => p.itemId && Number(p.quantity) > 0) } : {}),
       });
       onDone();
@@ -487,6 +490,21 @@ function ItemForm({ item, items = [], accounts, onClose, onDone }) {
             <p className="text-[13px] text-[var(--ink-muted)] self-center">Goes into stock on hand, and into cost of sales as each one is sold.</p>
           )}
         </Side>}
+        <div>
+          <span className="text-sm font-medium block mb-1.5">GST on it</span>
+          <Choice
+            name="GST on it"
+            value={f.tax}
+            onChange={(tax) => put({ tax, taxPicked: true })}
+            options={[
+              ["standard", "Standard", "Charged at the usual rate"],
+              ["zero_rated", "Zero-rated", "0%: rice, flour, fish, diesel, exports"],
+              ["exempt", "Exempt", "Outside GST: rent, utilities, health"],
+              ["", "Not sure", "Worked out from its name when it goes on a document"],
+            ]}
+          />
+          {item?.taxBy === "ai" && !f.taxPicked && <p className="text-[13px] text-[var(--ink-muted)] mt-1.5">Suggested from its name{item.taxWhy ? `: ${item.taxWhy}` : "."} Pick one to make it yours.</p>}
+        </div>
       </div>
       <Failure err={err} />
       <Actions onClose={onClose} busy={save.isPending} disabled={!f.name.trim() || (!f.sells && !f.buys)}>

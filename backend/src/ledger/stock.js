@@ -459,7 +459,7 @@ async function transfer(client, { companyId, userId, itemId, fromPlaceId, toPlac
 async function list(client, { companyId }) {
   const { rows } = await client.query(
     `SELECT i.id, i.name, i.code, i.unit, i.sale_price_laari, i.archived_at, i.reorder_at,
-            i.kind, i.counted, i.sells, i.buys, i.buy_price_laari, i.income_account_id, i.cost_account_id, i.photo,
+            i.kind, i.counted, i.sells, i.buys, i.buy_price_laari, i.income_account_id, i.cost_account_id, i.photo, i.tax, i.tax_by, i.tax_why,
             (SELECT json_agg(json_build_object('itemId', p.item_id, 'quantity', trim(to_char(p.quantity, 'FM999999990.####'), '.'))) FROM bundle_parts p WHERE p.bundle_id = i.id) AS parts,
             COALESCE(SUM(m.quantity), 0) AS on_hand,
             COALESCE(SUM(m.value_laari), 0) AS value,
@@ -499,6 +499,9 @@ async function list(client, { companyId }) {
       unit: r.unit,
       kind: r.kind,
       photo: r.photo || null,
+      tax: r.tax,
+      taxBy: r.tax_by,
+      taxWhy: r.tax_why,
       parts: r.parts || [],
       counted: r.counted,
       sells: r.sells,
@@ -572,4 +575,28 @@ async function units(client, { companyId }) {
   return rows.map((r) => r.u);
 }
 
-module.exports = { ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history, atPlaces, places, addPlace, transfer, units };
+/**
+ * An item's GST class, worked out by the model when nobody has said. `ask` is
+ * the model: given the item and the company's tax pack it answers
+ * { tax: 'standard' | 'zero_rated' | 'exempt' | 'unknown', why, confidence }.
+ * A person's answer is never overwritten, and a guess is kept only when the
+ * model is sure of it; anything else leaves the question for a person.
+ */
+// ponytail: the model is asked inside the request's transaction; move it out if calls get slow enough to hold connections.
+async function guessTax(client, { companyId, itemId, ask }) {
+  const { rows } = await client.query(
+    "SELECT i.name, i.code, i.unit, i.kind, i.tax, i.tax_by, i.tax_why, c.tax_pack FROM stock_items i JOIN companies c ON c.id = i.company_id WHERE i.id = $1 AND i.company_id = $2",
+    [itemId, companyId]
+  );
+  const it = rows[0];
+  if (!it) return null;
+  const now = { tax: it.tax, taxBy: it.tax_by, taxWhy: it.tax_why };
+  if (it.tax_by === "you" || !ask) return now;
+  const a = await ask({ name: it.name, code: it.code, unit: it.unit, kind: it.kind, pack: it.tax_pack || "MV" });
+  if (!["standard", "zero_rated", "exempt"].includes(a?.tax) || a.confidence === "low") return { ...now, confidence: a?.confidence || "low" };
+  const why = String(a.why || "").slice(0, 300) || null;
+  await client.query("UPDATE stock_items SET tax = $3, tax_by = 'ai', tax_why = $4 WHERE id = $1 AND company_id = $2 AND tax_by IS DISTINCT FROM 'you'", [itemId, companyId, a.tax, why]);
+  return { tax: a.tax, taxBy: "ai", taxWhy: why, confidence: a.confidence };
+}
+
+module.exports = { guessTax, ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history, atPlaces, places, addPlace, transfer, units };

@@ -23,6 +23,12 @@ END $$;
 
 ALTER TABLE stock_items ADD COLUMN IF NOT EXISTS photo TEXT CHECK (photo IS NULL OR (photo LIKE 'data:image/%' AND length(photo) <= 300000));
 
+-- Its GST class, which MIRA wants on record for every good or service. Empty
+-- until a person says, or the model reads it off the name ('ai', with why).
+ALTER TABLE stock_items ADD COLUMN IF NOT EXISTS tax TEXT CHECK (tax IN ('standard','zero_rated','exempt'));
+ALTER TABLE stock_items ADD COLUMN IF NOT EXISTS tax_by TEXT CHECK (tax_by IN ('you','ai'));
+ALTER TABLE stock_items ADD COLUMN IF NOT EXISTS tax_why TEXT;
+
 CREATE TABLE IF NOT EXISTS bundle_parts (
   company_id  UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   bundle_id   UUID NOT NULL REFERENCES stock_items(id) ON DELETE CASCADE,
