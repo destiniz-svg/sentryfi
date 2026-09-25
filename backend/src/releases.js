@@ -17,6 +17,16 @@
  */
 const RELEASES = [
   {
+    version: "1.26.1",
+    date: "2026-09-25",
+    title: "Tax invoices MIRA accepts",
+    summary: "An invoice says what it still needs to be a complete MIRA tax invoice, and always shows quantities.",
+    items: [
+      { area: "Sales", kind: "new", title: "What a tax invoice still needs", body: "Above a tax invoice, a note lists any of the particulars MIRA asks for that your books do not have yet: your TIN and address, and the customer's address and TIN. It is never printed.", href: "/invoices" },
+      { area: "Sales", kind: "fixed", title: "Quantities always shown", body: "A design could hide the quantity column; on a tax invoice it now always shows, as MIRA requires. A customer with only a GST number on record now has it printed as their TIN.", href: "/invoices" },
+    ],
+  },
+  {
     version: "1.26",
     date: "2026-09-25",
     title: "Each item knows its GST",

@@ -280,7 +280,8 @@ export function compose({ data, brand, template, size, verifyUrl }) {
     t.columns.code && data.lines.some((l) => l.code) && { key: "code", label: label("code") },
     { key: "description", label: label("description"), grow: true },
     !priced && data.lines.some((l) => l.ordered) && { key: "ordered", label: "Ordered", num: true },
-    (t.columns.quantity || !priced) && { key: "quantity", label: priced ? label("quantity") : data.kind === "goods_received" ? "Received" : "Delivered", num: true },
+    // MIRA: a tax invoice shows the quantity of goods, whatever the template says.
+    (t.columns.quantity || !priced || taxInvoice) && { key: "quantity", label: priced ? label("quantity") : data.kind === "goods_received" ? "Received" : "Delivered", num: true },
     t.columns.unit && data.lines.some((l) => l.unit) && { key: "unit", label: label("unit") },
     priced && t.columns.rate && data.lines.some((l) => l.rate && l.rate !== "0.00") && { key: "rate", label: label("rate"), num: true },
     priced && { key: "amount", label: label("amount"), num: true },
@@ -313,6 +314,14 @@ export function compose({ data, brand, template, size, verifyUrl }) {
     w.code !== "AE" && brand.gstRegistered && brand.gstNumber && `${w.tax} ${brand.gstNumber}`,
     brand.registrationNo && `Reg. ${brand.registrationNo}`,
   ].filter(Boolean);
+  // What MIRA asks of a tax invoice that these books do not have yet. Shown
+  // beside the paper, never on it.
+  const missing = !taxInvoice ? [] : [
+    !brand.tin && !brand.gstNumber && { what: `Your ${w.taxId}`, href: "/settings?tab=tax" },
+    !brand.address && { what: "Your address", href: "/branding" },
+    !data.to?.address && { what: `${data.to?.name || "The customer"}'s address` },
+    !data.to?.tin && { what: `${data.to?.name || "The customer"}'s ${w.taxId}`, note: "needed when they are registered and claim the GST back" },
+  ].filter(Boolean);
   const gross = data.totals?.gross;
   const qr =
     t.qr === "verify" && verifyUrl ? { text: verifyUrl, caption: "Scan to check it is genuine" }
@@ -331,6 +340,7 @@ export function compose({ data, brand, template, size, verifyUrl }) {
     onAccent: inkOn(accent),
     wash: wash(accent),
     title,
+    missing,
     subtitle: [taxInvoice && custom && !/tax invoice/i.test(custom) ? custom : null, both ? DV_TITLES[taxInvoice ? "tax_invoice" : data.kind] : null].filter(Boolean).join("  ·  ") || null,
     thaana: both,
     from: {

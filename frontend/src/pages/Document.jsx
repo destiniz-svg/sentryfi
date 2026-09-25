@@ -106,6 +106,18 @@ export default function Document() {
           </span>
         )}
       </p>
+      {model.missing.length > 0 && (
+        <div role="note" data-testid="mira-missing" className="mb-4 rounded-2xl border border-[var(--warning)] bg-[var(--warning-soft)] p-3.5 text-[14px]">
+          <p className="font-semibold">Not yet a complete MIRA tax invoice</p>
+          <ul className="mt-1 grid gap-0.5 text-[var(--ink-muted)]">
+            {model.missing.map((m) => (
+              <li key={m.what}>
+                {m.href ? <Link to={m.href} className="underline underline-offset-4 text-[var(--ink)]">{m.what}</Link> : <span className="text-[var(--ink)]">{m.what}</span>} is missing{m.note ? `, ${m.note}` : m.href ? "" : ". Add it on their contact."}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className={model.size.receipt ? "max-w-[340px] mx-auto" : ""}>
         <FittedPaper model={model} />
       </div>

@@ -76,7 +76,7 @@ async function invoiceData(client, { companyId, id: invoiceId }) {
     subject: s.subject,
     notes: s.notes || null,
     project: s.project,
-    to: { name: s.customer, address: s.customer_address, tin: s.customer_tin, gstNumber: s.customer_gst, email: s.customer_email, phone: s.customer_phone },
+    to: { name: s.customer, address: s.customer_address, tin: s.customer_tin || s.customer_gst, gstNumber: s.customer_gst, email: s.customer_email, phone: s.customer_phone },
     currency: foreign ? cur : null,
     fxRate: foreign && s.fx_rate ? String(Number(s.fx_rate)) : null,
     gstTreatment: s.gst_treatment,
@@ -137,7 +137,7 @@ async function requestData(client, { companyId, id }) {
 async function partyOf(client, { companyId, id }) {
   const { rows } = await client.query("SELECT name, address, tin, gst_number, email, phone FROM counterparties WHERE id = $1 AND company_id = $2", [id, companyId]);
   const c = rows[0] || {};
-  return { name: c.name, address: c.address, tin: c.tin, gstNumber: c.gst_number, email: c.email, phone: c.phone };
+  return { name: c.name, address: c.address, tin: c.tin || c.gst_number, gstNumber: c.gst_number, email: c.email, phone: c.phone };
 }
 
 const ORDER_KIND = { quote: "quote", sale: "sales_order", purchase: "purchase_order" };
