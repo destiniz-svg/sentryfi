@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bell, AlertTriangle, Clock, CircleDashed, ShieldAlert, Check, Sunrise, AtSign, CircleHelp, MessagesSquare } from "lucide-react";
+import { Sparkles, Bell, AlertTriangle, Clock, CircleDashed, ShieldAlert, Check, Sunrise, AtSign, CircleHelp, MessagesSquare } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconButton } from "@/components/ui/IconButton";
 import { apiClient } from "@/api/client";
@@ -31,6 +31,7 @@ const LOOK = {
   ageing: { icon: Clock, tone: "bg-[var(--warning)]/14 text-[var(--warning)]" },
   done: { icon: Check, tone: "bg-[var(--success-soft)] text-[var(--success)]" },
   brief: { icon: Sunrise, tone: "bg-[var(--surface-2)] text-[var(--ink)]" },
+  release: { icon: Sparkles, tone: "bg-[var(--accent-soft)] text-[var(--accent-strong)]" },
   mention: { icon: AtSign, tone: "bg-[var(--accent-soft)] text-[var(--accent-strong)]" },
   ask: { icon: CircleHelp, tone: "bg-[var(--accent-soft)] text-[var(--accent-strong)]" },
   comment: { icon: MessagesSquare, tone: "bg-[var(--accent-soft)] text-[var(--accent-strong)]" },

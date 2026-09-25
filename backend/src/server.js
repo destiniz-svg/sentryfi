@@ -88,6 +88,7 @@ app.use("/api", require("./middleware/apiKey").keyGate);
 if (!env.isProd) app.use(morgan("dev"));
 
 app.use("/api/health", healthRouter);
+app.use("/api/releases", require("./routes/releases"));
 app.use("/api/auth", authRouter);
 app.use("/api/passkeys", require("./routes/passkeys"));
 app.use("/api/settings", settingsRouter);
@@ -190,6 +191,8 @@ async function start() {
       require("./routes/cfo").schedule();
       require("./routes/notifications").schedule();
       require("./routes/customerMail").schedule();
+      // A new release is announced once, a little after the first server starts with it.
+      setTimeout(() => require("./services/releases").announce(require("./config/db").pool).then((n) => n && console.log(JSON.stringify({ at: "release", told: n }))).catch((err) => console.error(JSON.stringify({ at: "release", error: err.message }))), 30_000).unref();
     });
   } catch (err) {
     console.error("Failed to start server:", err.message);

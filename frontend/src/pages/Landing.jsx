@@ -835,6 +835,9 @@ export default function Landing() {
           <Link to="/trust" className="text-[14px] text-[#0F4C5C] underline underline-offset-4 hover:text-[#141414]">
             What happens to your books
           </Link>
+          <Link to="/updates" className="text-[14px] text-[#0F4C5C] underline underline-offset-4 hover:text-[#141414]">
+            What's new
+          </Link>
           <a href="mailto:support@sentryfi.app" className="text-[14px] text-[#0F4C5C] underline underline-offset-4 hover:text-[#141414]">
             support@sentryfi.app
           </a>

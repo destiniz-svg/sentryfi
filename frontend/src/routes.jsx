@@ -21,6 +21,8 @@ const Shared = lazy(() => import("@/pages/Shared"));
 const Genuine = lazy(() => import("@/pages/Genuine"));
 const Practice = lazy(() => import("@/pages/Practice"));
 const Trust = lazy(() => import("@/pages/Trust"));
+const Updates = lazy(() => import("@/pages/Updates"));
+const WhatsNew = lazy(() => import("@/pages/WhatsNew"));
 const Go = lazy(() => import("@/pages/Go"));
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
@@ -178,6 +180,7 @@ export const router = createBrowserRouter([
   { path: "/portal/:token", element: <Suspense fallback={null}><Portal /></Suspense>, errorElement: <ErrorPage /> },
   { path: "/d/:token", element: <Suspense fallback={null}><Shared /></Suspense>, errorElement: <ErrorPage /> },
   { path: "/trust", element: <Suspense fallback={null}><Trust /></Suspense>, errorElement: <ErrorPage /> },
+  { path: "/updates", element: <Suspense fallback={null}><Updates /></Suspense>, errorElement: <ErrorPage /> },
   { path: "/v/:sha", element: <Suspense fallback={null}><Genuine /></Suspense>, errorElement: <ErrorPage /> },
   {
     path: "/",
@@ -213,6 +216,7 @@ export const router = createBrowserRouter([
       { path: "documents/:kind/:id", element: <Document /> },
       { path: "approvals", element: <Approvals /> },
       { path: "inbox", element: <Inbox /> },
+      { path: "whats-new", element: <WhatsNew /> },
       { path: "contacts", element: <Contacts /> },
       { path: "contacts/:id", element: <Contact /> },
       { path: "talk/:kind/:id", element: <Talk /> },

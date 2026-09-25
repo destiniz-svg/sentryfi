@@ -253,6 +253,7 @@ The rules that do not bend: every figure opens onto its entries, and every marke
 ## Rules of the work
 
 - **Gated commits.** Lint, build and tests must pass before anything lands.
+- **Every build that goes live is a release.** Add it at the top of `backend/src/releases.js` with the next version (1.14 for new things, 1.13.1 for fixes alone), a title, a one-line summary and each change as new, improved or fixed with where it opens. It shows on What's new (`/whats-new`, public at `/updates`), the menu shows the version and build, and the first server to start with it announces it once to every bell and phone. `test/releases.test.js` refuses a version out of order.
 - **Verify every UI change in a real browser** — `tools/*.js` against a live Chrome, not a guess from the code.
 - **One thing at a time, finished.** The old store is removed in the same step that replaces it; two record stores never coexist longer than one step.
 - **Nothing posts without a person.** Capture and connectors propose; a person accepts.

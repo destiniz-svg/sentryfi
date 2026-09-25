@@ -16,6 +16,7 @@ router.get("/", async (req, res) => {
     uptime: process.uptime(),
     db,
     timestamp: new Date().toISOString(),
+    ...require("../releases").current(),
   });
 });
 

@@ -1,6 +1,8 @@
 import { PORTAL_URL } from "@/lib/portal";
 import { trialLine } from "./TrialStrip";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "@/api/client";
 import { Link, useLocation } from "react-router-dom";
 import { ChevronRight, LogOut, TerminalSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -108,6 +110,8 @@ export function Sidebar() {
   const tax = company?.tax?.tax || "GST";
   const { pathname, search } = useLocation();
   const role = ROLE_TEXT[roles?.[0]]?.label;
+  // The version and the build this server runs, from What's new.
+  const { data: version } = useQuery({ queryKey: ["releases"], queryFn: () => apiClient.get("/releases").then((r) => r.data), staleTime: 300_000, select: (d) => d.current });
   const [folded, toggle] = useFolded();
   const here = sectionOf(pathname, search);
   const isOpen = (label) => label === here || !folded.has(label);
@@ -149,6 +153,11 @@ export function Sidebar() {
           <div className="min-w-0 flex-1">
             <div className="text-[14px] font-semibold truncate">{user?.name || "Account"}</div>
             {role && <div className="text-[12px] text-[var(--ink-muted)] truncate">{role}</div>}
+            {version && (
+              <Link to="/whats-new" className="block text-[11px] text-[var(--ink-muted)] tabular hover:text-[var(--ink)]" title="What's new in this version">
+                Sentryfi {version.version} · {version.build}
+              </Link>
+            )}
           </div>
           <button type="button" onClick={logout} title={t("Sign out")} aria-label={t("Sign out")} className="h-11 w-11 -mr-2 shrink-0 rounded-full inline-flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]">
             <LogOut size={18} aria-hidden="true" />

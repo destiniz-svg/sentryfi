@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AtSign, Bell, CheckCheck, CircleHelp, MessagesSquare } from "lucide-react";
+import { Sparkles, AtSign, Bell, CheckCheck, CircleHelp, MessagesSquare } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -20,7 +20,7 @@ import { FieldFrame } from "@/components/phone/FieldFrame";
  * whatever was not seen here.
  */
 
-const ICON = { mention: AtSign, ask: CircleHelp, comment: MessagesSquare };
+const ICON = { release: Sparkles, mention: AtSign, ask: CircleHelp, comment: MessagesSquare };
 const TALK = ["mention", "ask", "comment"];
 const ago = (at) => {
   const m = Math.round((Date.now() - new Date(at).getTime()) / 60000);

@@ -61,6 +61,7 @@ const DV = {
   Approvals: "ހުއްދަތައް",
   Inbox: "ލިބުނު މެސެޖުތައް",
   Customers: "ކަސްޓަމަރުން",
+  "What's new": "އާ ކަންތައްތައް",
   Suppliers: "ސަޕްލަޔަރުން",
   "Buying and selling": "ގަތުމާއި ވިއްކުން",
   Invoices: "އިންވޮއިސްތައް",

@@ -1,0 +1,141 @@
+/**
+ * What changed in Sentryfi, release by release: the one source for the
+ * What's new page, the app's version, and the notification each release sends.
+ *
+ * Every build that goes live adds a release here, newest first, with the next
+ * version: the minor number for new things (1.13), the patch number for fixes
+ * alone (1.12.1). The build itself is the commit Railway deployed, so a
+ * version and a build together name exactly what someone is running.
+ *
+ * Each item: area (where it lives), kind (new, improved or fixed), a title and
+ * one or two plain sentences, and where it opens in the app.
+ */
+const RELEASES = [
+  {
+    version: "1.13",
+    date: "2026-09-25",
+    title: "What's new, and a version on every build",
+    summary: "This page, with every release since the first, and a note in the bell when a new one arrives.",
+    items: [
+      { area: "App", kind: "new", title: "What's new", body: "Every release, searchable and filtered by area and by new, improved or fixed. What arrived since you last looked is marked.", href: "/whats-new" },
+      { area: "App", kind: "new", title: "A notification for each release", body: "When a release goes live, it arrives once in the bell and on phones with notifications on, and opens here.", href: "/inbox" },
+      { area: "App", kind: "new", title: "Version and build", body: "The version and the exact build you are running, at the foot of the menu and at the top of this page.", href: "/whats-new" },
+    ],
+  },
+  {
+    version: "1.12",
+    date: "2026-09-25",
+    title: "Returns, opening balances, discounts and bundles",
+    summary: "Seven things owners of small businesses asked for, after a look at what other apps offer.",
+    items: [
+      { area: "Purchases", kind: "new", title: "Purchase returns", body: "Send goods or a charge back to a supplier from the bill. What you owe, the stock and the GST claimed all come down, in the bill's own shares.", href: "/bills" },
+      { area: "Sales", kind: "new", title: "Opening balances", body: "What a customer owed, or you owed a supplier, before Sentryfi. It ages and is paid like any invoice or bill, and is never counted as a sale, a purchase or GST.", href: "/contacts?side=customers" },
+      { area: "Sales", kind: "new", title: "Discounts before GST", body: "A discount on an invoice comes off each line before GST, and the printed invoice says so on the line.", href: "/invoices/new" },
+      { area: "Sales", kind: "new", title: "Delivery in one tap", body: "Add a delivery line to an invoice without typing it.", href: "/invoices/new" },
+      { area: "Sales", kind: "new", title: "Late fees", body: "Charge a late fee on an overdue invoice, on its own invoice to the customer. GST on it is chosen each time until your accountant confirms it.", href: "/invoices" },
+      { area: "Documents", kind: "new", title: "Your own numbers", body: "Choose how each document's number starts (ALT/INV-, QT-, PO-). The run carries on; nothing issued is renumbered.", href: "/settings?tab=numbers" },
+      { area: "Banking", kind: "new", title: "What the bank says, beside the books", body: "Each bank account shows the closing balance on its last statement beside the books on that day, and says when they agree.", href: "/bank" },
+      { area: "Items", kind: "new", title: "Bundles", body: "Several items sold as one line at their own price. Each part leaves stock at its own cost when the bundle sells.", href: "/stock" },
+      { area: "Items", kind: "new", title: "Item photos", body: "A small photo on each item, made small on the phone before it is sent.", href: "/stock" },
+    ],
+  },
+  {
+    version: "1.11",
+    date: "2026-09-25",
+    title: "Reports in one place, and cash sales in one step",
+    summary: "Every report grouped by the question it answers, six new ones, and units on every document.",
+    items: [
+      { area: "Reports", kind: "new", title: "Reports", body: "Every report in one place: how the business did, sales, purchases and spending, tax, bank and stock.", href: "/reports" },
+      { area: "Reports", kind: "new", title: "Six new reports", body: "Sales by customer, sales by item, purchases by supplier, expenses by account, payments received and payments made, over any dates, and downloadable.", href: "/reports" },
+      { area: "Sales", kind: "new", title: "Paid already?", body: "Mark a new invoice paid as you make it: it goes into the books and the money is recorded against it in one step.", href: "/invoices/new" },
+      { area: "Documents", kind: "improved", title: "A unit on every line", body: "Quotes, orders, proformas, retainers and repeat billing take a unit per line (pcs, day, m³, bag, trip), with the common ones offered as you type.", href: "/orders?kind=quote" },
+      { area: "Reports", kind: "fixed", title: "Analytics months stay put", body: "Tapping a month on the chart keeps the chart in place and shows that month's figures.", href: "/analytics" },
+    ],
+  },
+  {
+    version: "1.10",
+    date: "2026-09-25",
+    title: "Customers and suppliers",
+    summary: "A page for every business you deal with, from either side of the money.",
+    items: [
+      { area: "Sales", kind: "new", title: "Customers", body: "What each customer owes and how late, how long they take to pay, what happened with them, the people there, and WhatsApp a tap away.", href: "/contacts?side=customers" },
+      { area: "Purchases", kind: "new", title: "Suppliers", body: "What you owe each supplier, their bills and payments, and a warning when a bill shows a new bank account.", href: "/contacts?side=suppliers" },
+      { area: "Sales", kind: "new", title: "Merge duplicates", body: "Fold two records of one business into one. Every figure follows; nothing in the books is changed.", href: "/contacts?side=customers" },
+      { area: "Documents", kind: "new", title: "Papers on customers and suppliers", body: "A trade licence, a contract, a TRN certificate, kept on their record.", href: "/contacts?side=suppliers" },
+      { area: "Sales", kind: "improved", title: "Ageing as one bar", body: "What is owed, by how late, drawn as one bar on Invoices and on each customer.", href: "/invoices" },
+      { area: "Documents", kind: "fixed", title: "Printing on iPhone and Safari", body: "PDFs from an iPhone, an iPad or Safari no longer lose their right edge.", href: "/invoices" },
+    ],
+  },
+  {
+    version: "1.9",
+    date: "2026-09-25",
+    title: "Your team, talking on the record",
+    summary: "Comments, @mentions and questions on every record, and an Inbox for what is said to you.",
+    items: [
+      { area: "Team", kind: "new", title: "Team conversations", body: "Comments on every invoice, bill, pay run, project and more. Type @ to bring someone in.", href: "/inbox" },
+      { area: "Team", kind: "new", title: "Asks", body: "Turn a comment into a question for one person, open until they reply and done when either of you says so.", href: "/inbox" },
+      { area: "Team", kind: "new", title: "Inbox", body: "Mentions, asks and comments in one place, with a daily email for what you missed.", href: "/inbox" },
+      { area: "Documents", kind: "new", title: "Attach while creating", body: "Add files as you write an invoice, quote, order, proforma, credit note, project or shipment.", href: "/invoices/new" },
+      { area: "App", kind: "improved", title: "Opens at once", body: "The app draws straight away from what it knew last time, then checks in the background.", href: "/dashboard" },
+      { area: "App", kind: "fixed", title: "Screens after an update", body: "A screen that failed to load after an update now reloads itself once.", href: "/dashboard" },
+    ],
+  },
+  {
+    version: "1.8",
+    date: "2026-09-25",
+    title: "Send anything, attach anything",
+    summary: "Every document by link, WhatsApp or email, and papers on every record.",
+    items: [
+      { area: "Documents", kind: "new", title: "Send any document", body: "A link to copy, WhatsApp, share or email, for every document you make.", href: "/invoices" },
+      { area: "Team", kind: "new", title: "Payslips by link", body: "Each person's payslip as a private link, sent on WhatsApp or by email.", href: "/payroll" },
+      { area: "Purchases", kind: "new", title: "Suppliers confirm orders", body: "A supplier confirms a purchase order from its link, with when it will come.", href: "/orders?kind=purchase" },
+      { area: "App", kind: "new", title: "Approve by link", body: "Pass anything waiting for approval to the person who approves it.", href: "/approvals" },
+      { area: "Sales", kind: "new", title: "Statements and reminders by themselves", body: "A monthly statement and reminders for late invoices, sent to customers when you turn them on.", href: "/settings?tab=customers" },
+      { area: "Documents", kind: "new", title: "Attachments", body: "Drawings, timesheets and specs on invoices, quotes, orders, proformas, credit notes, shipments, projects and people.", href: "/invoices" },
+      { area: "Sales", kind: "new", title: "Retainers and proformas", body: "Ask for money before the work, and turn it into the tax invoice when the work is done.", href: "/advances" },
+      { area: "Sales", kind: "new", title: "A customer page that answers", body: "Customers ask about an invoice and accept a quote from their own page.", href: "/invoices" },
+      { area: "App", kind: "improved", title: "Menus in sections", body: "Sales, Purchases, Banking, Team, Inventory, Projects and Accounting, named the way apps name them.", href: "/dashboard" },
+    ],
+  },
+  {
+    version: "1.7",
+    date: "2026-09-24",
+    title: "Payroll, and items",
+    summary: "Pay people in the Maldives and the UAE, and keep items that are bought or sold.",
+    items: [
+      { area: "Team", kind: "new", title: "Payroll", body: "Pay runs with overtime, service charge, pension, advances and gratuity, payslips, and the bank, WPS, MIRA and pension files.", href: "/payroll" },
+      { area: "Items", kind: "new", title: "Products and services", body: "Items that are counted in stock or not, sold or bought or both, each with its own income and cost account.", href: "/stock" },
+    ],
+  },
+  {
+    version: "1.6",
+    date: "2026-09-24",
+    title: "Smoother on phones",
+    summary: "Fixes and polish across the app and the website.",
+    items: [
+      { area: "App", kind: "improved", title: "Open bills and invoices from Money", body: "On a phone, tap a bill or an invoice under Money to open it.", href: "/money" },
+      { area: "Reports", kind: "improved", title: "Analytics lines up", body: "Analytics cards line up at every screen size.", href: "/analytics" },
+      { area: "App", kind: "fixed", title: "No zoom on iPhone sign-in", body: "Signing in on an iPhone no longer zooms the app wider than the screen.", href: "/dashboard" },
+      { area: "Website", kind: "improved", title: "Motion on phones", body: "The website moves on phones as it does at a desk.", href: "/" },
+    ],
+  },
+  {
+    version: "1.0",
+    date: "2026-09-23",
+    title: "The first release",
+    summary: "A complete set of books for a business in the Maldives or the UAE, on a phone first.",
+    items: [
+      { area: "Purchases", kind: "new", title: "Bills from a photo or a voice note", body: "Photograph a bill, check what was read, confirm. Duplicates are caught before they are paid twice.", href: "/bills" },
+      { area: "Sales", kind: "new", title: "Invoices, quotes and orders", body: "Quotes that become orders and invoices, repeat billing, credit notes and receipts.", href: "/invoices" },
+      { area: "Banking", kind: "new", title: "Bank and cash", body: "Bank statements imported and matched, cash tins held by named people, money moved between them.", href: "/bank" },
+      { area: "Reports", kind: "new", title: "The statements and the CFO", body: "Profit and loss, balance sheet and trial balance from the ledger, and a morning brief on cash and what needs you.", href: "/cfo" },
+      { area: "Reports", kind: "new", title: "GST return", body: "The MIRA return and statements, or the UAE VAT 201, from the books.", href: "/tax" },
+      { area: "Items", kind: "new", title: "Stock, shipments and projects", body: "Stock at average cost, the landed cost of an import, and projects with budgets, claims and retention.", href: "/projects" },
+      { area: "App", kind: "new", title: "Roles, approvals and backups", body: "Who may do what in each company, spending limits and approvals, and nightly backups proven by a restore.", href: "/settings" },
+    ],
+  },
+];
+
+const current = () => ({ version: RELEASES[0].version, build: (process.env.RAILWAY_GIT_COMMIT_SHA || "local").slice(0, 7), date: RELEASES[0].date });
+
+module.exports = { RELEASES, current };
