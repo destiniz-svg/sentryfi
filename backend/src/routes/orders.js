@@ -171,7 +171,7 @@ for (const [how, accepted] of [["accept", true], ["decline", false]]) {
     `/:id/${how}`,
     requireCan("record"),
     refused(async (req, res) => {
-      const made = await on(req, (client, ctx) => orders.answerQuote(client, { ...ctx, orderId: req.params.id, accepted }));
+      const made = await on(req, (client, ctx) => orders.answerQuote(client, { ...ctx, orderId: req.params.id, accepted, by: req.user.name, via: "office" }));
       res.json({ ok: true, orderId: made.id || null, number: made.number || null });
     })
   );

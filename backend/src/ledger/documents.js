@@ -148,6 +148,22 @@ const WATERMARK = { cancelled: "CANCELLED", declined: "DECLINED", expired: "EXPI
  * GST-registered company's quote or sales order shows the GST the invoice
  * will add at today's rate; a purchase order leaves GST to the supplier.
  */
+/**
+ * The GST a quote or sales order shows, line by line as its paper does, at the
+ * rate on its date. None on a purchase order, or for a company not registered.
+ * `s` is what orders.load returns.
+ */
+async function orderTax(client, { companyId, s, gstRegistered }) {
+  const orders = require("./orders");
+  if (s.order.kind === "purchase" || !gstRegistered) return { tax: 0n, ratePercent: null };
+  const o = s.order;
+  const bp = await require("./tax").rateForDocument(client, { companyId, on: String(o.ordered_on instanceof Date ? o.ordered_on.toISOString() : o.ordered_on).slice(0, 10), treatment: "exclusive" });
+  const { splitTax } = require("./bills");
+  let tax = 0n;
+  for (const l of s.lines) tax += splitTax(formatLaari(orders.times(l.price, l.units)).replace(/,/g, ""), "exclusive", bp).tax;
+  return { tax, ratePercent: bp / 100 };
+}
+
 async function orderData(client, { companyId, id }) {
   const orders = require("./orders");
   const s = await orders.load(client, { companyId, orderId: id });
@@ -155,15 +171,7 @@ async function orderData(client, { companyId, id }) {
   const kind = ORDER_KIND[o.kind];
   const brand = await brandOf(client, { companyId });
   const net = s.total;
-  let tax = 0n;
-  let ratePercent = null;
-  const selling = kind !== "purchase_order";
-  if (selling && brand.gstRegistered) {
-    const bp = await require("./tax").rateForDocument(client, { companyId, on: String(o.ordered_on instanceof Date ? o.ordered_on.toISOString() : o.ordered_on).slice(0, 10), treatment: "exclusive" });
-    const { splitTax } = require("./bills");
-    for (const l of s.lines) tax += splitTax(formatLaari(orders.times(l.price, l.units)).replace(/,/g, ""), "exclusive", bp).tax;
-    ratePercent = bp / 100;
-  }
+  const { tax, ratePercent } = await orderTax(client, { companyId, s, gstRegistered: brand.gstRegistered });
   const dates = await client.query("SELECT ordered_on::text AS on, expected_on::text AS expected, valid_until::text AS until FROM orders WHERE id = $1", [id]);
   const d = dates.rows[0];
   return {
@@ -180,7 +188,7 @@ async function orderData(client, { companyId, id }) {
     approvedBy: kind === "purchase_order" && o.approved_at ? o.approver : null,
     to: await partyOf(client, { companyId, id: o.counterparty_id }),
     currency: null,
-    gstTreatment: selling && brand.gstRegistered ? "exclusive" : "none_unregistered",
+    gstTreatment: kind !== "purchase_order" && brand.gstRegistered ? "exclusive" : "none_unregistered",
     gstRatePercent: ratePercent,
     lines: s.lines.map((l) => ({ code: null, description: l.description, quantity: require("./stock").unitsText(l.units), unit: l.unit, rate: f(l.price), amount: f(orders.times(l.price, l.units)) })),
     totals: { net: f(net), tax: f(tax), gross: f(net + tax) },
@@ -395,4 +403,4 @@ async function keepCopy(client, { companyId, userId, kind, documentId }) {
   return sha256;
 }
 
-module.exports = { KINDS, brandOf, templateOf, invoiceData, show, keepCopy };
+module.exports = { KINDS, orderTax, brandOf, templateOf, invoiceData, show, keepCopy };

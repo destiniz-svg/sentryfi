@@ -245,13 +245,13 @@ async function invoiceFromOrder(client, { companyId, userId, orderId, issueDate,
 }
 
 /** A quote the customer accepted becomes a sales order with the same lines; one they declined is kept, marked so. */
-async function answerQuote(client, { companyId, userId, orderId, accepted }) {
+async function answerQuote(client, { companyId, userId, orderId, accepted, by = null, via = "office", note = null }) {
   await assumeIdentity(client, { companyId, userId });
   const s = await load(client, { companyId, orderId });
   if (s.order.kind !== "quote") throw new Error("Only a quote is accepted or declined.");
   if (s.status !== "quoted" && s.status !== "expired") throw new Error("That quote has been answered already.");
   if (!accepted) {
-    await client.query("UPDATE orders SET declined_at = now() WHERE id = $1", [orderId]);
+    await client.query("UPDATE orders SET declined_at = now(), answered_by = $2, answered_via = $3, answer_note = $4 WHERE id = $1", [orderId, by, via, note]);
     return {};
   }
   const made = await create(client, {
@@ -259,7 +259,7 @@ async function answerQuote(client, { companyId, userId, orderId, accepted }) {
     note: `From quote ${s.order.number}`,
     lines: s.lines.map((l) => ({ description: l.description, itemId: l.item_id, accountId: l.account_id, quantity: stock.unitsText(l.units), unit: l.unit, unitPrice: formatLaari(l.price).replace(/,/g, "") })),
   });
-  await client.query("UPDATE orders SET accepted_at = now(), became_order_id = $2 WHERE id = $1", [orderId, made.id]);
+  await client.query("UPDATE orders SET accepted_at = now(), became_order_id = $2, answered_by = $3, answered_via = $4, answer_note = $5 WHERE id = $1", [orderId, made.id, by, via, note]);
   return made;
 }
 
@@ -284,6 +284,9 @@ function show(s) {
     orderedOn: s.order.ordered_on,
     validUntil: s.order.valid_until,
     becameOrderId: s.order.became_order_id,
+    answer: s.order.accepted_at || s.order.declined_at
+      ? { accepted: Boolean(s.order.accepted_at), at: s.order.accepted_at || s.order.declined_at, by: s.order.answered_by, via: s.order.answered_via, note: s.order.answer_note }
+      : null,
     expectedOn: s.order.expected_on,
     note: s.order.note,
     status: s.status,

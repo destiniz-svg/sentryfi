@@ -76,9 +76,12 @@ publicRouter.get(
       );
       const day = (d) => (d ? String(d instanceof Date ? d.toISOString() : d).slice(0, 10) : null);
       const quotes = [];
+      // The total the customer says yes to is the one on the paper: with its GST.
+      const { rows: reg } = await client.query("SELECT gst_registered FROM companies WHERE id = $1", [link.company_id]);
       for (const x of q) {
         const o = await orders.load(client, { companyId: link.company_id, orderId: x.id });
-        quotes.push({ id: x.id, number: o.order.number, issued: day(o.order.ordered_on), until: day(o.order.valid_until), status: o.status, total: formatLaari(o.total), subject: o.order.note || null });
+        const { tax } = await require("../ledger/documents").orderTax(client, { companyId: link.company_id, s: o, gstRegistered: reg[0]?.gst_registered });
+        quotes.push({ id: x.id, number: o.order.number, issued: day(o.order.ordered_on), until: day(o.order.valid_until), status: o.status, total: formatLaari(o.total + tax), subject: o.order.note || null });
       }
       const adv = require("../ledger/advances");
       const requests = (await adv.list(client, { companyId: link.company_id })).filter((r) => r.counterpartyId === link.counterparty_id && r.status !== "cancelled");
@@ -225,7 +228,7 @@ publicRouter.post(
         const s = await orders.load(client, { companyId: link.company_id, orderId: req.params.id });
         if (s.order.kind !== "quote" || s.order.counterparty_id !== link.counterparty_id) throw new Error("No such quote.");
         if (s.status === "expired") throw new Error("This quote is past its date. Ask for a new one.");
-        await orders.answerQuote(client, { companyId: link.company_id, userId: link.created_by, orderId: req.params.id, accepted: p.data.accepted });
+        await orders.answerQuote(client, { companyId: link.company_id, userId: link.created_by, orderId: req.params.id, accepted: p.data.accepted, by: p.data.name, via: "link", note: p.data.reason || null });
         const words = p.data.accepted ? `Accepted by ${p.data.name}.` : `Declined by ${p.data.name}.`;
         await require("../ledger/questions").ask(client, {
           companyId: link.company_id, counterpartyId: link.counterparty_id, kind: "quote", documentId: req.params.id, name: p.data.name,

@@ -35,7 +35,15 @@ export default function Order() {
   const qc = useQueryClient();
   const nav = useNavigate();
   const [open, setOpen] = useState(null);
-  const { data: o, isLoading } = useQuery({ queryKey: ["orders", companyId, id], queryFn: () => apiClient.get(`/orders/${id}`).then((r) => r.data), enabled: Boolean(companyId) });
+  const { data: o, isLoading } = useQuery({
+    queryKey: ["orders", companyId, id],
+    queryFn: () => apiClient.get(`/orders/${id}`).then((r) => r.data),
+    enabled: Boolean(companyId),
+    // A customer can answer a quote from their link at any moment: while it waits, look again
+    // every little while and on coming back to the tab, so the page never offers a stale choice.
+    refetchOnWindowFocus: true,
+    refetchInterval: (q) => (q.state.data?.kind === "quote" && q.state.data?.status === "quoted" ? 15_000 : false),
+  });
   const act = useMutation({ mutationFn: ({ url, body }) => apiClient.post(url, body).then((r) => r.data) });
   const refresh = () => {
     for (const k of ["orders", "bills", "sales", "stock", "projects", "attention"]) qc.invalidateQueries({ queryKey: [k, companyId] });
@@ -48,6 +56,8 @@ export default function Order() {
       return r;
     } catch (ex) {
       toast.error("Not yet", ex.message);
+      // Often because it changed elsewhere (a customer answered from their link): show it as it is now.
+      refresh();
       return null;
     }
   };
@@ -118,6 +128,14 @@ export default function Order() {
           {buying ? st.buy : st.sell}
         </Badge>
         {o.status === "awaiting_approval" && !o.mayApprove && <span className="text-[13px] text-[var(--ink-muted)]">Someone who can approve MVR {o.total} has been asked.</span>}
+        {o.answer && (
+          <span className="text-[13px] text-[var(--ink-muted)]" data-testid="quote-answer">
+            {o.answer.accepted ? "Accepted" : "Declined"}
+            {o.answer.by ? ` by ${o.answer.by}` : ""}
+            {o.answer.via === "link" ? " from the link you sent" : o.answer.via === "office" ? ", marked here" : ""}, {formatDate(o.answer.at)}
+            {o.answer.note ? `: “${o.answer.note}”` : "."}
+          </span>
+        )}
       </div>
 
       <Card padding="none" className="overflow-hidden">

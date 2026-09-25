@@ -17,6 +17,17 @@
  */
 const RELEASES = [
   {
+    version: "1.27.2",
+    date: "2026-09-26",
+    title: "Quotes answered from the link",
+    summary: "A quote the customer accepts from their link shows as accepted without reloading, says who accepted it, and the customer agrees to the total on the paper.",
+    items: [
+      { area: "Sales", kind: "fixed", title: "The quote updates itself", body: "A quote left open while the customer answers from their link now changes to accepted or declined on its own, within a few seconds, and on coming back to the tab. Before, it kept offering Accepted and Declined until the page was reloaded.", href: "/orders?kind=quote" },
+      { area: "Sales", kind: "new", title: "Who answered, and how", body: "Beside its status a quote now says who accepted or declined it, whether from the link or marked in the office, when, and the reason they gave.", href: "/orders?kind=quote" },
+      { area: "Sales", kind: "fixed", title: "The customer agrees to the right total", body: "On the customer's page a quote showed its total before GST, while the quotation itself showed it with GST. Both now show the total with GST, so the figure they accept is the one on the paper.", href: "/orders?kind=quote" },
+    ],
+  },
+  {
     version: "1.27.1",
     date: "2026-09-26",
     title: "Shortcuts in Settings, and by role",

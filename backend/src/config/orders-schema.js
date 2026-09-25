@@ -97,6 +97,10 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS valid_until DATE;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMPTZ;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS declined_at TIMESTAMPTZ;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS became_order_id UUID REFERENCES orders(id);
+-- Who answered a quote, and where: the customer from their link, or the office for them.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS answered_by TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS answered_via TEXT CHECK (answered_via IN ('link','office'));
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS answer_note TEXT;
 GRANT SELECT, INSERT ON order_lines, order_deliveries, order_delivery_lines, order_billed TO sentryfi_app;
 `;
 
