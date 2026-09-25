@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowDownLeft, ArrowUpRight, Banknote, FileText, Link2, Mail, MessageCircle, Pencil, Phone, Plus, ReceiptText, Share2, Star, Trash2, UserPlus } from "lucide-react";
+import { Undo2, ArrowLeft, ArrowDownLeft, ArrowUpRight, Banknote, FileText, Link2, Mail, MessageCircle, Pencil, Phone, Plus, ReceiptText, Share2, Star, Trash2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Money } from "@/components/ui/Money";
@@ -29,7 +29,7 @@ import { formatDate, cn } from "@/lib/utils";
  */
 
 const n = (s) => Number(String(s || "0").replace(/,/g, ""));
-const ICON = { invoice: FileText, received: ArrowDownLeft, credit: ReceiptText, order: FileText, bill: ReceiptText, paid: ArrowUpRight, advance: Banknote };
+const ICON = { returned: Undo2, invoice: FileText, received: ArrowDownLeft, credit: ReceiptText, order: FileText, bill: ReceiptText, paid: ArrowUpRight, advance: Banknote };
 
 export default function Contact() {
   const { id } = useParams();
@@ -356,7 +356,7 @@ function Activity({ items }) {
               <span className="block text-[15px] font-medium truncate">{a.what}</span>
               <span className="block text-[13px] text-[var(--ink-muted)]">{a.on ? formatDate(a.on) : ""}</span>
             </span>
-            {a.amount && <Money amount={a.kind === "received" ? a.amount : a.kind === "paid" ? `−${a.amount}` : a.amount} sign={a.kind === "received"} className={cn("text-[15px] font-semibold", a.kind === "received" && "text-[var(--success)]")} />}
+            {a.amount && <Money amount={a.kind === "received" ? a.amount : a.kind === "paid" || a.kind === "returned" ? `−${a.amount}` : a.amount} sign={a.kind === "received"} className={cn("text-[15px] font-semibold", a.kind === "received" && "text-[var(--success)]")} />}
           </>
         );
         return (

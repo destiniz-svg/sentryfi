@@ -239,7 +239,8 @@ router.get(
       const { rows } = await client.query(
         `SELECT b.*, c.name AS supplier_name, e.entry_no,
                 COALESCE((SELECT SUM(p.amount_laari) FROM payment_items p JOIN payment_runs r ON r.id = p.run_id AND r.reversed_at IS NULL
-                           WHERE p.bill_id = b.id), 0) AS paid_laari
+                           WHERE p.bill_id = b.id), 0) AS paid_laari,
+                bill_returned(b.id) AS returned_laari
            FROM bills b
            LEFT JOIN counterparties c ON c.id = b.counterparty_id
            LEFT JOIN journal_entries e ON e.id = b.entry_id
@@ -255,9 +256,10 @@ router.get(
     });
     if (!out) throw ApiError.notFound("There is no such bill here.");
     const paid = BigInt(out.bill.paid_laari);
-    const owed = BigInt(out.bill.gross_laari) - paid;
+    const returned = BigInt(out.bill.returned_laari || 0);
+    const owed = BigInt(out.bill.gross_laari) - paid - returned;
     res.json({
-      bill: { ...serialize(out.bill), paid: formatLaari(paid), owed: formatLaari(owed > 0n ? owed : 0n), fcGross: out.bill.fc_gross === null ? null : formatLaari(BigInt(out.bill.fc_gross)) },
+      bill: { ...serialize(out.bill), paid: formatLaari(paid), returned: formatLaari(returned), owed: formatLaari(owed > 0n ? owed : 0n), fcGross: out.bill.fc_gross === null ? null : formatLaari(BigInt(out.bill.fc_gross)) },
       lines: out.lines.map((l) => ({ description: l.description, quantity: l.quantity, net: formatLaari(BigInt(l.net_laari)), tax: formatLaari(BigInt(l.tax_laari)) })),
     });
   })
@@ -775,6 +777,53 @@ router.delete(
 
     if (!voided) throw ApiError.notFound("Bill not found, or it was voided already");
     res.json({ ok: true });
+  })
+);
+
+/** What could go back to the supplier on this bill, and what already has. */
+router.get(
+  "/:id/returns",
+  requireCan("read"),
+  asyncHandler(async (req, res) => {
+    if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) throw ApiError.notFound("There is no such bill here.");
+    const r = require("../ledger/purchaseReturns");
+    const out = await asCompany(req, async (client) => {
+      const returns = await r.list(client, { companyId: req.companyId, billId: req.params.id });
+      let can = null;
+      try {
+        const x = await r.returnable(client, { companyId: req.companyId, billId: req.params.id });
+        const { unitsText } = require("../ledger/stock");
+        can = { left: formatLaari(x.left), items: x.items.filter((i) => i.left > 0n).map((i) => ({ itemId: i.itemId, name: i.name, unit: i.unit, left: unitsText(i.left) })) };
+      } catch (err) {
+        can = { refused: err.message };
+      }
+      return { returns, can };
+    });
+    res.json(out);
+  })
+);
+
+/** Goods or a charge sent back to the supplier. */
+router.post(
+  "/:id/returns",
+  requireCan("record"),
+  asyncHandler(async (req, res) => {
+    const p = z
+      .object({
+        reason: z.string().trim().min(1, "Say why it is going back.").max(500),
+        items: z.array(z.object({ itemId: z.string().uuid(), quantity: z.union([z.string(), z.number()]).transform(String) })).max(50).default([]),
+        amount: z.union([z.string(), z.number()]).transform((v) => String(v).replace(/,/g, "")).nullish(),
+        issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish(),
+        supplierRef: z.string().max(60).nullish(),
+      })
+      .safeParse(req.body ?? {});
+    if (!p.success) throw ApiError.badRequest(p.error.issues[0].message);
+    try {
+      const out = await asCompany(req, (client) => require("../ledger/purchaseReturns").create(client, { companyId: req.companyId, userId: req.user.id, billId: req.params.id, ...p.data }));
+      res.status(201).json({ number: out.ret.number, gross: formatLaari(BigInt(out.ret.gross_laari)), entryNo: String(out.entry.entryNo) });
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
   })
 );
 

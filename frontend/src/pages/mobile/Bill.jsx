@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Money } from "@/components/ui/Money";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Conversation } from "@/components/talk/Conversation";
+import { SupplierReturns } from "@/components/bills/SupplierReturns";
 
 /**
  * One bill, opened from Money on a phone or from Bills at the desk: who it is from, what it comes to
@@ -132,6 +133,7 @@ export default function MobileBill() {
           <Row k="Before GST" v={<Money amount={bill.net} />} />
           <Row k={`GST, ${GST_WAY[bill.gst_treatment] || "as quoted"}`} v={<Money amount={bill.tax} />} />
           {posted && <Row k="Paid" v={<Money amount={bill.paid} />} />}
+          {posted && bill.returned && bill.returned !== "0.00" && <Row k="Sent back" v={<Money amount={bill.returned} />} />}
           {posted && <Row k="Still owed" v={<Money amount={bill.owed} />} strong />}
         </dl>
       </section>
@@ -194,6 +196,8 @@ export default function MobileBill() {
           {busy ? "Putting it in the books…" : "Put in the books"}
         </button>
       )}
+
+      {bill.status === "posted" && <SupplierReturns billId={id} />}
 
       <Conversation kind="bill" id={id} className="" />
 

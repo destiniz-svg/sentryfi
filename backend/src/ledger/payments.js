@@ -22,7 +22,7 @@ const NWT_OWED = ["2250", "Withholding tax to pay", "liability"];
 async function unpaid(client, { companyId }) {
   const { rows: bills } = await client.query(
     `SELECT b.id, b.bill_no, b.issue_date::text AS issued, b.due_date::text AS due, b.gross_laari, c.name AS supplier, c.bank_accounts,
-            COALESCE((SELECT SUM(p.amount_laari) FROM payment_items p JOIN payment_runs pr ON pr.id = p.run_id AND pr.reversed_at IS NULL WHERE p.bill_id = b.id), 0) AS paid
+            COALESCE((SELECT SUM(p.amount_laari) FROM payment_items p JOIN payment_runs pr ON pr.id = p.run_id AND pr.reversed_at IS NULL WHERE p.bill_id = b.id), 0) + bill_returned(b.id) AS paid
        FROM bills b JOIN counterparties c ON c.id = b.counterparty_id
       WHERE b.company_id = $1 AND b.status = 'posted' AND b.voided_at IS NULL AND b.fc_gross IS NULL`,
     [companyId]
@@ -62,7 +62,7 @@ async function pay(client, { companyId, userId, fromAccountId, paidOn, reference
     if (it.billId) {
       const { rows } = await client.query(
         `SELECT b.id, b.bill_no, b.gross_laari, b.counterparty_id, b.status, b.fc_gross, c.name, c.bank_accounts, c.nwt_category,
-                COALESCE((SELECT SUM(p.amount_laari) FROM payment_items p JOIN payment_runs pr ON pr.id = p.run_id AND pr.reversed_at IS NULL WHERE p.bill_id = b.id), 0) AS paid
+                COALESCE((SELECT SUM(p.amount_laari) FROM payment_items p JOIN payment_runs pr ON pr.id = p.run_id AND pr.reversed_at IS NULL WHERE p.bill_id = b.id), 0) + bill_returned(b.id) AS paid
            FROM bills b JOIN counterparties c ON c.id = b.counterparty_id WHERE b.id = $1 AND b.company_id = $2 FOR UPDATE OF b`,
         [it.billId, companyId]
       );

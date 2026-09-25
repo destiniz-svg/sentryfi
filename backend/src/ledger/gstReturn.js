@@ -151,6 +151,15 @@ async function build(client, { companyId, key }) {
       gst_rate_bp: bp, treatment: "exclusive", supplier: "Maldives Customs Service", tin: null, capital: false,
     });
   }
+  // Goods or charges sent back to a supplier: the GST claimed on them comes back off, in the month they went back.
+  const { rows: back } = await client.query(
+    `SELECT r.bill_id, r.number, r.issue_date::text AS dated, r.net_laari, r.tax_laari, b.gst_rate_bp, b.gst_treatment::text AS treatment,
+            c.name AS supplier, COALESCE(c.tin, c.gst_number) AS tin
+       FROM supplier_returns r JOIN bills b ON b.id = r.bill_id LEFT JOIN counterparties c ON c.id = r.counterparty_id
+      WHERE r.company_id = $1 AND r.tax_laari > 0 AND r.issue_date BETWEEN $2 AND $3`,
+    [companyId, p.from, p.to]
+  );
+  for (const r of back) bills.push({ id: r.bill_id, bill_no: r.number, dated: r.dated, sign: -1, net_laari: r.net_laari, tax_laari: r.tax_laari, gst_rate_bp: r.gst_rate_bp, treatment: r.treatment, supplier: r.supplier, tin: r.tin, capital: false });
   bills.sort((a, b) => (a.dated < b.dated ? -1 : a.dated > b.dated ? 1 : 0));
 
   // What went out: posted invoices in the period, and credit notes against them.

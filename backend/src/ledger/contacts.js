@@ -63,11 +63,11 @@ async function list(client, { companyId }) {
   const late = overdueByCustomer(aged, rootOf);
   // Bills due within the week, per supplier.
   const { rows: dueSoon } = await client.query(
-    `SELECT COALESCE(cp.merged_into, cp.id) AS id, SUM(b.gross_laari - COALESCE(p.paid, 0)) AS laari
+    `SELECT COALESCE(cp.merged_into, cp.id) AS id, SUM(b.gross_laari - (COALESCE(p.paid, 0) + bill_returned(b.id))) AS laari
        FROM bills b JOIN counterparties cp ON cp.id = b.counterparty_id
        LEFT JOIN (SELECT pi.bill_id, SUM(pi.amount_laari) AS paid FROM payment_items pi JOIN payment_runs r ON r.id = pi.run_id AND r.reversed_at IS NULL GROUP BY pi.bill_id) p ON p.bill_id = b.id
       WHERE b.company_id = $1 AND b.status = 'posted' AND b.voided_at IS NULL AND b.fc_gross IS NULL
-        AND b.gross_laari > COALESCE(p.paid, 0) AND COALESCE(b.due_date, b.issue_date) <= $2::date + 7
+        AND b.gross_laari > (COALESCE(p.paid, 0) + bill_returned(b.id)) AND COALESCE(b.due_date, b.issue_date) <= $2::date + 7
       GROUP BY COALESCE(cp.merged_into, cp.id)`,
     [companyId, today]
   );
@@ -157,10 +157,10 @@ async function show(client, { companyId, id }) {
 
   // What is still open with them: invoices they owe, bills we owe.
   const { rows: bills } = await client.query(
-    `SELECT b.id, b.bill_no, COALESCE(b.due_date, b.issue_date)::text AS due, b.gross_laari - COALESCE(p.paid, 0) AS left
+    `SELECT b.id, b.bill_no, COALESCE(b.due_date, b.issue_date)::text AS due, b.gross_laari - (COALESCE(p.paid, 0) + bill_returned(b.id)) AS left
        FROM bills b
        LEFT JOIN (SELECT pi.bill_id, SUM(pi.amount_laari) AS paid FROM payment_items pi JOIN payment_runs r ON r.id = pi.run_id AND r.reversed_at IS NULL GROUP BY pi.bill_id) p ON p.bill_id = b.id
-      WHERE b.company_id = $1 AND same_party(b.counterparty_id, $2) AND b.status = 'posted' AND b.voided_at IS NULL AND b.fc_gross IS NULL AND b.gross_laari > COALESCE(p.paid, 0)
+      WHERE b.company_id = $1 AND same_party(b.counterparty_id, $2) AND b.status = 'posted' AND b.voided_at IS NULL AND b.fc_gross IS NULL AND b.gross_laari > (COALESCE(p.paid, 0) + bill_returned(b.id))
       ORDER BY 3 NULLS LAST`,
     [companyId, id]
   );
@@ -241,6 +241,9 @@ async function activity(client, { companyId, id }) {
        SELECT 'paid', pi.id, r.paid_on, 'You paid them' || COALESCE(' · ' || r.reference, ''), pi.amount_laari, NULL
          FROM payment_items pi JOIN payment_runs r ON r.id = pi.run_id AND r.reversed_at IS NULL JOIN bills b ON b.id = pi.bill_id
         WHERE pi.company_id = $1 AND same_party(b.counterparty_id, $2)
+       UNION ALL
+       SELECT 'returned', r.id, r.issue_date, 'Sent back ' || r.number || ' · ' || r.reason, r.gross_laari, '/bills/' || r.bill_id
+         FROM supplier_returns r WHERE r.company_id = $1 AND same_party(r.counterparty_id, $2)
        UNION ALL
        SELECT 'advance', q.id, q.issue_date, CASE q.kind WHEN 'proforma' THEN 'Proforma ' ELSE 'Retainer ' END || q.number, NULL, '/documents/' || q.kind || '/' || q.id
          FROM advance_requests q WHERE q.company_id = $1 AND same_party(q.counterparty_id, $2)
