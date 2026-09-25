@@ -17,6 +17,15 @@
  */
 const RELEASES = [
   {
+    version: "1.26.2",
+    date: "2026-09-26",
+    title: "The conversation beside the document",
+    summary: "On a wide screen an invoice and its team conversation sit side by side, so nobody scrolls past the paper to talk about it.",
+    items: [
+      { area: "Sales", kind: "improved", title: "Talk beside the paper", body: "On a laptop or bigger, the team conversation, questions and attachments sit to the right of any invoice, quote or order, and stay in view as you scroll the document. On a phone they stay underneath.", href: "/invoices" },
+    ],
+  },
+  {
     version: "1.26.1",
     date: "2026-09-25",
     title: "Tax invoices MIRA accepts",

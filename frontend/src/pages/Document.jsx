@@ -51,7 +51,7 @@ export default function Document() {
   const model = compose({ data: data.data, brand: data.brand, template: data.template, size: size || t.size, verifyUrl });
 
   return (
-    <div className="max-w-[980px] mx-auto">
+    <div className="max-w-[980px] xl:max-w-none mx-auto">
       <div className="flex flex-wrap items-center gap-2 mb-4">
         {/* Back to wherever it was opened from (Money on a phone, Invoices at the desk); the list for its kind when opened from a link. */}
         <Link
@@ -89,6 +89,9 @@ export default function Document() {
           <Printer size={15} /> Print
         </Button>
       </div>
+      {/* Wide screens: the paper, and beside it what the team says about it, both in view. Narrower: one under the other. */}
+      <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_420px] xl:gap-6 xl:items-start">
+      <div className="min-w-0">
       <p className="text-[13px] text-[var(--ink-muted)] mb-4 flex items-start gap-2" data-testid="copy-note">
         {data.issuedCopy ? (
           <>
@@ -121,10 +124,14 @@ export default function Document() {
       <div className={model.size.receipt ? "max-w-[340px] mx-auto" : ""}>
         <FittedPaper model={model} />
       </div>
+      </div>
+      <aside aria-label="Attachments and conversation" data-testid="doc-side" className="xl:sticky xl:top-4 xl:max-h-[calc(100dvh-2rem)] xl:overflow-y-auto xl:overscroll-contain xl:grid xl:gap-4 xl:[&>*]:mt-0 print:hidden">
+        {TALKED.includes(kind) && <Conversation kind={kind} id={id} title={QUESTIONED.includes(kind) ? "Team conversation" : "Conversation"} />}
+        {QUESTIONED.includes(kind) && <DocumentQuestions kind={kind} id={id} />}
+        {ATTACHABLE.includes(kind) && <Attachments kind={kind} id={id} />}
+      </aside>
+      </div>
       <PrintCopy model={model} />
-      {ATTACHABLE.includes(kind) && <Attachments kind={kind} id={id} />}
-      {QUESTIONED.includes(kind) && <DocumentQuestions kind={kind} id={id} />}
-      {TALKED.includes(kind) && <Conversation kind={kind} id={id} title={QUESTIONED.includes(kind) ? "Team conversation" : "Conversation"} />}
       {emailing && <ShareDocument kind={kind} id={id} number={data.data.number} to={data.data.to} onClose={() => setEmailing(false)} />}
     </div>
   );
