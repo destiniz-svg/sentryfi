@@ -5,6 +5,7 @@ import { Modal } from "@/components/ui/Modal";
 import { apiClient } from "@/api/client";
 import { useCompany } from "@/context/CompanyContext";
 import { usePhone } from "@/lib/phone";
+import { UnitInput } from "@/components/ui/UnitInput";
 import { cn, toDateInput } from "@/lib/utils";
 
 /**
@@ -44,7 +45,7 @@ function PickList({ open, onClose, title, ...rest }) {
   );
 }
 
-function PickBody({ title, placeholder, rows, render, onPick, create, loading }) {
+function PickBody({ title, placeholder, rows, render, onPick, create, loading, empty = "Nobody here yet. Type a name to add them." }) {
   const [q, setQ] = useState("");
   const words = q.trim().toLowerCase();
   const shown = useMemo(() => (words ? rows.filter((r) => r.name.toLowerCase().includes(words)) : rows).slice(0, 60), [rows, words]);
@@ -75,7 +76,7 @@ function PickBody({ title, placeholder, rows, render, onPick, create, loading })
             </button>
           </li>
         ))}
-        {!loading && !shown.length && !words && <li className="px-2 py-6 text-center text-[14px] text-[var(--ink-muted)]">Nobody here yet. Type a name to add them.</li>}
+        {!loading && !shown.length && !words && <li className="px-2 py-6 text-center text-[14px] text-[var(--ink-muted)]">{empty}</li>}
       </ul>
     </>
   );
@@ -152,28 +153,106 @@ export function PartyPicker({ kind = "customer", value, onChange, open, setOpen 
   );
 }
 
-/** Saved items, products and services, to add as lines. */
-export function ItemPicker({ open, setOpen, items, onPick }) {
+/**
+ * Saved items, products and services, to add as lines. One that is not there
+ * yet is added on the spot, kept in the item list, and put on the line.
+ */
+export function ItemPicker({ open, setOpen, items, onPick, side = "sale" }) {
+  const [draft, setDraft] = useState(null);
+  const close = () => (setOpen(false), setDraft(null));
+  const phone = usePhone();
+  if (draft) {
+    return (
+      <Modal open={open} onClose={close} title={`Add “${draft}”`} description="Kept in your items, so next time it is one tap." variant={phone ? "sheet" : "card"} size="lg">
+        <NewItem name={draft} side={side} onBack={() => setDraft(null)} onSaved={(it) => (onPick(it), close())} />
+      </Modal>
+    );
+  }
   return (
     <PickList
       open={open}
-      onClose={() => setOpen(false)}
+      onClose={close}
       title="Add an item or service"
       placeholder="Search items and services"
       rows={items}
-      onPick={(it) => (onPick(it), setOpen(false))}
+      create={{ label: "A new item or service, kept for next time", onCreate: setDraft }}
+      empty="No items yet. Type what it is to add it."
+      onPick={(it) => (onPick(it), close())}
       render={(it) => (
         <>
           <span className="h-10 w-10 shrink-0 rounded-full overflow-hidden grid place-items-center bg-[var(--surface-2)]">{it.photo ? <img src={it.photo} alt="" className="h-full w-full object-cover" /> : <Package size={17} />}</span>
           <span className="min-w-0">
             <span className="block text-[15px] font-medium truncate">{it.name}</span>
             <span className="block text-[13px] text-[var(--ink-muted)] truncate">
-              {[it.salePrice ? `${it.salePrice} a ${it.unit || "unit"}` : null, it.counted ? `${it.onHand} on hand` : it.kind === "service" ? "Service" : it.kind === "bundle" ? "Bundle" : null].filter(Boolean).join(" · ")}
+              {[(side === "purchase" ? it.buyPrice : it.salePrice) ? `${side === "purchase" ? it.buyPrice : it.salePrice} a ${it.unit || "unit"}` : null, it.counted ? `${it.onHand} on hand` : it.kind === "service" ? "Service" : it.kind === "bundle" ? "Bundle" : null].filter(Boolean).join(" · ")}
             </span>
           </span>
         </>
       )}
     />
+  );
+}
+
+const FIELD = "w-full h-11 px-4 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[15px] outline-none focus:border-[var(--ink)]";
+
+function NewItem({ name, side, onBack, onSaved }) {
+  const { companyId } = useCompany();
+  const qc = useQueryClient();
+  const [f, setF] = useState({ name, kind: "service", unit: "", price: "" });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const priceKey = side === "purchase" ? "buyPrice" : "salePrice";
+  async function save() {
+    if (busy || !f.name.trim()) return;
+    setBusy(true);
+    setErr("");
+    try {
+      const price = f.price.replace(/,/g, "").trim() || null;
+      const unit = f.unit.trim() || (f.kind === "service" ? "job" : "pcs");
+      // ponytail: a new product starts uncounted; counting is turned on in Items once stock is taken in.
+      const r = await apiClient.post("/stock", { name: f.name.trim(), kind: f.kind, unit, counted: false, [priceKey]: price });
+      qc.invalidateQueries({ queryKey: ["stock", companyId] });
+      qc.invalidateQueries({ queryKey: ["units", companyId] });
+      onSaved({ ...r.data.item, [priceKey]: price });
+    } catch (ex) {
+      setErr(ex.message);
+      setBusy(false);
+    }
+  }
+  return (
+    // Not a <form>: this sits inside the document's own form, and a nested form would submit that one.
+    <div className="grid gap-4" data-testid="new-item" onKeyDown={(e) => e.key === "Enter" && e.target.tagName === "INPUT" && (e.preventDefault(), save())}>
+      <label className="grid gap-1.5">
+        <span className="text-[13px] font-medium">Name</span>
+        <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} required maxLength={160} className={FIELD} />
+      </label>
+      <div role="radiogroup" aria-label="Kind" className="grid grid-cols-2 gap-2">
+        {[["service", "A service", "Work or time"], ["product", "A product", "A thing"]].map(([k, t, s]) => (
+          <button key={k} type="button" role="radio" aria-checked={f.kind === k} onClick={() => setF({ ...f, kind: k })}
+            className={cn("rounded-2xl border p-3 text-left", f.kind === k ? "bg-[var(--ink)] text-[var(--bg)] border-[var(--ink)]" : "border-[var(--border)] hover:border-[var(--ink)]")}>
+            <span className="block text-[15px] font-semibold">{t}</span>
+            <span className={cn("block text-[13px]", f.kind === k ? "opacity-75" : "text-[var(--ink-muted)]")}>{s}</span>
+          </button>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="grid gap-1.5 min-w-0">
+          <span className="text-[13px] font-medium">Counted in</span>
+          <UnitInput label="Unit" value={f.unit} onChange={(unit) => setF({ ...f, unit })} placeholder={f.kind === "service" ? "job, day, hr" : "pcs, bag, m³"} className={FIELD} />
+        </label>
+        <label className="grid gap-1.5 min-w-0">
+          <span className="text-[13px] font-medium">{side === "purchase" ? "Usual cost" : "Usual price"}</span>
+          <input value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} inputMode="decimal" placeholder="0.00" className={cn(FIELD, "tabular")} />
+        </label>
+      </div>
+      {err && <p role="alert" className="text-[14px] text-[var(--danger)]">{err}</p>}
+      <div className="flex gap-2 justify-end">
+        <button type="button" onClick={onBack} className="h-11 px-5 rounded-full border border-[var(--border)] text-[15px] font-medium hover:border-[var(--ink)]">Back</button>
+        <button type="button" onClick={save} disabled={busy || !f.name.trim()} data-testid="new-item-save" className="h-11 px-5 rounded-full bg-[var(--accent)] text-[var(--on-accent)] text-[15px] font-semibold inline-flex items-center gap-2 disabled:opacity-50">
+          {busy && <Loader2 size={16} className="animate-spin" />} Save and add
+        </button>
+      </div>
+    </div>
   );
 }
 

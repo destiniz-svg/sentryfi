@@ -88,7 +88,7 @@ export default function Advances() {
         </>
       )}
       {making && data && <NewRequest kind={making} onClose={() => setMaking(null)} onDone={refresh} />}
-      {paying && data && <Receive request={paying.id ? paying : null} customers={data.customers} payInto={data.payInto} onClose={() => setPaying(null)} onDone={refresh} />}
+      {paying && data && <Receive request={paying.id ? paying : null} payInto={data.payInto} onClose={() => setPaying(null)} onDone={refresh} />}
       {using && <UseAdvance advance={using} onClose={() => setUsing(null)} onDone={refresh} />}
       {refunding && data && <Refund advance={refunding} payInto={data.payInto} onClose={() => setRefunding(null)} onDone={refresh} />}
     </div>
@@ -397,10 +397,12 @@ function NewRequest({ kind: first, onClose, onDone }) {
   );
 }
 
-function Receive({ request, customers, payInto, onClose, onDone }) {
+function Receive({ request, payInto, onClose, onDone }) {
   const toast = useToast();
   const tax = useTax();
   const [f, setF] = useState({ amount: request ? String(Math.max(0, n(request.gross) - n(request.paid)).toFixed(2)) : "", receivedOn: today(), accountId: payInto[0]?.id || "", reference: "", counterpartyId: "" });
+  const [party, setParty] = useState(null);
+  const [partyOpen, setPartyOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
@@ -424,10 +426,7 @@ function Receive({ request, customers, payInto, onClose, onDone }) {
       <div className="grid sm:grid-cols-2 gap-4">
         {!request && (
           <Field label="From" className="sm:col-span-2">
-            <select value={f.counterpartyId} onChange={set("counterpartyId")} className={FIELD}>
-              <option value="">Which customer?</option>
-              {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+            <PartyPicker kind="customer" value={party} onChange={(p) => (setParty(p), setF({ ...f, counterpartyId: p.id }))} open={partyOpen} setOpen={setPartyOpen} />
           </Field>
         )}
         <Field label="How much came in">

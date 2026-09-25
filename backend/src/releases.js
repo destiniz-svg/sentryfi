@@ -17,6 +17,18 @@
  */
 const RELEASES = [
   {
+    version: "1.18",
+    date: "2026-09-25",
+    title: "Not on the list? Add it where you are",
+    summary: "Search for an item or service that isn't there and add it on the spot. It is kept for next time, and so is any unit you write.",
+    items: [
+      { area: "Sales", kind: "new", title: "Add a new item or service from the invoice", body: "Type what it is. If it isn't in your items, add it with its unit and price. It goes on the line and is kept in Items for next time.", href: "/invoices/new" },
+      { area: "Purchases", kind: "improved", title: "Orders search your items too", body: "Quotes and orders now search your items instead of a long dropdown, and add a missing one on the spot, with its usual cost on a purchase order.", href: "/orders" },
+      { area: "Items", kind: "new", title: "Your own units", body: "Write any unit, such as dhoni load, length or m². Every unit you use on an item, invoice or order is offered next time, most used first.", href: "/stock" },
+      { area: "Sales", kind: "improved", title: "Add a customer while taking an advance", body: "Money paid in advance now picks the customer from your list, and adds a new one on the spot.", href: "/advances" },
+    ],
+  },
+  {
     version: "1.17",
     date: "2026-09-25",
     title: "New documents ask in order: who, what, which terms",

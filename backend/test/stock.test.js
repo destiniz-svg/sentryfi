@@ -70,6 +70,15 @@ async function aShop(client) {
 }
 
 describe("weighted average cost", () => {
+  it("offers the company's units, most used first", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      await shop.item("Sand", "m³");
+      await shop.item("Cement");
+      await shop.item("Blocks");
+      expect(await stock.units(client, { companyId: shop.companyId })).toEqual(["bag", "m³"]);
+    }));
+
   it("costs each sale at the average, and the last one takes exactly what is left", () =>
     inRollback(async (client) => {
       const shop = await aShop(client);

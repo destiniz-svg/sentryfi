@@ -556,4 +556,20 @@ async function history(client, { companyId, itemId }) {
   }))].sort((a, b) => String(b.on) < String(a.on) ? -1 : String(b.on) > String(a.on) ? 1 : 0);
 }
 
-module.exports = { ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history, atPlaces, places, addPlace, transfer };
+/**
+ * The units this company writes, most used first: every unit put on an item,
+ * an invoice line or an order line is kept this way and offered next time.
+ */
+async function units(client, { companyId }) {
+  const { rows } = await client.query(
+    `SELECT u FROM (
+       SELECT unit AS u FROM stock_items WHERE company_id = $1
+       UNION ALL SELECT uom FROM sales_invoice_lines WHERE company_id = $1
+       UNION ALL SELECT unit FROM order_lines WHERE company_id = $1
+     ) x WHERE btrim(coalesce(u, '')) <> '' GROUP BY u ORDER BY count(*) DESC, u LIMIT 60`,
+    [companyId]
+  );
+  return rows.map((r) => r.u);
+}
+
+module.exports = { ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history, atPlaces, places, addPlace, transfer, units };

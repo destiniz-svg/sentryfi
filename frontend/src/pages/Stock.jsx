@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Money } from "@/components/ui/Money";
+import { UnitInput } from "@/components/ui/UnitInput";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { apiClient } from "@/api/client";
@@ -406,7 +407,7 @@ function ItemForm({ item, items = [], accounts, onClose, onDone }) {
             <input id="item-name" value={f.name} onChange={set("name")} placeholder={service ? "Excavator hire, with operator" : "Cement, 50 kg bag"} className={FIELD} />
           </Field>
           <Field label={service ? "Charged by" : "Counted by"}>
-            <input id="item-unit" value={f.unit} onChange={set("unit")} placeholder={service ? "hour" : "bag"} className={FIELD} />
+            <UnitInput id="item-unit" value={f.unit} onChange={(unit) => put({ unit })} placeholder={service ? "hour" : "bag"} className={FIELD} />
           </Field>
           <Field label="Code (optional)">
             <input id="item-code" value={f.code} onChange={set("code")} placeholder={service ? "HIRE-EX" : "CEM-50"} className={FIELD} />

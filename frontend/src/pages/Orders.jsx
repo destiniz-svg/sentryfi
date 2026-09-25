@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2, Plus, X } from "lucide-react";
+import { Loader2, Package, Plus, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -17,7 +17,7 @@ import { FIELD } from "@/lib/shipments";
 import { ORDER_STATUS } from "@/lib/orders";
 import { PendingAttachments, uploadPending } from "@/components/documents/Attachments";
 import { UnitInput } from "@/components/ui/UnitInput";
-import { PartyPicker, Step, dueFrom } from "@/components/forms/Pickers";
+import { ItemPicker, PartyPicker, Step, dueFrom } from "@/components/forms/Pickers";
 
 /**
  * Orders: what was agreed with a supplier or a customer before the goods
@@ -117,6 +117,8 @@ function NewOrder({ kind, onClose }) {
   const [partyOpen, setPartyOpen] = useState(true);
   const [f, setF] = useState({ orderedOn: today(), projectId: "", expectedOn: "", note: "", validUntil: "" });
   const [lines, setLines] = useState([blankLine()]);
+  const [pickFor, setPickFor] = useState(null);
+  const { data: stockItems } = useQuery({ queryKey: ["stock", companyId], queryFn: () => apiClient.get("/stock").then((r) => r.data), select: (d) => d.items, enabled: Boolean(companyId) });
   const [err, setErr] = useState("");
   const save = useMutation({ mutationFn: (body) => apiClient.post("/orders", body).then((r) => r.data) });
   const setLine = (i, patch) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...patch } : l)));
@@ -167,23 +169,10 @@ function NewOrder({ kind, onClose }) {
             {lines.map((l, i) => (
               <div key={i} data-testid="order-line" className="rounded-xl border border-[var(--border)] p-3 space-y-2">
                 <div className="flex gap-2">
-                  <select
-                    aria-label={`Line ${i + 1}: item`}
-                    value={l.itemId}
-                    onChange={(e) => {
-                      const it = o.items.find((x) => x.id === e.target.value);
-                      const price = kind === "sale" ? it?.sale_price_laari : it?.buy_price_laari;
-                      setLine(i, { itemId: e.target.value, description: it ? it.name : l.description, unit: it?.unit || l.unit, unitPrice: price ? String(Number(price) / 100) : l.unitPrice });
-                    }}
-                    className={`${FIELD} flex-1 min-w-0`}
-                  >
-                    <option value="">{kind === "purchase" ? "Not a saved item: say the kind of cost" : "Not a saved item"}</option>
-                    {o.items.filter((it) => (kind === "purchase" ? it.buys : it.sells)).map((it) => (
-                      <option key={it.id} value={it.id}>
-                        {it.name}
-                      </option>
-                    ))}
-                  </select>
+                  <button type="button" aria-label={`Line ${i + 1}: item`} onClick={() => setPickFor(i)} className={cn(FIELD, "flex-1 min-w-0 flex items-center gap-2 text-left")}>
+                    <Package size={16} className="shrink-0 text-[var(--ink-muted)]" aria-hidden="true" />
+                    <span className={cn("truncate", !l.itemId && "text-[var(--ink-muted)]")}>{l.itemId ? l.description : "Find or add an item"}</span>
+                  </button>
                   <button type="button" aria-label={`Remove line ${i + 1}`} onClick={() => setLines((ls) => (ls.length === 1 ? [blankLine()] : ls.filter((_, j) => j !== i)))} className="h-11 w-11 shrink-0 rounded-full inline-flex items-center justify-center hover:bg-[var(--surface-2)] text-[var(--ink-muted)]">
                     <X size={15} />
                   </button>
@@ -213,6 +202,16 @@ function NewOrder({ kind, onClose }) {
             <Button type="button" variant="ghost" size="sm" onClick={() => setLines((ls) => [...ls, blankLine()])}>
               <Plus size={14} /> Another line
             </Button>
+            <ItemPicker
+              open={pickFor != null}
+              setOpen={(v) => !v && setPickFor(null)}
+              side={kind === "purchase" ? "purchase" : "sale"}
+              items={(stockItems || []).filter((it) => !it.archived && (kind === "purchase" ? it.buys : it.sells))}
+              onPick={(it) => {
+                const price = kind === "purchase" ? it.buyPrice : it.salePrice;
+                setLine(pickFor, { itemId: it.id, description: it.name, unit: it.unit || "", unitPrice: price ? String(price).replace(/,/g, "") : lines[pickFor].unitPrice });
+              }}
+            />
           </fieldset>
           <p className="text-[14px] text-right tabular" data-testid="order-total">
             MVR {total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} before tax

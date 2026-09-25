@@ -210,7 +210,7 @@ export default function NewInvoice() {
     setKeepTerms(false);
     if (!advance) return;
     go("step-what");
-    if (forSale.length && !lines.some((l) => l.description.trim())) setTimeout(() => setItemsOpen(true), 400);
+    if (!lines.some((l) => l.description.trim())) setTimeout(() => setItemsOpen(true), 400);
     else setTimeout(() => firstLine.current?.focus(), 400);
   }
   function addItem(item) {
@@ -457,11 +457,9 @@ export default function NewInvoice() {
               ))}
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              {forSale.length > 0 && (
-                <Button type="button" variant="outline" onClick={() => setItemsOpen(true)} data-testid="add-item">
-                  <Package size={16} /> From your items
-                </Button>
-              )}
+              <Button type="button" variant="outline" onClick={() => setItemsOpen(true)} data-testid="add-item">
+                <Package size={16} /> Find or add an item
+              </Button>
               <Button type="button" variant="ghost" onClick={() => setLines((all) => [...all, blankLine()])}>
                 <Plus size={16} /> A line
               </Button>

@@ -96,6 +96,12 @@ const refused = (fn) =>
   });
 
 router.get(
+  "/units",
+  requireCan("read"),
+  asyncHandler(async (req, res) => res.json({ units: await asCompany(req, (client) => stock.units(client, { companyId: req.companyId })) }))
+);
+
+router.get(
   "/",
   requireCan("read"),
   asyncHandler(async (req, res) => {
