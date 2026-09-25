@@ -37,7 +37,17 @@ router.get(
   "/",
   requireCan("read"),
   asyncHandler(async (req, res) => {
-    const places = await asCompany(req, (client) => bank.places(client, { companyId: req.companyId }));
+    const { places, said } = await asCompany(req, async (client) => {
+      const places = await bank.places(client, { companyId: req.companyId });
+      // What the bank itself says: the closing balance on its last statement
+      // day, beside what the books say on that same day.
+      const said = {};
+      for (const p of places.filter((x) => x.kind === "bank" && !x.foreign)) {
+        const s = await bank.bankSays(client, { companyId: req.companyId, accountId: p.id });
+        if (s) said[p.id] = { on: s.on, bank: formatLaari(s.bank), books: formatLaari(s.books), difference: formatLaari(s.bank - s.books), agrees: s.bank === s.books };
+      }
+      return { places, said };
+    });
     res.json({
       places: places.map((p) => ({
         id: p.id,
@@ -49,7 +59,7 @@ router.get(
         balance: formatLaari(p.balance),
         balanceFc: p.foreign ? formatLaari(p.balanceFc) : undefined,
         overdrawn: p.balance < 0n,
-        statement: p.kind === "bank" ? { lines: p.lines, waiting: p.waiting } : undefined,
+        statement: p.kind === "bank" ? { lines: p.lines, waiting: p.waiting, said: said[p.id] || null } : undefined,
       })),
     });
   })

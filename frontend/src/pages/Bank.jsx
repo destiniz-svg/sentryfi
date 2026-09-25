@@ -14,7 +14,7 @@ import { bankApi } from "@/api/bank";
 import { CashTins } from "@/components/bank/CashTins";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
-import { today } from "@/lib/utils";
+import { today, formatDate } from "@/lib/utils";
 
 /**
  * Where the money is.
@@ -133,6 +133,14 @@ export default function Bank() {
                         >
                           {p.foreign ? <>{p.currency} <Money amount={p.balanceFc} /></> : <Money amount={p.balance} />}
                         </div>
+                        {p.statement?.said && (
+                          // What the bank says on its last statement day, beside the books on that day.
+                          <div className={`tabular text-[12px] mt-0.5 ${p.statement.said.agrees ? "text-[var(--success)]" : "text-[var(--warning)]"}`} data-testid="bank-says">
+                            {p.statement.said.agrees
+                              ? <>Agrees with the bank on {formatDate(p.statement.said.on)}</>
+                              : <>Bank said <Money amount={p.statement.said.bank} /> on {formatDate(p.statement.said.on)}; books <Money amount={p.statement.said.books} /></>}
+                          </div>
+                        )}
                         {p.foreign && (
                           <div className="tabular text-[12px] text-[var(--ink-muted)]" title="What it cost in our currency, at the rates it came in at">
                             <Money amount={p.balance} /> in the books

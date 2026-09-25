@@ -195,4 +195,23 @@ async function importStatement(client, { companyId, userId, accountId, text, lay
   };
 }
 
-module.exports = { places, openBank, transfer, importStatement };
+/**
+ * What the bank itself says: the closing balance on its last statement day,
+ * and the books on that same day. Several lines share a day and their order
+ * in the file is not always the bank's, so the day's last line is the one
+ * whose balance no other line that day started from.
+ */
+async function bankSays(client, { companyId, accountId }) {
+  const { rows: day } = await client.query("SELECT MAX(posted_on)::text AS d FROM bank_statement_lines WHERE company_id = $1 AND account_id = $2 AND balance_laari IS NOT NULL", [companyId, accountId]);
+  if (!day[0].d) return null;
+  const { rows: lines } = await client.query("SELECT balance_laari, debit_laari, credit_laari FROM bank_statement_lines WHERE company_id = $1 AND account_id = $2 AND posted_on = $3 AND balance_laari IS NOT NULL", [companyId, accountId, day[0].d]);
+  const before = new Set(lines.map((x) => String(BigInt(x.balance_laari) - BigInt(x.credit_laari) + BigInt(x.debit_laari))));
+  const last = lines.find((x) => !before.has(String(x.balance_laari))) || lines[lines.length - 1];
+  const { rows: book } = await client.query(
+    "SELECT COALESCE(SUM(l.debit_laari - l.credit_laari), 0) AS b FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id WHERE l.company_id = $1 AND l.account_id = $2 AND e.entry_date <= $3",
+    [companyId, accountId, day[0].d]
+  );
+  return { on: day[0].d, bank: BigInt(last.balance_laari), books: BigInt(book[0].b) };
+}
+
+module.exports = { places, openBank, transfer, importStatement, bankSays };
