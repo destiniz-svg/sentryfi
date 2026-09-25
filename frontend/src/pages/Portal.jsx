@@ -42,6 +42,8 @@ export default function Portal() {
     retry: false,
     // An answer from the company appears without a reload.
     refetchInterval: 15_000,
+    // A phone stops the interval while the tab is away; coming back looks again at once.
+    refetchOnWindowFocus: true,
   });
   const reload = () => qc.invalidateQueries({ queryKey: ["portal", token] });
 
@@ -76,8 +78,9 @@ export default function Portal() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-[13px] uppercase tracking-[0.12em] font-display font-bold text-[var(--ink-muted)]">{data.company.name}</div>
+            {/* The company's own number: it belongs with its name, not under the customer's. */}
+            {data.company.tin && <div className="text-[12px] text-[var(--ink-muted)] tabular">GST {data.company.tin}</div>}
             <h1 className="font-display text-[28px] font-semibold tracking-tight mt-1">{data.customer}</h1>
-            {data.company.tin && <div className="text-[13px] text-[var(--ink-muted)]">Their GST number {data.company.tin}</div>}
           </div>
           <button type="button" onClick={() => window.print()} className="print:hidden h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--surface)] inline-flex items-center gap-2 text-[14px]">
             <Printer size={15} /> Print
@@ -103,7 +106,7 @@ export default function Portal() {
           <>
             <h2 className={H2}>Waiting for your answer</h2>
             <ul className={`${BOX} divide-y divide-[var(--border)]`} data-testid="portal-answer">
-              {toAnswer.map((d) => row(d, d.kind, <Answer token={token} d={d} onDone={reload} />))}
+              {toAnswer.map((d) => row(d, d.kind, <Answer token={token} d={d} who={data.customer} onDone={reload} />))}
             </ul>
           </>
         )}
@@ -193,13 +196,15 @@ function Row({ token, kind, d, open, onToggle, thread, onAsked, right }) {
 }
 
 /** Accepting or declining, with the name of whoever answers. */
-function Answer({ token, d, onDone }) {
+function Answer({ token, d, who, onDone }) {
   const [mode, setMode] = useState(null);
-  const [name, setName] = useState("");
+  // Their own page: it starts with their name, so saying yes is one tap. Someone else answering changes it.
+  const [name, setName] = useState(who || "");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   async function go() {
+    if (name.trim().length < 2) return setErr("Type your name first, so they know who answered.");
     setBusy(true);
     setErr("");
     try {
@@ -233,7 +238,7 @@ function Answer({ token, d, onDone }) {
       {mode === "no" && <input aria-label="Why (optional)" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why (optional)" className={FIELD} />}
       {err && <p role="alert" className="text-[13px] text-[var(--danger)]">{err}</p>}
       <div className="flex gap-2">
-        <button type="button" onClick={go} disabled={busy || name.trim().length < 2} className="h-10 px-4 rounded-full bg-[var(--ink)] text-[var(--bg)] text-[14px] font-medium inline-flex items-center gap-1.5 disabled:opacity-50">
+        <button type="button" onClick={go} disabled={busy} className="h-10 px-4 rounded-full bg-[var(--ink)] text-[var(--bg)] text-[14px] font-medium inline-flex items-center gap-1.5 disabled:opacity-50">
           {busy && <Loader2 size={14} className="animate-spin" />} {mode === "yes" ? "Yes, accept it" : "Decline it"}
         </button>
         <button type="button" onClick={() => setMode(null)} className="h-10 px-4 rounded-full text-[14px] text-[var(--ink-muted)]">Not now</button>

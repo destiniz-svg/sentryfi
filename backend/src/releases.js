@@ -17,6 +17,17 @@
  */
 const RELEASES = [
   {
+    version: "1.27.3",
+    date: "2026-09-26",
+    title: "Accepting a quote in one tap",
+    summary: "On the customer's page, accepting a quote no longer waits on a name nobody asked for, and the page keeps itself up to date.",
+    items: [
+      { area: "Sales", kind: "fixed", title: "One tap to accept", body: "The customer's name is filled in when they accept or decline a quote, so Yes, accept it works at once. Before, the button stayed grey until a name was typed, with nothing to say so.", href: "/orders?kind=quote" },
+      { area: "Sales", kind: "fixed", title: "The customer's page stays current", body: "It looks again whenever the customer comes back to it, so it never shows figures from before a change.", href: "/orders?kind=quote" },
+      { area: "Sales", kind: "fixed", title: "Your GST number in the right place", body: "On the customer's page your GST number now sits under your company name, not under theirs.", href: "/orders?kind=quote" },
+    ],
+  },
+  {
     version: "1.27.2",
     date: "2026-09-26",
     title: "Quotes answered from the link",
