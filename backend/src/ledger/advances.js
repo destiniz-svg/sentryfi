@@ -44,13 +44,8 @@ async function gstAccount(client, companyId) {
 }
 
 async function nextNumber(client, { companyId, kind }) {
-  const { rows } = await client.query(
-    `SELECT COALESCE(MAX(NULLIF(regexp_replace(number, '\\D', '', 'g'), '')::int), 0) AS n FROM advance_requests WHERE company_id = $1 AND kind = $2`,
-    [companyId, kind]
-  );
-  return `${PREFIX[kind]}-${String(rows[0].n + 1).padStart(4, "0")}`;
+  return require("./numbering").next(client, { companyId, kind });
 }
-
 // ------------------------------------------------------------------ requests
 
 /** A retainer or proforma invoice: lines priced like an invoice's, posting nothing. */

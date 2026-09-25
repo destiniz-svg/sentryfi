@@ -24,13 +24,8 @@ const PREFIX = { purchase: "PO", sale: "SO", quote: "QT" };
 const times = (unitLaari, units) => (unitLaari * units + 5000n) / 10000n; // units are ten-thousandths
 
 async function nextNumber(client, { companyId, kind }) {
-  const { rows } = await client.query(
-    `SELECT COALESCE(MAX(NULLIF(regexp_replace(number, '\\D', '', 'g'), '')::int), 0) AS n FROM orders WHERE company_id = $1 AND kind = $2`,
-    [companyId, kind]
-  );
-  return `${PREFIX[kind]}-${String(rows[0].n + 1).padStart(4, "0")}`;
+  return require("./numbering").next(client, { companyId, kind: { quote: "quote", sale: "sales_order", purchase: "purchase_order" }[kind] });
 }
-
 /**
  * A new order. `approveUpTo` is what the person ordering may approve: null for
  * no limit, a laari amount for their spending limit, or -1n when they may not

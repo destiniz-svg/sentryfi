@@ -61,7 +61,7 @@ async function nextInvoiceNo(client, { companyId, prefix }) {
   // With no prefix given, carry on in whatever the company has been using —
   // Altura's is "ALT/INV-" — read off its most recent invoice. A fresh
   // company starts at INV-000001.
-  let use = prefix ? String(prefix).trim() : null;
+  let use = prefix ? String(prefix).trim() : await require("./numbering").startOf(client, companyId, "invoice");
   if (!use) {
     const { rows: latest } = await client.query(
       `SELECT invoice_no FROM sales_invoices WHERE company_id = $1
@@ -744,17 +744,8 @@ async function creditNote(client, {
 }
 
 async function nextNoteNo(client, { companyId }) {
-  const { rows } = await client.query(
-    `SELECT note_no FROM credit_notes WHERE company_id = $1
-      ORDER BY length(note_no) DESC, note_no DESC LIMIT 1`,
-    [companyId]
-  );
-  const last = rows[0]?.note_no || null;
-  const digits = last ? last.match(/(\d+)\s*$/) : null;
-  const next = digits ? Number(digits[1]) + 1 : 1;
-  return `CN-${String(next).padStart(4, "0")}`;
+  return require("./numbering").next(client, { companyId, kind: "credit_note" });
 }
-
 /**
  * Who owes what, and for how long.
  *

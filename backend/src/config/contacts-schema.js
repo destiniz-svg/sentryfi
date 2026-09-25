@@ -48,6 +48,23 @@ CREATE INDEX IF NOT EXISTS attachments_party_idx ON attachments(counterparty_id)
 ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS opening BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE bills ADD COLUMN IF NOT EXISTS opening BOOLEAN NOT NULL DEFAULT false;
 
+-- How each kind of document is numbered: the company's own start (INV-, ALT/INV-).
+CREATE TABLE IF NOT EXISTS document_numbering (
+  company_id  UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  kind        TEXT NOT NULL,
+  prefix      TEXT NOT NULL CHECK (length(prefix) BETWEEN 1 AND 20),
+  updated_by  UUID REFERENCES users(id),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (company_id, kind)
+);
+ALTER TABLE document_numbering ENABLE ROW LEVEL SECURITY;
+ALTER TABLE document_numbering FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS company_isolation ON document_numbering;
+CREATE POLICY company_isolation ON document_numbering
+  USING (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid)
+  WITH CHECK (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid);
+GRANT SELECT, INSERT, UPDATE, DELETE ON document_numbering TO sentryfi_app;
+
 -- A discount on a line, in hundredths of a percent, taken off before GST.
 ALTER TABLE sales_invoice_lines ADD COLUMN IF NOT EXISTS discount_bp INTEGER CHECK (discount_bp BETWEEN 0 AND 10000);
 `;

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CustomerMailSection } from "@/components/settings/CustomerMail";
+import { NumberingSection } from "@/components/settings/NumberingSection";
 import { motion } from "framer-motion";
 import { Sun, Moon, Check } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -254,7 +255,7 @@ function PasswordSection() {
 
 /** Settings in groups: a list down the side from tablet width, a grid of chips on a phone. */
 const GROUPS = [
-  { title: "Your company", items: [["company", "Company"], ["people", "People"], ["tax", "Tax"], ["customers", "Customer emails", "read"], ["tracking", "Tracking", "manage_settings"]] },
+  { title: "Your company", items: [["company", "Company"], ["people", "People"], ["tax", "Tax"], ["numbers", "Numbers", "read"], ["customers", "Customer emails", "read"], ["tracking", "Tracking", "manage_settings"]] },
   { title: "Connections", items: [["companies", "Companies"], ["assistant", "Assistant"], ["backups", "Backups", "platform"]] },
   { title: "You", items: [["profile", "Account"], ["appearance", "Appearance"], ["password", "Password"]] },
 ];
@@ -266,6 +267,7 @@ const PANELS = {
   tracking: () => <TrackingSection />,
   tax: () => <TaxSection />,
   customers: () => <CustomerMailSection />,
+  numbers: () => <NumberingSection />,
   assistant: () => (
     <div className="space-y-4">
       <AssistantKeys />

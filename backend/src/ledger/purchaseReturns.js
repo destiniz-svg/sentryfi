@@ -64,11 +64,8 @@ async function returnable(client, { companyId, billId }) {
 }
 
 async function nextNumber(client, companyId) {
-  const { rows } = await client.query("SELECT number FROM supplier_returns WHERE company_id = $1 ORDER BY length(number) DESC, number DESC LIMIT 1", [companyId]);
-  const m = rows[0]?.number.match(/(\d+)\s*$/);
-  return `PR-${String(m ? Number(m[1]) + 1 : 1).padStart(4, "0")}`;
+  return require("./numbering").next(client, { companyId, kind: "purchase_return" });
 }
-
 /**
  * A return: goods by item and quantity (at what they came in at), and/or an
  * amount of the bill's other costs (tax included, split as the bill was).

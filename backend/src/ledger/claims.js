@@ -29,11 +29,7 @@ async function create(client, { companyId, userId, note, lines, submit = true })
     }
     prepared.push({ ...l, amount, position: i });
   }
-  const { rows: n } = await client.query(
-    `SELECT COALESCE(MAX(NULLIF(regexp_replace(number, '\\D', '', 'g'), '')::int), 0) + 1 AS n FROM expense_claims WHERE company_id = $1`,
-    [companyId]
-  );
-  const number = `EC-${String(n[0].n).padStart(4, "0")}`;
+  const number = await require("./numbering").next(client, { companyId, kind: "claim" });
   const { rows } = await client.query(
     `INSERT INTO expense_claims (company_id, number, claimant_id, note, submitted_at) VALUES ($1,$2,$3,$4,$5) RETURNING id, number`,
     [companyId, number, userId, String(note || "").trim(), submit ? new Date() : null]
