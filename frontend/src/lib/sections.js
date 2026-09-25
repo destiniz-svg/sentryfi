@@ -72,7 +72,7 @@ export const SECTIONS = [
   {
     label: "Accounting",
     items: [
-      { to: "/statements", icon: Scale, label: "Reports" },
+      { to: "/reports", icon: Scale, label: "Reports" },
       { to: "/tax", icon: Percent, label: "GST return" },
       { to: "/closing", icon: Lock, label: "Closing" },
     ],
@@ -93,6 +93,7 @@ const EXTRA = {
   "/more": [null, "More"],
   "/money": [null, "Money"],
   "/cash": ["Banking", "Cash tins"],
+  "/statements": ["Accounting", "Reports", "Financial statements"],
 };
 
 const pathOf = (to) => to.split("?")[0];

@@ -89,6 +89,8 @@ const Document = lazy(() => import("@/pages/Document"));
 const Approvals = lazy(() => import("@/pages/Approvals"));
 const Inbox = lazy(() => import("@/pages/Inbox"));
 const Contacts = lazy(() => import("@/pages/Contacts"));
+const Reports = lazy(() => import("@/pages/Reports"));
+const Report = lazy(() => import("@/pages/Report"));
 const Contact = lazy(() => import("@/pages/Contact"));
 const Talk = lazy(() => import("@/pages/Talk"));
 const Payments = lazy(() => import("@/pages/Payments"));
@@ -233,7 +235,8 @@ export const router = createBrowserRouter([
       { path: "bills/:id", element: <MobileBill /> },
       { path: "expenses", element: <Navigate to="/bills" replace /> },
       { path: "items", element: <Navigate to="/stock" replace /> },
-      { path: "reports", element: <Navigate to="/statements" replace /> },
+      { path: "reports", element: <Reports /> },
+      { path: "reports/:key", element: <Report /> },
       // Cash is a phone job. At a desk the tins are on Bank and cash.
       { path: "cash", element: <FieldTool board={<PhoneCash />} desk={<Navigate to="/bank" replace />} /> },
       { path: "settings", element: <Settings /> },

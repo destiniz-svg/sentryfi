@@ -116,7 +116,7 @@ export default function NewInvoice() {
   const navigate = useNavigate();
   // Opened from a customer's page: their name is already filled in.
   const [params] = useSearchParams();
-  const { companyId } = useCompany();
+  const { companyId, can } = useCompany();
   const design = useDesign("invoice");
   const [view, setView] = useState("form");
   const toast = useToast();
@@ -128,6 +128,11 @@ export default function NewInvoice() {
   // is no reset step and no moment where the last invoice's figures show.
   const [files, setFiles] = useState([]);
   const [shareFiles, setShareFiles] = useState(false);
+  // A cash sale: paid as it is made. The invoice goes into the books and the
+  // money is recorded against it in the same step.
+  const [paid, setPaid] = useState(false);
+  const [paidInto, setPaidInto] = useState("");
+  const { data: moneyAccounts = [] } = useQuery({ queryKey: ["money-accounts", companyId], queryFn: salesApi.moneyAccounts, enabled: Boolean(companyId) && can("record") });
   const [form, setForm] = useState(() => ({
     customerName: params.get("customer") || "",
     // null until somebody types one, so the suggested number fills it without
@@ -268,6 +273,17 @@ export default function NewInvoice() {
             ? "Put it in the books when it goes to the customer."
             : "It has no purchase order. Their accounts department may not be able to match it.",
       );
+      if (paid && paidInto && !form.currency) {
+        try {
+          const posted = await salesApi.post(result.invoice.id);
+          // The invoice's own total: the entry's can be larger when stock leaves at cost in the same entry.
+          const total = String(result.invoice.gross || posted.total || "").replace(/,/g, "");
+          await salesApi.receive({ counterpartyId: posted.counterpartyId || null, amount: total, accountId: paidInto, receivedOn: form.issueDate || null, reference: `Paid on ${result.invoice.invoiceNo}`, allocations: [{ invoiceId: result.invoice.id, amount: total }] });
+          toast.success(`${result.invoice.invoiceNo} is in the books and paid`, `MVR ${result.invoice.gross || posted.total} received into ${moneyAccounts.find((a) => a.id === paidInto)?.name || "the account"}.`);
+        } catch (ex) {
+          toast.error("Saved, but not marked paid", ex.message);
+        }
+      }
       // What was attached while writing it goes on with it.
       if (files.length && (await uploadPending("invoice", result.invoice.id, files, shareFiles))) toast.error("Some attachments did not go on", "Add them on the invoice's page.");
       navigate(`/documents/invoice/${result.invoice.id}`);
@@ -656,6 +672,31 @@ export default function NewInvoice() {
             </div>
           </dl>
 
+          {!form.currency && can("record") && moneyAccounts.length > 0 && (
+            <div className="rounded-2xl border border-[var(--border)] p-4 grid gap-3" data-testid="paid-now">
+              <div role="radiogroup" aria-label="Has it been paid?" className="flex flex-wrap items-center gap-2">
+                <span className="text-[14px] font-medium mr-1">Paid already?</span>
+                {[[false, "No, on credit"], [true, "Yes, paid now"]].map(([v, label]) => (
+                  <button key={label} type="button" role="radio" aria-checked={paid === v} onClick={() => (setPaid(v), v && !paidInto && setPaidInto(moneyAccounts[0].id))} className={`h-10 px-4 rounded-full border text-[14px] ${paid === v ? "bg-[var(--ink)] text-[var(--bg)] border-[var(--ink)] font-semibold" : "border-[var(--border)] text-[var(--ink-muted)] hover:text-[var(--ink)]"}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {paid && (
+                <label className="grid gap-1.5 sm:max-w-sm">
+                  <span className="text-[13px] font-medium">Received into</span>
+                  <select value={paidInto} onChange={(e) => setPaidInto(e.target.value)} className={FIELD}>
+                    {moneyAccounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-[12px] text-[var(--ink-muted)]">Saving puts it in the books and records the money, dated the invoice day.</span>
+                </label>
+              )}
+            </div>
+          )}
           <PendingAttachments files={files} onChange={setFiles} share={shareFiles} onShare={setShareFiles} />
 
           {err && (
