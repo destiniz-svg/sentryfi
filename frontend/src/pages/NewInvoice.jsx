@@ -18,7 +18,7 @@ import { toDateInput } from "@/lib/utils";
 import { apiClient } from "@/api/client";
 import { PendingAttachments, uploadPending } from "@/components/documents/Attachments";
 import { UnitInput } from "@/components/ui/UnitInput";
-import { ItemPicker, PartyPicker, Step, TermsPicker, dueFrom, termsLabel } from "@/components/forms/Pickers";
+import { Basket, FlowButtons, ItemPicker, PartyPicker, Step, TermsPicker, dueFrom, termsLabel } from "@/components/forms/Pickers";
 import { Modal } from "@/components/ui/Modal";
 import { usePhone } from "@/lib/phone";
 
@@ -617,28 +617,12 @@ export default function NewInvoice() {
         items={forSale}
         onAdd={addLine}
         basket={
-          usable.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-[var(--border)]" data-testid="basket">
-              <ul className="grid gap-1 max-h-[22dvh] overflow-y-auto">
-                {priced.map((l, i) =>
-                  l.amount ? (
-                    <li key={i} className="flex items-center gap-2 text-[14px]">
-                      <span className="min-w-0 flex-1 truncate">
-                        {l.description} <span className="text-[var(--ink-muted)] tabular">· {l.quantity} {l.uom} × {show(laari(l.rate))}</span>
-                      </span>
-                      <span className="tabular">{show(l.amount)}</span>
-                      <button type="button" onClick={() => setLines((all) => (all.length > 1 ? all.filter((_, j) => j !== i) : [blankLine()]))} aria-label={`Take ${l.description} off`} className="h-8 w-8 shrink-0 rounded-full grid place-items-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)]">
-                        <X size={14} />
-                      </button>
-                    </li>
-                  ) : null
-                )}
-              </ul>
-              <Button type="button" variant="accent" className="w-full mt-3" onClick={() => setFlow("tax")} data-testid="flow-next">
-                {usable.length} {usable.length === 1 ? "item" : "items"} · {unit} {show(totals.net)} · Next: GST
-              </Button>
-            </div>
-          )
+          <Basket
+            lines={priced.map((l, i) => ({ key: i, amount: l.amount, label: l.description, detail: `${l.quantity} ${l.uom} × ${laari(l.rate) !== null ? show(laari(l.rate)) : ""}` })).filter((l) => l.amount).map((l) => ({ ...l, amount: show(l.amount) }))}
+            onRemove={(i) => setLines((all) => (all.length > 1 ? all.filter((_, j) => j !== i) : [blankLine()]))}
+            onNext={() => setFlow("tax")}
+            nextLabel={`${usable.length} ${usable.length === 1 ? "item" : "items"} · ${unit} ${show(totals.net)} · Next: GST`}
+          />
         }
       />
 
@@ -730,20 +714,6 @@ export default function NewInvoice() {
   );
 }
 
-/** Back and on, at the foot of each step of the guided way through. */
-function FlowButtons({ back, next, label, disabled, busy, testid = "flow-next" }) {
-  return (
-    <div className="flex gap-2 justify-end mt-5">
-      <Button type="button" variant="outline" onClick={back}>
-        Back
-      </Button>
-      <Button type="button" variant="accent" onClick={next} disabled={disabled || busy} data-testid={testid}>
-        {busy && <Loader2 size={14} className="animate-spin" />}
-        {label}
-      </Button>
-    </div>
-  );
-}
 
 
 function Field({ label, htmlFor, hint, children }) {

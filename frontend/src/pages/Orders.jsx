@@ -17,7 +17,8 @@ import { FIELD } from "@/lib/shipments";
 import { ORDER_STATUS } from "@/lib/orders";
 import { PendingAttachments, uploadPending } from "@/components/documents/Attachments";
 import { UnitInput } from "@/components/ui/UnitInput";
-import { ItemPicker, PartyPicker, Step, dueFrom } from "@/components/forms/Pickers";
+import { Basket, FlowButtons, ItemPicker, PartyPicker, Step, dueFrom } from "@/components/forms/Pickers";
+import { usePhone } from "@/lib/phone";
 
 /**
  * Orders: what was agreed with a supplier or a customer before the goods
@@ -114,7 +115,11 @@ function NewOrder({ kind, onClose }) {
   const [shareFiles, setShareFiles] = useState(false);
   const partyKind = kind === "purchase" ? "supplier" : "customer";
   const [party, setParty] = useState(null);
-  const [partyOpen, setPartyOpen] = useState(true);
+  // The guided way through, as on an invoice: who, items one at a time, when,
+  // anything else, then the order itself. Closing a step leaves the form below.
+  const [flow, setFlow] = useState("who");
+  const phone = usePhone();
+  const side = kind === "purchase" ? "purchase" : "sale";
   const [f, setF] = useState({ orderedOn: today(), projectId: "", expectedOn: "", note: "", validUntil: "" });
   const [lines, setLines] = useState([blankLine()]);
   const [pickFor, setPickFor] = useState(null);
@@ -129,8 +134,18 @@ function NewOrder({ kind, onClose }) {
   const at = !party ? 1 : !hasLines ? 2 : !step3Filled ? 3 : 4;
   const commitment = !party ? (kind === "purchase" ? "Who is it from?" : "Who is it for?") : !hasLines ? "Add a line" : `Save the ${label}`;
 
-  async function onSubmit(e) {
+  function onSubmit(e) {
     e.preventDefault();
+    submit();
+  }
+
+  function addLine(it, { quantity, uom, rate }) {
+    setLines((ls) => [...ls.filter((l) => l.itemId || l.description.trim()), { ...blankLine(), itemId: it.id, description: it.name, quantity, unit: uom, unitPrice: rate.replace(/,/g, "") }]);
+  }
+  const money = (x) => x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const filled = lines.map((l, i) => ({ l, i })).filter(({ l }) => l.itemId || l.description.trim());
+
+  async function submit() {
     setErr("");
     try {
       const r = await save.mutateAsync({
@@ -161,7 +176,7 @@ function NewOrder({ kind, onClose }) {
       ) : (
         <div className="grid gap-4">
           <Step n={1} id="order-step-who" title={kind === "purchase" ? "Who is it from?" : "Who is it for?"} done={at > 1} active={at === 1}>
-            <PartyPicker kind={partyKind} value={party} onChange={setParty} open={partyOpen} setOpen={setPartyOpen} />
+            <PartyPicker kind={partyKind} value={party} onChange={(p) => (setParty(p), setFlow("items"))} open={flow === "who"} setOpen={(v) => setFlow((x) => (v ? "who" : x === "who" ? null : x))} />
           </Step>
 
           <Step n={2} id="order-step-lines" title="What's on it?" done={at > 2} active={at === 2} summary={hasLines ? `${lines.filter((l) => l.itemId || l.description.trim()).length} ${lines.filter((l) => l.itemId || l.description.trim()).length === 1 ? "line" : "lines"}` : null}>
@@ -199,9 +214,14 @@ function NewOrder({ kind, onClose }) {
                 </div>
               </div>
             ))}
-            <Button type="button" variant="ghost" size="sm" onClick={() => setLines((ls) => [...ls, blankLine()])}>
-              <Plus size={14} /> Another line
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setFlow("items")}>
+                <Package size={14} /> Add items
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setLines((ls) => [...ls, blankLine()])}>
+                <Plus size={14} /> Another line
+              </Button>
+            </div>
             <ItemPicker
               open={pickFor != null}
               setOpen={(v) => !v && setPickFor(null)}
@@ -278,6 +298,72 @@ function NewOrder({ kind, onClose }) {
           {err}
         </p>
       )}
+      <ItemPicker
+        open={flow === "items"}
+        setOpen={(v) => setFlow((x) => (v ? "items" : x === "items" ? null : x))}
+        side={side}
+        items={(stockItems || []).filter((it) => !it.archived && (kind === "purchase" ? it.buys : it.sells))}
+        onAdd={addLine}
+        basket={
+          <Basket
+            lines={filled.map(({ l, i }) => ({ key: i, label: l.description, detail: `${l.quantity} ${l.unit} × ${money(n(l.unitPrice))}`, amount: money(n(l.quantity) * n(l.unitPrice)) }))}
+            onRemove={(i) => setLines((ls) => (ls.length === 1 ? [blankLine()] : ls.filter((_, j) => j !== i)))}
+            onNext={() => setFlow("when")}
+            nextLabel={`${filled.length} ${filled.length === 1 ? "item" : "items"} · MVR ${money(total)} · Next`}
+          />
+        }
+      />
+
+      <Modal open={flow === "when"} onClose={() => setFlow(null)} title={kind === "quote" ? "How long is it good for?" : kind === "purchase" ? "When should it arrive?" : "When does it go out?"} variant={phone ? "sheet" : "card"}>
+        {kind === "quote" ? (
+          <div role="radiogroup" aria-label="Valid for" className="flex flex-wrap gap-2">
+            {VALIDITY_CHOICES.map((d) => {
+              const val = dueFrom(f.orderedOn, d);
+              const on = f.validUntil === val;
+              return (
+                <button key={d} type="button" role="radio" aria-checked={on} onClick={() => setF({ ...f, validUntil: val })} className={cn("h-10 px-4 rounded-full border text-[14px]", on ? "bg-[var(--ink)] text-[var(--bg)] border-[var(--ink)] font-semibold" : "border-[var(--border)] text-[var(--ink-muted)] hover:text-[var(--ink)]")}>
+                  {d} days
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <label className="block max-w-[240px]">
+            <span className="text-sm font-medium block mb-1.5">Expected on</span>
+            <input id="flow-expected" type="date" min={f.orderedOn} value={f.expectedOn} onChange={(e) => setF({ ...f, expectedOn: e.target.value })} className={FIELD} />
+          </label>
+        )}
+        <FlowButtons back={() => setFlow("items")} next={() => setFlow("more")} label={step3Filled ? "Next" : "Skip"} />
+      </Modal>
+
+      <Modal open={flow === "more"} onClose={() => setFlow(null)} title="Anything else on it?" description="All of it can be left empty." variant={phone ? "sheet" : "card"}>
+        <div className="grid gap-4">
+          {o?.projects?.length > 0 && (
+            <label className="block">
+              <span className="text-sm font-medium block mb-1.5">For a project</span>
+              <select value={f.projectId} onChange={(e) => setF({ ...f, projectId: e.target.value })} className={FIELD}>
+                <option value="">None</option>
+                {o.projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label className="block">
+            <span className="text-sm font-medium block mb-1.5">Notes</span>
+            <textarea id="flow-note" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} rows={2} maxLength={500} className={`${FIELD} h-auto py-3 leading-relaxed`} />
+          </label>
+          {err && (
+            <p role="alert" className="text-[13px] text-[var(--danger)]">
+              {err}
+            </p>
+          )}
+        </div>
+        <FlowButtons back={() => setFlow("when")} next={submit} busy={save.isPending} disabled={!party || total <= 0} label={`Create the ${label} · MVR ${money(total)}`} testid="flow-create" />
+      </Modal>
+
       <div className="flex justify-end gap-2 mt-6">
         <Button type="button" variant="outline" onClick={onClose}>
           Cancel

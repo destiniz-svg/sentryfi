@@ -17,6 +17,17 @@
  */
 const RELEASES = [
   {
+    version: "1.25",
+    date: "2026-09-25",
+    title: "Quotes, orders and bills, one question at a time",
+    summary: "The way an invoice is raised now works for quotes, sales and purchase orders, and bills typed in by item.",
+    items: [
+      { area: "Sales", kind: "improved", title: "Quotes and sales orders, item by item", body: "Choose the customer, add products or services one after another with how many and at what price, then how long it is good for or when it goes out, then notes.", href: "/orders?kind=quote" },
+      { area: "Purchases", kind: "improved", title: "Purchase orders, item by item", body: "The same steps from the supplier's side, at your usual cost, then when it should arrive.", href: "/orders?kind=purchase" },
+      { area: "Purchases", kind: "new", title: "Enter a bill by its items", body: "Beside photographing it, Enter items takes the supplier, each item and its cost, how the GST was quoted, the terms and the bill number. Counted stock on it is received with the bill.", href: "/bills" },
+    ],
+  },
+  {
     version: "1.24",
     date: "2026-09-25",
     title: "An invoice, one question at a time",

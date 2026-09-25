@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Camera, Check, FileText, Loader2, Mic, Paperclip, Square, X } from "lucide-react";
+import { AlertTriangle, Camera, Check, FileText, ListPlus, Loader2, Mic, Paperclip, Square, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -15,7 +15,9 @@ import { useUndo } from "@/context/UndoContext";
 import { today } from "@/lib/utils";
 import { prepareForReading } from "@/lib/image";
 import { TagPicker } from "@/components/ui/TagPicker";
-import { PartyPicker, TermsPicker, dueFrom } from "@/components/forms/Pickers";
+import { Basket, FlowButtons, ItemPicker, PartyPicker, TermsPicker, dueFrom } from "@/components/forms/Pickers";
+import { useNavigate } from "react-router-dom";
+import { taxApi } from "@/api/tax";
 
 /**
  * Getting a bill in.
@@ -97,6 +99,25 @@ export function RecordBill({ open, onClose, start }) {
   // for the adviser to say what each one is.
   const [readLines, setReadLines] = useState(null);
   const [sure, setSure] = useState([]);
+  // Typed in item by item, as on an invoice: who, the items, GST, terms, the
+  // rest, then recorded. The amount is worked out from the items.
+  const [flow, setFlow] = useState(null);
+  const [items, setItems] = useState([]);
+  const navigate = useNavigate();
+  const { data: stockItems } = useQuery({ queryKey: ["stock", companyId], queryFn: () => apiClient.get("/stock").then((r) => r.data), select: (d) => d.items, enabled: Boolean(companyId) && open });
+  const { data: taxNow } = useQuery({ queryKey: ["tax", companyId, form.issueDate], queryFn: () => taxApi.overview(form.issueDate), enabled: Boolean(companyId) && open && items.length > 0 });
+  const rateBp = taxNow?.rates.find((r) => r.code === taxNow.defaultRate)?.bp ?? 0;
+  // Whole laari, per line, as the server splits it.
+  const cents = (x) => Math.round(Number(String(x).replace(/,/g, "")) * 100) || 0;
+  const priced = items.map((l) => {
+    const line = Math.round(cents(l.rate) * Number(l.quantity));
+    const inTax = form.gstTreatment === "exclusive" ? Math.round((line * rateBp) / 10000) : 0;
+    const net = form.gstTreatment === "inclusive" ? line - Math.round((line * rateBp) / (10000 + rateBp)) : line;
+    return { ...l, line, gross: line + inTax, net };
+  });
+  const itemsGross = priced.reduce((a, l) => a + l.gross, 0);
+  const itemsLine = priced.reduce((a, l) => a + l.line, 0);
+  const laariShown = (c) => (c / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 /**
    * The button that commits names the money.
    *
@@ -153,6 +174,7 @@ export function RecordBill({ open, onClose, start }) {
     setForm((f) => ({ ...f, supplierName: p.name, ...(p.termsDays != null ? { dueDate: dueFrom(f.issueDate, p.termsDays) || f.dueDate } : {}) }));
     if (p.termsDays != null) setTerms(p.termsDays);
     setKeepTerms(false);
+    setFlow((x) => (x === "who" ? "items" : x));
   }
   const setIssued = (e) => {
     const issueDate = e.target.value;
@@ -190,6 +212,8 @@ export function RecordBill({ open, onClose, start }) {
       setFiles([]);
       setSupplierFacts(null);
       setReadLines(null);
+      setFlow(null);
+      setItems([]);
     }
   }, [open]);
 
@@ -381,16 +405,22 @@ export function RecordBill({ open, onClose, start }) {
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  async function onSubmit(e) {
+  function onSubmit(e) {
     e.preventDefault();
+    submit();
+  }
+
+  async function submit() {
     setErr("");
+    const typed = items.length > 0;
+    const amount = typed ? (itemsGross / 100).toFixed(2) : String(form.amount).replace(/,/g, "");
 
     if (!form.supplierName.trim()) return setErr("Who is the bill from?");
     if (form.currency && !(Number(form.fxRate) > 0)) {
       setErr(`What rate did the bank use for ${form.currency}? MVR for 1 ${form.currency}.`);
       return;
     }
-    if (!(Number(String(form.amount).replace(/,/g, "")) > 0)) {
+    if (!(Number(amount) > 0)) {
       return setErr("How much is it for?");
     }
 
@@ -403,7 +433,7 @@ export function RecordBill({ open, onClose, start }) {
       clientRef: crypto.randomUUID(),
       counterpartyId: party?.id || null,
       supplierName: form.supplierName.trim(),
-      amount: String(form.amount).replace(/,/g, ""),
+      amount,
       billNo: form.billNo.trim() || null,
       issueDate: form.issueDate || null,
       dueDate: form.dueDate || null,
@@ -413,11 +443,12 @@ export function RecordBill({ open, onClose, start }) {
       // No rate sent: the server uses the one in force on the bill date, from
       // the tax engine, and keeps it on the bill.
       supplier: supplierFacts || undefined,
-      lines: readLines || undefined,
+      lines: typed ? priced.map((l) => ({ description: l.item.name, quantity: l.quantity, amount: (l.gross / 100).toFixed(2) })) : readLines || undefined,
       projectId: form.tags?.projectId || null,
       dimensionIds: form.tags?.dimensionIds?.length ? form.tags.dimensionIds : null,
     };
 
+    // ponytail: a bill held for want of signal keeps its items as lines only; the stock is said on the bill later.
     // No signal: hold it on the phone and send it when there is. The bill is
     // never lost for want of a connection, which is what the landing page has
     // been promising.
@@ -445,6 +476,15 @@ export function RecordBill({ open, onClose, start }) {
       // A failure here does not lose the bill. The bill is recorded and the
       // paper can be added again, which is better than rolling back work
       // somebody has already done.
+      // Counted stock on it is received with the bill, before tax, so the
+      // items on hand go up when it goes in the books.
+      const counted = typed ? priced.filter((l) => l.item.counted) : [];
+      if (counted.length) {
+        await apiClient
+          .put(`/bills/${result.bill.id}/stock`, { lines: counted.map((l) => ({ itemId: l.item.id, quantity: l.quantity, amount: (l.net / 100).toFixed(2) })) })
+          .catch((ex) => toast.error("Recorded, but not the stock", ex.message));
+      }
+
       let paperKept = true;
       for (const file of files) {
         try {
@@ -523,6 +563,7 @@ export function RecordBill({ open, onClose, start }) {
             : "Check it, then put it in the books."
       );
       onClose();
+      if (typed) navigate(`/bills/${result.bill.id}`);
     } catch (ex) {
       // A request that never reached the server is the same as having no
       // signal: hold it rather than making somebody photograph it again.
@@ -612,6 +653,18 @@ export function RecordBill({ open, onClose, start }) {
             {listening ? <Square size={15} /> : <Mic size={16} />}
             {listening ? "Stop and read it" : "Say it"}
           </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => (party ? setFlow("items") : (setFlow("who"), setPartyOpen(true)))}
+            disabled={reading}
+            data-testid="bill-enter-items"
+            className={(board ? "h-[52px] rounded-2xl" : "h-12") + " sm:col-span-3"}
+          >
+            <ListPlus size={16} />
+            {items.length ? `Items · ${form.currency || "MVR"} ${laariShown(itemsGross)}` : "Enter items"}
+          </Button>
         </div>
 
         {files.length > 0 && (
@@ -684,8 +737,9 @@ export function RecordBill({ open, onClose, start }) {
           <Field label="How much?" htmlFor="bill-amount" read={sure.includes("amount")}>
             <input
               id="bill-amount"
-              value={form.amount}
+              value={items.length ? laariShown(itemsGross) : form.amount}
               onChange={set("amount")}
+              readOnly={items.length > 0}
               inputMode="decimal"
               placeholder="4,250.50"
               className={`${fieldClass("amount")} tabular`}
@@ -884,6 +938,71 @@ export function RecordBill({ open, onClose, start }) {
           </Button>
         </div>
       )}
+
+      <ItemPicker
+        open={flow === "items"}
+        setOpen={(v) => setFlow((x) => (v ? "items" : x === "items" ? null : x))}
+        side="purchase"
+        items={(stockItems || []).filter((it) => !it.archived && it.buys !== false)}
+        onAdd={(item, l) => setItems((all) => [...all, { item, quantity: l.quantity, uom: l.uom, rate: l.rate }])}
+        basket={
+          <Basket
+            lines={priced.map((l, i) => ({ key: i, label: l.item.name, detail: `${l.quantity} ${l.uom} × ${laariShown(cents(l.rate))}`, amount: laariShown(l.line) }))}
+            onRemove={(i) => setItems((all) => all.filter((_, j) => j !== i))}
+            onNext={() => setFlow("tax")}
+            nextLabel={`${items.length} ${items.length === 1 ? "item" : "items"} · MVR ${laariShown(itemsLine)} · Next: GST`}
+          />
+        }
+      />
+
+      <Modal open={flow === "tax"} onClose={() => setFlow(null)} title="How was the GST quoted?" variant={board ? "sheet" : "card"}>
+        <div role="radiogroup" aria-label="GST" className="grid gap-2">
+          {TAX_CHOICES.map((c) => (
+            <button key={c.value} type="button" role="radio" aria-checked={form.gstTreatment === c.value} onClick={() => setForm((f) => ({ ...f, gstTreatment: c.value }))}
+              className={`rounded-2xl border p-3 text-left ${form.gstTreatment === c.value ? "bg-[var(--ink)] text-[var(--bg)] border-[var(--ink)]" : "border-[var(--border)] hover:border-[var(--ink)]"}`}>
+              <span className="block text-[15px] font-semibold">{c.label}</span>
+              <span className={`block text-[13px] ${form.gstTreatment === c.value ? "opacity-75" : "text-[var(--ink-muted)]"}`}>{c.hint}</span>
+            </button>
+          ))}
+        </div>
+        <p className="mt-4 flex justify-between text-[15px] font-semibold tabular border-t border-[var(--ink)] pt-2">
+          <span>The bill comes to</span>
+          <span>MVR {laariShown(itemsGross)}</span>
+        </p>
+        <FlowButtons back={() => setFlow("items")} next={() => setFlow("terms")} label="Next: terms" />
+      </Modal>
+
+      <Modal open={flow === "terms"} onClose={() => setFlow(null)} title="When is it due?" variant={board ? "sheet" : "card"}>
+        <TermsPicker
+          issued={form.issueDate}
+          terms={terms}
+          due={form.dueDate}
+          party={party}
+          keep={keepTerms}
+          onKeep={can("record") ? setKeepTerms : null}
+          onChange={({ terms: t, due }) => (setTerms(t), setForm((f) => ({ ...f, dueDate: due || "" })))}
+        />
+        <FlowButtons back={() => setFlow("tax")} next={() => setFlow("more")} label={form.dueDate ? "Next" : "Skip"} />
+      </Modal>
+
+      <Modal open={flow === "more"} onClose={() => setFlow(null)} title="The bill itself" description="As printed on it. The number is how a bill sent twice gets caught." variant={board ? "sheet" : "card"}>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="grid gap-1.5 min-w-0">
+            <span className="text-[13px] font-medium">Bill number</span>
+            <input id="flow-bill-no" value={form.billNo} onChange={set("billNo")} placeholder="INV-8841" className={`${inputClass} tabular`} />
+          </label>
+          <label className="grid gap-1.5 min-w-0">
+            <span className="text-[13px] font-medium">Dated</span>
+            <input type="date" value={form.issueDate} onChange={setIssued} className={`${inputClass} tabular`} />
+          </label>
+        </div>
+        {err && (
+          <p role="alert" className="text-[13px] text-[var(--danger)] mt-4">
+            {err}
+          </p>
+        )}
+        <FlowButtons back={() => setFlow("terms")} next={() => (setFlow(null), submit())} busy={record.isPending} disabled={!party || !items.length} label={`Record MVR ${laariShown(itemsGross)}`} testid="flow-create" />
+      </Modal>
     </Modal>
   );
 }

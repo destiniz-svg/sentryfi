@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronRight, Loader2, Package, Plus, Search, UserRound } from "lucide-react";
+import { Check, ChevronRight, Loader2, Package, Plus, Search, UserRound, X } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { apiClient } from "@/api/client";
 import { useCompany } from "@/context/CompanyContext";
@@ -281,6 +281,49 @@ function NewItem({ name, side, onBack, onSaved }) {
           {busy && <Loader2 size={16} className="animate-spin" />} Save and add
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * What is on the document so far, under the item list: each line with a way
+ * off, and the one way on. Shared by every guided "new document" flow.
+ */
+export function Basket({ lines, onRemove, onNext, nextLabel }) {
+  if (!lines.length) return null;
+  return (
+    <div className="mt-3 pt-3 border-t border-[var(--border)]" data-testid="basket">
+      <ul className="grid gap-1 max-h-[22dvh] overflow-y-auto">
+        {lines.map((l) => (
+          <li key={l.key} className="flex items-center gap-2 text-[14px]">
+            <span className="min-w-0 flex-1 truncate">
+              {l.label} <span className="text-[var(--ink-muted)] tabular">· {l.detail}</span>
+            </span>
+            <span className="tabular">{l.amount}</span>
+            <button type="button" onClick={() => onRemove(l.key)} aria-label={`Take ${l.label} off`} className="h-8 w-8 shrink-0 rounded-full grid place-items-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)]">
+              <X size={14} />
+            </button>
+          </li>
+        ))}
+      </ul>
+      <button type="button" onClick={onNext} data-testid="flow-next" className="w-full mt-3 h-11 px-5 rounded-full bg-[var(--accent)] text-[var(--on-accent)] text-[15px] font-semibold">
+        {nextLabel}
+      </button>
+    </div>
+  );
+}
+
+/** Back and on, at the foot of each step of a guided flow. */
+export function FlowButtons({ back, next, label, disabled, busy, testid = "flow-next" }) {
+  return (
+    <div className="flex gap-2 justify-end mt-5">
+      <button type="button" onClick={back} className="h-11 px-5 rounded-full border border-[var(--border)] text-[15px] font-medium hover:border-[var(--ink)]">
+        Back
+      </button>
+      <button type="button" onClick={next} disabled={disabled || busy} data-testid={testid} className="h-11 px-5 rounded-full bg-[var(--accent)] text-[var(--on-accent)] text-[15px] font-semibold inline-flex items-center gap-2 disabled:opacity-50">
+        {busy && <Loader2 size={16} className="animate-spin" />}
+        {label}
+      </button>
     </div>
   );
 }
