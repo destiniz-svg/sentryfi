@@ -17,6 +17,15 @@
  */
 const RELEASES = [
   {
+    version: "1.15",
+    date: "2026-09-25",
+    title: "Settings, reorganised",
+    summary: "Settings is now a short list in three groups, each with a line saying what is inside.",
+    items: [
+      { area: "App", kind: "improved", title: "Settings, reorganised", body: "Your company, Connections and You, each setting with an icon and a line saying what it holds. On a phone, tap one to open it and Settings to go back; on a computer, the list stays beside what you open.", href: "/settings" },
+    ],
+  },
+  {
     version: "1.14",
     date: "2026-09-25",
     title: "Release news in a weekly round-up",

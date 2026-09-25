@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { CustomerMailSection } from "@/components/settings/CustomerMail";
 import { NumberingSection } from "@/components/settings/NumberingSection";
-import { motion } from "framer-motion";
-import { Sun, Moon, Check } from "lucide-react";
+import { Sun, Moon, Check, ArrowLeft, ChevronRight, Building2, Users, Percent, Hash, Mail, Tags, Building, KeyRound, DatabaseBackup, UserRound, SunMoon, Lock } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -19,7 +18,7 @@ import { BackupsSection } from "@/components/settings/BackupsSection";
 import { TrackingSection } from "@/components/settings/TrackingSection";
 import { DevicesSection } from "@/components/settings/DevicesSection";
 import { useCompany } from "@/context/CompanyContext";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { AssistantKeys } from "@/components/settings/AssistantKeys";
 import { Webhooks } from "@/components/settings/Webhooks";
 import { useT } from "@/lib/i18n";
@@ -253,11 +252,40 @@ function PasswordSection() {
   );
 }
 
-/** Settings in groups: a list down the side from tablet width, a grid of chips on a phone. */
+/**
+ * Settings as a phone lists them: groups of rows, each an icon, a name and one
+ * line saying what is inside. On a phone or tablet the list is its own screen
+ * and a row opens its setting full width, with the way back at the top; at a
+ * desk the list stays down the side and the setting opens beside it.
+ */
 const GROUPS = [
-  { title: "Your company", items: [["company", "Company"], ["people", "People"], ["tax", "Tax"], ["numbers", "Numbers", "read"], ["customers", "Customer emails", "read"], ["tracking", "Tracking", "manage_settings"]] },
-  { title: "Connections", items: [["companies", "Companies"], ["assistant", "Assistant"], ["backups", "Backups", "platform"]] },
-  { title: "You", items: [["profile", "Account"], ["appearance", "Appearance"], ["password", "Password"]] },
+  {
+    title: "Your company",
+    items: [
+      ["company", "Company", "Name, address, TIN, logo and documents", Building2],
+      ["people", "People", "Who is in, and what each person may do", Users],
+      ["tax", "Tax", "GST registration, rates and when returns are due", Percent],
+      ["numbers", "Numbers", "How invoices, quotes and orders are numbered", Hash, "read"],
+      ["customers", "Customer emails", "Statements and reminders that send themselves", Mail, "read"],
+      ["tracking", "Tracking", "Projects, branches, departments and machines", Tags, "manage_settings"],
+    ],
+  },
+  {
+    title: "Connections",
+    items: [
+      ["companies", "Companies", "The companies you keep books for", Building, null],
+      ["assistant", "Assistant", "Keys for AI assistants and other software", KeyRound, null],
+      ["backups", "Backups", "Nightly copies, proven by a restore", DatabaseBackup, "platform"],
+    ],
+  },
+  {
+    title: "You",
+    items: [
+      ["profile", "Account", "Your name, email and signed-in devices", UserRound, null],
+      ["appearance", "Appearance", "Light or dark", SunMoon, null],
+      ["password", "Password", "Change it, and sign out everywhere else", Lock, null],
+    ],
+  },
 ];
 const PANELS = {
   company: () => <CompanySection />,
@@ -285,51 +313,84 @@ const PANELS = {
 };
 
 export default function Settings() {
-  const [tab, setTabState] = useState(() => new URLSearchParams(window.location.search).get("tab") || "company");
+  const [params, setParams] = useSearchParams();
+  const chosen = params.get("tab");
   const { user } = useAuth();
   const { can } = useCompany();
   const allowed = (need) => !need || (need === "platform" ? user?.platformAdmin : can(need));
-  const groups = GROUPS.map((g) => ({ ...g, items: g.items.filter(([, , need]) => allowed(need)) }));
-  const setTab = (t) => {
-    setTabState(t);
-    const u = new URL(window.location.href);
-    u.searchParams.set("tab", t);
-    window.history.replaceState(null, "", u);
-  };
-  const Panel = PANELS[tab] || PANELS.company;
+  const groups = GROUPS.map((g) => ({ ...g, items: g.items.filter(([, , , , need]) => allowed(need)) })).filter((g) => g.items.length);
+  const all = groups.flatMap((g) => g.items);
+  // At a desk something is always open; on a phone the list is the first screen.
+  const tab = all.some(([k]) => k === chosen) ? chosen : null;
+  const open = (key) => setParams(key ? { tab: key } : {}, { replace: false });
+  const Panel = PANELS[tab || "company"];
+  const here = all.find(([k]) => k === (tab || "company"));
+
+  const list = (
+    <nav aria-label="Settings" className="grid gap-5">
+      {groups.map((g) => (
+        <section key={g.title} aria-labelledby={`sg-${g.title}`}>
+          <h2 id={`sg-${g.title}`} className="text-[13px] font-semibold text-[var(--ink-muted)] px-1 mb-2">
+            {g.title}
+          </h2>
+          <ul className="rounded-[20px] bg-[var(--surface)] lift overflow-hidden divide-y divide-[var(--border)]">
+            {g.items.map(([key, label, about, Icon]) => {
+              // The open one is marked at a desk only; on a phone the list is its own screen.
+              const on = (tab || "company") === key;
+              return (
+                <li key={key}>
+                  <button
+                    type="button"
+                    onClick={() => open(key)}
+                    aria-current={tab === key ? "page" : undefined}
+                    className={cn("w-full text-left flex items-center gap-3.5 px-4 min-h-[64px] lg:min-h-[56px] py-2.5 transition-colors", on ? "lg:bg-[var(--ink)] lg:text-[var(--bg)]" : "hover:bg-[var(--surface-2)]/70")}
+                  >
+                    <span className={cn("h-9 w-9 shrink-0 rounded-full inline-flex items-center justify-center", on ? "lg:bg-white/15 bg-[var(--surface-2)] text-[var(--ink-muted)] lg:text-[var(--bg)]" : "bg-[var(--surface-2)] text-[var(--ink-muted)]")}>
+                      <Icon size={17} strokeWidth={1.75} aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[15px] font-semibold leading-tight">{label}</span>
+                      <span className={cn("block text-[13px] leading-snug mt-0.5 truncate lg:whitespace-normal lg:line-clamp-1", on ? "text-[var(--ink-muted)] lg:text-[var(--bg)]/70" : "text-[var(--ink-muted)]")}>{about}</span>
+                    </span>
+                    <ChevronRight size={17} className={cn("shrink-0 lg:hidden", "text-[var(--ink-muted)]")} aria-hidden="true" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
+    </nav>
+  );
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Settings" description="Your company profile, invoicing defaults, and account." />
-      <div className="md:grid md:grid-cols-[200px_minmax(0,1fr)] md:gap-8 md:items-start">
-        <nav aria-label="Settings" className="md:sticky md:top-4 mb-6 md:mb-0">
-          {groups.map((g) => (
-            <div key={g.title} className="mb-4 last:mb-0">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)] px-1 md:px-3 mb-1.5">{g.title}</div>
-              <div className="grid grid-cols-3 gap-1.5 md:grid-cols-1 md:gap-0.5">
-                {g.items.map(([key, label]) => {
-                  const on = tab === key;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      aria-current={on ? "page" : undefined}
-                      onClick={() => setTab(key)}
-                      className={`relative h-10 px-3 rounded-full md:rounded-xl text-[14px] font-medium text-center md:text-left transition-colors ${
-                        on ? "text-[var(--bg)]" : "text-[var(--ink-muted)] hover:text-[var(--ink)] bg-[var(--surface)] lift md:bg-transparent md:shadow-none md:hover:bg-[var(--surface-2)]"
-                      }`}
-                    >
-                      {on && <motion.span layoutId="settings-active" className="absolute inset-0 rounded-full md:rounded-xl bg-[var(--ink)]" transition={{ type: "spring", duration: 0.35, bounce: 0.15 }} />}
-                      <span className="relative">{label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </nav>
-        <div className="min-w-0">
-          <Panel />
+    <div className="max-w-[1180px]">
+      {/* Phone and tablet: the list, or one setting with the way back. */}
+      <div className="lg:hidden">
+        {!tab ? (
+          <>
+            <PageHeader title="Settings" description="Your company, what it connects to, and you." />
+            {list}
+          </>
+        ) : (
+          <>
+            <button type="button" onClick={() => open(null)} className="inline-flex items-center gap-1.5 h-11 px-3 -ml-3 rounded-full text-[14px] text-[var(--ink-muted)] hover:text-[var(--ink)]">
+              <ArrowLeft size={16} /> Settings
+            </button>
+            <h1 className="font-display text-[28px] font-semibold tracking-tight mt-1 mb-5">{here?.[1]}</h1>
+            <Panel />
+          </>
+        )}
+      </div>
+      {/* Desk: the list down the side, the setting beside it. */}
+      <div className="hidden lg:block">
+        <PageHeader title="Settings" description="Your company, what it connects to, and you." />
+        <div className="grid grid-cols-[320px_minmax(0,1fr)] gap-8 items-start">
+          <div className="sticky top-4">{list}</div>
+          <div className="min-w-0">
+            <h2 className="font-display text-[22px] font-semibold tracking-tight mb-4">{here?.[1]}</h2>
+            <Panel />
+          </div>
         </div>
       </div>
     </div>
