@@ -18,7 +18,7 @@ const { today: localToday } = require("./today");
 /** The bank accounts and open tins, each with what the books say is in it. */
 async function places(client, { companyId }) {
   const { rows } = await client.query(
-    `SELECT a.id, a.code, a.name, a.currency,
+    `SELECT a.id, a.code, a.name, a.currency, a.bank_account_no,
             a.currency <> (SELECT c.base_currency FROM companies c WHERE c.id = a.company_id) AS foreign,
             CASE WHEN b.id IS NULL THEN 'bank' ELSE 'box' END AS kind,
             COALESCE(SUM(l.debit_laari) - SUM(l.credit_laari), 0) AS balance,
@@ -40,18 +40,51 @@ async function places(client, { companyId }) {
   return rows.map((r) => ({ ...r, currency: (r.currency || "").trim(), balance: BigInt(r.balance), balanceFc: BigInt(r.balance_fc) }));
 }
 
-/** A second bank account, or a first at a new bank. Starts at nothing. */
-async function openBank(client, { companyId, name, currency }) {
-  const clean = String(name || "").trim();
-  if (clean.length < 2) throw new Error("A bank account needs a name, so a statement can say which one it was.");
+const cleanNo = (x) => String(x || "").replace(/[\s-]+/g, "") || null;
+
+async function numberFree(client, companyId, no, exceptId = null) {
   const { rows } = await client.query(
-    `SELECT 1 FROM accounts WHERE company_id = $1 AND lower(name) = lower($2)`,
-    [companyId, clean]
+    "SELECT name FROM accounts WHERE company_id = $1 AND bank_account_no = $2 AND archived_at IS NULL AND id IS DISTINCT FROM $3",
+    [companyId, no, exceptId]
   );
-  if (rows.length) throw new Error(`There is already an account called "${clean}".`);
+  if (rows.length) throw new Error(`Account ${no} is already here, as "${rows[0].name}".`);
+}
+
+/** The number of a bank account opened before numbers were asked for. */
+async function setNumber(client, { companyId, accountId, accountNo }) {
+  const no = cleanNo(accountNo);
+  if (!no) throw new Error("What is its account number?");
+  await numberFree(client, companyId, no, accountId);
+  const { rowCount } = await client.query(
+    "UPDATE accounts SET bank_account_no = $1 WHERE id = $2 AND company_id = $3 AND code LIKE '11%'",
+    [no, accountId, companyId]
+  );
+  if (!rowCount) throw new Error("That is not one of your bank accounts.");
+  return { accountNo: no };
+}
+
+/** A second bank account, or a first at a new bank. Starts at nothing. */
+async function openBank(client, { companyId, name, currency, accountNo }) {
+  let clean = String(name || "").trim();
+  if (clean.length < 2) throw new Error("A bank account needs a name, so a statement can say which one it was.");
+  const no = cleanNo(accountNo);
+  if (no) await numberFree(client, companyId, no);
   const cur = currency ? String(currency).trim().toUpperCase() : null;
   if (cur && !/^[A-Z]{3}$/.test(cur)) throw new Error("A currency is three letters, like USD.");
-  return openAssetAccount(client, { companyId, prefix: "11", name: clean, currency: cur });
+  const taken = async (n) =>
+    (await client.query("SELECT 1 FROM accounts WHERE company_id = $1 AND lower(name) = lower($2)", [companyId, n])).rows.length > 0;
+  // Two or three accounts at one bank are normal, not a mistake. A name
+  // already in use is told apart by its currency, then the end of its number,
+  // then a count: "BML" becomes "BML USD", "BML USD ··5555", "BML USD 2".
+  if (await taken(clean)) {
+    const shown = cur || (await client.query("SELECT base_currency FROM companies WHERE id = $1", [companyId])).rows[0].base_currency.trim();
+    if (!new RegExp(`\\b${shown}\\b`, "i").test(clean)) clean = `${clean} ${shown}`;
+  }
+  if ((await taken(clean)) && no) clean = `${clean} ··${no.slice(-4)}`;
+  const base = clean;
+  for (let n = 2; await taken(clean); n += 1) clean = `${base} ${n}`;
+  const account = await openAssetAccount(client, { companyId, prefix: "11", name: clean, currency: cur, bankAccountNo: no });
+  return { ...account, accountNo: no };
 }
 
 /**
@@ -214,4 +247,4 @@ async function bankSays(client, { companyId, accountId }) {
   return { on: day[0].d, bank: BigInt(last.balance_laari), books: BigInt(book[0].b) };
 }
 
-module.exports = { places, openBank, transfer, importStatement, bankSays };
+module.exports = { places, openBank, setNumber, transfer, importStatement, bankSays };

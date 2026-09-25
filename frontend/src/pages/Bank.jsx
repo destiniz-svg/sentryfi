@@ -49,6 +49,7 @@ export default function Bank() {
     setParams({}, { replace: true });
   }, [params, setParams]);
   const [bringing, setBringing] = useState(null); // the bank account a statement is being brought into
+  const [numbering, setNumbering] = useState(null); // an account opened before numbers were asked for
 
   const { data: places, isLoading } = useQuery({
     queryKey: ["bank", companyId],
@@ -108,8 +109,18 @@ export default function Bank() {
                         <div className="text-[15px] font-medium truncate">{p.name.replace(/^Cash: /, "")}</div>
                         <div className="text-[13px] text-[var(--ink-muted)] tabular">
                           {p.code}
+                          {p.accountNo && ` · A/C ${p.accountNo}`}
                           {p.statement?.lines > 0 && ` · ${p.statement.lines.toLocaleString("en-US")} statement lines`}
                         </div>
+                        {p.kind === "bank" && !p.accountNo && can("manage_settings") && (
+                          <button
+                            type="button"
+                            onClick={() => setNumbering(p)}
+                            className="inline-flex items-center min-h-[44px] sm:min-h-0 text-[13px] font-medium text-[var(--warning)] underline underline-offset-2"
+                          >
+                            Add its account number
+                          </button>
+                        )}
                         {p.statement?.lines > 0 && (
                           <Link
                             to={`/bank/${p.id}`}
@@ -158,7 +169,8 @@ export default function Bank() {
       )}
 
       {moving > 0 && <MoveMoney key={moving} places={places || []} onClose={() => setMoving(0)} />}
-      <OpenBank open={opening} onClose={() => setOpening(false)} />
+      {numbering && <AddNumber place={numbering} onClose={() => setNumbering(null)} />}
+      <OpenBank open={opening} onClose={() => setOpening(false)} base={(places || []).find((p) => !p.foreign)?.currency || "MVR"} />
       {bringing && <BringStatement key={bringing.id} place={bringing} onClose={() => setBringing(null)} />}
     </div>
   );
@@ -291,46 +303,29 @@ function MoveMoney({ places, onClose }) {
   );
 }
 
-function OpenBank({ open, onClose }) {
+function AddNumber({ place, onClose }) {
   const toast = useToast();
   const refresh = useRefresh();
-  const [name, setName] = useState("");
-  const [currency, setCurrency] = useState("");
+  const [no, setNo] = useState("");
   const [err, setErr] = useState("");
-  const make = useMutation({ mutationFn: ({ name, currency }) => bankApi.open(name, currency) });
+  const save = useMutation({ mutationFn: () => bankApi.setNumber(place.id, no.trim()) });
 
   async function onSubmit(e) {
     e.preventDefault();
     setErr("");
     try {
-      const a = await make.mutateAsync({ name: name.trim(), currency });
+      await save.mutateAsync();
       refresh();
-      toast.success(`${a.name} is open`, "It starts at nothing. Move money in from another account.");
-      setName("");
-      setCurrency("");
+      toast.success(`${place.name} has its number`);
       onClose();
     } catch (ex) {
-      setErr(ex.message || "That could not be opened.");
+      setErr(ex.message || "That could not be saved.");
     }
   }
 
   return (
-    <Modal open={open} onClose={onClose} as="form" onSubmit={onSubmit} title="New bank account" description="Name it the way the statement does, so nobody has to guess which one a file belongs to.">
-      <label className="block">
-        <span className="text-sm font-medium block mb-1.5">Name</span>
-        <input id="bank-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Bank of Maldives USD" className={FIELD} />
-      </label>
-      <label className="block mt-4">
-        <span className="text-sm font-medium block mb-1.5">Kept in</span>
-        <select id="bank-currency" value={currency} onChange={(e) => setCurrency(e.target.value)} className={FIELD}>
-          <option value="">Our own currency</option>
-          {CURRENCIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-      </label>
+    <Modal open onClose={onClose} as="form" onSubmit={onSubmit} title={`${place.name}: account number`} description="As printed on its statement.">
+      <input id="bank-set-no" required value={no} onChange={(e) => setNo(e.target.value)} inputMode="numeric" autoComplete="off" placeholder="7730000012345" aria-label="Account number" className={FIELD} />
       {err && (
         <p role="alert" className="text-[13px] text-[var(--danger)] mt-4">
           {err}
@@ -340,7 +335,100 @@ function OpenBank({ open, onClose }) {
         <Button type="button" variant="outline" onClick={onClose}>
           Cancel
         </Button>
-        <Button type="submit" variant="accent" disabled={make.isPending || name.trim().length < 2}>
+        <Button type="submit" variant="accent" disabled={save.isPending || no.replace(/[\s-]/g, "").length < 4}>
+          {save.isPending && <Loader2 size={14} className="animate-spin" />}
+          Save
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+// The banks a Maldivian business banks with. Any other can be typed.
+const BANKS = ["BML", "MIB", "SBI", "CBM", "HBL", "Bank of Ceylon", "MCB", "Wise"];
+
+/**
+ * A bank account, the way Xero and Zoho ask for one: which bank, which
+ * currency, which account. Two or three accounts at one bank in one currency
+ * are normal, so the name fills itself from the bank, the currency and the
+ * end of the number, and "Open and add another" keeps the bank for the next.
+ */
+function OpenBank({ open, onClose, base }) {
+  const toast = useToast();
+  const refresh = useRefresh();
+  const [bank, setBank] = useState("");
+  const [name, setName] = useState("");
+  const [currency, setCurrency] = useState("");
+  const [accountNo, setAccountNo] = useState("");
+  const [err, setErr] = useState("");
+  const [again, setAgain] = useState(false);
+  const make = useMutation({ mutationFn: ({ name, currency, accountNo }) => bankApi.open(name, currency, accountNo) });
+
+  const digits = accountNo.replace(/[\s-]/g, "");
+  const auto = [bank.trim(), currency || base, digits.length >= 4 ? `··${digits.slice(-4)}` : null].filter(Boolean).join(" ");
+  const ready = !make.isPending && digits.length >= 4 && (name.trim() || bank.trim()).length >= 2;
+  const finalName = name.trim() || auto;
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    setErr("");
+    try {
+      const a = await make.mutateAsync({ name: finalName, currency, accountNo: accountNo.trim() });
+      refresh();
+      toast.success(`${a.name} is open`, "It starts at nothing. Move money in from another account.");
+      setName("");
+      setAccountNo("");
+      if (again) return document.getElementById("bank-account-no")?.focus();
+      setBank("");
+      setCurrency("");
+      onClose();
+    } catch (ex) {
+      setErr(ex.message || "That could not be opened.");
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} as="form" onSubmit={onSubmit} title="New bank account" description="Two or three at one bank are fine. The number tells them apart on a statement.">
+      <label className="block">
+        <span className="text-sm font-medium block mb-1.5">Bank</span>
+        <input id="bank-bank" list="bank-banks" value={bank} onChange={(e) => setBank(e.target.value)} placeholder="BML" autoComplete="off" className={FIELD} />
+        <datalist id="bank-banks">
+          {BANKS.map((b) => (
+            <option key={b} value={b} />
+          ))}
+        </datalist>
+      </label>
+      <div className="grid grid-cols-2 gap-3 mt-4">
+        <label className="block min-w-0">
+          <span className="text-sm font-medium block mb-1.5">Currency</span>
+          <select id="bank-currency" value={currency} onChange={(e) => setCurrency(e.target.value)} className={FIELD}>
+            <option value="">{base}</option>
+            {CURRENCIES.filter((c) => c !== base).map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block min-w-0">
+          <span className="text-sm font-medium block mb-1.5">Account number</span>
+          <input id="bank-account-no" required value={accountNo} onChange={(e) => setAccountNo(e.target.value)} inputMode="numeric" autoComplete="off" placeholder="7730000012345" className={FIELD} />
+        </label>
+      </div>
+      <label className="block mt-4">
+        <span className="text-sm font-medium block mb-1.5">Name <span className="font-normal text-[var(--ink-muted)]">(optional)</span></span>
+        <input id="bank-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={auto || "BML MVR, BML Payroll"} className={FIELD} />
+      </label>
+      {err && (
+        <p role="alert" className="text-[13px] text-[var(--danger)] mt-4">
+          {err}
+        </p>
+      )}
+      <div className="flex flex-wrap items-center justify-end gap-2 mt-6">
+        <Button type="submit" variant="outline" onClick={() => setAgain(true)} disabled={!ready}>
+          Open and add another
+        </Button>
+        <Button type="submit" variant="accent" onClick={() => setAgain(false)} disabled={!ready}>
           {make.isPending && <Loader2 size={14} className="animate-spin" />}
           Open it
         </Button>

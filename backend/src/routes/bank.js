@@ -21,6 +21,8 @@ const currency = z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/, "A currency
 const newBank = z.object({
   name: z.string().trim().min(2, "A bank account needs a name.").max(80),
   currency: currency.nullish(),
+  // Every bank account has one, and it is what tells two at one bank apart.
+  accountNo: z.string({ error: "What is its account number?" }).trim().min(4, "What is its account number?").max(40).regex(/^[0-9A-Za-z -]*$/, "An account number is letters and digits."),
 });
 
 const newTransfer = z.object({
@@ -53,6 +55,7 @@ router.get(
         id: p.id,
         code: p.code,
         name: p.name,
+        accountNo: p.bank_account_no || null,
         kind: p.kind,
         currency: p.currency,
         foreign: p.foreign,
@@ -75,7 +78,21 @@ router.post(
       const account = await asCompany(req, (client) =>
         bank.openBank(client, { companyId: req.companyId, ...parsed.data })
       );
-      res.status(201).json({ account: { id: account.id, code: account.code, name: account.name, currency: account.currency.trim() } });
+      res.status(201).json({ account: { id: account.id, code: account.code, name: account.name, currency: account.currency.trim(), accountNo: account.accountNo } });
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
+router.patch(
+  "/:id/number",
+  requireCan("manage_settings"),
+  asyncHandler(async (req, res) => {
+    const parsed = newBank.shape.accountNo.safeParse(req.body?.accountNo ?? "");
+    if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
+    try {
+      res.json(await asCompany(req, (client) => bank.setNumber(client, { companyId: req.companyId, accountId: req.params.id, accountNo: parsed.data })));
     } catch (err) {
       throw ApiError.badRequest(err.message);
     }

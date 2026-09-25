@@ -3,8 +3,9 @@ import { apiClient } from "./client";
 export const bankApi = {
   /** Bank accounts and open cash boxes, with what the books say is in each. */
   places: () => apiClient.get("/bank").then((r) => r.data.places),
+  setNumber: (id, accountNo) => apiClient.patch(`/bank/${id}/number`, { accountNo }).then((r) => r.data),
 
-  open: (name, currency) => apiClient.post("/bank", { name, currency: currency || null }).then((r) => r.data.account),
+  open: (name, currency, accountNo) => apiClient.post("/bank", { name, currency: currency || null, accountNo: accountNo || null }).then((r) => r.data.account),
 
   /** The latest rate recorded on or before a date, offered for the next foreign document. */
   rate: (currency, on) => apiClient.get("/bank/rates", { params: { currency, on } }).then((r) => r.data),

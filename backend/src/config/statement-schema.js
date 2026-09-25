@@ -16,6 +16,9 @@
  */
 
 const STATEMENT_SQL = `
+-- A bank can hold several accounts in one currency; the number tells them apart.
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS bank_account_no TEXT;
+
 CREATE TABLE IF NOT EXISTS bank_statement_lines (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id    UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -64,6 +67,7 @@ CREATE POLICY company_isolation ON bank_statement_lines
 
 -- The bank's fields are written once. Only the decision can change.
 GRANT SELECT, INSERT ON bank_statement_lines TO sentryfi_app;
+GRANT UPDATE (bank_account_no) ON accounts TO sentryfi_app;
 GRANT UPDATE (status, entry_id, decided_by, decided_at, note) ON bank_statement_lines TO sentryfi_app;
 `;
 

@@ -10,7 +10,7 @@ import { describe, it, expect, afterAll } from "vitest";
 import { inRollback, aCompanyWith, closePool } from "./setup";
 import { assumeIdentity, postEntry } from "../src/ledger/post";
 import { openBox } from "../src/ledger/cash";
-import { places, openBank, transfer, importStatement } from "../src/ledger/bank";
+import { places, openBank, setNumber, transfer, importStatement } from "../src/ledger/bank";
 import { recordRate } from "../src/ledger/fx";
 import * as rec from "../src/ledger/reconcile";
 
@@ -55,6 +55,30 @@ describe("bank accounts and transfers", () => {
       expect(lines[0]).toEqual({ c: "1927500", cur: "USD", fc: "125000" }); // USD 1,250.00 at 15.42
       // Before any rate was recorded, it asks for one rather than guessing.
       await expect(rec.post(client, { companyId, userId, lineId: rows[1].id, accountId: accounts.expense })).rejects.toThrow(/no USD rate/);
+    }));
+
+  it("holds several accounts at one bank in one currency, told apart by number", () =>
+    inRollback(async (client) => {
+      const { companyId } = await aBusiness(client);
+      const a = await openBank(client, { companyId, name: "BML MVR", accountNo: "7730 0000 1111" });
+      const b = await openBank(client, { companyId, name: "BML MVR", accountNo: "7730000022 22" });
+      expect([a.name, b.name]).toEqual(["BML MVR", "BML MVR ··2222"]);
+      expect((await openBank(client, { companyId, name: "BML MVR" })).name).toBe("BML MVR 2");
+      expect((await openBank(client, { companyId, name: "bml mvr" })).name).toBe("bml mvr 3");
+      await openBank(client, { companyId, name: "MIB" });
+      expect((await openBank(client, { companyId, name: "MIB", currency: "USD" })).name).toBe("MIB USD");
+      expect((await openBank(client, { companyId, name: "MIB", currency: "USD" })).name).toBe("MIB USD 2");
+      await expect(openBank(client, { companyId, name: "Payroll", accountNo: "773000001111" })).rejects.toThrow(/already here/);
+      expect((await places(client, { companyId })).find((p) => p.id === b.id).bank_account_no).toBe("773000002222");
+    }));
+
+  it("gives an account opened without a number its number, once", () =>
+    inRollback(async (client) => {
+      const { companyId, second } = await aBusiness(client);
+      await setNumber(client, { companyId, accountId: second.id, accountNo: "7730-0000-99999" });
+      expect((await places(client, { companyId })).find((p) => p.id === second.id).bank_account_no).toBe("7730000099999");
+      await expect(openBank(client, { companyId, name: "Other", accountNo: "773000009999 9" })).rejects.toThrow(/already here/);
+      await expect(setNumber(client, { companyId, accountId: second.id, accountNo: " " })).rejects.toThrow(/account number/);
     }));
 
   it("opens a second bank account under 11xx, at nothing", () =>

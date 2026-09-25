@@ -17,6 +17,16 @@
  */
 const RELEASES = [
   {
+    version: "1.20",
+    date: "2026-09-25",
+    title: "Every bank account, by its number",
+    summary: "Hold two or three accounts at one bank in one currency. Each has its account number, and that is what tells them apart.",
+    items: [
+      { area: "Bank", kind: "new", title: "Several accounts at one bank", body: "Pick the bank, the currency and the account number. It is named for you, like BML MVR ··1111, and Open and add another keeps the bank for the next one.", href: "/bank" },
+      { area: "Bank", kind: "improved", title: "Add a number to an existing account", body: "An account opened before numbers were asked for says so, and takes its number in one step.", href: "/bank" },
+    ],
+  },
+  {
     version: "1.19",
     date: "2026-09-25",
     title: "One list, everywhere you hold it",
