@@ -3,6 +3,7 @@ import { apiClient } from "./client";
 export const bankApi = {
   /** Bank accounts and open cash boxes, with what the books say is in each. */
   places: () => apiClient.get("/bank").then((r) => r.data.places),
+  edit: (id, { name, currency, accountNo }) => apiClient.patch(`/bank/${id}`, { name, currency: currency || null, accountNo }).then((r) => r.data.account),
   setNumber: (id, accountNo) => apiClient.patch(`/bank/${id}/number`, { accountNo }).then((r) => r.data),
 
   open: (name, currency, accountNo) => apiClient.post("/bank", { name, currency: currency || null, accountNo: accountNo || null }).then((r) => r.data.account),

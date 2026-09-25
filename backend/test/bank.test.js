@@ -10,7 +10,7 @@ import { describe, it, expect, afterAll } from "vitest";
 import { inRollback, aCompanyWith, closePool } from "./setup";
 import { assumeIdentity, postEntry } from "../src/ledger/post";
 import { openBox } from "../src/ledger/cash";
-import { places, openBank, setNumber, transfer, importStatement } from "../src/ledger/bank";
+import { places, openBank, setNumber, editBank, transfer, importStatement } from "../src/ledger/bank";
 import { recordRate } from "../src/ledger/fx";
 import * as rec from "../src/ledger/reconcile";
 
@@ -70,6 +70,17 @@ describe("bank accounts and transfers", () => {
       expect((await openBank(client, { companyId, name: "MIB", currency: "USD" })).name).toBe("MIB USD 2");
       await expect(openBank(client, { companyId, name: "Payroll", accountNo: "773000001111" })).rejects.toThrow(/already here/);
       expect((await places(client, { companyId })).find((p) => p.id === b.id).bank_account_no).toBe("773000002222");
+    }));
+
+  it("edits an account only while nothing is recorded in it", () =>
+    inRollback(async (client) => {
+      const { companyId, accounts } = await aBusiness(client);
+      const typo = await openBank(client, { companyId, name: "BML MVR", accountNo: "7730000011111" });
+      const fixed = await editBank(client, { companyId, accountId: typo.id, name: "BML USD ··1112", currency: "usd", accountNo: "7730000011112" });
+      expect(fixed).toMatchObject({ name: "BML USD ··1112", currency: "USD", accountNo: "7730000011112" });
+      expect((await places(client, { companyId })).find((p) => p.id === typo.id).untouched).toBe(true);
+      // The opening entry put money in this one, so it stays as it is.
+      await expect(editBank(client, { companyId, accountId: accounts.bank, name: "Renamed", accountNo: "7730000099999" })).rejects.toThrow(/has records/);
     }));
 
   it("gives an account opened without a number its number, once", () =>

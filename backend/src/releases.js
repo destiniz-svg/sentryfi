@@ -17,6 +17,15 @@
  */
 const RELEASES = [
   {
+    version: "1.21",
+    date: "2026-09-25",
+    title: "Put a bank account right before it is used",
+    summary: "A bank account with nothing recorded in it yet can be edited: its name, currency and account number.",
+    items: [
+      { area: "Bank", kind: "new", title: "Edit an unused bank account", body: "Opened it in the wrong currency, or mistyped the number? Until something is recorded in it, tap Edit and change it. Once it has records, it stays as it is.", href: "/bank" },
+    ],
+  },
+  {
     version: "1.20",
     date: "2026-09-25",
     title: "Every bank account, by its number",

@@ -62,6 +62,7 @@ router.get(
         balance: formatLaari(p.balance),
         balanceFc: p.foreign ? formatLaari(p.balanceFc) : undefined,
         overdrawn: p.balance < 0n,
+        editable: p.kind === "bank" && p.untouched,
         statement: p.kind === "bank" ? { lines: p.lines, waiting: p.waiting, said: said[p.id] || null } : undefined,
       })),
     });
@@ -79,6 +80,20 @@ router.post(
         bank.openBank(client, { companyId: req.companyId, ...parsed.data })
       );
       res.status(201).json({ account: { id: account.id, code: account.code, name: account.name, currency: account.currency.trim(), accountNo: account.accountNo } });
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
+router.patch(
+  "/:id",
+  requireCan("manage_settings"),
+  asyncHandler(async (req, res) => {
+    const parsed = newBank.safeParse(req.body);
+    if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
+    try {
+      res.json({ account: await asCompany(req, (client) => bank.editBank(client, { companyId: req.companyId, accountId: req.params.id, ...parsed.data })) });
     } catch (err) {
       throw ApiError.badRequest(err.message);
     }

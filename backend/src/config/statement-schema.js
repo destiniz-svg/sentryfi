@@ -67,7 +67,7 @@ CREATE POLICY company_isolation ON bank_statement_lines
 
 -- The bank's fields are written once. Only the decision can change.
 GRANT SELECT, INSERT ON bank_statement_lines TO sentryfi_app;
-GRANT UPDATE (bank_account_no) ON accounts TO sentryfi_app;
+GRANT UPDATE (bank_account_no, name, currency) ON accounts TO sentryfi_app;
 GRANT UPDATE (status, entry_id, decided_by, decided_at, note) ON bank_statement_lines TO sentryfi_app;
 `;
 

@@ -49,7 +49,7 @@ export default function Bank() {
     setParams({}, { replace: true });
   }, [params, setParams]);
   const [bringing, setBringing] = useState(null); // the bank account a statement is being brought into
-  const [numbering, setNumbering] = useState(null); // an account opened before numbers were asked for
+  const [numbering, setNumbering] = useState(null); // the bank account being put right
 
   const { data: places, isLoading } = useQuery({
     queryKey: ["bank", companyId],
@@ -112,13 +112,13 @@ export default function Bank() {
                           {p.accountNo && ` · A/C ${p.accountNo}`}
                           {p.statement?.lines > 0 && ` · ${p.statement.lines.toLocaleString("en-US")} statement lines`}
                         </div>
-                        {p.kind === "bank" && !p.accountNo && can("manage_settings") && (
+                        {p.kind === "bank" && (p.editable || !p.accountNo) && can("manage_settings") && (
                           <button
                             type="button"
                             onClick={() => setNumbering(p)}
-                            className="inline-flex items-center min-h-[44px] sm:min-h-0 text-[13px] font-medium text-[var(--warning)] underline underline-offset-2"
+                            className={`inline-flex items-center min-h-[44px] sm:min-h-0 text-[13px] font-medium underline underline-offset-2 ${p.accountNo ? "" : "text-[var(--warning)]"}`}
                           >
-                            Add its account number
+                            {p.editable ? (p.accountNo ? "Edit" : "Edit, and add its account number") : "Add its account number"}
                           </button>
                         )}
                         {p.statement?.lines > 0 && (
@@ -169,7 +169,7 @@ export default function Bank() {
       )}
 
       {moving > 0 && <MoveMoney key={moving} places={places || []} onClose={() => setMoving(0)} />}
-      {numbering && <AddNumber place={numbering} onClose={() => setNumbering(null)} />}
+      {numbering && <EditBank place={numbering} base={(places || []).find((p) => !p.foreign)?.currency || "MVR"} onClose={() => setNumbering(null)} />}
       <OpenBank open={opening} onClose={() => setOpening(false)} base={(places || []).find((p) => !p.foreign)?.currency || "MVR"} />
       {bringing && <BringStatement key={bringing.id} place={bringing} onClose={() => setBringing(null)} />}
     </div>
@@ -303,12 +303,22 @@ function MoveMoney({ places, onClose }) {
   );
 }
 
-function AddNumber({ place, onClose }) {
+/**
+ * Put a bank account right. While nothing is recorded in it, its name,
+ * currency and number can all change; once something is, only a missing
+ * number can be added, because the records were made under the rest.
+ */
+function EditBank({ place, base, onClose }) {
   const toast = useToast();
   const refresh = useRefresh();
-  const [no, setNo] = useState("");
+  const full = place.editable;
+  const [name, setName] = useState(place.name);
+  const [currency, setCurrency] = useState(place.currency === base ? "" : place.currency);
+  const [no, setNo] = useState(place.accountNo || "");
   const [err, setErr] = useState("");
-  const save = useMutation({ mutationFn: () => bankApi.setNumber(place.id, no.trim()) });
+  const save = useMutation({
+    mutationFn: () => (full ? bankApi.edit(place.id, { name: name.trim(), currency, accountNo: no.trim() }) : bankApi.setNumber(place.id, no.trim())),
+  });
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -316,26 +326,54 @@ function AddNumber({ place, onClose }) {
     try {
       await save.mutateAsync();
       refresh();
-      toast.success(`${place.name} has its number`);
+      toast.success(full ? `${name.trim()} is saved` : `${place.name} has its number`);
       onClose();
     } catch (ex) {
       setErr(ex.message || "That could not be saved.");
     }
   }
 
+  const ready = !save.isPending && no.replace(/[\s-]/g, "").length >= 4 && (!full || name.trim().length >= 2);
+
   return (
-    <Modal open onClose={onClose} as="form" onSubmit={onSubmit} title={`${place.name}: account number`} description="As printed on its statement.">
-      <input id="bank-set-no" required value={no} onChange={(e) => setNo(e.target.value)} inputMode="numeric" autoComplete="off" placeholder="7730000012345" aria-label="Account number" className={FIELD} />
+    <Modal
+      open
+      onClose={onClose}
+      as="form"
+      onSubmit={onSubmit}
+      title={full ? `Edit ${place.name}` : `${place.name}: account number`}
+      description={full ? "Nothing is recorded in it yet, so all of it can change." : "It has records in it, so only its number can be added."}
+    >
+      {full && (
+        <>
+          <label className="block">
+            <span className="text-sm font-medium block mb-1.5">Name</span>
+            <input id="bank-edit-name" value={name} onChange={(e) => setName(e.target.value)} className={FIELD} />
+          </label>
+          <label className="block mt-4">
+            <span className="text-sm font-medium block mb-1.5">Currency</span>
+            <select id="bank-edit-currency" value={currency} onChange={(e) => setCurrency(e.target.value)} className={FIELD}>
+              <option value="">{base}</option>
+              {CURRENCIES.filter((c) => c !== base).map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+        </>
+      )}
+      <label className={full ? "block mt-4" : "block"}>
+        <span className="text-sm font-medium block mb-1.5">Account number</span>
+        <input id="bank-set-no" required value={no} onChange={(e) => setNo(e.target.value)} inputMode="numeric" autoComplete="off" placeholder="7730000012345" className={FIELD} />
+      </label>
       {err && (
         <p role="alert" className="text-[13px] text-[var(--danger)] mt-4">
           {err}
         </p>
       )}
       <div className="flex items-center justify-end gap-2 mt-6">
-        <Button type="button" variant="outline" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button type="submit" variant="accent" disabled={save.isPending || no.replace(/[\s-]/g, "").length < 4}>
+        <Button type="submit" variant="accent" disabled={!ready}>
           {save.isPending && <Loader2 size={14} className="animate-spin" />}
           Save
         </Button>

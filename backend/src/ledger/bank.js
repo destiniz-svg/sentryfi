@@ -27,6 +27,8 @@ async function places(client, { companyId }) {
             COALESCE(SUM(CASE WHEN l.currency = a.currency THEN
                          CASE WHEN l.debit_laari > 0 THEN l.amount_fc ELSE -l.amount_fc END END), 0) AS balance_fc,
             (SELECT count(*) FROM bank_statement_lines s WHERE s.account_id = a.id)::int AS lines,
+            NOT EXISTS (SELECT 1 FROM journal_lines j WHERE j.account_id = a.id)
+              AND NOT EXISTS (SELECT 1 FROM bank_statement_lines s WHERE s.account_id = a.id) AS untouched,
             (SELECT count(*) FROM bank_statement_lines s WHERE s.account_id = a.id AND s.status = 'open')::int AS waiting
        FROM accounts a
        LEFT JOIN cash_boxes b ON b.account_id = a.id AND b.closed_at IS NULL
@@ -61,6 +63,43 @@ async function setNumber(client, { companyId, accountId, accountNo }) {
   );
   if (!rowCount) throw new Error("That is not one of your bank accounts.");
   return { accountNo: no };
+}
+
+/**
+ * A bank account put right: its name, currency and number. Only while
+ * nothing is recorded against it, because an entry or a statement line was
+ * made in its currency and under its name, and changing either afterwards
+ * would change what those records say.
+ */
+async function editBank(client, { companyId, accountId, name, currency, accountNo }) {
+  const { rows } = await client.query(
+    `SELECT a.name, NOT EXISTS (SELECT 1 FROM journal_lines j WHERE j.account_id = a.id)
+              AND NOT EXISTS (SELECT 1 FROM bank_statement_lines s WHERE s.account_id = a.id) AS untouched
+       FROM accounts a WHERE a.id = $1 AND a.company_id = $2 AND a.code LIKE '11%' AND a.archived_at IS NULL`,
+    [accountId, companyId]
+  );
+  if (!rows[0]) throw new Error("That is not one of your bank accounts.");
+  if (!rows[0].untouched) throw new Error(`${rows[0].name} has records in it, so it stays as it is.`);
+  const clean = String(name || "").trim();
+  if (clean.length < 2) throw new Error("A bank account needs a name, so a statement can say which one it was.");
+  const { rows: clash } = await client.query(
+    "SELECT 1 FROM accounts WHERE company_id = $1 AND lower(name) = lower($2) AND id <> $3",
+    [companyId, clean, accountId]
+  );
+  if (clash.length) throw new Error(`There is already an account called "${clean}".`);
+  const cur = currency ? String(currency).trim().toUpperCase() : null;
+  if (cur && !/^[A-Z]{3}$/.test(cur)) throw new Error("A currency is three letters, like USD.");
+  const no = cleanNo(accountNo);
+  if (!no) throw new Error("What is its account number?");
+  await numberFree(client, companyId, no, accountId);
+  const { rows: done } = await client.query(
+    `UPDATE accounts SET name = $1, bank_account_no = $2,
+            currency = COALESCE($3, (SELECT base_currency FROM companies WHERE id = $4))
+      WHERE id = $5 AND company_id = $4
+      RETURNING id, code, name, trim(currency) AS currency, bank_account_no AS "accountNo"`,
+    [clean, no, cur, companyId, accountId]
+  );
+  return done[0];
 }
 
 /** A second bank account, or a first at a new bank. Starts at nothing. */
@@ -247,4 +286,4 @@ async function bankSays(client, { companyId, accountId }) {
   return { on: day[0].d, bank: BigInt(last.balance_laari), books: BigInt(book[0].b) };
 }
 
-module.exports = { places, openBank, setNumber, transfer, importStatement, bankSays };
+module.exports = { places, openBank, setNumber, editBank, transfer, importStatement, bankSays };
