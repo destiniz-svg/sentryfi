@@ -62,6 +62,7 @@ router.post(
         dueDate: date.nullish(),
         gstTreatment: z.enum(["exclusive", "inclusive", "zero_rated", "exempt"]).nullish(),
         subject: z.string().max(300).nullish(),
+        notes: z.string().trim().max(2000).nullish(),
         projectId: uuid.nullish(),
         lines: z.array(line).min(1, "Say what it is for.").max(100),
       }),

@@ -17,6 +17,7 @@ import { FIELD, Field } from "@/pages/Payroll";
 import { ShareDocument } from "@/components/documents/Share";
 import { PendingAttachments, uploadPending } from "@/components/documents/Attachments";
 import { UnitInput } from "@/components/ui/UnitInput";
+import { PartyPicker, Step, TermsPicker, dueFrom } from "@/components/forms/Pickers";
 
 /**
  * Money asked for before the tax invoice.
@@ -86,7 +87,7 @@ export default function Advances() {
           )}
         </>
       )}
-      {making && data && <NewRequest kind={making} customers={data.customers} onClose={() => setMaking(null)} onDone={refresh} />}
+      {making && data && <NewRequest kind={making} onClose={() => setMaking(null)} onDone={refresh} />}
       {paying && data && <Receive request={paying.id ? paying : null} customers={data.customers} payInto={data.payInto} onClose={() => setPaying(null)} onDone={refresh} />}
       {using && <UseAdvance advance={using} onClose={() => setUsing(null)} onDone={refresh} />}
       {refunding && data && <Refund advance={refunding} payInto={data.payInto} onClose={() => setRefunding(null)} onDone={refresh} />}
@@ -254,13 +255,17 @@ function Held({ list, used, onUse, onRefund, onPay }) {
 
 const blankLine = () => ({ description: "", quantity: "1", unit: "", unitPrice: "" });
 
-function NewRequest({ kind: first, customers, onClose, onDone }) {
+function NewRequest({ kind: first, onClose, onDone }) {
   const toast = useToast();
   const navigate = useNavigate();
   const { company } = useCompany();
   const [files, setFiles] = useState([]);
   const [shareFiles, setShareFiles] = useState(false);
-  const [f, setF] = useState({ kind: first, counterpartyId: "", customerName: "", issueDate: today(), dueDate: "", gstTreatment: "exclusive", subject: "", lines: [blankLine()] });
+  const [party, setParty] = useState(null);
+  const [partyOpen, setPartyOpen] = useState(true);
+  const [terms, setTerms] = useState(null);
+  const [keepTerms, setKeepTerms] = useState(false);
+  const [f, setF] = useState({ kind: first, issueDate: today(), dueDate: "", gstTreatment: "exclusive", subject: "", notes: "", lines: [blankLine()] });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const put = (p) => setF((x) => ({ ...x, ...p }));
@@ -268,6 +273,19 @@ function NewRequest({ kind: first, customers, onClose, onDone }) {
   const net = f.lines.reduce((a, l) => a + n(l.quantity || 1) * n(l.unitPrice), 0);
   const registered = company?.gstRegistered;
   const tax = company?.tax?.tax || "GST";
+  function choose(p) {
+    setParty(p);
+    if (p.termsDays != null) {
+      setTerms(p.termsDays);
+      put({ dueDate: dueFrom(f.issueDate, p.termsDays) || "" });
+    }
+    setKeepTerms(false);
+  }
+  const setIssued = (e) => {
+    const issueDate = e.target.value;
+    put({ issueDate, dueDate: terms != null && terms !== "date" ? dueFrom(issueDate, terms) || f.dueDate : f.dueDate });
+  };
+  const at = !party ? 1 : net <= 0 ? 2 : !f.dueDate ? 3 : 4;
   async function save(e) {
     e.preventDefault();
     setBusy(true);
@@ -275,12 +293,14 @@ function NewRequest({ kind: first, customers, onClose, onDone }) {
     try {
       const r = await apiClient.post("/advances/requests", {
         ...f,
-        counterpartyId: f.counterpartyId || null,
-        customerName: f.counterpartyId ? null : f.customerName,
+        counterpartyId: party?.id || null,
+        customerName: party?.id ? null : party?.name || "",
         dueDate: f.dueDate || null,
+        notes: f.notes.trim() || null,
         gstTreatment: registered ? f.gstTreatment : null,
         lines: f.lines.filter((l) => l.description.trim() || n(l.unitPrice)).map((l) => ({ ...l, unitPrice: String(l.unitPrice).replace(/,/g, "") })),
       });
+      if (keepTerms && party?.id && typeof terms === "number") await apiClient.patch(`/contacts/${party.id}`, { paymentTermsDays: terms }).catch(() => {});
       if (files.length) await uploadPending(f.kind, r.data.id, files, shareFiles);
       onDone();
       toast.success(`${r.data.number} made`, "Send it from its page, or give the customer their link.");
@@ -292,6 +312,7 @@ function NewRequest({ kind: first, customers, onClose, onDone }) {
     }
   }
   const retainer = f.kind === "retainer";
+  const commitment = !party ? "Who is it for?" : !net ? "Add a price" : `Ask for ${two(net)}${registered && f.gstTreatment === "exclusive" ? ` and ${tax}` : ""}`;
   return (
     <Modal open onClose={onClose} as="form" onSubmit={save} title={retainer ? "New retainer invoice" : "New proforma invoice"} description={retainer ? "An amount asked for up front, taken off the tax invoices that follow." : "The invoice to come, so the customer can pay or arrange payment first."} size="lg">
       <div className="grid gap-4">
@@ -302,58 +323,74 @@ function NewRequest({ kind: first, customers, onClose, onDone }) {
             </button>
           ))}
         </div>
-        <div className="grid sm:grid-cols-[minmax(0,1fr)_160px_160px] gap-4">
-          <Field label="Customer">
-            {customers.length ? (
-              <select value={f.counterpartyId} onChange={(e) => put({ counterpartyId: e.target.value })} className={FIELD}>
-                <option value="">A new customer…</option>
-                {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            ) : null}
-            {!f.counterpartyId && <input aria-label="New customer's name" value={f.customerName} onChange={(e) => put({ customerName: e.target.value })} placeholder="Lagoon View Resort" className={`${FIELD} ${customers.length ? "mt-2" : ""}`} />}
-          </Field>
-          <Field label="Dated">
-            <input type="date" value={f.issueDate} onChange={(e) => put({ issueDate: e.target.value })} className={FIELD} />
-          </Field>
-          <Field label="Pay by (optional)">
-            <input type="date" value={f.dueDate} onChange={(e) => put({ dueDate: e.target.value })} className={FIELD} />
-          </Field>
-        </div>
-        <Field label="For (optional)">
-          <input value={f.subject} onChange={(e) => put({ subject: e.target.value })} placeholder={retainer ? "Site supervision, October" : "Jetty repair, first stage"} className={FIELD} />
-        </Field>
-        <div className="grid gap-2">
-          {f.lines.map((l, i) => (
-            <div key={i} className="grid grid-cols-[72px_88px_minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_72px_88px_130px_auto] gap-2">
-              <input aria-label={`Line ${i + 1}: what`} value={l.description} onChange={(e) => setLine(i, { description: e.target.value })} placeholder="What for" className={`${FIELD} col-span-4 sm:col-span-1`} />
-              <input aria-label={`Line ${i + 1}: how many`} value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} inputMode="decimal" className={`${FIELD} tabular text-right`} />
-              <UnitInput label={`Line ${i + 1}: unit`} value={l.unit} onChange={(v) => setLine(i, { unit: v })} className={FIELD} />
-              <input aria-label={`Line ${i + 1}: price`} value={l.unitPrice} onChange={(e) => setLine(i, { unitPrice: e.target.value })} inputMode="decimal" placeholder="0.00" className={`${FIELD} tabular text-right`} />
-              <Button type="button" variant="ghost" size="sm" onClick={() => put({ lines: f.lines.length === 1 ? [blankLine()] : f.lines.filter((_, j) => j !== i) })}>Remove</Button>
+
+        <Step n={1} id="advance-step-who" title="Who is it for?" done={at > 1} active={at === 1}>
+          <PartyPicker kind="customer" value={party} onChange={choose} open={partyOpen} setOpen={setPartyOpen} />
+        </Step>
+
+        <Step n={2} id="advance-step-lines" title="What is it for?" done={at > 2} active={at === 2} summary={net > 0 ? two(net) : null}>
+          <div className="grid gap-2">
+            {f.lines.map((l, i) => (
+              <div key={i} className="grid grid-cols-[72px_88px_minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_72px_88px_130px_auto] gap-2">
+                <input aria-label={`Line ${i + 1}: what`} value={l.description} onChange={(e) => setLine(i, { description: e.target.value })} placeholder="What for" className={`${FIELD} col-span-4 sm:col-span-1`} />
+                <input aria-label={`Line ${i + 1}: how many`} value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} inputMode="decimal" className={`${FIELD} tabular text-right`} />
+                <UnitInput label={`Line ${i + 1}: unit`} value={l.unit} onChange={(v) => setLine(i, { unit: v })} className={FIELD} />
+                <input aria-label={`Line ${i + 1}: price`} value={l.unitPrice} onChange={(e) => setLine(i, { unitPrice: e.target.value })} inputMode="decimal" placeholder="0.00" className={`${FIELD} tabular text-right`} />
+                <Button type="button" variant="ghost" size="sm" onClick={() => put({ lines: f.lines.length === 1 ? [blankLine()] : f.lines.filter((_, j) => j !== i) })}>Remove</Button>
+              </div>
+            ))}
+            <div>
+              <Button type="button" variant="ghost" size="sm" onClick={() => put({ lines: [...f.lines, blankLine()] })}><Plus size={14} /> Another line</Button>
             </div>
-          ))}
-          <div>
-            <Button type="button" variant="ghost" size="sm" onClick={() => put({ lines: [...f.lines, blankLine()] })}><Plus size={14} /> Another line</Button>
           </div>
-        </div>
-        <PendingAttachments files={files} onChange={setFiles} share={shareFiles} onShare={setShareFiles} />
-        {registered && (
-          <Field label={tax} hint={`${tax} on a payment is due when it is paid, not when the tax invoice comes.`}>
-            <select value={f.gstTreatment} onChange={(e) => put({ gstTreatment: e.target.value })} className={`${FIELD} sm:max-w-sm`}>
-              <option value="exclusive">Added on top of these prices</option>
-              <option value="inclusive">Included in these prices</option>
-              <option value="zero_rated">Zero-rated</option>
-              <option value="exempt">Exempt</option>
-            </select>
-          </Field>
-        )}
+        </Step>
+
+        <Step n={3} id="advance-step-terms" title="On which terms?" done={at > 3} active={at === 3} summary={f.dueDate ? `Pay by ${f.dueDate}` : null}>
+          <div className="grid gap-4">
+            <Field label="Dated">
+              <input type="date" value={f.issueDate} onChange={setIssued} className={`${FIELD} max-w-[220px]`} />
+            </Field>
+            <TermsPicker
+              issued={f.issueDate}
+              terms={terms}
+              due={f.dueDate}
+              party={party}
+              keep={keepTerms}
+              onKeep={setKeepTerms}
+              onChange={({ terms: t, due }) => (setTerms(t), put({ dueDate: due || "" }))}
+              question="When is it payable by?"
+            />
+          </div>
+        </Step>
+
+        <Step n={4} id="advance-step-more" title="Notes and details" active={at === 4}>
+          <div className="grid gap-4">
+            <Field label="For (optional)">
+              <input value={f.subject} onChange={(e) => put({ subject: e.target.value })} placeholder={retainer ? "Site supervision, October" : "Jetty repair, first stage"} className={FIELD} />
+            </Field>
+            <Field label="A note to the customer" hint="Printed on this document, above your usual notes.">
+              <textarea value={f.notes} onChange={(e) => put({ notes: e.target.value })} rows={3} maxLength={2000} placeholder="Thank you for the work on the Hulhumalé site." className={`${FIELD} h-auto py-3 leading-relaxed`} />
+            </Field>
+            <PendingAttachments files={files} onChange={setFiles} share={shareFiles} onShare={setShareFiles} />
+            {registered && (
+              <Field label={tax} hint={`${tax} on a payment is due when it is paid, not when the tax invoice comes.`}>
+                <select value={f.gstTreatment} onChange={(e) => put({ gstTreatment: e.target.value })} className={`${FIELD} sm:max-w-sm`}>
+                  <option value="exclusive">Added on top of these prices</option>
+                  <option value="inclusive">Included in these prices</option>
+                  <option value="zero_rated">Zero-rated</option>
+                  <option value="exempt">Exempt</option>
+                </select>
+              </Field>
+            )}
+          </div>
+        </Step>
       </div>
       {err && <p role="alert" className="text-[13px] text-[var(--danger)] mt-4">{err}</p>}
       <div className="flex justify-end gap-2 mt-6">
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-        <Button type="submit" variant="accent" disabled={busy || !net || (!f.counterpartyId && !f.customerName.trim())}>
+        <Button type="submit" variant={party && net > 0 ? "accent" : "outline"} disabled={busy || !net || !party}>
           {busy && <Loader2 size={14} className="animate-spin" />}
-          {!net ? "Add a price" : `Ask for ${two(net)}${registered && f.gstTreatment === "exclusive" ? ` and ${tax}` : ""}`}
+          {commitment}
         </Button>
       </div>
     </Modal>

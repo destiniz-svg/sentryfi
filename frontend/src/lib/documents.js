@@ -354,7 +354,7 @@ export function compose({ data, brand, template, size, verifyUrl }) {
     receivedBy: Boolean(data.receivedBy),
     // A statement's balance is not a sum to be written out in words.
     words: priced && t.show.words && data.kind !== "statement" && data.totals.gross ? amountInWords(data.totals.gross, currency) : null,
-    notes: t.notes ? { label: label("notes"), text: t.notes } : null,
+    notes: data.notes || t.notes ? { label: label("notes"), text: [data.notes, t.notes].filter(Boolean).join("\n\n") } : null,
     terms: t.terms ? { label: label("terms"), text: t.terms } : null,
     payment: priced && ["invoice", "quote", "sales_order", "statement", "proforma", "retainer"].includes(data.kind) && t.show.payment && brand.paymentDetails ? { label: label("payment"), text: brand.paymentDetails } : null,
     signature: t.show.signature && (brand.signature || brand.signatory) ? { image: brand.signature, name: brand.signatory, title: brand.signatoryTitle } : null,

@@ -109,6 +109,7 @@ async function raise(client, {
   clientRef,
   currency,
   fxRate,
+  notes,
   lines = [],
 }) {
   if (!lines.length) throw new Error("An invoice needs at least one line.");
@@ -209,11 +210,11 @@ async function raise(client, {
        (company_id, counterparty_id, invoice_no, purchase_order, subject,
         issue_date, due_date, net_laari, tax_laari, gross_laari,
         gst_treatment, gst_rate_bp, project_id, client_ref, raised_by, status, dimension_ids,
-        currency, fx_rate, fc_net, fc_tax, fc_gross)
+        currency, fx_rate, fc_net, fc_tax, fc_gross, notes)
      VALUES ($1,$2,$3,$4,$5,
              COALESCE($6::date, current_date), $7::date, $8,$9,$10,
              $11::gst_t,$12,$13,$14,$15,'draft',$16,
-             COALESCE($17, $18), $19, $20, $21, $22)
+             COALESCE($17, $18), $19, $20, $21, $22, $23)
      RETURNING *`,
     [
       companyId,
@@ -238,6 +239,7 @@ async function raise(client, {
       cur ? fcNet.toString() : null,
       cur ? fcTax.toString() : null,
       cur ? (fcNet + fcTax).toString() : null,
+      notes ? String(notes).trim() || null : null,
     ]
   );
   const invoice = rows[0];

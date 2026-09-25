@@ -17,6 +17,19 @@
  */
 const RELEASES = [
   {
+    version: "1.17",
+    date: "2026-09-25",
+    title: "New documents ask in order: who, what, which terms",
+    summary: "Invoices, quotes, orders, proformas, retainers and bills open on your customer or supplier list, then what it is for, then the terms, with a note at the end.",
+    items: [
+      { area: "Sales", kind: "improved", title: "Choose the customer from your list", body: "A new invoice opens on your customers, searchable, with a new one added in a tap. Picking one moves you on to your items and services.", href: "/invoices/new" },
+      { area: "Sales", kind: "new", title: "Payment terms in one tap", body: "On receipt, 7, 15, 30, 45 or 60 days, end of month, or a date. A customer's usual terms come already chosen; when they have none, you are asked, and can keep the answer as theirs.", href: "/invoices/new" },
+      { area: "Sales", kind: "improved", title: "Quotes, orders, proformas and retainers, the same way", body: "Each asks who, then what, then its own question: how long a quote is valid, when an order is expected, or when a proforma is due.", href: "/orders" },
+      { area: "Purchases", kind: "improved", title: "Bills from your supplier list, with their terms", body: "Recording a bill picks the supplier from your list, even from a scanned paper, and sets the due date from their usual terms.", href: "/bills" },
+      { area: "Documents", kind: "new", title: "A note on each document", body: "A word to the customer on an invoice, proforma, retainer or order, printed above your usual notes.", href: "/invoices/new" },
+    ],
+  },
+  {
     version: "1.16",
     date: "2026-09-25",
     title: "What's new, easier to read",

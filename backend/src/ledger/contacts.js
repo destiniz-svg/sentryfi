@@ -98,6 +98,7 @@ async function list(client, { companyId }) {
       phone: c.phone,
       tin: c.tin,
       tags: c.tags,
+      termsDays: c.payment_terms_days,
       archived: Boolean(c.archived_at),
       receivable: f(rec),
       receivableLaari: rec.toString(),

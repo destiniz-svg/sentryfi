@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Camera, Check, FileText, Loader2, Mic, Paperclip, Square, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { useBillMutations } from "@/hooks/useBills";
 import { billsApi } from "@/api/bills";
 import { bankApi } from "@/api/bank";
+import { apiClient } from "@/api/client";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 import { useOutbox } from "@/context/OutboxContext";
@@ -13,6 +15,7 @@ import { useUndo } from "@/context/UndoContext";
 import { today } from "@/lib/utils";
 import { prepareForReading } from "@/lib/image";
 import { TagPicker } from "@/components/ui/TagPicker";
+import { PartyPicker, TermsPicker, dueFrom } from "@/components/forms/Pickers";
 
 /**
  * Getting a bill in.
@@ -58,11 +61,12 @@ export function RecordBill({ open, onClose, start }) {
   const { record, post } = useBillMutations();
   const toast = useToast();
   const outbox = useOutbox();
+  const { companyId, can } = useCompany();
+  const { data: contactList } = useQuery({ queryKey: ["contacts", companyId], queryFn: () => apiClient.get("/contacts").then((r) => r.data), enabled: Boolean(companyId) });
   // The phone gets larger fields and a bar that stays on screen; the desk a card. This is the one
   // screen both registers share, so it carries both and picks.
   const board = usePhone();
   const { offer } = useUndo();
-  const { can } = useCompany();
   const inputClass = board ? BOARD_INPUT : DESK_INPUT;
 
   // A field the reader doubted wears the yellow; everything else stays ink on
@@ -73,6 +77,10 @@ export function RecordBill({ open, onClose, start }) {
   const cameraButton = useRef(null);
 
   const [form, setForm] = useState(blank());
+  const [party, setParty] = useState(null);
+  const [partyOpen, setPartyOpen] = useState(false);
+  const [terms, setTerms] = useState(null);
+  const [keepTerms, setKeepTerms] = useState(false);
   const [err, setErr] = useState("");
   const [duplicates, setDuplicates] = useState([]);
   const [reading, setReading] = useState(false);
@@ -131,12 +139,25 @@ export function RecordBill({ open, onClose, start }) {
       amount: "",
       billNo: "",
       issueDate: today(),
+      dueDate: "",
       gstTreatment: "inclusive",
       currency: "", // our own
       fxRate: "",
       tags: { projectId: null, dimensionIds: [] },
     };
   }
+
+  /** A supplier chosen from the picker, or typed as a new one: their usual terms follow. */
+  function chooseParty(p) {
+    setParty(p);
+    setForm((f) => ({ ...f, supplierName: p.name, ...(p.termsDays != null ? { dueDate: dueFrom(f.issueDate, p.termsDays) || f.dueDate } : {}) }));
+    if (p.termsDays != null) setTerms(p.termsDays);
+    setKeepTerms(false);
+  }
+  const setIssued = (e) => {
+    const issueDate = e.target.value;
+    setForm((f) => ({ ...f, issueDate, dueDate: terms != null && terms !== "date" ? dueFrom(issueDate, terms) || f.dueDate : f.dueDate }));
+  };
 
   // A bill in another currency is offered the latest rate somebody recorded on
   // or before its date. Only offered: the rate on the bank's advice is the one
@@ -156,6 +177,10 @@ export function RecordBill({ open, onClose, start }) {
   useEffect(() => {
     if (open) {
       setForm(blank());
+      setParty(null);
+      setPartyOpen(false);
+      setTerms(null);
+      setKeepTerms(false);
       setErr("");
       setDuplicates([]);
       setQuestions([]);
@@ -185,15 +210,30 @@ export function RecordBill({ open, onClose, start }) {
    */
   function applyReading(result) {
     const extracted = result.read || {};
+    const name = result.supplier?.name || extracted.supplierName;
 
     setForm((f) => ({
       ...f,
-      supplierName: result.supplier?.name || extracted.supplierName || f.supplierName,
+      supplierName: name || f.supplierName,
       amount: extracted.grossAmount || f.amount,
       billNo: extracted.billNo || f.billNo,
       issueDate: extracted.issueDate || f.issueDate,
       gstTreatment: extracted.gstTreatment || f.gstTreatment,
     }));
+    // A scanned or spoken name becomes the matching supplier when there is
+    // one — the server already tried by id; the contact list is checked here
+    // too, for their usual terms and in case a heard name matches by spelling.
+    // No match: a new supplier by that name, decided when it saves.
+    if (name) {
+      const known =
+        (result.supplier?.id && contactList?.contacts.find((c) => c.id === result.supplier.id)) ||
+        contactList?.contacts.find((c) => c.supplier && c.name.toLowerCase() === name.toLowerCase());
+      setParty(known ? { id: known.id, name: known.name, termsDays: known.termsDays ?? null, email: known.email || null } : { id: result.supplier?.id || null, name });
+      if (known?.termsDays != null) {
+        setTerms(known.termsDays);
+        setForm((f) => ({ ...f, dueDate: dueFrom(f.issueDate, known.termsDays) || f.dueDate }));
+      }
+    }
     setQuestions(result.questions || []);
     // Everything the reader filled and was not asked about. A field arrives
     // checked rather than blank, because making one field always unchecked
@@ -361,10 +401,12 @@ export function RecordBill({ open, onClose, start }) {
     // how one cost becomes two.
     const payload = {
       clientRef: crypto.randomUUID(),
+      counterpartyId: party?.id || null,
       supplierName: form.supplierName.trim(),
       amount: String(form.amount).replace(/,/g, ""),
       billNo: form.billNo.trim() || null,
       issueDate: form.issueDate || null,
+      dueDate: form.dueDate || null,
       gstTreatment: form.gstTreatment,
       currency: form.currency || null,
       fxRate: form.currency ? form.fxRate.trim() : null,
@@ -393,6 +435,7 @@ export function RecordBill({ open, onClose, start }) {
       // Whatever the photograph told us about the supplier travels with it:
       // the record fills itself in over time rather than anybody typing it.
       const result = await record.mutateAsync(payload);
+      if (keepTerms && party?.id && typeof terms === "number") await apiClient.patch(`/contacts/${party.id}`, { paymentTermsDays: terms }).catch(() => {});
 
       // File the paper against the bill now that the bill exists, every page
       // in the order it was added. This happens even when a duplicate was
@@ -631,14 +674,10 @@ export function RecordBill({ open, onClose, start }) {
       )}
 
       <div className="space-y-4">
-        <Field label="Who is it from?" htmlFor="bill-supplier" read={sure.includes("supplierName")}>
-          <input
-            id="bill-supplier"
-            value={form.supplierName}
-            onChange={set("supplierName")}
-            placeholder="Who the bill is from"
-            className={fieldClass("supplierName")}
-          />
+        <Field label="Who is it from?" read={sure.includes("supplierName")}>
+          <div className={atRisk === "supplierName" ? "on-yellow rounded-2xl ring-2 ring-[var(--accent)]" : undefined}>
+            <PartyPicker kind="supplier" value={party} onChange={chooseParty} open={partyOpen} setOpen={setPartyOpen} />
+          </div>
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
@@ -657,7 +696,7 @@ export function RecordBill({ open, onClose, start }) {
               id="bill-date"
               type="date"
               value={form.issueDate}
-              onChange={set("issueDate")}
+              onChange={setIssued}
               className={`${inputClass} tabular`}
             />
           </Field>
@@ -709,6 +748,18 @@ export function RecordBill({ open, onClose, start }) {
             onChange={set("billNo")}
             placeholder="INV-8841"
             className={`${inputClass} tabular`}
+          />
+        </Field>
+
+        <Field label="On which terms?">
+          <TermsPicker
+            issued={form.issueDate}
+            terms={terms}
+            due={form.dueDate}
+            party={party}
+            keep={keepTerms}
+            onKeep={can("record") ? setKeepTerms : null}
+            onChange={({ terms: t, due }) => (setTerms(t), setForm((f) => ({ ...f, dueDate: due || "" })))}
           />
         </Field>
 

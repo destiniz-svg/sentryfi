@@ -49,7 +49,7 @@ async function nextNumber(client, { companyId, kind }) {
 // ------------------------------------------------------------------ requests
 
 /** A retainer or proforma invoice: lines priced like an invoice's, posting nothing. */
-async function create(client, { companyId, userId, kind, counterpartyId, customerName, issueDate, dueDate, gstTreatment, subject, lines, projectId }) {
+async function create(client, { companyId, userId, kind, counterpartyId, customerName, issueDate, dueDate, gstTreatment, subject, notes, lines, projectId }) {
   await assumeIdentity(client, { companyId, userId });
   if (!PREFIX[kind]) throw new Error("A request is a retainer or a proforma invoice.");
   if (!Array.isArray(lines) || !lines.length) throw new Error("Say what it is for.");
@@ -82,9 +82,9 @@ async function create(client, { companyId, userId, kind, counterpartyId, custome
   if (net + tx <= 0n) throw new Error("It asks for nothing. Put an amount on it.");
   const number = await nextNumber(client, { companyId, kind });
   const { rows } = await client.query(
-    `INSERT INTO advance_requests (company_id, kind, number, counterparty_id, issue_date, due_date, gst_treatment, gst_rate_bp, subject, lines, net_laari, tax_laari, gross_laari, project_id, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7::gst_t,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
-    [companyId, kind, number, partyId, on, dueDate || null, treatment, bp, subject ? String(subject).trim() : null, JSON.stringify(kept), net.toString(), tx.toString(), (net + tx).toString(), projectId || null, userId]
+    `INSERT INTO advance_requests (company_id, kind, number, counterparty_id, issue_date, due_date, gst_treatment, gst_rate_bp, subject, notes, lines, net_laari, tax_laari, gross_laari, project_id, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7::gst_t,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
+    [companyId, kind, number, partyId, on, dueDate || null, treatment, bp, subject ? String(subject).trim() : null, notes ? String(notes).trim() || null : null, JSON.stringify(kept), net.toString(), tx.toString(), (net + tx).toString(), projectId || null, userId]
   );
   return rows[0];
 }
@@ -107,7 +107,7 @@ const standing = (r) =>
 function showRequest(r) {
   return {
     id: r.id, kind: r.kind, label: LABEL[r.kind], number: r.number, customer: r.customer, counterpartyId: r.counterparty_id,
-    issued: iso(r.issue_date), due: iso(r.due_date), subject: r.subject, treatment: r.gst_treatment, ratePercent: r.gst_rate_bp === null ? null : r.gst_rate_bp / 100,
+    issued: iso(r.issue_date), due: iso(r.due_date), subject: r.subject, notes: r.notes || null, treatment: r.gst_treatment, ratePercent: r.gst_rate_bp === null ? null : r.gst_rate_bp / 100,
     lines: r.lines, net: F(r.net_laari), tax: F(r.tax_laari), gross: F(r.gross_laari), paid: F(r.paid),
     status: standing(r), acceptedAt: r.accepted_at, acceptedBy: r.accepted_by, invoiceId: r.invoice_id, invoiceNo: r.invoice_no || null,
   };

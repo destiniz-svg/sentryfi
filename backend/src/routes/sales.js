@@ -33,6 +33,7 @@ const newInvoice = z.object({
   invoiceNo: z.string().trim().max(60).nullish(),
   purchaseOrder: z.string().trim().max(80).nullish(),
   subject: z.string().trim().max(300).nullish(),
+  notes: z.string().trim().max(2000).nullish(),
   issueDate: z.string().trim().nullish(),
   dueDate: z.string().trim().nullish(),
   gstTreatment: z

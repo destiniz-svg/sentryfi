@@ -12,11 +12,12 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { Segments } from "@/components/mobile/parts";
 import { apiClient } from "@/api/client";
 import { useCompany } from "@/context/CompanyContext";
-import { formatDate } from "@/lib/utils";
+import { cn, formatDate, today } from "@/lib/utils";
 import { FIELD } from "@/lib/shipments";
 import { ORDER_STATUS } from "@/lib/orders";
 import { PendingAttachments, uploadPending } from "@/components/documents/Attachments";
 import { UnitInput } from "@/components/ui/UnitInput";
+import { PartyPicker, Step, dueFrom } from "@/components/forms/Pickers";
 
 /**
  * Orders: what was agreed with a supplier or a customer before the goods
@@ -102,6 +103,7 @@ export default function Orders() {
 }
 
 const blankLine = () => ({ itemId: "", description: "", accountId: "", quantity: "1", unit: "", unitPrice: "" });
+const VALIDITY_CHOICES = [7, 15, 30, 60];
 
 function NewOrder({ kind, onClose }) {
   const nav = useNavigate();
@@ -110,13 +112,20 @@ function NewOrder({ kind, onClose }) {
   const { data: o } = useQuery({ queryKey: ["orders", companyId, "options"], queryFn: () => apiClient.get("/orders/options").then((r) => r.data) });
   const [files, setFiles] = useState([]);
   const [shareFiles, setShareFiles] = useState(false);
-  const [f, setF] = useState({ partyName: "", projectId: "", expectedOn: "", note: "", validUntil: "" });
+  const partyKind = kind === "purchase" ? "supplier" : "customer";
+  const [party, setParty] = useState(null);
+  const [partyOpen, setPartyOpen] = useState(true);
+  const [f, setF] = useState({ orderedOn: today(), projectId: "", expectedOn: "", note: "", validUntil: "" });
   const [lines, setLines] = useState([blankLine()]);
   const [err, setErr] = useState("");
   const save = useMutation({ mutationFn: (body) => apiClient.post("/orders", body).then((r) => r.data) });
   const setLine = (i, patch) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const total = lines.reduce((a, l) => a + n(l.quantity) * n(l.unitPrice), 0);
-  const parties = (o?.parties || []).filter((p) => (p.kind || []).includes(kind === "purchase" ? "supplier" : "customer"));
+  const hasLines = lines.some((l) => l.itemId || l.description.trim());
+  const label = { purchase: "purchase order", sale: "sales order", quote: "quote" }[kind];
+  const step3Filled = kind === "quote" ? Boolean(f.validUntil) : Boolean(f.expectedOn);
+  const at = !party ? 1 : !hasLines ? 2 : !step3Filled ? 3 : 4;
+  const commitment = !party ? (kind === "purchase" ? "Who is it from?" : "Who is it for?") : !hasLines ? "Add a line" : `Save the ${label}`;
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -124,9 +133,11 @@ function NewOrder({ kind, onClose }) {
     try {
       const r = await save.mutateAsync({
         kind,
-        partyName: f.partyName,
+        counterpartyId: party?.id || null,
+        partyName: party?.id ? null : party?.name || "",
         projectId: f.projectId || null,
-        expectedOn: f.expectedOn || null,
+        orderedOn: f.orderedOn || null,
+        expectedOn: kind === "quote" ? null : f.expectedOn || null,
         validUntil: kind === "quote" ? f.validUntil || null : null,
         note: f.note || null,
         lines: lines
@@ -142,41 +153,17 @@ function NewOrder({ kind, onClose }) {
   }
 
   return (
-    <Modal open onClose={onClose} as="form" onSubmit={onSubmit} title={{ purchase: "Purchase order", sale: "Sales order", quote: "Quote" }[kind]} description={kind === "purchase" ? "Prices are before tax." : "What the customer ordered, at your prices before tax."}>
+    <Modal open onClose={onClose} as="form" onSubmit={onSubmit} title={{ purchase: "Purchase order", sale: "Sales order", quote: "Quote" }[kind]} description={kind === "purchase" ? "Prices are before tax." : "What the customer ordered, at your prices before tax."} size="lg">
       {!o ? (
         <Loader2 size={18} className="animate-spin text-[var(--ink-muted)]" />
       ) : (
         <div className="grid gap-4">
-          <div className="grid sm:grid-cols-2 gap-4">
-            <label className="block">
-              <span className="text-sm font-medium block mb-1.5">{kind === "purchase" ? "From" : "For"}</span>
-              <input id="order-party" list="order-parties" value={f.partyName} onChange={(e) => setF({ ...f, partyName: e.target.value })} placeholder={kind === "purchase" ? "Supplier" : "Customer"} className={FIELD} />
-              <datalist id="order-parties">
-                {parties.map((p) => (
-                  <option key={p.id} value={p.name} />
-                ))}
-              </datalist>
-            </label>
-            {kind === "quote" && (
-              <label className="block">
-                <span className="text-sm font-medium block mb-1.5">Good until</span>
-                <input id="quote-until" type="date" value={f.validUntil} onChange={(e) => setF({ ...f, validUntil: e.target.value })} className={FIELD} />
-              </label>
-            )}
-            <label className="block">
-              <span className="text-sm font-medium block mb-1.5">For a project (optional)</span>
-              <select id="order-project" value={f.projectId} onChange={(e) => setF({ ...f, projectId: e.target.value })} className={FIELD}>
-                <option value="">None</option>
-                {o.projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+          <Step n={1} id="order-step-who" title={kind === "purchase" ? "Who is it from?" : "Who is it for?"} done={at > 1} active={at === 1}>
+            <PartyPicker kind={partyKind} value={party} onChange={setParty} open={partyOpen} setOpen={setPartyOpen} />
+          </Step>
+
+          <Step n={2} id="order-step-lines" title="What's on it?" done={at > 2} active={at === 2} summary={hasLines ? `${lines.filter((l) => l.itemId || l.description.trim()).length} ${lines.filter((l) => l.itemId || l.description.trim()).length === 1 ? "line" : "lines"}` : null}>
           <fieldset className="space-y-3">
-            <legend className="text-sm font-medium mb-1.5">Lines</legend>
             {lines.map((l, i) => (
               <div key={i} data-testid="order-line" className="rounded-xl border border-[var(--border)] p-3 space-y-2">
                 <div className="flex gap-2">
@@ -230,7 +217,61 @@ function NewOrder({ kind, onClose }) {
           <p className="text-[14px] text-right tabular" data-testid="order-total">
             MVR {total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} before tax
           </p>
-          <PendingAttachments files={files} onChange={setFiles} share={shareFiles} onShare={setShareFiles} shareLabel={kind === "purchase" ? "Show them to the supplier with it" : "Show them to the customer with it"} />
+          </Step>
+
+          <Step n={3} id="order-step-when" title={kind === "quote" ? "How long is it valid?" : "When do you expect it?"} done={at > 3} active={at === 3} summary={kind === "quote" ? (f.validUntil ? `Until ${formatDate(f.validUntil)}` : null) : (f.expectedOn ? formatDate(f.expectedOn) : null)}>
+            <div className="grid gap-4">
+              <label className="block max-w-[220px]">
+                <span className="text-sm font-medium block mb-1.5">Dated</span>
+                <input type="date" value={f.orderedOn} onChange={(e) => setF({ ...f, orderedOn: e.target.value, validUntil: "" })} className={FIELD} />
+              </label>
+              {kind === "quote" ? (
+                <div>
+                  <div role="radiogroup" aria-label="Valid for" className="flex flex-wrap gap-2">
+                    {VALIDITY_CHOICES.map((d) => {
+                      const val = dueFrom(f.orderedOn, d);
+                      const on = f.validUntil === val;
+                      return (
+                        <button key={d} type="button" role="radio" aria-checked={on} onClick={() => setF({ ...f, validUntil: val })} className={cn("h-10 px-4 rounded-full border text-[14px]", on ? "bg-[var(--ink)] text-[var(--bg)] border-[var(--ink)] font-semibold" : "border-[var(--border)] text-[var(--ink-muted)] hover:text-[var(--ink)]")}>
+                          {d} days
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <label className="mt-3 grid gap-1.5 max-w-[220px]">
+                    <span className="text-[13px] font-medium">Or pick a date</span>
+                    <input type="date" min={f.orderedOn} value={f.validUntil} onChange={(e) => setF({ ...f, validUntil: e.target.value })} className={FIELD} />
+                  </label>
+                </div>
+              ) : (
+                <label className="block max-w-[220px]">
+                  <span className="text-sm font-medium block mb-1.5">Expected on</span>
+                  <input type="date" min={f.orderedOn} value={f.expectedOn} onChange={(e) => setF({ ...f, expectedOn: e.target.value })} className={FIELD} />
+                </label>
+              )}
+            </div>
+          </Step>
+
+          <Step n={4} id="order-step-more" title="Notes and details" active={at === 4}>
+            <div className="grid gap-4">
+              <label className="block">
+                <span className="text-sm font-medium block mb-1.5">For a project (optional)</span>
+                <select value={f.projectId} onChange={(e) => setF({ ...f, projectId: e.target.value })} className={FIELD}>
+                  <option value="">None</option>
+                  {o.projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium block mb-1.5">Notes (optional)</span>
+                <textarea value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} rows={3} maxLength={500} placeholder="Anything worth saying about this order" className={`${FIELD} h-auto py-3 leading-relaxed`} />
+              </label>
+              <PendingAttachments files={files} onChange={setFiles} share={shareFiles} onShare={setShareFiles} shareLabel={kind === "purchase" ? "Show them to the supplier with it" : "Show them to the customer with it"} />
+            </div>
+          </Step>
         </div>
       )}
       {err && (
@@ -242,9 +283,9 @@ function NewOrder({ kind, onClose }) {
         <Button type="button" variant="outline" onClick={onClose}>
           Cancel
         </Button>
-        <Button type="submit" variant="accent" disabled={save.isPending || !f.partyName.trim() || total <= 0}>
+        <Button type="submit" variant={party && hasLines ? "accent" : "outline"} disabled={save.isPending || !party || total <= 0}>
           {save.isPending && <Loader2 size={14} className="animate-spin" />}
-          {kind === "quote" ? "Save the quote" : "Place the order"}
+          {commitment}
         </Button>
       </div>
     </Modal>

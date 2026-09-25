@@ -46,6 +46,8 @@ CREATE INDEX IF NOT EXISTS attachments_party_idx ON attachments(counterparty_id)
 -- paid like any other, but it is not a sale, a purchase or GST. It is posted
 -- against Opening balances (3900).
 ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS opening BOOLEAN NOT NULL DEFAULT false;
+-- A word to the customer on this invoice alone, printed above the template's own notes.
+ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS notes TEXT CHECK (length(notes) <= 2000);
 ALTER TABLE bills ADD COLUMN IF NOT EXISTS opening BOOLEAN NOT NULL DEFAULT false;
 
 -- How each kind of document is numbered: the company's own start (INV-, ALT/INV-).

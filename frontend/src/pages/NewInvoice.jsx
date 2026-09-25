@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2, Plus, X } from "lucide-react";
+import { Loader2, Package, Plus, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -18,6 +18,7 @@ import { toDateInput } from "@/lib/utils";
 import { apiClient } from "@/api/client";
 import { PendingAttachments, uploadPending } from "@/components/documents/Attachments";
 import { UnitInput } from "@/components/ui/UnitInput";
+import { ItemPicker, PartyPicker, Step, TermsPicker, dueFrom, termsLabel } from "@/components/forms/Pickers";
 
 /**
  * Raising an invoice.
@@ -121,8 +122,22 @@ export default function NewInvoice() {
   const [view, setView] = useState("form");
   const toast = useToast();
   const { raise } = useSalesMutations();
-  const firstField = useRef(null);
-  useEffect(() => firstField.current?.focus(), []);
+  // Who, then what, then on which terms: each answer moves on to the next question.
+  const [party, setParty] = useState(null);
+  const [partyOpen, setPartyOpen] = useState(!params.get("customer"));
+  const [itemsOpen, setItemsOpen] = useState(false);
+  const [terms, setTerms] = useState(null);
+  const [keepTerms, setKeepTerms] = useState(false);
+  const firstLine = useRef(null);
+  const go = (id) => setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }), 250);
+  const { data: contactList } = useQuery({ queryKey: ["contacts", companyId], queryFn: () => apiClient.get("/contacts").then((r) => r.data), enabled: Boolean(companyId) });
+  // Opened from a customer's page: that customer, with their usual terms.
+  useEffect(() => {
+    const name = params.get("customer");
+    if (!name || party || !contactList) return;
+    const c = contactList.contacts.find((x) => x.name.toLowerCase() === name.toLowerCase());
+    choose(c ? { id: c.id, name: c.name, termsDays: c.termsDays ?? null, email: c.email } : { id: null, name, termsDays: null }, false);
+  }, [contactList]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fresh every time it opens: the page remounts it with a new key, so there
   // is no reset step and no moment where the last invoice's figures show.
@@ -142,7 +157,8 @@ export default function NewInvoice() {
     discount: "",
     subject: "",
     issueDate: today(),
-    dueDate: today(30),
+    dueDate: "",
+    notes: "",
     gstTreatment: "exclusive",
     tags: { projectId: null, dimensionIds: [] },
     currency: "", // our own
@@ -187,23 +203,23 @@ export default function NewInvoice() {
     enabled: Boolean(companyId) && open,
   });
   const forSale = (stockItems || []).filter((i) => !i.archived && i.sells !== false);
-  const pickItem = (i) => (e) => {
-    const item = forSale.find((it) => it.id === e.target.value);
-    setLines((all) =>
-      all.map((l, j) =>
-        j !== i
-          ? l
-          : item
-            ? {
-                ...l,
-                itemId: item.id,
-                description: item.name,
-                uom: item.unit,
-                rate: item.salePrice || l.rate,
-              }
-            : { ...l, itemId: "" },
-      ),
-    );
+  function choose(p, advance = true) {
+    setParty(p);
+    setForm((x) => ({ ...x, customerName: p.name, ...(p.termsDays != null ? { dueDate: dueFrom(x.issueDate, p.termsDays) } : {}) }));
+    if (p.termsDays != null) setTerms(p.termsDays);
+    setKeepTerms(false);
+    if (!advance) return;
+    go("step-what");
+    if (forSale.length && !lines.some((l) => l.description.trim())) setTimeout(() => setItemsOpen(true), 400);
+    else setTimeout(() => firstLine.current?.focus(), 400);
+  }
+  function addItem(item) {
+    setLines((all) => [...all.filter((l) => l.description.trim() || l.rate), { ...blankLine(), itemId: item.id, description: item.name, uom: item.unit || "", rate: item.salePrice || "" }]);
+    if (!form.dueDate) go("step-terms");
+  }
+  const setIssued = (e) => {
+    const issueDate = e.target.value;
+    setForm((x) => ({ ...x, issueDate, dueDate: terms != null && terms !== "date" ? dueFrom(issueDate, terms) || x.dueDate : x.dueDate }));
   };
 
   const discountPct = Math.min(100, Math.max(0, Number(String(form.discount || "").replace(/[,%]/g, "")) || 0));
@@ -229,13 +245,16 @@ export default function NewInvoice() {
   const rateOk =
     !form.currency || Number(String(form.fxRate).replace(/,/g, "")) > 0;
   const commitment = !form.customerName.trim()
-    ? "Who is it to?"
+    ? "Who is it for?"
     : usable.length === 0
       ? "Add a line with a rate"
-      : !rateOk
+      : !form.dueDate
+        ? "On which terms?"
+        : !rateOk
         ? `At what rate? MVR for one ${form.currency}`
         : `Save ${invoiceNo || "invoice"} · ${unit} ${show(gross)}`;
-  const ready = form.customerName.trim() && usable.length > 0 && rateOk;
+  const ready = form.customerName.trim() && usable.length > 0 && form.dueDate && rateOk;
+  const at = !form.customerName.trim() ? 1 : !usable.length ? 2 : !form.dueDate ? 3 : 4;
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -246,6 +265,8 @@ export default function NewInvoice() {
       const result = await raise.mutateAsync({
         clientRef: crypto.randomUUID(),
         customerName: form.customerName.trim(),
+        counterpartyId: party?.id || null,
+        notes: form.notes.trim() || null,
         invoiceNo: invoiceNo.trim() || null,
         purchaseOrder: form.purchaseOrder.trim() || null,
         subject: form.subject.trim() || null,
@@ -267,6 +288,7 @@ export default function NewInvoice() {
           itemId: l.itemId || null,
         })),
       });
+      if (keepTerms && party?.id && typeof terms === "number") await apiClient.patch(`/contacts/${party.id}`, { paymentTermsDays: terms }).catch(() => {});
       toast.success(
         `${result.invoice.invoiceNo} saved · MVR ${result.invoice.gross}`,
         result.matchedTo
@@ -310,8 +332,9 @@ export default function NewInvoice() {
           due: form.dueDate,
           reference: form.purchaseOrder.trim(),
           subject: form.subject.trim(),
+          notes: form.notes.trim() || null,
           project: null,
-          to: { name: form.customerName.trim() || "Who is it to?" },
+          to: { name: form.customerName.trim() || "Who is it for?" },
           currency: form.currency || null,
           fxRate: form.currency && fx > 0 ? String(fx) : null,
           gstTreatment: form.gstTreatment,
@@ -396,12 +419,7 @@ export default function NewInvoice() {
         ))}
       </div>
       <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6 items-start">
-        <div
-          className={cn(
-            "space-y-4 min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5",
-            view === "preview" && "hidden lg:block",
-          )}
-        >
+        <div className={cn("grid gap-4 min-w-0", view === "preview" && "hidden lg:grid")}>
           <FromWords
             onFill={(r) => {
               setForm((x) => ({
@@ -412,310 +430,165 @@ export default function NewInvoice() {
                 dueDate: r.dueDate || x.dueDate,
                 gstTreatment: r.gstTreatment || x.gstTreatment,
               }));
+              if (r.customerName) setParty({ id: null, name: r.customerName, termsDays: null });
+              if (r.dueDate) setTerms("date");
               if (r.lines?.length) setLines(r.lines.map((l) => ({ ...blankLine(), ...l })));
             }}
           />
-          <div className="grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-3">
-            <Field label="Who is it to?" htmlFor="inv-customer">
-              <input
-                ref={firstField}
-                id="inv-customer"
-                value={form.customerName}
-                onChange={set("customerName")}
-                placeholder="Who the invoice is to"
-                className={FIELD}
-                autoComplete="off"
-              />
-            </Field>
-            <Field label="Invoice number" htmlFor="inv-no">
-              <input
-                id="inv-no"
-                value={invoiceNo}
-                onChange={set("invoiceNo")}
-                placeholder="INV-000001"
-                className={`${FIELD} tabular`}
-              />
-            </Field>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field
-              label="Their purchase order"
-              htmlFor="inv-po"
-              hint="Their accounts department matches on it. Without it, an invoice tends to sit unpaid."
-            >
-              <input
-                id="inv-po"
-                value={form.purchaseOrder}
-                onChange={set("purchaseOrder")}
-                placeholder="PO-RDC-2026-003151"
-                className={`${FIELD} tabular`}
-              />
-            </Field>
-            <Field label="What it covers" htmlFor="inv-subject">
-              <input
-                id="inv-subject"
-                value={form.subject}
-                onChange={set("subject")}
-                placeholder="25 September 2026, 30 days"
-                className={FIELD}
-              />
-            </Field>
-            <TagPicker
-              value={form.tags}
-              onChange={(tags) => setForm((x) => ({ ...x, tags }))}
-              fieldClass={FIELD}
-              className="sm:col-span-2"
-            />
-          </div>
+          <Step n={1} id="step-who" title="Who is it for?" done={at > 1} active={at === 1}>
+            <PartyPicker kind="customer" value={party} onChange={(p) => choose(p)} open={partyOpen} setOpen={setPartyOpen} />
+          </Step>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Issued" htmlFor="inv-issued">
-              <input
-                id="inv-issued"
-                type="date"
-                value={form.issueDate}
-                onChange={set("issueDate")}
-                className={`${FIELD} tabular`}
-              />
-            </Field>
-            <Field label="Due" htmlFor="inv-due">
-              <input
-                id="inv-due"
-                type="date"
-                value={form.dueDate}
-                onChange={set("dueDate")}
-                className={`${FIELD} tabular`}
-              />
-            </Field>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="In" htmlFor="inv-currency">
-              <select
-                id="inv-currency"
-                value={form.currency}
-                onChange={(e) =>
-                  setForm((x) => ({
-                    ...x,
-                    currency: e.target.value,
-                    fxRate: "",
-                  }))
-                }
-                className={FIELD}
-              >
-                <option value="">MVR</option>
-                {["USD", "EUR", "GBP", "AED", "INR", "CNY", "SGD", "JPY"].map(
-                  (c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ),
-                )}
-              </select>
-            </Field>
-            {form.currency && (
-              <Field
-                label={`MVR for 1 ${form.currency}`}
-                htmlFor="inv-rate"
-                hint={
-                  gross > 0 && Number(form.fxRate) > 0
-                    ? `MVR ${show(Math.round(gross * Number(form.fxRate)))} in the books.`
-                    : "The rate on the invoice date."
-                }
-              >
-                <input
-                  id="inv-rate"
-                  value={form.fxRate}
-                  onChange={set("fxRate")}
-                  inputMode="decimal"
-                  placeholder="15.42"
-                  className={`${FIELD} tabular`}
-                />
-              </Field>
-            )}
-          </div>
-
-          <fieldset>
-            <legend className="text-sm font-medium text-[var(--ink)] mb-2">
-              Lines
-            </legend>
+          <Step n={2} id="step-what" title="Which items or services?" done={at > 2} active={at === 2} summary={usable.length ? `${usable.length} ${usable.length === 1 ? "line" : "lines"} · ${unit} ${show(gross)}` : null}>
             <div className="space-y-2">
               {priced.map((line, i) => (
-                // Two rows at any width: what it is, then how many at what rate.
-                <div
-                  key={i}
-                  className="grid grid-cols-[64px_72px_minmax(0,1fr)_minmax(0,1fr)_40px] gap-2 items-center rounded-xl border border-[var(--border)] p-2"
-                >
-                  {forSale.length > 0 && (
-                    <select
-                      aria-label={`Line ${i + 1}: item`}
-                      value={line.itemId}
-                      onChange={pickItem(i)}
-                      className={`${FIELD} col-span-5 h-10 text-[14px]`}
-                    >
-                      <option value="">Not a saved item</option>
-                      {forSale.map((it) => (
-                        <option key={it.id} value={it.id}>
-                          {it.name} · {it.counted ? `${it.onHand} ${it.unit} on hand` : it.kind === "service" ? "service" : "product"}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  <input
-                    aria-label={`Line ${i + 1}: what it is`}
-                    value={line.description}
-                    onChange={setLine(i, "description")}
-                    placeholder="Excavator rental, Komatsu PC 56-7"
-                    className={`${FIELD} col-span-5`}
-                  />
-                  <input
-                    aria-label={`Line ${i + 1}: quantity`}
-                    value={line.quantity}
-                    onChange={setLine(i, "quantity")}
-                    inputMode="decimal"
-                    placeholder="Qty"
-                    className={`${FIELD} tabular text-right px-3`}
-                  />
-                  <UnitInput
-                    label={`Line ${i + 1}: unit`}
-                    value={line.uom}
-                    onChange={(v) => setLine(i, "uom")({ target: { value: v } })}
-                    placeholder="day"
-                    className={`${FIELD} px-3`}
-                  />
-                  <input
-                    aria-label={`Line ${i + 1}: rate`}
-                    value={line.rate}
-                    onChange={setLine(i, "rate")}
-                    inputMode="decimal"
-                    placeholder="3,000.00"
-                    className={`${FIELD} tabular text-right px-3`}
-                  />
-                  <span className="tabular text-[15px] text-right text-[var(--ink)] pr-1">
-                    {line.amount ? show(line.amount) : "—"}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setLines((all) =>
-                        all.length > 1 ? all.filter((_, j) => j !== i) : all,
-                      )
-                    }
-                    disabled={lines.length === 1}
-                    aria-label={`Remove line ${i + 1}`}
-                    className="h-11 w-11 rounded-full flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)] disabled:opacity-30"
-                  >
+                // Phone: what it is, then quantity, unit and rate, then the amount. Wider: two rows.
+                <div key={i} className="grid grid-cols-6 sm:grid-cols-[64px_72px_minmax(0,1fr)_minmax(0,1fr)_40px] gap-2 items-center rounded-xl border border-[var(--border)] p-2">
+                  <input ref={i === 0 ? firstLine : undefined} aria-label={`Line ${i + 1}: what it is`} value={line.description} onChange={setLine(i, "description")} placeholder="Excavator rental, Komatsu PC 56-7" className={`${FIELD} col-span-6 sm:col-span-5`} />
+                  <input aria-label={`Line ${i + 1}: quantity`} value={line.quantity} onChange={setLine(i, "quantity")} inputMode="decimal" placeholder="Qty" className={`${FIELD} col-span-2 sm:col-span-1 tabular text-right px-2 sm:px-3`} />
+                  <UnitInput label={`Line ${i + 1}: unit`} value={line.uom} onChange={(v) => setLine(i, "uom")({ target: { value: v } })} placeholder="day" className={`${FIELD} col-span-2 sm:col-span-1 px-2 sm:px-3`} />
+                  <input aria-label={`Line ${i + 1}: rate`} value={line.rate} onChange={setLine(i, "rate")} inputMode="decimal" placeholder="Rate" className={`${FIELD} col-span-2 sm:col-span-1 tabular text-right px-2 sm:px-3`} />
+                  <span className="col-span-5 sm:col-span-1 tabular text-[15px] text-right text-[var(--ink)] pr-1">{line.amount ? show(line.amount) : "—"}</span>
+                  <button type="button" onClick={() => setLines((all) => (all.length > 1 ? all.filter((_, j) => j !== i) : all))} disabled={lines.length === 1} aria-label={`Remove line ${i + 1}`} className="h-11 w-11 justify-self-end rounded-full flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)] disabled:opacity-30">
                     <X size={16} />
                   </button>
                 </div>
               ))}
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {forSale.length > 0 && (
+                <Button type="button" variant="outline" onClick={() => setItemsOpen(true)} data-testid="add-item">
+                  <Package size={16} /> From your items
+                </Button>
+              )}
               <Button type="button" variant="ghost" onClick={() => setLines((all) => [...all, blankLine()])}>
-                <Plus size={16} /> Add a line
+                <Plus size={16} /> A line
               </Button>
               <Button type="button" variant="ghost" onClick={() => setLines((all) => [...all.filter((l) => l.description.trim() || l.rate), { ...blankLine(), description: "Delivery", uom: "trip" }])}>
-                <Plus size={16} /> Add delivery
+                <Plus size={16} /> Delivery
               </Button>
               <label className="ml-auto flex items-center gap-2 text-[14px]">
                 Discount
                 <span className="relative">
-                  <input aria-label="Discount, percent" value={form.discount} onChange={set("discount")} inputMode="decimal" placeholder="0" className={`${FIELD} w-24 pr-7 tabular text-right`} />
+                  <input aria-label="Discount, percent" value={form.discount} onChange={set("discount")} inputMode="decimal" placeholder="0" className={`${FIELD} w-20 pr-7 tabular text-right`} />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--ink-muted)] pointer-events-none">%</span>
                 </span>
               </label>
             </div>
-          </fieldset>
+            <ItemPicker open={itemsOpen} setOpen={setItemsOpen} items={forSale} onPick={addItem} />
 
-          <fieldset>
-            <legend className="text-sm font-medium text-[var(--ink)] mb-2">
-              GST
-            </legend>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-              {TAX.map((choice) => (
-                <label
-                  key={choice.value}
-                  className={`flex items-start gap-3 p-3 rounded-[var(--radius-control)] border cursor-pointer transition-colors ${
-                    form.gstTreatment === choice.value
-                      ? "border-[var(--ink)] bg-[var(--surface-2)]"
-                      : "border-[var(--border)] hover:bg-[var(--surface-2)]"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="inv-gst"
-                    value={choice.value}
-                    checked={form.gstTreatment === choice.value}
-                    onChange={set("gstTreatment")}
-                    className="mt-0.5 h-4 w-4 shrink-0"
-                  />
-                  <span className="min-w-0">
-                    <span className="block text-sm font-medium text-[var(--ink)]">
-                      {choice.label}
-                    </span>
-                    <span className="block text-[13px] text-[var(--ink-muted)] mt-0.5 leading-snug">
-                      {choice.hint}
-                    </span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          {/* The three figures the customer will check, right-aligned on one
-            rule, in the order they appear on the paper. */}
-          <dl className="ml-auto w-full sm:w-[300px] text-[15px] tabular">
-            <div className="flex justify-between py-1.5">
-              <dt className="text-[var(--ink-muted)]">Before GST</dt>
-              <dd>{show(totals.net)}</dd>
-            </div>
-            <div className="flex justify-between py-1.5">
-              <dt className="text-[var(--ink-muted)]">
-                GST {rateBp === null ? "…" : `${rateBp / 100}%`}
-              </dt>
-              <dd>{show(totals.tax)}</dd>
-            </div>
-            <div className="flex justify-between py-2 border-t border-[var(--ink)] font-semibold">
-              <dt>Total</dt>
-              <dd>
-                {unit} {show(gross)}
-              </dd>
-            </div>
-          </dl>
-
-          {!form.currency && can("record") && moneyAccounts.length > 0 && (
-            <div className="rounded-2xl border border-[var(--border)] p-4 grid gap-3" data-testid="paid-now">
-              <div role="radiogroup" aria-label="Has it been paid?" className="flex flex-wrap items-center gap-2">
-                <span className="text-[14px] font-medium mr-1">Paid already?</span>
-                {[[false, "No, on credit"], [true, "Yes, paid now"]].map(([v, label]) => (
-                  <button key={label} type="button" role="radio" aria-checked={paid === v} onClick={() => (setPaid(v), v && !paidInto && setPaidInto(moneyAccounts[0].id))} className={`h-10 px-4 rounded-full border text-[14px] ${paid === v ? "bg-[var(--ink)] text-[var(--bg)] border-[var(--ink)] font-semibold" : "border-[var(--border)] text-[var(--ink-muted)] hover:text-[var(--ink)]"}`}>
-                    {label}
+            <div className="mt-4 pt-4 border-t border-[var(--border)]">
+              <div role="radiogroup" aria-label="GST" className="flex flex-wrap items-center gap-2">
+                <span className="text-[14px] font-medium mr-1">GST</span>
+                {TAX.map((c) => (
+                  <button key={c.value} type="button" role="radio" aria-checked={form.gstTreatment === c.value} onClick={() => setForm((x) => ({ ...x, gstTreatment: c.value }))} className={cn("h-9 px-3.5 rounded-full border text-[13px] whitespace-nowrap", form.gstTreatment === c.value ? "bg-[var(--ink)] text-[var(--bg)] border-[var(--ink)] font-semibold" : "border-[var(--border)] text-[var(--ink-muted)] hover:text-[var(--ink)]")}>
+                    {c.label}
                   </button>
                 ))}
               </div>
-              {paid && (
-                <label className="grid gap-1.5 sm:max-w-sm">
-                  <span className="text-[13px] font-medium">Received into</span>
-                  <select value={paidInto} onChange={(e) => setPaidInto(e.target.value)} className={FIELD}>
-                    {moneyAccounts.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name}
-                      </option>
+              <p className="mt-2 text-[13px] text-[var(--ink-muted)]">{TAX.find((c) => c.value === form.gstTreatment)?.hint}</p>
+            </div>
+
+            <dl className="mt-3 ml-auto w-full sm:w-[300px] text-[15px] tabular">
+              <div className="flex justify-between py-1.5">
+                <dt className="text-[var(--ink-muted)]">Before GST</dt>
+                <dd>{show(totals.net)}</dd>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <dt className="text-[var(--ink-muted)]">GST {rateBp === null ? "…" : `${rateBp / 100}%`}</dt>
+                <dd>{show(totals.tax)}</dd>
+              </div>
+              <div className="flex justify-between py-2 border-t border-[var(--ink)] font-semibold">
+                <dt>Total</dt>
+                <dd>{unit} {show(gross)}</dd>
+              </div>
+            </dl>
+          </Step>
+
+          <Step n={3} id="step-terms" title="On which terms?" done={at > 3} active={at === 3} summary={form.dueDate ? `${typeof terms === "number" ? termsLabel(terms) : terms === "eom" ? "End of month" : "Due"} · ${form.dueDate}` : null}>
+            <div className="grid gap-4">
+              <Field label="Issued" htmlFor="inv-issued">
+                <input id="inv-issued" type="date" value={form.issueDate} onChange={setIssued} className={`${FIELD} tabular max-w-[220px]`} />
+              </Field>
+              <TermsPicker
+                issued={form.issueDate}
+                terms={terms}
+                due={form.dueDate}
+                party={party}
+                keep={keepTerms}
+                onKeep={can("record") ? setKeepTerms : null}
+                onChange={({ terms: t, due }) => (setTerms(t), setForm((x) => ({ ...x, dueDate: due || "" })))}
+              />
+            </div>
+          </Step>
+
+          <Step n={4} id="step-more" title="Notes and details" active={at === 4}>
+            <div className="grid gap-4">
+              <Field label="A note to the customer" htmlFor="inv-notes" hint="Printed on this invoice, above your usual notes.">
+                <textarea id="inv-notes" value={form.notes} onChange={set("notes")} rows={3} maxLength={2000} placeholder="Thank you for the work on the Hulhumalé site." className={`${FIELD} h-auto py-3 leading-relaxed`} />
+              </Field>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="Their purchase order" htmlFor="inv-po" hint="Their accounts department matches on it.">
+                  <input id="inv-po" value={form.purchaseOrder} onChange={set("purchaseOrder")} placeholder="PO-RDC-2026-003151" className={`${FIELD} tabular`} />
+                </Field>
+                <Field label="What it covers" htmlFor="inv-subject">
+                  <input id="inv-subject" value={form.subject} onChange={set("subject")} placeholder="September 2026, 30 days" className={FIELD} />
+                </Field>
+                <Field label="Invoice number" htmlFor="inv-no">
+                  <input id="inv-no" value={invoiceNo} onChange={set("invoiceNo")} placeholder="INV-000001" className={`${FIELD} tabular`} />
+                </Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="In" htmlFor="inv-currency">
+                    <select id="inv-currency" value={form.currency} onChange={(e) => setForm((x) => ({ ...x, currency: e.target.value, fxRate: "" }))} className={FIELD}>
+                      <option value="">MVR</option>
+                      {["USD", "EUR", "GBP", "AED", "INR", "CNY", "SGD", "JPY"].map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  {form.currency && (
+                    <Field label={`MVR for 1 ${form.currency}`} htmlFor="inv-rate" hint={gross > 0 && Number(form.fxRate) > 0 ? `MVR ${show(Math.round(gross * Number(form.fxRate)))} in the books.` : "The rate on the invoice date."}>
+                      <input id="inv-rate" value={form.fxRate} onChange={set("fxRate")} inputMode="decimal" placeholder="15.42" className={`${FIELD} tabular`} />
+                    </Field>
+                  )}
+                </div>
+                <TagPicker value={form.tags} onChange={(tags) => setForm((x) => ({ ...x, tags }))} fieldClass={FIELD} className="sm:col-span-2" />
+              </div>
+              {!form.currency && can("record") && moneyAccounts.length > 0 && (
+                <div className="rounded-2xl border border-[var(--border)] p-4 grid gap-3" data-testid="paid-now">
+                  <div role="radiogroup" aria-label="Has it been paid?" className="flex flex-wrap items-center gap-2">
+                    <span className="text-[14px] font-medium mr-1">Paid already?</span>
+                    {[[false, "No, on credit"], [true, "Yes, paid now"]].map(([v, label]) => (
+                      <button key={label} type="button" role="radio" aria-checked={paid === v} onClick={() => (setPaid(v), v && !paidInto && setPaidInto(moneyAccounts[0].id))} className={`h-10 px-4 rounded-full border text-[14px] ${paid === v ? "bg-[var(--ink)] text-[var(--bg)] border-[var(--ink)] font-semibold" : "border-[var(--border)] text-[var(--ink-muted)] hover:text-[var(--ink)]"}`}>
+                        {label}
+                      </button>
                     ))}
-                  </select>
-                  <span className="text-[12px] text-[var(--ink-muted)]">Saving puts it in the books and records the money, dated the invoice day.</span>
-                </label>
+                  </div>
+                  {paid && (
+                    <label className="grid gap-1.5 sm:max-w-sm">
+                      <span className="text-[13px] font-medium">Received into</span>
+                      <select value={paidInto} onChange={(e) => setPaidInto(e.target.value)} className={FIELD}>
+                        {moneyAccounts.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.name}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-[12px] text-[var(--ink-muted)]">Saving puts it in the books and records the money, dated the invoice day.</span>
+                    </label>
+                  )}
+                </div>
+              )}
+              <PendingAttachments files={files} onChange={setFiles} share={shareFiles} onShare={setShareFiles} />
+
+              {err && (
+                <p role="alert" className="text-[13px] text-[var(--danger)]">
+                  {err}
+                </p>
               )}
             </div>
-          )}
-          <PendingAttachments files={files} onChange={setFiles} share={shareFiles} onShare={setShareFiles} />
-
-          {err && (
-            <p role="alert" className="text-[13px] text-[var(--danger)]">
-              {err}
-            </p>
-          )}
+          </Step>
         </div>
 
         <div

@@ -98,6 +98,9 @@ CREATE TABLE IF NOT EXISTS document_questions (
 );
 CREATE INDEX IF NOT EXISTS document_questions_doc_idx ON document_questions(company_id, kind, document_id);
 
+-- A word to the customer on this request alone, printed above the template's own notes.
+ALTER TABLE advance_requests ADD COLUMN IF NOT EXISTS notes TEXT CHECK (length(notes) <= 2000);
+
 DO $$
 DECLARE t TEXT;
 BEGIN
