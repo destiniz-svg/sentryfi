@@ -255,10 +255,14 @@ function Kpis({ a, look }) {
 
 function MonthsCard({ months, period, onPick }) {
   const reduce = useReducedMotion();
+  // The month under the finger or pointer, by its date: an index pointed at a
+  // different month whenever the twelve changed underneath it.
   const [at, setAt] = useState(null);
   const max = Math.max(1, ...months.map((m) => Math.max(m.income, m.costs)));
   const inPeriod = (m) => m.ym >= period.from.slice(0, 7) && m.ym <= period.to.slice(0, 7);
-  const shown = months[at ?? months.length - 1];
+  // Pointing at nothing: the month picked, or else the latest month in the period.
+  const resting = [...months].reverse().find((m) => inPeriod(m) && !m.beforeBooks) || months[months.length - 1];
+  const shown = months.find((m) => m.ym === at) || resting;
   const profit = shown.income - shown.costs;
   return (
     <section aria-labelledby="months" className="rounded-[24px] bg-[#141414] text-white p-5 sm:p-6">
@@ -299,10 +303,10 @@ function MonthsCard({ months, period, onPick }) {
               type="button"
               disabled={m.beforeBooks}
               aria-label={`${MONTH[m.label]} ${m.ym.slice(0, 4)}: ${m.beforeBooks ? "before these books" : `income ${short(m.income)}, costs ${short(m.costs)}, profit ${short(p)}. Look at this month.`}`}
-              onMouseEnter={() => setAt(i)}
-              onFocus={() => setAt(i)}
+              onMouseEnter={() => setAt(m.ym)}
+              onFocus={() => setAt(m.ym)}
               onClick={() => onPick(m)}
-              className={`group relative flex-1 h-full flex flex-col justify-end items-center rounded-xl transition-colors ${at === i ? "bg-white/[0.07]" : ""} disabled:cursor-default`}
+              className={`group relative flex-1 h-full flex flex-col justify-end items-center rounded-xl transition-colors ${shown.ym === m.ym ? "bg-white/[0.07]" : ""} disabled:cursor-default`}
             >
               {m.beforeBooks ? (
                 <span className="block w-3 h-1.5 mb-6 rounded-full border border-dashed border-white/25" />

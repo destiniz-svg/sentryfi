@@ -74,6 +74,12 @@ async function overview(client, { companyId, from, to, compare }) {
   const overdue = owedNow.invoices.filter((i) => i.daysOver > 0).reduce((a, i) => a + BigInt(i.outstandingLaari), 0n);
 
   // Twelve months, to navigate by. Months before the books began are marked.
+  // They end at this month, not at the period: picking a month narrows the
+  // period to it, and a window that moved with the pick slid the month just
+  // tapped out from under the finger. A period more than a year back keeps
+  // its own window, so it can still be seen.
+  const thisDay = require("./today").today();
+  const monthsTo = to < new Date(Date.UTC(Number(thisDay.slice(0, 4)), Number(thisDay.slice(5, 7)) - 12, 1)).toISOString().slice(0, 10) ? to : to > thisDay ? to : thisDay;
   const { rows: months } = await client.query(
     `WITH months AS (
        SELECT generate_series(date_trunc('month', $2::date) - INTERVAL '11 months', date_trunc('month', $2::date), INTERVAL '1 month') AS m
@@ -93,7 +99,7 @@ async function overview(client, { companyId, from, to, compare }) {
             COALESCE(sums.income, 0)::text AS income, COALESCE(sums.costs, 0)::text AS costs,
             (began.m IS NULL OR months.m < began.m) AS before_books
        FROM months CROSS JOIN began LEFT JOIN sums ON sums.m = months.m ORDER BY months.m`,
-    [companyId, to]
+    [companyId, monthsTo]
   );
 
   // Where the money came from, and where it went.
