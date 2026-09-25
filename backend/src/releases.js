@@ -17,6 +17,15 @@
  */
 const RELEASES = [
   {
+    version: "1.18.1",
+    date: "2026-09-25",
+    title: "See what you type on a phone",
+    summary: "Pop-up panels now sit above the phone keyboard, so the field you are typing in stays in view.",
+    items: [
+      { area: "Everywhere", kind: "fixed", title: "The keyboard no longer hides the field", body: "Choosing a customer, adding an item, searching and every other panel now moves up with the keyboard, so you can see what you write.", href: "/invoices/new" },
+    ],
+  },
+  {
     version: "1.18",
     date: "2026-09-25",
     title: "Not on the list? Add it where you are",

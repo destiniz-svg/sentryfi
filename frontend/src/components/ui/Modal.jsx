@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -30,6 +30,34 @@ const FOCUSABLE = [
   "textarea:not([disabled])",
   "[tabindex]:not([tabindex='-1'])",
 ].join(",");
+
+/**
+ * The box a dialog may use: the visible part of the screen. A phone keyboard
+ * shrinks the visual viewport but not `inset-0`, so a bottom sheet sat behind
+ * the keyboard and the person typed blind. Pinning the overlay to
+ * visualViewport keeps it above the keyboard; the focused field is then
+ * scrolled back into view inside the panel.
+ */
+export function useVisibleBox(active) {
+  const [box, setBox] = useState(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!active || !vv) return;
+    const fit = () => {
+      setBox({ top: vv.offsetTop, height: vv.height, bottom: "auto" });
+      requestAnimationFrame(() => document.activeElement?.scrollIntoView?.({ block: "nearest" }));
+    };
+    fit();
+    vv.addEventListener("resize", fit);
+    vv.addEventListener("scroll", fit);
+    return () => {
+      vv.removeEventListener("resize", fit);
+      vv.removeEventListener("scroll", fit);
+      setBox(null);
+    };
+  }, [active]);
+  return box ?? undefined;
+}
 
 export function Modal({
   open,
@@ -104,11 +132,13 @@ export function Modal({
   const Panel = as === "form" ? motion.form : motion.div;
   const widths = { sm: "max-w-[380px]", md: "max-w-[460px]", lg: "max-w-[620px]" };
   const sheet = variant === "sheet";
+  const box = useVisibleBox(open);
 
   return (
     <AnimatePresence>
       {open && (
         <motion.div
+          style={box}
           className={cn(
             "fixed inset-0 z-50 flex justify-center",
             sheet ? "items-end" : "items-center p-4"
@@ -147,8 +177,8 @@ export function Modal({
             className={cn(
               "relative w-full bg-[var(--surface)] overflow-y-auto",
               sheet
-                ? "phone-sheet max-h-[92dvh] px-5 pb-6 pt-3"
-                : "rounded-3xl border border-[var(--border)] shadow-hover p-6 max-h-[calc(100dvh-2rem)]",
+                ? "phone-sheet max-h-[92%] px-5 pb-6 pt-3"
+                : "rounded-3xl border border-[var(--border)] shadow-hover p-6 max-h-full",
               !sheet && widths[size],
               className
             )}

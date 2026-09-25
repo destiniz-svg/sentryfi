@@ -17,6 +17,7 @@ import {
   CornerDownLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useVisibleBox } from "@/components/ui/Modal";
 import { useBills } from "@/hooks/useBills";
 import { useSales } from "@/hooks/useSales";
 
@@ -53,6 +54,7 @@ export function CommandPalette({ open, onClose }) {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [activeIdx, setActiveIdx] = useState(0);
+  const box = useVisibleBox(open);
   const inputRef = useRef(null);
   const listRef = useRef(null);
 
@@ -186,6 +188,7 @@ export function CommandPalette({ open, onClose }) {
     <AnimatePresence>
       {open && (
         <motion.div
+          style={box}
           className="fixed inset-0 z-50 flex items-start justify-center pt-[14vh] px-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
