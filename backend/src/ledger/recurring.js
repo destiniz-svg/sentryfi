@@ -43,7 +43,7 @@ async function create(client, { companyId, userId, counterpartyId, name, lines, 
     if (!String(l.description || "").trim()) throw new Error("Each line says what it is for.");
     const q = Number(l.quantity ?? 1);
     if (!(q > 0)) throw new Error("A line's quantity is above zero.");
-    return { description: String(l.description).trim(), quantity: q, unitPrice: formatLaari(toLaari(l.unitPrice)).replace(/,/g, "") };
+    return { description: String(l.description).trim(), quantity: q, uom: l.uom ? String(l.uom).trim().slice(0, 20) : null, unitPrice: formatLaari(toLaari(l.unitPrice)).replace(/,/g, "") };
   });
   const { rows } = await client.query(
     `INSERT INTO recurring_invoices (company_id, counterparty_id, name, lines, gst_treatment, every, next_on, anchor_day, ends_on, post_automatically, project_id, created_by)

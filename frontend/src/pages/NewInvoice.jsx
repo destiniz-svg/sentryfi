@@ -17,6 +17,7 @@ import { TagPicker } from "@/components/ui/TagPicker";
 import { toDateInput } from "@/lib/utils";
 import { apiClient } from "@/api/client";
 import { PendingAttachments, uploadPending } from "@/components/documents/Attachments";
+import { UnitInput } from "@/components/ui/UnitInput";
 
 /**
  * Raising an invoice.
@@ -555,11 +556,11 @@ export default function NewInvoice() {
                     placeholder="Qty"
                     className={`${FIELD} tabular text-right px-3`}
                   />
-                  <input
-                    aria-label={`Line ${i + 1}: unit`}
+                  <UnitInput
+                    label={`Line ${i + 1}: unit`}
                     value={line.uom}
-                    onChange={setLine(i, "uom")}
-                    placeholder="DAY"
+                    onChange={(v) => setLine(i, "uom")({ target: { value: v } })}
+                    placeholder="day"
                     className={`${FIELD} px-3`}
                   />
                   <input

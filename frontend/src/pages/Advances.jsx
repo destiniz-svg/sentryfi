@@ -16,6 +16,7 @@ import { formatDate, today } from "@/lib/utils";
 import { FIELD, Field } from "@/pages/Payroll";
 import { ShareDocument } from "@/components/documents/Share";
 import { PendingAttachments, uploadPending } from "@/components/documents/Attachments";
+import { UnitInput } from "@/components/ui/UnitInput";
 
 /**
  * Money asked for before the tax invoice.
@@ -251,7 +252,7 @@ function Held({ list, used, onUse, onRefund, onPay }) {
   );
 }
 
-const blankLine = () => ({ description: "", quantity: "1", unitPrice: "" });
+const blankLine = () => ({ description: "", quantity: "1", unit: "", unitPrice: "" });
 
 function NewRequest({ kind: first, customers, onClose, onDone }) {
   const toast = useToast();
@@ -323,9 +324,10 @@ function NewRequest({ kind: first, customers, onClose, onDone }) {
         </Field>
         <div className="grid gap-2">
           {f.lines.map((l, i) => (
-            <div key={i} className="grid grid-cols-[minmax(0,1fr)_80px_130px_auto] gap-2">
-              <input aria-label={`Line ${i + 1}: what`} value={l.description} onChange={(e) => setLine(i, { description: e.target.value })} placeholder="What for" className={FIELD} />
+            <div key={i} className="grid grid-cols-[72px_88px_minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_72px_88px_130px_auto] gap-2">
+              <input aria-label={`Line ${i + 1}: what`} value={l.description} onChange={(e) => setLine(i, { description: e.target.value })} placeholder="What for" className={`${FIELD} col-span-4 sm:col-span-1`} />
               <input aria-label={`Line ${i + 1}: how many`} value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} inputMode="decimal" className={`${FIELD} tabular text-right`} />
+              <UnitInput label={`Line ${i + 1}: unit`} value={l.unit} onChange={(v) => setLine(i, { unit: v })} className={FIELD} />
               <input aria-label={`Line ${i + 1}: price`} value={l.unitPrice} onChange={(e) => setLine(i, { unitPrice: e.target.value })} inputMode="decimal" placeholder="0.00" className={`${FIELD} tabular text-right`} />
               <Button type="button" variant="ghost" size="sm" onClick={() => put({ lines: f.lines.length === 1 ? [blankLine()] : f.lines.filter((_, j) => j !== i) })}>Remove</Button>
             </div>

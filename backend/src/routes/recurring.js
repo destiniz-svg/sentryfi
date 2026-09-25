@@ -42,7 +42,7 @@ const body = z.object({
   gstTreatment: z.enum(["exclusive", "none_unregistered", "exempt", "zero_rated"]).default("exclusive"),
   postAutomatically: z.boolean().default(false),
   projectId: z.string().uuid().nullish(),
-  lines: z.array(z.object({ description: z.string().trim().max(300), quantity: z.coerce.number().default(1), unitPrice: z.union([z.string().trim(), z.number()]).transform(String) })).min(1).max(40),
+  lines: z.array(z.object({ description: z.string().trim().max(300), quantity: z.coerce.number().default(1), uom: z.string().trim().max(20).nullish(), unitPrice: z.union([z.string().trim(), z.number()]).transform(String) })).min(1).max(40),
 });
 
 router.post(

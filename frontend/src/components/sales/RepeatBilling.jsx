@@ -10,6 +10,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 import { formatDate, today } from "@/lib/utils";
 import { FIELD } from "@/lib/shipments";
+import { UnitInput } from "@/components/ui/UnitInput";
 
 /**
  * Repeat billing: rent, a maintenance contract, equipment on long hire. Each
@@ -85,7 +86,7 @@ export function RepeatBilling({ onClose }) {
 }
 
 function NewSchedule({ onCancel, onDone }) {
-  const [f, setF] = useState({ customerName: "", name: "", every: "month", startsOn: today(), endsOn: "", gstTreatment: "exclusive", postAutomatically: false, description: "", unitPrice: "" });
+  const [f, setF] = useState({ customerName: "", name: "", every: "month", startsOn: today(), endsOn: "", gstTreatment: "exclusive", postAutomatically: false, description: "", unit: "month", unitPrice: "" });
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
@@ -102,7 +103,7 @@ function NewSchedule({ onCancel, onDone }) {
         endsOn: f.endsOn || null,
         gstTreatment: f.gstTreatment,
         postAutomatically: f.postAutomatically,
-        lines: [{ description: f.description, quantity: 1, unitPrice: f.unitPrice.replace(/,/g, "") }],
+        lines: [{ description: f.description, quantity: 1, uom: f.unit.trim() || null, unitPrice: f.unitPrice.replace(/,/g, "") }],
       });
       onDone(r.data);
     } catch (ex) {
@@ -124,10 +125,14 @@ function NewSchedule({ onCancel, onDone }) {
           <input id="rb-name" value={f.name} onChange={set("name")} placeholder="Office rent" className={FIELD} />
         </label>
       </div>
-      <div className="grid grid-cols-[minmax(0,1fr)_140px] gap-3">
+      <div className="grid grid-cols-[minmax(0,1fr)_96px_140px] gap-3">
         <label className="block">
           <span className="text-sm font-medium block mb-1.5">What is billed</span>
           <input id="rb-what" value={f.description} onChange={set("description")} placeholder="Rent, office 2" className={FIELD} />
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium block mb-1.5">Unit</span>
+          <UnitInput label="Unit" value={f.unit} onChange={(v) => setF({ ...f, unit: v })} className={FIELD} />
         </label>
         <label className="block">
           <span className="text-sm font-medium block mb-1.5">Each time, MVR</span>

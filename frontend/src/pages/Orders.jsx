@@ -16,6 +16,7 @@ import { formatDate } from "@/lib/utils";
 import { FIELD } from "@/lib/shipments";
 import { ORDER_STATUS } from "@/lib/orders";
 import { PendingAttachments, uploadPending } from "@/components/documents/Attachments";
+import { UnitInput } from "@/components/ui/UnitInput";
 
 /**
  * Orders: what was agreed with a supplier or a customer before the goods
@@ -100,7 +101,7 @@ export default function Orders() {
   );
 }
 
-const blankLine = () => ({ itemId: "", description: "", accountId: "", quantity: "1", unitPrice: "" });
+const blankLine = () => ({ itemId: "", description: "", accountId: "", quantity: "1", unit: "", unitPrice: "" });
 
 function NewOrder({ kind, onClose }) {
   const nav = useNavigate();
@@ -130,7 +131,7 @@ function NewOrder({ kind, onClose }) {
         note: f.note || null,
         lines: lines
           .filter((l) => l.itemId || l.description.trim())
-          .map((l) => ({ itemId: l.itemId || null, description: l.description, accountId: l.itemId ? null : l.accountId || null, quantity: String(l.quantity), unitPrice: String(l.unitPrice || "0").replace(/,/g, "") })),
+          .map((l) => ({ itemId: l.itemId || null, description: l.description, accountId: l.itemId ? null : l.accountId || null, quantity: String(l.quantity), unit: (l.unit || "").trim() || null, unitPrice: String(l.unitPrice || "0").replace(/,/g, "") })),
       });
       if (files.length) await uploadPending({ quote: "quote", sale: "sales_order", purchase: "purchase_order" }[kind], r.id, files, shareFiles);
       qc.invalidateQueries({ queryKey: ["orders", companyId] });
@@ -185,7 +186,7 @@ function NewOrder({ kind, onClose }) {
                     onChange={(e) => {
                       const it = o.items.find((x) => x.id === e.target.value);
                       const price = kind === "sale" ? it?.sale_price_laari : it?.buy_price_laari;
-                      setLine(i, { itemId: e.target.value, description: it ? it.name : l.description, unitPrice: price ? String(Number(price) / 100) : l.unitPrice });
+                      setLine(i, { itemId: e.target.value, description: it ? it.name : l.description, unit: it?.unit || l.unit, unitPrice: price ? String(Number(price) / 100) : l.unitPrice });
                     }}
                     className={`${FIELD} flex-1 min-w-0`}
                   >
@@ -215,9 +216,10 @@ function NewOrder({ kind, onClose }) {
                     )}
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-[minmax(0,1fr)_96px_minmax(0,1.3fr)] gap-2">
                   <input aria-label={`Line ${i + 1}: how many`} value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} inputMode="decimal" placeholder="How many" className={`${FIELD} tabular`} />
-                  <input aria-label={`Line ${i + 1}: price each`} value={l.unitPrice} onChange={(e) => setLine(i, { unitPrice: e.target.value })} inputMode="decimal" placeholder="Price each, MVR" className={`${FIELD} tabular`} />
+                  <UnitInput label={`Line ${i + 1}: unit`} value={l.unit} onChange={(v) => setLine(i, { unit: v })} className={FIELD} />
+                  <input aria-label={`Line ${i + 1}: price each`} value={l.unitPrice} onChange={(e) => setLine(i, { unitPrice: e.target.value })} inputMode="decimal" placeholder="Price" className={`${FIELD} tabular`} />
                 </div>
               </div>
             ))}
