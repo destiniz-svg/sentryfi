@@ -17,6 +17,15 @@
  */
 const RELEASES = [
   {
+    version: "1.22",
+    date: "2026-09-25",
+    title: "Archive a bank account",
+    summary: "A bank account that is closed or never used can be put away, and brought back.",
+    items: [
+      { area: "Bank", kind: "new", title: "Archive a bank account", body: "When nothing is left in it and no statement line is waiting, tap Archive. Its history stays in the books, and Restore brings it back from Archived.", href: "/bank" },
+    ],
+  },
+  {
     version: "1.21",
     date: "2026-09-25",
     title: "Put a bank account right before it is used",

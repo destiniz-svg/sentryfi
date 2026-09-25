@@ -102,6 +102,51 @@ async function editBank(client, { companyId, accountId, name, currency, accountN
   return done[0];
 }
 
+/**
+ * A bank account put away: closed at the bank, or never used. Only when
+ * nothing is left in it and no statement line is waiting, so nothing still
+ * owed or unanswered disappears from view. Its history stays in the books,
+ * and it can come back.
+ */
+async function archiveBank(client, { companyId, accountId }) {
+  const { rows } = await client.query(
+    `SELECT a.name, a.code,
+            COALESCE((SELECT SUM(debit_laari) - SUM(credit_laari) FROM journal_lines j WHERE j.account_id = a.id), 0)::text AS balance,
+            COALESCE((SELECT SUM(CASE WHEN j.debit_laari > 0 THEN j.amount_fc ELSE -j.amount_fc END) FROM journal_lines j WHERE j.account_id = a.id AND j.currency = a.currency), 0)::text AS balance_fc,
+            (SELECT count(*) FROM bank_statement_lines s WHERE s.account_id = a.id AND s.status = 'open')::int AS waiting
+       FROM accounts a WHERE a.id = $1 AND a.company_id = $2 AND a.code LIKE '11%' AND a.archived_at IS NULL`,
+    [accountId, companyId]
+  );
+  const a = rows[0];
+  if (!a) throw new Error("That is not one of your open bank accounts.");
+  if (a.code === "1100") throw new Error(`${a.name} is the account money comes from when nothing else is said, so it stays.`);
+  if (a.balance !== "0" || a.balance_fc !== "0") throw new Error(`${a.name} still has money in it. Move it out first, then archive it.`);
+  if (a.waiting) throw new Error(`${a.name} has ${a.waiting} statement ${a.waiting === 1 ? "line" : "lines"} waiting to be answered.`);
+  await client.query("UPDATE accounts SET archived_at = now() WHERE id = $1 AND company_id = $2", [accountId, companyId]);
+  return { name: a.name };
+}
+
+/** An archived bank account, back in use. */
+async function restoreBank(client, { companyId, accountId }) {
+  const { rows } = await client.query(
+    "UPDATE accounts SET archived_at = NULL WHERE id = $1 AND company_id = $2 AND code LIKE '11%' AND archived_at IS NOT NULL RETURNING name",
+    [accountId, companyId]
+  );
+  if (!rows[0]) throw new Error("That is not one of your archived bank accounts.");
+  return rows[0];
+}
+
+/** The bank accounts put away, newest first. */
+async function archivedBanks(client, { companyId }) {
+  const { rows } = await client.query(
+    `SELECT id, name, trim(currency) AS currency, bank_account_no AS "accountNo", archived_at AS "archivedAt"
+       FROM accounts WHERE company_id = $1 AND code LIKE '11%' AND archived_at IS NOT NULL
+      ORDER BY archived_at DESC`,
+    [companyId]
+  );
+  return rows;
+}
+
 /** A second bank account, or a first at a new bank. Starts at nothing. */
 async function openBank(client, { companyId, name, currency, accountNo }) {
   let clean = String(name || "").trim();
@@ -286,4 +331,4 @@ async function bankSays(client, { companyId, accountId }) {
   return { on: day[0].d, bank: BigInt(last.balance_laari), books: BigInt(book[0].b) };
 }
 
-module.exports = { places, openBank, setNumber, editBank, transfer, importStatement, bankSays };
+module.exports = { places, openBank, setNumber, editBank, archiveBank, restoreBank, archivedBanks, transfer, importStatement, bankSays };

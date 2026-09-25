@@ -336,7 +336,7 @@ async function giveTopup(client, { companyId, userId, topupId, given, fromAccoun
   // 1100, which is the only one a company has until it opens a second.
   const bank = fromAccountId
     ? (await client.query(
-        `SELECT id FROM accounts WHERE id = $1 AND company_id = $2 AND code LIKE '11%'`,
+        `SELECT id FROM accounts WHERE id = $1 AND company_id = $2 AND code LIKE '11%' AND archived_at IS NULL`,
         [fromAccountId, companyId]
       )).rows[0]
     : await accountByCode(client, { companyId, code: "1100" });

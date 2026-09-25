@@ -10,7 +10,7 @@ import { describe, it, expect, afterAll } from "vitest";
 import { inRollback, aCompanyWith, closePool } from "./setup";
 import { assumeIdentity, postEntry } from "../src/ledger/post";
 import { openBox } from "../src/ledger/cash";
-import { places, openBank, setNumber, editBank, transfer, importStatement } from "../src/ledger/bank";
+import { places, openBank, setNumber, editBank, archiveBank, restoreBank, archivedBanks, transfer, importStatement } from "../src/ledger/bank";
 import { recordRate } from "../src/ledger/fx";
 import * as rec from "../src/ledger/reconcile";
 
@@ -70,6 +70,20 @@ describe("bank accounts and transfers", () => {
       expect((await openBank(client, { companyId, name: "MIB", currency: "USD" })).name).toBe("MIB USD 2");
       await expect(openBank(client, { companyId, name: "Payroll", accountNo: "773000001111" })).rejects.toThrow(/already here/);
       expect((await places(client, { companyId })).find((p) => p.id === b.id).bank_account_no).toBe("773000002222");
+    }));
+
+  it("archives an empty bank account, keeps one with money, and brings it back", () =>
+    inRollback(async (client) => {
+      const { companyId, userId, accounts, second } = await aBusiness(client);
+      await expect(archiveBank(client, { companyId, accountId: accounts.bank })).rejects.toThrow(/stays/);
+      await transfer(client, { companyId, userId, fromId: accounts.bank, toId: second.id, amount: "100.00", on: "2026-09-02" });
+      await expect(archiveBank(client, { companyId, accountId: second.id })).rejects.toThrow(/still has money/);
+      await transfer(client, { companyId, userId, fromId: second.id, toId: accounts.bank, amount: "100.00", on: "2026-09-03" });
+      await archiveBank(client, { companyId, accountId: second.id });
+      expect((await places(client, { companyId })).some((p) => p.id === second.id)).toBe(false);
+      expect((await archivedBanks(client, { companyId })).map((a) => a.id)).toEqual([second.id]);
+      await restoreBank(client, { companyId, accountId: second.id });
+      expect((await places(client, { companyId })).some((p) => p.id === second.id)).toBe(true);
     }));
 
   it("edits an account only while nothing is recorded in it", () =>

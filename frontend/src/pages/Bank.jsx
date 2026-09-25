@@ -116,10 +116,13 @@ export default function Bank() {
                           <button
                             type="button"
                             onClick={() => setNumbering(p)}
-                            className={`inline-flex items-center min-h-[44px] sm:min-h-0 text-[13px] font-medium underline underline-offset-2 ${p.accountNo ? "" : "text-[var(--warning)]"}`}
+                            className={`inline-flex items-center min-h-[44px] sm:min-h-0 mr-4 text-[13px] font-medium underline underline-offset-2 ${p.accountNo ? "" : "text-[var(--warning)]"}`}
                           >
                             {p.editable ? (p.accountNo ? "Edit" : "Edit, and add its account number") : "Add its account number"}
                           </button>
+                        )}
+                        {p.kind === "bank" && p.code !== "1100" && p.balance === "0.00" && (!p.foreign || p.balanceFc === "0.00") && !p.statement?.waiting && can("manage_settings") && (
+                          <ArchiveButton place={p} />
                         )}
                         {p.statement?.lines > 0 && (
                           <Link
@@ -165,6 +168,7 @@ export default function Bank() {
             );
           })}
           <CashTins banks={places.filter((p) => p.kind === "bank" && !p.foreign)} />
+          <Archived />
         </div>
       )}
 
@@ -173,6 +177,78 @@ export default function Bank() {
       <OpenBank open={opening} onClose={() => setOpening(false)} base={(places || []).find((p) => !p.foreign)?.currency || "MVR"} />
       {bringing && <BringStatement key={bringing.id} place={bringing} onClose={() => setBringing(null)} />}
     </div>
+  );
+}
+
+/** Put an empty bank account away. Nothing is lost, so it asks nothing. */
+function ArchiveButton({ place }) {
+  const toast = useToast();
+  const refresh = useRefresh();
+  const go = useMutation({ mutationFn: () => bankApi.archive(place.id) });
+  return (
+    <button
+      type="button"
+      disabled={go.isPending}
+      onClick={() =>
+        go.mutate(undefined, {
+          onSuccess: () => {
+            refresh();
+            toast.success(`${place.name} is archived`, "Its history stays in the books. Bring it back from Archived below.");
+          },
+          onError: (ex) => toast.error("Not archived", ex.message),
+        })
+      }
+      className="inline-flex items-center min-h-[44px] sm:min-h-0 text-[13px] font-medium text-[var(--ink-muted)] underline underline-offset-2"
+    >
+      Archive
+    </button>
+  );
+}
+
+/** Bank accounts put away, each one tap from coming back. */
+function Archived() {
+  const { companyId, can } = useCompany();
+  const toast = useToast();
+  const refresh = useRefresh();
+  const { data: accounts } = useQuery({ queryKey: ["bank", companyId, "archived"], queryFn: bankApi.archived, enabled: Boolean(companyId) });
+  const back = useMutation({ mutationFn: (id) => bankApi.restore(id) });
+  if (!accounts?.length) return null;
+  return (
+    <details className="rounded-[20px] bg-[var(--surface)] lift">
+      <summary className="cursor-pointer px-5 py-4 text-[12px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+        Archived · {accounts.length}
+      </summary>
+      <ul className="divide-y divide-[var(--border)] border-t border-[var(--border)]">
+        {accounts.map((a) => (
+          <li key={a.id} className="flex items-center gap-4 px-5 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-[15px] font-medium truncate">{a.name}</div>
+              <div className="text-[13px] text-[var(--ink-muted)] tabular">
+                {a.currency}
+                {a.accountNo && ` · A/C ${a.accountNo}`}
+              </div>
+            </div>
+            {can("manage_settings") && (
+              <Button
+                variant="outline"
+                disabled={back.isPending}
+                onClick={() =>
+                  back.mutate(a.id, {
+                    onSuccess: () => {
+                      refresh();
+                      toast.success(`${a.name} is back`);
+                    },
+                    onError: (ex) => toast.error("Not restored", ex.message),
+                  })
+                }
+              >
+                Restore
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 

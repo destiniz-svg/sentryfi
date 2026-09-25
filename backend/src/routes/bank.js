@@ -86,6 +86,26 @@ router.post(
   })
 );
 
+router.get(
+  "/archived",
+  requireCan("read"),
+  asyncHandler(async (req, res) => res.json({ accounts: await asCompany(req, (client) => bank.archivedBanks(client, { companyId: req.companyId })) }))
+);
+
+for (const [path, act] of [["archive", "archiveBank"], ["restore", "restoreBank"]]) {
+  router.post(
+    `/:id/${path}`,
+    requireCan("manage_settings"),
+    asyncHandler(async (req, res) => {
+      try {
+        res.json(await asCompany(req, (client) => bank[act](client, { companyId: req.companyId, accountId: req.params.id })));
+      } catch (err) {
+        throw ApiError.badRequest(err.message);
+      }
+    })
+  );
+}
+
 router.patch(
   "/:id",
   requireCan("manage_settings"),
