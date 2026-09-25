@@ -17,6 +17,15 @@
  */
 const RELEASES = [
   {
+    version: "1.25.1",
+    date: "2026-09-25",
+    title: "The button takes you to what is missing",
+    summary: "On a new invoice, quote or order, the button that says what is missing now opens that step.",
+    items: [
+      { area: "Sales", kind: "fixed", title: "“Who is it for?” opens the customer list", body: "Until everything is there, the button at the top says what is missing: tap it for the customer list, then the items, then the terms. When all of it is there, it saves.", href: "/invoices/new" },
+    ],
+  },
+  {
     version: "1.25",
     date: "2026-09-25",
     title: "Quotes, orders and bills, one question at a time",

@@ -251,7 +251,7 @@ export default function NewInvoice() {
   const commitment = !form.customerName.trim()
     ? "Who is it for?"
     : usable.length === 0
-      ? "Add a line with a rate"
+      ? "Add items"
       : !form.dueDate
         ? "On which terms?"
         : !rateOk
@@ -400,6 +400,11 @@ export default function NewInvoice() {
               variant={ready ? "accent" : "outline"}
               disabled={raise.isPending}
               data-testid="save-invoice"
+              // Until it is ready the button names what is missing, and a tap goes there.
+              onClick={(e) => {
+                const step = !form.customerName.trim() ? "who" : !usable.length ? "items" : !form.dueDate ? "terms" : null;
+                if (step) (e.preventDefault(), setFlow(step));
+              }}
             >
               {raise.isPending && (
                 <Loader2 size={14} className="animate-spin" />

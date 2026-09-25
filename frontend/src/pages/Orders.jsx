@@ -132,7 +132,7 @@ function NewOrder({ kind, onClose }) {
   const label = { purchase: "purchase order", sale: "sales order", quote: "quote" }[kind];
   const step3Filled = kind === "quote" ? Boolean(f.validUntil) : Boolean(f.expectedOn);
   const at = !party ? 1 : !hasLines ? 2 : !step3Filled ? 3 : 4;
-  const commitment = !party ? (kind === "purchase" ? "Who is it from?" : "Who is it for?") : !hasLines ? "Add a line" : `Save the ${label}`;
+  const commitment = !party ? (kind === "purchase" ? "Who is it from?" : "Who is it for?") : !hasLines ? "Add items" : `Save the ${label}`;
 
   function onSubmit(e) {
     e.preventDefault();
@@ -368,7 +368,16 @@ function NewOrder({ kind, onClose }) {
         <Button type="button" variant="outline" onClick={onClose}>
           Cancel
         </Button>
-        <Button type="submit" variant={party && hasLines ? "accent" : "outline"} disabled={save.isPending || !party || total <= 0}>
+        <Button
+          type="submit"
+          variant={party && hasLines ? "accent" : "outline"}
+          disabled={save.isPending}
+          // Until it is ready the button names what is missing, and a tap goes there.
+          onClick={(e) => {
+            const step = !party ? "who" : !hasLines || total <= 0 ? "items" : null;
+            if (step) (e.preventDefault(), setFlow(step));
+          }}
+        >
           {save.isPending && <Loader2 size={14} className="animate-spin" />}
           {commitment}
         </Button>
