@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Package, Plus, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
+import { Money } from "@/components/ui/Money";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { Days, MoneyRow, Segments } from "@/components/mobile/parts";
+import { Segments } from "@/components/mobile/parts";
 import { apiClient } from "@/api/client";
 import { useCompany } from "@/context/CompanyContext";
 import { cn, formatDate, today } from "@/lib/utils";
@@ -66,24 +68,34 @@ export default function Orders() {
           </p>
         </Card>
       ) : (
-        <Days
-          rows={data}
-          dateOf={(o) => o.orderedOn}
-          render={(o) => {
-            const st = ORDER_STATUS[o.status];
-            const got = n(o.total) ? Math.round((n(o.delivered) / n(o.total)) * 100) : 0;
-            return (
-              <MoneyRow
-                key={o.id}
-                to={`/orders/${o.id}`}
-                who={o.party}
-                line={[o.number, o.project, kind === "quote" ? (o.validUntil ? `good until ${formatDate(o.validUntil)}` : null) : `${got}% ${kind === "purchase" ? "arrived" : "gone out"}`].filter(Boolean).join(" · ")}
-                amount={o.total}
-                pill={{ tone: st.tone, label: kind === "purchase" ? st.buy : st.sell }}
-              />
-            );
-          }}
-        />
+        <Card padding="none" className="overflow-hidden">
+          <div className="divide-y divide-[var(--border)]">
+            {data.map((o) => {
+              const st = ORDER_STATUS[o.status];
+              const got = n(o.total) ? Math.round((n(o.delivered) / n(o.total)) * 100) : 0;
+              return (
+                <Link key={o.id} to={`/orders/${o.id}`} data-testid="order-row" className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 px-5 py-4 hover:bg-[var(--surface-2)]">
+                  <div className="min-w-0">
+                    <div className="text-[15px] font-semibold truncate">
+                      {o.number} · {o.party}
+                    </div>
+                    <div className="text-[13px] text-[var(--ink-muted)] truncate">
+                      {formatDate(o.orderedOn)}
+                      {o.project ? ` · ${o.project}` : ""}
+                      {kind === "quote" ? (o.validUntil ? ` · good until ${formatDate(o.validUntil)}` : "") : ` · ${got}% ${kind === "purchase" ? "arrived" : "gone out"}`}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <Money amount={o.total} className="text-[15px] font-semibold" />
+                    <div className="mt-1">
+                      <Badge tone={st.tone}>{kind === "purchase" ? st.buy : st.sell}</Badge>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </Card>
       )}
       {adding && <NewOrder kind={kind} onClose={() => setAdding(false)} />}
     </div>

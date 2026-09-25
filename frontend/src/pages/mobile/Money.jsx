@@ -1,37 +1,18 @@
-import { useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { useBills, useBillMutations } from "@/hooks/useBills";
-import { useAged, useSales, useSalesMutations } from "@/hooks/useSales";
-import { useCompany } from "@/context/CompanyContext";
-import { useToast } from "@/context/UIContext";
+import { useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useBills } from "@/hooks/useBills";
+import { useAged, useSales } from "@/hooks/useSales";
 import { Money as Amount } from "@/components/ui/Money";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { Days, EmptyState, laariText, MoneyRow, Segments } from "@/components/mobile/parts";
+import { EmptyState, laariText, Segments } from "@/components/mobile/parts";
+import { BillList } from "@/components/bills/BillList";
+import { InvoiceList } from "@/components/sales/InvoiceList";
 
 /**
  * Money, in the main app on a phone: bills and invoices as one place with two
- * views. A sticky total says what the list adds up to; rows run by day; a
- * swipe puts a waiting one in the books, and a tap opens it: a bill on its own
- * page (pages/mobile/Bill.jsx), an invoice as the document the customer gets.
- * Every other action (void, receive a payment, credit) stays on the full Bills
- * and Invoices pages, linked below.
+ * views. A sticky total says what the list adds up to; below it is the same
+ * list the Bills and Invoices pages show, with every next step in view.
  */
-
-const BILL = {
-  draft: { tone: "neutral", label: "Not in the books" },
-  awaiting_review: { tone: "accent", label: "Needs a decision" },
-  posted: { tone: "success", label: "In the books" },
-  reversed: { tone: "neutral", label: "Reversed" },
-  discarded: { tone: "neutral", label: "Void" },
-};
-
-function invoicePill(inv) {
-  if (inv.voided) return { tone: "neutral", label: "Void" };
-  if (inv.status === "draft") return { tone: "neutral", label: "Draft" };
-  if (inv.settled) return { tone: "success", label: "Settled" };
-  if (inv.dueDate && new Date(inv.dueDate) < new Date(new Date().toDateString())) return { tone: "danger", label: "Late" };
-  return { tone: "accent", label: "Owed" };
-}
 
 export default function MobileMoney() {
   const [params, setParams] = useSearchParams();
@@ -49,7 +30,7 @@ export default function MobileMoney() {
           { value: "invoices", label: "Invoices" },
         ]}
       />
-      {view === "bills" ? <BillList /> : <InvoiceList />}
+      {view === "bills" ? <BillsView /> : <InvoicesView />}
     </div>
   );
 }
@@ -71,28 +52,12 @@ function Total({ label, amount, sub }) {
   );
 }
 
-function BillList() {
+function BillsView() {
   const { data: bills, isPending } = useBills();
-  const { post } = useBillMutations();
-  const { can } = useCompany();
-  const toast = useToast();
-  const [busy, setBusy] = useState(null);
 
   const live = useMemo(() => (bills || []).filter((b) => b.status !== "discarded" && !b.voided_at), [bills]);
   const waiting = live.filter((b) => b.status === "draft" || b.status === "awaiting_review");
   const waitingTotal = waiting.reduce((s, b) => s + BigInt(b.gross_laari || 0), 0n);
-
-  async function putIn(bill) {
-    setBusy(bill.id);
-    try {
-      const r = await post.mutateAsync(bill.id);
-      toast.success(`Entry ${r.entryNo} · MVR ${r.total}`, "It is in the books, and the two sides agree.");
-    } catch (err) {
-      toast.error("Not yet", err.message);
-    } finally {
-      setBusy(null);
-    }
-  }
 
   if (isPending) return <Skeleton className="h-[240px] rounded-2xl" />;
   if (!live.length)
@@ -103,55 +68,17 @@ function BillList() {
       <Total
         label={waiting.length ? `${waiting.length} waiting to go in the books` : "Every bill is in the books"}
         amount={waiting.length ? laariText(waitingTotal) : null}
-        sub={waiting.length > 0 && can("record") ? "Swipe a waiting bill left to put it in" : null}
       />
-      <Days
-        rows={live}
-        dateOf={(b) => b.issue_date || b.received_at}
-        render={(b) => (
-          <MoneyRow
-            key={b.id}
-            to={`/bills/${b.id}`}
-            who={b.supplier_name || "Nobody named yet"}
-            line={[b.bill_no, b.tax_laari !== "0" ? `incl. ${b.tax} GST` : null].filter(Boolean).join(" · ")}
-            amount={b.gross}
-            pill={BILL[b.status]}
-            action={
-              can("record") && (b.status === "draft" || b.status === "awaiting_review")
-                ? { label: "Put in the books", run: () => putIn(b), busy: busy === b.id }
-                : null
-            }
-          />
-        )}
-      />
-      <Link to="/bills" className="block text-center text-[15px] font-semibold text-[var(--deep)] py-3">
-        Every bill, with every action
-      </Link>
+      <BillList bills={live} />
     </>
   );
 }
 
-function InvoiceList() {
+function InvoicesView() {
   const { data: invoices, isPending } = useSales();
   const { data: aged } = useAged();
-  const { post } = useSalesMutations();
-  const { can } = useCompany();
-  const toast = useToast();
-  const [busy, setBusy] = useState(null);
 
   const live = useMemo(() => (invoices || []).filter((i) => !i.voided), [invoices]);
-
-  async function send(inv) {
-    setBusy(inv.id);
-    try {
-      await post.mutateAsync(inv.id);
-      toast.success(`${inv.invoiceNo || "Invoice"} is in the books`, `MVR ${inv.gross} owed by ${inv.customer || "the customer"}.`);
-    } catch (err) {
-      toast.error("Not yet", err.message);
-    } finally {
-      setBusy(null);
-    }
-  }
 
   if (isPending) return <Skeleton className="h-[240px] rounded-2xl" />;
   if (!live.length)
@@ -165,26 +92,7 @@ function InvoiceList() {
   return (
     <>
       <Total label="Customers owe you" amount={aged?.total || "0.00"} />
-      <Days
-        rows={live}
-        dateOf={(i) => i.issueDate}
-        render={(i) => (
-          <MoneyRow
-            key={i.id}
-            to={`/documents/invoice/${i.id}`}
-            who={i.customer || "Nobody named yet"}
-            line={[i.invoiceNo, !i.settled && i.status === "posted" && i.outstanding !== i.gross ? `${i.outstanding} left` : null]
-              .filter(Boolean)
-              .join(" · ")}
-            amount={i.gross}
-            pill={invoicePill(i)}
-            action={can("record") && i.status === "draft" ? { label: "Put in the books", run: () => send(i), busy: busy === i.id } : null}
-          />
-        )}
-      />
-      <Link to="/invoices" className="block text-center text-[15px] font-semibold text-[var(--deep)] py-3">
-        Every invoice, with every action
-      </Link>
+      <InvoiceList rows={live} />
     </>
   );
 }

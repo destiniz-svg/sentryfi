@@ -17,6 +17,17 @@
  */
 const RELEASES = [
   {
+    version: "1.23",
+    date: "2026-09-25",
+    title: "One list for bills and invoices, every step in view",
+    summary: "Money on a phone now shows the same list as the Bills and Invoices pages: the subject, the number, and each next step as a button, with no swiping.",
+    items: [
+      { area: "Sales", kind: "improved", title: "Invoices in Money, with every step", body: "Money in, Credit note, Put in the books and Discard are on each invoice, as on the Invoices page.", href: "/money?view=invoices" },
+      { area: "Purchases", kind: "improved", title: "Bills in Money, with every step", body: "Put in the books, What it was for, and the rest under ⋯, as on the Bills page.", href: "/money" },
+      { area: "Sales", kind: "fixed", title: "Invoices, bills and orders back to their list", body: "The day-by-day swipe list from 1.19 is gone. These pages show the list with its buttons again, on every screen.", href: "/invoices" },
+    ],
+  },
+  {
     version: "1.22",
     date: "2026-09-25",
     title: "Archive a bank account",
