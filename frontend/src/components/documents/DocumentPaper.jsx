@@ -206,7 +206,7 @@ function Lines({ m }) {
       <thead>
         <tr>
           {m.columns.map((c) => (
-            <th key={c.key} className={c.num ? "num" : undefined} style={c.grow ? { width: "100%" } : undefined}>
+            <th key={c.key} className={c.num ? "num" : c.grow ? "grow" : undefined} style={c.grow ? { width: "100%" } : undefined}>
               {c.label}
             </th>
           ))}
@@ -216,7 +216,7 @@ function Lines({ m }) {
         {m.lines.map((l, i) => (
           <tr key={i}>
             {m.columns.map((c) => (
-              <td key={c.key} className={c.num ? "num" : undefined} style={c.nowrap ? { whiteSpace: "nowrap" } : undefined}>
+              <td key={c.key} className={c.num ? "num" : c.grow ? "grow" : undefined} style={c.nowrap ? { whiteSpace: "nowrap" } : undefined}>
                 {l[c.key] ?? ""}
               </td>
             ))}
