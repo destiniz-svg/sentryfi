@@ -39,6 +39,13 @@ const same = (a, b) =>
  * there is one — the TIN being the only strong key here, since names on real
  * Maldivian invoices are spelled inconsistently by their own issuers.
  */
+/** A record merged into another answers as the one kept. */
+async function kept(client, row) {
+  if (!row.merged_into) return row;
+  const { rows } = await client.query("SELECT * FROM counterparties WHERE id = $1", [row.merged_into]);
+  return rows[0] || row;
+}
+
 async function findOrCreate(client, { companyId, userId, name, tin, kind = "supplier", exact = false }) {
   await assumeIdentity(client, { companyId, userId });
   const trimmed = clean(name);
@@ -51,7 +58,7 @@ async function findOrCreate(client, { companyId, userId, name, tin, kind = "supp
         LIMIT 1`,
       [companyId, tin]
     );
-    if (rows.length) return { party: rows[0], created: false, matchedOn: "tin" };
+    if (rows.length) return { party: await kept(client, rows[0]), created: false, matchedOn: "tin" };
   }
 
   if (trimmed) {
@@ -68,7 +75,7 @@ async function findOrCreate(client, { companyId, userId, name, tin, kind = "supp
       if (exact && !(rows[0].kind || []).includes(kind)) {
         await client.query("UPDATE counterparties SET kind = array_append(kind, $3::cp_t) WHERE id = $1 AND company_id = $2", [rows[0].id, companyId, kind]);
       }
-      return { party: rows[0], created: false, matchedOn: "name" };
+      return { party: await kept(client, rows[0]), created: false, matchedOn: "name" };
     }
   }
 
@@ -85,7 +92,7 @@ async function findOrCreate(client, { companyId, userId, name, tin, kind = "supp
       [companyId, trimmed]
     );
     if (rows.length && Number(rows[0].score) >= 0.55) {
-      return { party: rows[0], created: false, matchedOn: "similar-name" };
+      return { party: await kept(client, rows[0]), created: false, matchedOn: "similar-name" };
     }
   }
 

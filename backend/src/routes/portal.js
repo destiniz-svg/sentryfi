@@ -49,7 +49,7 @@ publicRouter.get(
                 COALESCE((SELECT SUM(a.amount_laari) FROM receipt_allocations a JOIN receipts r ON r.id = a.receipt_id AND r.voided_at IS NULL WHERE a.invoice_id = s.id), 0) AS paid,
                 COALESCE((SELECT SUM(n.gross_laari) FROM credit_notes n WHERE n.invoice_id = s.id), 0) AS credited
            FROM sales_invoices s
-          WHERE s.company_id = $1 AND s.counterparty_id = $2 AND s.status = 'posted' AND s.voided_at IS NULL
+          WHERE s.company_id = $1 AND same_party(s.counterparty_id, $2) AND s.status = 'posted' AND s.voided_at IS NULL
           ORDER BY s.issue_date DESC LIMIT 60`,
         [link.company_id, link.counterparty_id]
       );
@@ -71,7 +71,7 @@ publicRouter.get(
       const total = out.reduce((a, i) => a + BigInt(i.owed.replace(/[,.]/g, "")), 0n);
       const orders = require("../ledger/orders");
       const { rows: q } = await client.query(
-        "SELECT id FROM orders WHERE company_id = $1 AND counterparty_id = $2 AND kind = 'quote' AND created_at > now() - interval '180 days' ORDER BY ordered_on DESC LIMIT 20",
+        "SELECT id FROM orders WHERE company_id = $1 AND same_party(counterparty_id, $2) AND kind = 'quote' AND created_at > now() - interval '180 days' ORDER BY ordered_on DESC LIMIT 20",
         [link.company_id, link.counterparty_id]
       );
       const day = (d) => (d ? String(d instanceof Date ? d.toISOString() : d).slice(0, 10) : null);
@@ -122,7 +122,7 @@ publicRouter.get(
     if (!link) throw ApiError.notFound("This link has been turned off, or is not complete. Ask for a new one.");
     const doc = await asCompany({ companyId: link.company_id, user: { id: link.created_by } }, async (client) => {
       const { rows: mine } = await client.query(
-        "SELECT 1 FROM sales_invoices WHERE id = $1 AND company_id = $2 AND counterparty_id = $3 AND status = 'posted' AND voided_at IS NULL",
+        "SELECT 1 FROM sales_invoices WHERE id = $1 AND company_id = $2 AND same_party(counterparty_id, $3) AND status = 'posted' AND voided_at IS NULL",
         [req.params.id, link.company_id, link.counterparty_id]
       );
       if (!mine.length) return null;

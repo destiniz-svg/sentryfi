@@ -68,4 +68,30 @@ describe("contacts", () => {
       expect(after.details.bankAccounts).toEqual(["····9999", "····1111"]);
       expect(after.doubts).toHaveLength(0);
     }));
+
+  it("merges two records of one business: every figure follows, nothing in the books is re-tagged", () =>
+    inRollback(async (client) => {
+      const { companyId, userId, accounts } = await aCompanyWith(client);
+      const { rows: ar } = await client.query("INSERT INTO accounts (company_id, code, name, type) VALUES ($1,'1300','Owed to us','asset'), ($1,'4000','Sales','income') RETURNING id, code", [companyId]);
+      const owedToUs = ar.find((a) => a.code === "1300").id;
+      const salesAcct = ar.find((a) => a.code === "4000").id;
+      const keep = await contacts.create(client, { companyId, body: { name: "Moonreef Hotels", customer: true } });
+      const lose = await contacts.create(client, { companyId, body: { name: "Moon Reef Hotel Pvt Ltd", customer: true, supplier: true, phone: "7779999" }, force: true });
+      for (const [party, amt] of [[keep, "1000.00"], [lose, "250.00"]]) {
+        await postEntry(client, { companyId, userId, date: "2026-09-01", source: "adjustment", narrative: "Invoice", lines: [{ accountId: owedToUs, debit: amt, counterpartyId: party }, { accountId: salesAcct, credit: amt }] });
+      }
+      await contacts.merge(client, { companyId, keepId: keep, loseId: lose });
+      const { contacts: all } = await contacts.list(client, { companyId });
+      expect(all.map((c) => c.name)).toEqual(["Moonreef Hotels"]);
+      expect(all[0].receivable).toBe("1,250.00");
+      expect(all[0].supplier).toBe(true);
+      const shown = await contacts.show(client, { companyId, id: keep });
+      expect(shown.details.phone).toBe("7779999");
+      expect(shown.details.mergedIn).toEqual(["Moon Reef Hotel Pvt Ltd"]);
+      expect((await contacts.show(client, { companyId, id: lose })).mergedInto).toBe(keep);
+      const { rows: lines } = await client.query("SELECT count(*)::int AS n FROM journal_lines WHERE counterparty_id = $1", [lose]);
+      expect(lines[0].n).toBe(1);
+      const { findOrCreate } = await import("../src/ledger/counterparties");
+      expect((await findOrCreate(client, { companyId, userId, name: "Moon Reef Hotel Pvt Ltd", kind: "customer" })).party.id).toBe(keep);
+    }));
 });

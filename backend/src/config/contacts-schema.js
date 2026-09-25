@@ -27,6 +27,19 @@ CREATE POLICY company_isolation ON contact_people
   USING (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid)
   WITH CHECK (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid);
 GRANT SELECT, INSERT, UPDATE ON contact_people TO sentryfi_app;
+
+-- Two records that turned out to be one business: the one given up points at
+-- the one kept. Nothing already in the books is re-tagged (the ledger never
+-- changes); everything that asks "is this that party?" follows the pointer.
+ALTER TABLE counterparties ADD COLUMN IF NOT EXISTS merged_into UUID REFERENCES counterparties(id);
+CREATE OR REPLACE FUNCTION same_party(a UUID, b UUID) RETURNS BOOLEAN
+  LANGUAGE sql STABLE AS $f$
+    SELECT a = b OR EXISTS (SELECT 1 FROM counterparties WHERE id = a AND merged_into = b)
+  $f$;
+
+-- A business's own papers: trade licence, contract, TRN certificate.
+ALTER TABLE attachments ADD COLUMN IF NOT EXISTS counterparty_id UUID REFERENCES counterparties(id);
+CREATE INDEX IF NOT EXISTS attachments_party_idx ON attachments(counterparty_id) WHERE counterparty_id IS NOT NULL;
 `;
 
 module.exports = { CONTACTS_SQL };

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowDownLeft, ArrowUpRight, Banknote, FileText, Link2, Mail, MessageCircle, Pencil, Phone, Plus, ReceiptText, Share2, Star, Trash2, UserPlus } from "lucide-react";
@@ -11,6 +11,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import { ContactForm } from "@/components/contacts/ContactForm";
 import { ShareDocument, waNumber } from "@/components/documents/Share";
 import { Conversation } from "@/components/talk/Conversation";
+import { Attachments } from "@/components/documents/Attachments";
+import { Modal } from "@/components/ui/Modal";
 import { apiClient } from "@/api/client";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
@@ -42,9 +44,13 @@ export default function Contact() {
   const key = ["contacts", companyId, id];
   const { data: c, error } = useQuery({ queryKey: key, queryFn: () => apiClient.get(`/contacts/${id}`).then((r) => r.data), enabled: Boolean(companyId) });
   const refresh = () => qc.invalidateQueries({ queryKey: ["contacts", companyId] });
+  // A record merged into another opens the one it was merged into.
+  useEffect(() => {
+    if (c?.mergedInto) nav(`/contacts/${c.mergedInto}`, { replace: true });
+  }, [c?.mergedInto]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (error) return <p className="text-[15px] text-[var(--ink-muted)]">{error.message}</p>;
-  if (!c) return <Skeleton className="h-[70vh] rounded-3xl" />;
+  if (!c || c.mergedInto) return <Skeleton className="h-[70vh] rounded-3xl" />;
 
   const d = c.details;
   const wa = waNumber(d.phone);
@@ -187,6 +193,8 @@ export default function Contact() {
         </TabsContent>
         <TabsContent value="details" className="mt-4">
           <Details c={c} />
+          <Attachments kind="contact" id={c.id} title="Papers: trade licence, contract, TRN certificate" />
+          {can("record") && <Merge c={c} onDone={refresh} />}
         </TabsContent>
         <TabsContent value="people" className="mt-4">
           <People c={c} onDone={refresh} />
@@ -403,7 +411,9 @@ function Details({ c }) {
     ["Pays within", d.paymentTermsDays != null ? `${d.paymentTermsDays} days` : "30 days (the usual)"],
     c.customer && ["Credit limit", d.creditLimit ? `MVR ${d.creditLimit}` : "None set"],
     c.supplier && ["Bank accounts", d.bankAccounts.length ? d.bankAccounts.join(", ") : "None known yet"],
-    d.alsoKnownAs?.length && ["Also written as", d.alsoKnownAs.join(", ")],
+    // Names that came with a merge are listed under Merged in, not twice.
+    d.alsoKnownAs?.filter((x) => !d.mergedIn?.includes(x)).length && ["Also written as", d.alsoKnownAs.filter((x) => !d.mergedIn?.includes(x)).join(", ")],
+    d.mergedIn?.length && ["Merged in", d.mergedIn.join(", ")],
   ].filter(Boolean);
   return (
     <dl className="rounded-[20px] bg-[var(--surface)] lift divide-y divide-[var(--border)] overflow-hidden">
@@ -503,6 +513,62 @@ function People({ c, onDone }) {
             <UserPlus size={16} /> Add a person
           </Button>
         ))}
+    </div>
+  );
+}
+
+/**
+ * Two records that are one business ("Moonreef Hotels" and "Moon Reef Hotel
+ * Pvt Ltd"): fold the other into this one. What each owed adds up here, and
+ * the other name is remembered, so the next bill in that name lands here.
+ */
+function Merge({ c, onDone }) {
+  const { companyId } = useCompany();
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [busy, setBusy] = useState(false);
+  const { data } = useQuery({ queryKey: ["contacts", companyId], queryFn: () => apiClient.get("/contacts").then((r) => r.data), enabled: open });
+  const words = q.trim().toLowerCase();
+  const others = useMemo(() => (data?.contacts || []).filter((x) => x.id !== c.id && (!words || x.name.toLowerCase().includes(words) || String(x.phone || "").includes(words))).slice(0, 8), [data, words, c.id]);
+  async function fold(x) {
+    if (!window.confirm(`Fold ${x.name} into ${c.name}? What they owe and are owed adds up here, their name is remembered as another name for ${c.name}, and ${x.name} is archived. Their bank accounts come across too. This cannot be undone.`)) return;
+    setBusy(true);
+    try {
+      await apiClient.post(`/contacts/${c.id}/merge`, { otherId: x.id });
+      toast.success(`${x.name} merged into ${c.name}`);
+      setOpen(false);
+      onDone();
+    } catch (ex) {
+      toast.error("Not merged", ex.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="mt-6">
+      <button type="button" onClick={() => setOpen(true)} className="text-[14px] font-medium text-[var(--deep)] underline underline-offset-4">
+        Same business as another record? Merge them
+      </button>
+      {open && (
+        <Modal open onClose={() => setOpen(false)} title={`Merge into ${c.name}`} description="Choose the other record for the same business. It is folded into this one; nothing already in the books changes.">
+          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or phone" aria-label="Find the other record" className={FIELD} />
+          <ul className="mt-3 divide-y divide-[var(--border)]">
+            {others.map((x) => (
+              <li key={x.id}>
+                <button type="button" disabled={busy} onClick={() => fold(x)} className="w-full text-left flex items-center gap-3 py-3 hover:bg-[var(--surface-2)]/60 rounded-xl px-2">
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] font-medium truncate">{x.name}</span>
+                    <span className="block text-[13px] text-[var(--ink-muted)]">{[x.customer && "Customer", x.supplier && "Supplier", x.phone].filter(Boolean).join(" · ")}</span>
+                  </span>
+                  <Money amount={x.customer ? x.receivable : x.payable} className="text-[14px] font-semibold" />
+                </button>
+              </li>
+            ))}
+            {data && !others.length && <li className="py-4 text-[14px] text-[var(--ink-muted)]">No other record matches.</li>}
+          </ul>
+        </Modal>
+      )}
     </div>
   );
 }

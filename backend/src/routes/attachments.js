@@ -187,6 +187,7 @@ const DOCS = {
   shipment: { col: "shipment_id", check: "SELECT 1 FROM shipments WHERE id = $1 AND company_id = $2" },
   project: { col: "project_id", check: "SELECT 1 FROM projects WHERE id = $1 AND company_id = $2" },
   employee: { col: "employee_id", check: "SELECT 1 FROM employees WHERE id = $1 AND company_id = $2", need: "run_payroll" },
+  contact: { col: "counterparty_id", check: "SELECT 1 FROM counterparties WHERE id = $1 AND company_id = $2" },
 };
 const docOf = (req) => {
   const d = DOCS[req.params.kind];

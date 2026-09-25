@@ -49,7 +49,8 @@ async function thread(client, { companyId, kind, documentId }) {
  */
 async function ask(client, { companyId, counterpartyId, kind, documentId, body, name, tellUserIds = [], needsReply = true }) {
   const owner = await ownerOf(client, { companyId, kind, documentId });
-  if (owner !== counterpartyId) throw new Error("There is no such document.");
+  // Their own, or a record since merged into theirs.
+  if (owner !== counterpartyId && !(await client.query("SELECT same_party($1, $2) AS ok", [owner, counterpartyId])).rows[0].ok) throw new Error("There is no such document.");
   const text = clean(body);
   await client.query(
     "INSERT INTO document_questions (company_id, counterparty_id, kind, document_id, author, author_name, body, answered_at) VALUES ($1,$2,$3,$4,'customer',$5,$6,$7)",

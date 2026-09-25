@@ -296,33 +296,33 @@ async function statementData(client, { companyId, id }) {
   const from = new Date(Date.now() - 365 * 86_400_000).toISOString().slice(0, 10);
   const today = localToday();
   const { rows: before } = await client.query(
-    `SELECT COALESCE((SELECT SUM(gross_laari) FROM sales_invoices WHERE company_id = $1 AND counterparty_id = $2 AND status = 'posted' AND voided_at IS NULL AND issue_date < $3), 0)
-          - COALESCE((SELECT SUM(r.amount_laari) FROM receipts r WHERE r.company_id = $1 AND r.counterparty_id = $2 AND r.voided_at IS NULL AND r.received_on < $3
+    `SELECT COALESCE((SELECT SUM(gross_laari) FROM sales_invoices WHERE company_id = $1 AND same_party(counterparty_id, $2) AND status = 'posted' AND voided_at IS NULL AND issue_date < $3), 0)
+          - COALESCE((SELECT SUM(r.amount_laari) FROM receipts r WHERE r.company_id = $1 AND same_party(r.counterparty_id, $2) AND r.voided_at IS NULL AND r.received_on < $3
                         AND NOT EXISTS (SELECT 1 FROM advance_uses u WHERE u.receipt_id = r.id)), 0)
-          - COALESCE((SELECT SUM(amount_laari) FROM customer_advances WHERE company_id = $1 AND counterparty_id = $2 AND received_on < $3), 0)
+          - COALESCE((SELECT SUM(amount_laari) FROM customer_advances WHERE company_id = $1 AND same_party(counterparty_id, $2) AND received_on < $3), 0)
           + COALESCE((SELECT SUM(u.amount_laari) FROM advance_uses u JOIN customer_advances a ON a.id = u.advance_id
-                       WHERE u.company_id = $1 AND a.counterparty_id = $2 AND u.kind = 'refund' AND u.used_on < $3), 0)
-          - COALESCE((SELECT SUM(gross_laari) FROM credit_notes WHERE company_id = $1 AND counterparty_id = $2 AND issue_date < $3), 0) AS opening`,
+                       WHERE u.company_id = $1 AND same_party(a.counterparty_id, $2) AND u.kind = 'refund' AND u.used_on < $3), 0)
+          - COALESCE((SELECT SUM(gross_laari) FROM credit_notes WHERE company_id = $1 AND same_party(counterparty_id, $2) AND issue_date < $3), 0) AS opening`,
     [companyId, id, from]
   );
   const { rows: moves } = await client.query(
     // On one day: what was invoiced, then what was credited against it, then what was paid.
     `SELECT issue_date::text AS on, 1 AS turn, 'Invoice ' || invoice_no AS what, gross_laari AS charge, 0 AS paid FROM sales_invoices
-      WHERE company_id = $1 AND counterparty_id = $2 AND status = 'posted' AND voided_at IS NULL AND issue_date >= $3
+      WHERE company_id = $1 AND same_party(counterparty_id, $2) AND status = 'posted' AND voided_at IS NULL AND issue_date >= $3
      UNION ALL
      SELECT issue_date::text, 2, 'Credit note ' || note_no, 0, gross_laari FROM credit_notes
-      WHERE company_id = $1 AND counterparty_id = $2 AND issue_date >= $3
+      WHERE company_id = $1 AND same_party(counterparty_id, $2) AND issue_date >= $3
      UNION ALL
      SELECT r.received_on::text, 3, 'Payment received' || COALESCE(', ' || r.reference, ''), 0, r.amount_laari FROM receipts r
-      WHERE r.company_id = $1 AND r.counterparty_id = $2 AND r.voided_at IS NULL AND r.received_on >= $3
+      WHERE r.company_id = $1 AND same_party(r.counterparty_id, $2) AND r.voided_at IS NULL AND r.received_on >= $3
         AND NOT EXISTS (SELECT 1 FROM advance_uses u WHERE u.receipt_id = r.id)
      UNION ALL
      SELECT a.received_on::text, 3, 'Paid in advance' || COALESCE(', ' || q.number, ''), 0, a.amount_laari FROM customer_advances a
        LEFT JOIN advance_requests q ON q.id = a.request_id
-      WHERE a.company_id = $1 AND a.counterparty_id = $2 AND a.received_on >= $3
+      WHERE a.company_id = $1 AND same_party(a.counterparty_id, $2) AND a.received_on >= $3
      UNION ALL
      SELECT u.used_on::text, 4, 'Advance given back', u.amount_laari, 0 FROM advance_uses u JOIN customer_advances a ON a.id = u.advance_id
-      WHERE u.company_id = $1 AND a.counterparty_id = $2 AND u.kind = 'refund' AND u.used_on >= $3
+      WHERE u.company_id = $1 AND same_party(a.counterparty_id, $2) AND u.kind = 'refund' AND u.used_on >= $3
      ORDER BY 1, 2, 3`,
     [companyId, id, from]
   );

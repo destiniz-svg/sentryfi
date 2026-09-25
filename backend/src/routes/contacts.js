@@ -82,6 +82,18 @@ router.post(
   })
 );
 
+/** Two records that are one business: this one kept, the other folded into it. */
+router.post(
+  "/:id/merge",
+  requireCan("record"),
+  asyncHandler(async (req, res) => {
+    const p = z.object({ otherId: z.string().uuid() }).safeParse(req.body ?? {});
+    if (!p.success) throw ApiError.badRequest("Which record is the same business?");
+    await asCompany(req, (client) => contacts.merge(client, { companyId: req.companyId, keepId: req.params.id, loseId: p.data.otherId }));
+    res.json({ ok: true });
+  })
+);
+
 /** Take a detail a document disagreed with, or keep what is on file. Changing where money goes is for those who approve. */
 router.post(
   "/:id/doubts/:doubtId",

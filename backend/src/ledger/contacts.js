@@ -19,51 +19,56 @@ const f = (v) => formatLaari(BigInt(v || 0));
 /** What each party owes us and we owe them, straight from the ledger, plus the last time anything happened. */
 async function balances(client, companyId) {
   const { rows } = await client.query(
-    `SELECT l.counterparty_id AS id,
+    `SELECT COALESCE(cp.merged_into, cp.id) AS id,
             SUM(CASE WHEN a.code = $2 THEN l.debit_laari - l.credit_laari ELSE 0 END) AS receivable,
             SUM(CASE WHEN a.code = $3 THEN l.credit_laari - l.debit_laari ELSE 0 END) AS payable,
             MAX(e.entry_date) AS last_on
        FROM journal_lines l
        JOIN accounts a ON a.id = l.account_id
        JOIN journal_entries e ON e.id = l.entry_id
+       JOIN counterparties cp ON cp.id = l.counterparty_id
       WHERE l.company_id = $1 AND l.counterparty_id IS NOT NULL
-      GROUP BY l.counterparty_id`,
+      GROUP BY COALESCE(cp.merged_into, cp.id)`,
     [companyId, AR, AP]
   );
   return new Map(rows.map((r) => [r.id, r]));
 }
 
 /** Money owed to us that is past its due date, per customer (on-account money already taken off). */
-function overdueByCustomer(aged) {
+function overdueByCustomer(aged, rootOf = new Map()) {
   const out = new Map();
   for (const i of aged.invoices) {
     if (i.daysOver <= 0) continue;
-    const o = out.get(i.customerId) || { laari: 0n, oldest: 0 };
+    const id = rootOf.get(i.customerId) || i.customerId;
+    const o = out.get(id) || { laari: 0n, oldest: 0 };
     o.laari += BigInt(i.outstandingLaari);
     o.oldest = Math.max(o.oldest, i.daysOver);
-    out.set(i.customerId, o);
+    out.set(id, o);
   }
   return out;
 }
 
 async function list(client, { companyId }) {
   const today = localToday();
-  const { rows } = await client.query(
-    `SELECT id, name, kind::text[] AS kind, email, phone, tin, gst_number, tags, payment_terms_days, archived_at, created_at
+  const { rows: all } = await client.query(
+    `SELECT id, name, kind::text[] AS kind, email, phone, tin, gst_number, tags, payment_terms_days, archived_at, created_at, merged_into
        FROM counterparties WHERE company_id = $1 ORDER BY lower(name)`,
     [companyId]
   );
+  // A record merged into another counts as that one, and is not listed itself.
+  const rootOf = new Map(all.filter((c) => c.merged_into).map((c) => [c.id, c.merged_into]));
+  const rows = all.filter((c) => !c.merged_into);
   const money = await balances(client, companyId);
   const aged = await sales.aged(client, { companyId });
-  const late = overdueByCustomer(aged);
+  const late = overdueByCustomer(aged, rootOf);
   // Bills due within the week, per supplier.
   const { rows: dueSoon } = await client.query(
-    `SELECT b.counterparty_id AS id, SUM(b.gross_laari - COALESCE(p.paid, 0)) AS laari
-       FROM bills b
+    `SELECT COALESCE(cp.merged_into, cp.id) AS id, SUM(b.gross_laari - COALESCE(p.paid, 0)) AS laari
+       FROM bills b JOIN counterparties cp ON cp.id = b.counterparty_id
        LEFT JOIN (SELECT pi.bill_id, SUM(pi.amount_laari) AS paid FROM payment_items pi JOIN payment_runs r ON r.id = pi.run_id AND r.reversed_at IS NULL GROUP BY pi.bill_id) p ON p.bill_id = b.id
       WHERE b.company_id = $1 AND b.status = 'posted' AND b.voided_at IS NULL AND b.fc_gross IS NULL
         AND b.gross_laari > COALESCE(p.paid, 0) AND COALESCE(b.due_date, b.issue_date) <= $2::date + 7
-      GROUP BY b.counterparty_id`,
+      GROUP BY COALESCE(cp.merged_into, cp.id)`,
     [companyId, today]
   );
   const soon = new Map(dueSoon.map((r) => [r.id, BigInt(r.laari)]));
@@ -121,9 +126,12 @@ async function party(client, { companyId, id }) {
 /** One customer or supplier: who they are, where the money stands, how they pay, and what happened lately. */
 async function show(client, { companyId, id }) {
   const c = await party(client, { companyId, id });
+  if (c.merged_into) return { mergedInto: c.merged_into };
+  const { rows: fam } = await client.query("SELECT id, name FROM counterparties WHERE company_id = $1 AND merged_into = $2", [companyId, id]);
+  const family = new Set([id, ...fam.map((x) => x.id)]);
   const m = (await balances(client, companyId)).get(id);
   const aged = await sales.aged(client, { companyId });
-  const mine = aged.invoices.filter((i) => i.customerId === id);
+  const mine = aged.invoices.filter((i) => family.has(i.customerId));
   const buckets = { current: 0n, thirty: 0n, sixty: 0n, ninety: 0n, older: 0n };
   for (const i of mine) buckets[i.bucket] += BigInt(i.outstandingLaari);
 
@@ -136,14 +144,14 @@ async function show(client, { companyId, id }) {
        JOIN LATERAL (SELECT MAX(r.received_on) AS last_on, SUM(a.amount_laari) AS paid
                        FROM receipt_allocations a JOIN receipts r ON r.id = a.receipt_id AND r.voided_at IS NULL
                       WHERE a.invoice_id = s.id) p ON true
-      WHERE s.company_id = $1 AND s.counterparty_id = $2 AND s.status = 'posted' AND s.voided_at IS NULL
+      WHERE s.company_id = $1 AND same_party(s.counterparty_id, $2) AND s.status = 'posted' AND s.voided_at IS NULL
         AND p.paid >= s.gross_laari AND p.last_on >= $3::date - 365`,
     [companyId, id, localToday()]
   );
   const { rows: year } = await client.query(
-    `SELECT COALESCE((SELECT SUM(gross_laari) FROM sales_invoices WHERE company_id = $1 AND counterparty_id = $2 AND status = 'posted' AND voided_at IS NULL AND issue_date >= $3::date - 365), 0) AS sold,
-            COALESCE((SELECT SUM(gross_laari) FROM bills WHERE company_id = $1 AND counterparty_id = $2 AND status = 'posted' AND voided_at IS NULL AND COALESCE(issue_date, received_at::date) >= $3::date - 365), 0) AS bought,
-            COALESCE((SELECT SUM(amount_laari) FROM receipts WHERE company_id = $1 AND counterparty_id = $2 AND voided_at IS NULL AND received_on >= $3::date - 365), 0) AS received`,
+    `SELECT COALESCE((SELECT SUM(gross_laari) FROM sales_invoices WHERE company_id = $1 AND same_party(counterparty_id, $2) AND status = 'posted' AND voided_at IS NULL AND issue_date >= $3::date - 365), 0) AS sold,
+            COALESCE((SELECT SUM(gross_laari) FROM bills WHERE company_id = $1 AND same_party(counterparty_id, $2) AND status = 'posted' AND voided_at IS NULL AND COALESCE(issue_date, received_at::date) >= $3::date - 365), 0) AS bought,
+            COALESCE((SELECT SUM(amount_laari) FROM receipts WHERE company_id = $1 AND same_party(counterparty_id, $2) AND voided_at IS NULL AND received_on >= $3::date - 365), 0) AS received`,
     [companyId, id, localToday()]
   );
 
@@ -152,18 +160,18 @@ async function show(client, { companyId, id }) {
     `SELECT b.id, b.bill_no, COALESCE(b.due_date, b.issue_date)::text AS due, b.gross_laari - COALESCE(p.paid, 0) AS left
        FROM bills b
        LEFT JOIN (SELECT pi.bill_id, SUM(pi.amount_laari) AS paid FROM payment_items pi JOIN payment_runs r ON r.id = pi.run_id AND r.reversed_at IS NULL GROUP BY pi.bill_id) p ON p.bill_id = b.id
-      WHERE b.company_id = $1 AND b.counterparty_id = $2 AND b.status = 'posted' AND b.voided_at IS NULL AND b.fc_gross IS NULL AND b.gross_laari > COALESCE(p.paid, 0)
+      WHERE b.company_id = $1 AND same_party(b.counterparty_id, $2) AND b.status = 'posted' AND b.voided_at IS NULL AND b.fc_gross IS NULL AND b.gross_laari > COALESCE(p.paid, 0)
       ORDER BY 3 NULLS LAST`,
     [companyId, id]
   );
 
   const { rows: people } = await client.query(
-    "SELECT id, name, role, phone, email, for_accounts FROM contact_people WHERE company_id = $1 AND counterparty_id = $2 AND removed_at IS NULL ORDER BY for_accounts DESC, created_at",
+    "SELECT id, name, role, phone, email, for_accounts FROM contact_people WHERE company_id = $1 AND same_party(counterparty_id, $2) AND removed_at IS NULL ORDER BY for_accounts DESC, created_at",
     [companyId, id]
   );
   const { rows: doubts } = await client.query(
     `SELECT o.id, o.field, o.value, o.source_kind, o.source_id, o.observed_at FROM counterparty_observations o
-      WHERE o.company_id = $1 AND o.counterparty_id = $2 AND o.outcome = 'conflict' ORDER BY o.observed_at DESC`,
+      WHERE o.company_id = $1 AND same_party(o.counterparty_id, $2) AND o.outcome = 'conflict' ORDER BY o.observed_at DESC`,
     [companyId, id]
   );
 
@@ -177,6 +185,7 @@ async function show(client, { companyId, id }) {
       email: c.email, phone: c.phone, address: c.address, tin: c.tin, gstNumber: c.gst_number, gstRegistered: c.gst_registered,
       paymentTermsDays: c.payment_terms_days, creditLimit: c.credit_limit_laari != null ? f(c.credit_limit_laari) : null,
       notes: c.notes, tags: c.tags, alsoKnownAs: c.also_known_as,
+      mergedIn: fam.map((x) => x.name),
       // The last four digits only: enough to recognise, not enough to misuse from a screenshot.
       bankAccounts: (c.bank_accounts || []).map((a) => `····${String(a).replace(/\s/g, "").slice(-4)}`),
     },
@@ -215,26 +224,26 @@ async function activity(client, { companyId, id }) {
   const { rows } = await client.query(
     `SELECT * FROM (
        SELECT 'invoice' AS kind, s.id, s.issue_date AS on, 'Invoice ' || s.invoice_no AS what, s.gross_laari AS laari, '/documents/invoice/' || s.id AS href
-         FROM sales_invoices s WHERE s.company_id = $1 AND s.counterparty_id = $2 AND s.status = 'posted' AND s.voided_at IS NULL
+         FROM sales_invoices s WHERE s.company_id = $1 AND same_party(s.counterparty_id, $2) AND s.status = 'posted' AND s.voided_at IS NULL
        UNION ALL
        SELECT 'received', r.id, r.received_on, 'Paid you' || COALESCE(' · ' || r.reference, ''), r.amount_laari, NULL
-         FROM receipts r WHERE r.company_id = $1 AND r.counterparty_id = $2 AND r.voided_at IS NULL
+         FROM receipts r WHERE r.company_id = $1 AND same_party(r.counterparty_id, $2) AND r.voided_at IS NULL
        UNION ALL
        SELECT 'credit', n.id, n.issue_date, 'Credit note ' || n.note_no, n.gross_laari, '/documents/credit_note/' || n.id
-         FROM credit_notes n WHERE n.company_id = $1 AND n.counterparty_id = $2
+         FROM credit_notes n WHERE n.company_id = $1 AND same_party(n.counterparty_id, $2)
        UNION ALL
        SELECT 'order', o.id, o.ordered_on, CASE o.kind WHEN 'quote' THEN 'Quote ' WHEN 'sale' THEN 'Sales order ' ELSE 'Purchase order ' END || o.number, NULL, '/orders/' || o.id
-         FROM orders o WHERE o.company_id = $1 AND o.counterparty_id = $2 AND o.cancelled_at IS NULL
+         FROM orders o WHERE o.company_id = $1 AND same_party(o.counterparty_id, $2) AND o.cancelled_at IS NULL
        UNION ALL
        SELECT 'bill', b.id, COALESCE(b.issue_date, b.received_at::date), 'Bill' || COALESCE(' ' || b.bill_no, ''), b.gross_laari, '/bills/' || b.id
-         FROM bills b WHERE b.company_id = $1 AND b.counterparty_id = $2 AND b.status = 'posted' AND b.voided_at IS NULL
+         FROM bills b WHERE b.company_id = $1 AND same_party(b.counterparty_id, $2) AND b.status = 'posted' AND b.voided_at IS NULL
        UNION ALL
        SELECT 'paid', pi.id, r.paid_on, 'You paid them' || COALESCE(' · ' || r.reference, ''), pi.amount_laari, NULL
          FROM payment_items pi JOIN payment_runs r ON r.id = pi.run_id AND r.reversed_at IS NULL JOIN bills b ON b.id = pi.bill_id
-        WHERE pi.company_id = $1 AND b.counterparty_id = $2
+        WHERE pi.company_id = $1 AND same_party(b.counterparty_id, $2)
        UNION ALL
        SELECT 'advance', q.id, q.issue_date, CASE q.kind WHEN 'proforma' THEN 'Proforma ' ELSE 'Retainer ' END || q.number, NULL, '/documents/' || q.kind || '/' || q.id
-         FROM advance_requests q WHERE q.company_id = $1 AND q.counterparty_id = $2
+         FROM advance_requests q WHERE q.company_id = $1 AND same_party(q.counterparty_id, $2)
      ) t ORDER BY t.on DESC NULLS LAST LIMIT 40`,
     [companyId, id]
   );
@@ -334,7 +343,7 @@ async function savePerson(client, { companyId, id, person }) {
   await party(client, { companyId, id });
   const name = clean(person.name);
   if (!name) throw ApiError.badRequest("Give the person a name.");
-  if (person.forAccounts) await client.query("UPDATE contact_people SET for_accounts = false WHERE company_id = $1 AND counterparty_id = $2", [companyId, id]);
+  if (person.forAccounts) await client.query("UPDATE contact_people SET for_accounts = false WHERE company_id = $1 AND same_party(counterparty_id, $2)", [companyId, id]);
   if (person.id) {
     if (!UUID.test(person.id)) throw ApiError.notFound("No such person.");
     await client.query(
@@ -346,4 +355,34 @@ async function savePerson(client, { companyId, id, person }) {
   }
 }
 
-module.exports = { list, show, create, update, lookalikes, settleDoubt, savePerson, activity };
+/**
+ * Two records that are one business. The one given up points at the one kept
+ * and is archived; its names become names the kept one answers to, its kinds
+ * and any details the kept one lacks come across. Nothing in the books is
+ * re-tagged: every figure follows the pointer, so the kept one owes and is
+ * owed what both did. Anything already merged into the one given up follows it.
+ */
+async function merge(client, { companyId, keepId, loseId }) {
+  if (keepId === loseId) throw ApiError.badRequest("Choose two different records.");
+  const keep = await party(client, { companyId, id: keepId });
+  const lose = await party(client, { companyId, id: loseId });
+  if (keep.merged_into || lose.merged_into) throw ApiError.badRequest("One of them has already been merged.");
+  const names = [lose.name, ...(lose.also_known_as || [])].filter((x) => x && ![keep.name, ...(keep.also_known_as || [])].some((k) => k.toLowerCase() === x.toLowerCase()));
+  await client.query(
+    `UPDATE counterparties SET
+       also_known_as = also_known_as || $3::text[],
+       kind = ARRAY(SELECT DISTINCT unnest(kind || $4::cp_t[])),
+       email = COALESCE(email, $5), phone = COALESCE(phone, $6), address = COALESCE(address, $7),
+       tin = COALESCE(tin, $8), gst_number = COALESCE(gst_number, $9),
+       bank_accounts = ARRAY(SELECT DISTINCT unnest(bank_accounts || $10::text[])),
+       tags = ARRAY(SELECT DISTINCT unnest(tags || $11::text[]))
+     WHERE id = $1 AND company_id = $2`,
+    [keepId, companyId, names, lose.kind, lose.email, lose.phone, lose.address, lose.tin, lose.gst_number, lose.bank_accounts || [], lose.tags || []]
+  );
+  await client.query("UPDATE counterparties SET merged_into = $3 WHERE company_id = $1 AND merged_into = $2", [companyId, loseId, keepId]);
+  await client.query("UPDATE counterparties SET merged_into = $3, archived_at = COALESCE(archived_at, now()) WHERE id = $2 AND company_id = $1", [companyId, loseId, keepId]);
+  await client.query("UPDATE contact_people SET counterparty_id = $3 WHERE company_id = $1 AND counterparty_id = $2", [companyId, loseId, keepId]);
+  return keepId;
+}
+
+module.exports = { list, show, create, update, lookalikes, settleDoubt, savePerson, activity, merge };
