@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Check, Loader2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -98,16 +98,23 @@ function Counting({ c, onTyped }) {
     }
   }
 
-  async function save(l) {
+  // A line's saves go one after another, never side by side: leaving the box field then the
+  // loose field sends 24 then 35, and on a real network the 24 could land last and win.
+  const queue = useRef({});
+  function save(l) {
     const v = String(values[l.itemId] ?? "").trim();
-    if (v === "" || (saved[l.itemId] && v === String(l.counted ?? ""))) return;
+    if (v === "" || (saved[l.itemId] && v === String(l.counted ?? ""))) return Promise.resolve();
     setErr("");
-    try {
-      await go.mutateAsync({ itemId: l.itemId, counted: v, name: l.name });
-      setSaved((s) => ({ ...s, [l.itemId]: true }));
-    } catch (ex) {
-      setErr(`${l.name}: ${ex.message}`);
-    }
+    const run = (queue.current[l.itemId] || Promise.resolve()).then(async () => {
+      try {
+        await go.mutateAsync({ itemId: l.itemId, counted: v, name: l.name });
+        setSaved((s) => ({ ...s, [l.itemId]: true }));
+      } catch (ex) {
+        setErr(`${l.name}: ${ex.message}`);
+      }
+    });
+    queue.current[l.itemId] = run;
+    return run;
   }
 
   async function submit() {

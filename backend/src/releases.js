@@ -17,6 +17,15 @@
  */
 const RELEASES = [
   {
+    version: "1.37.1",
+    date: "2026-09-26",
+    title: "Counting boxes and loose pieces, fixed",
+    summary: "A count of whole boxes and loose pieces always keeps the last figure you entered.",
+    items: [
+      { area: "Stock", kind: "fixed", title: "Boxes and loose pieces keep the right total", body: "Typing boxes, then loose pieces, could save the boxes alone when the network was slow. Each line's figures now save one after another, so the last one entered is the one kept.", href: "/counts" },
+    ],
+  },
+  {
     version: "1.37.0",
     date: "2026-09-26",
     title: "Batches and expiry",

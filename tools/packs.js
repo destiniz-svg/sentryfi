@@ -109,7 +109,13 @@ const held = async (page, id) => (await api(page, "GET", "/stock")).json.items.f
     await line.getByLabel(`${name}: loose piece`).blur();
     await settle(page);
     await shot(page, "count");
-    const saved = (await api(page, "GET", `/counts/${count.id}`)).json.lines.find((l) => l.name === name);
+    // The saves go one after another; wait (a little) for the last to land, then read it.
+    let saved;
+    for (let i = 0; i < 20; i++) {
+      saved = (await api(page, "GET", `/counts/${count.id}`)).json.lines.find((l) => l.name === name);
+      if (saved?.counted === "35") break;
+      await page.waitForTimeout(500);
+    }
     if (saved?.counted === "35") ok("2 box and 11 loose saved as 35 pieces");
     else bad(`the count saved ${saved?.counted}`);
     // The same line on a phone: both boxes on screen, nothing wider than it.
