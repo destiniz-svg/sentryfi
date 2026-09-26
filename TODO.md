@@ -34,6 +34,37 @@ Checked two ways: backend guarantees via `npm run test:local`, and every screen 
 
 ---
 
+## Fixes to come back to
+
+Anything found and not fixed on the spot is written here the moment it is found, with where it is and why it waits (owner, 26 Sep 2026: "if we keep it for later we may not come up with it"). A line leaves only when it is fixed, saying so in the commit. Found on 26 Sep 2026:
+
+**Wrong or unsafe**
+- A sale can take units that are held but at no place "from the main store" (`invoiceCost`, `parts.push([MAIN, left])`), which can leave the main store below zero while another place holds them. Shown under What looks wrong, but not prevented.
+- A count posts its differences dated the day it is approved, not the day it was counted. A count done on the 31st and approved on the 2nd lands in the next month. Decide: date of counting, or date of approval with the count date in the memo.
+- A shortfall on arrival, or stock used on a job, is refused when the item's average cost is nothing (zero-cost stock); the only way out is a count at the place. Rare, but a dead end.
+- A bad date on the Stock snapshot (`/stock/snapshot?on=`) answers with Zod's raw message instead of "A date is YYYY-MM-DD."
+
+**Missing pieces of what was built**
+- Counts: the counter cannot add an item found at the place that is not on the list. The API exists (`POST /counts/:id/items`); no screen uses it.
+- Counts: while a count is still being counted, the office cannot cancel it from its page (the blind view hides the buttons); only after it is submitted.
+- Counts: the review's Counted column shows no unit.
+- Counts, field board: "0/1 counted" in the yellow band moves only when a number is saved (on leaving the box), not as it is typed.
+- Arrivals: everyone who can receive sees every delivery, not only those going to places they look after. Chosen for small teams; revisit when a company has several sites.
+- The Stock snapshot's limits (on the way over 7 days, not moving for 90) are fixed; no setting.
+- The live "Sentryfi Checks" company has one person, so the spot-check and field-counter steps of `tools/counts.js` and the receiver steps of `tools/send-arrive.js` only run locally. Needs a second (site staff) person invited into Checks.
+
+**Looks and touch**
+- Items page on desk: the "Main store 2 · Site 5" line under On hand runs into the next column.
+- Items page: the row buttons (Count, Move, Use on a job, Change) are 32px high, under the 44px touch target, on phones.
+- The frontend bundle has a chunk over 500 kB (Vite warns on every build).
+- 24 lint warnings, all older than 26 Sep (setState inside effects, a mutated toast): none are errors.
+
+**Housekeeping**
+- Untracked in the repo: `tools/_dev-tmp.js`, `.claude/`, `.impeccable/critique/…`, `frontend/.impeccable/surfaces/`; `.impeccable/hook.cache.json` changes by itself. Decide what is kept and what is ignored.
+- On the Lenovo, two old Railway CLI copies in `AppData\Local\Programs\railway` (`railway-5.49.3.bak.exe`, `railway-old-in-use.exe`) can be deleted after a restart.
+
+---
+
 ## Waiting on people, not code
 
 - Import Altura's real bank statement and answer its 326 questions (step 9).
@@ -298,6 +329,7 @@ The rules that do not bend: every figure opens onto its entries, and every marke
 - **Tax rules are configuration, never code.** A new country is a pack, not a rewrite of the ledger.
 - **Nothing is deleted.** A correction is a reversing entry with a reason; the original stays.
 - **One step at a time.** Keep this file current — an item leaves "the plan" when it is done and says so in "Where we are".
+- **Nothing found is left unwritten.** A bug, gap or rough edge not fixed on the spot goes into "Fixes to come back to" the moment it is found, with where it is and why it waits. Pre-existing ones too. A report that says "noted" must point at the line.
 - **Token efficiency.** Cheaper models for research and bulk rewrites; read only the part of a file you need; use `docs/domain/*` instead of re-researching what is already settled.
 
 ---
