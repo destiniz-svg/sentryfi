@@ -13,6 +13,7 @@ import { verifyChain } from "../src/ledger/verify";
 import { postBill } from "../src/ledger/bills";
 import { raise, post, creditNote } from "../src/ledger/sales";
 import * as stock from "../src/ledger/stock";
+import * as counts from "../src/ledger/counts";
 
 afterAll(closePool);
 
@@ -449,6 +450,121 @@ describe("the owner's snapshot", () => {
       expect(onWay).toHaveLength(1);
       expect(onWay[0].note).toBe("From Main store to Tower site, on the way");
       expect((await stock.moves(client, { companyId, kinds: ["sold"] })).map((m) => [m.item, m.quantity, m.place])).toEqual([["Cement", "-2", "Main store"]]);
+    }));
+});
+
+describe("counting sessions, blind", () => {
+  // Someone in the company: a user and a membership.
+  const person = async (client, companyId, name, role = "administrator") => {
+    await client.query("RESET ROLE"); // setting up, as the owner of the database; the ledger calls take the app role again
+    const { rows } = await client.query("INSERT INTO users (name, email, password_hash) VALUES ($1, $2, 'x') RETURNING id", [name, `${name.toLowerCase()}+${Math.random().toString(36).slice(2)}@sentryfi.invalid`]);
+    await client.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1, $2, $3)", [companyId, rows[0].id, role]);
+    return rows[0].id;
+  };
+  const counted = async (client, companyId, userId, id, lines) => {
+    for (const [itemId, n, reason] of lines) await counts.saveLine(client, { companyId, userId, countId: id, itemId, counted: n, reason });
+  };
+
+  it("keeps the books out of sight until submitted, and a difference within tolerance posts at once", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      await client.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1, $2, 'administrator')", [companyId, userId]);
+      const cement = await shop.item("Cement");
+      const sand = await shop.item("Sand");
+      await shop.buy([{ itemId: cement, quantity: "10", amount: "1000.00" }, { itemId: sand, quantity: "5", amount: "250.00" }]);
+
+      const c = await counts.create(client, { companyId, userId, kind: "full", placeId: null, counterId: userId });
+      expect(c.items).toBe(2);
+      await expect(counts.create(client, { companyId, userId, kind: "full", placeId: null, counterId: userId })).rejects.toThrow(/already has a count open/);
+      await counted(client, companyId, userId, c.id, [[cement, "9", "Torn bag"], [sand, "5"]]);
+      const blind = await counts.view(client, { companyId, userId, countId: c.id, reads: true });
+      expect(blind.blind).toBe(true);
+      expect(blind.lines.every((l) => l.book === undefined && l.difference === undefined)).toBe(true);
+
+      expect(await counts.submit(client, { companyId, userId, countId: c.id })).toEqual({ status: "posted", over: 0 });
+      const seen = await counts.view(client, { companyId, userId, countId: c.id, reads: true });
+      expect(seen.lines.find((l) => l.itemId === cement)).toMatchObject({ book: "10", counted: "9", difference: "-1", value: "-100.00", over: false });
+      expect(seen.lines.find((l) => l.itemId === sand)).toMatchObject({ difference: "0", entryNo: null });
+      expect((await shop.held(cement)).onHand).toBe("9");
+      await shop.tied();
+      expect((await counts.accuracy(client, { companyId })).get("main")).toEqual({ lines: 2, within: 2, percent: 100 });
+    }));
+
+  it("a sale after an item is counted makes no false difference", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      await client.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1, $2, 'administrator')", [companyId, userId]);
+      const cement = await shop.item("Cement");
+      await shop.buy([{ itemId: cement, quantity: "10", amount: "1000.00" }]);
+      const c = await counts.create(client, { companyId, userId, kind: "full", placeId: null, counterId: userId });
+      await counted(client, companyId, userId, c.id, [[cement, "10"]]);
+      await shop.sell([{ itemId: cement, quantity: 2, unitPrice: "200.00" }]); // while the count is open
+      await counts.submit(client, { companyId, userId, countId: c.id });
+      expect((await shop.held(cement)).onHand).toBe("8");
+    }));
+
+  it("a difference beyond the tolerance waits for someone other than the counter, who may send it back", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      await client.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1, $2, 'administrator')", [companyId, userId]);
+      const counter = await person(client, companyId, "Hassan", "manager");
+      const cement = await shop.item("Cement");
+      await shop.buy([{ itemId: cement, quantity: "10", amount: "1000.00" }]);
+      const c = await counts.create(client, { companyId, userId, kind: "full", placeId: null, counterId: counter });
+      await expect(counts.saveLine(client, { companyId, userId, countId: c.id, itemId: cement, counted: "4" })).rejects.toThrow(/Hassan is counting this one/);
+      await counted(client, companyId, counter, c.id, [[cement, "4"]]); // 6 short, 600.00, over 500.00
+      expect(await counts.submit(client, { companyId, userId: counter, countId: c.id })).toEqual({ status: "submitted", over: 1 });
+      expect((await shop.held(cement)).onHand).toBe("10");
+      await expect(counts.approve(client, { companyId, userId: counter, countId: c.id })).rejects.toThrow(/Someone other than the counter/);
+
+      await counts.reopen(client, { companyId, userId, countId: c.id });
+      await counted(client, companyId, counter, c.id, [[cement, "4", "Six bags gone from the yard"]]);
+      await counts.submit(client, { companyId, userId: counter, countId: c.id });
+      const waiting = await counts.view(client, { companyId, userId, countId: c.id, reads: true });
+      expect(waiting.lines[0]).toMatchObject({ difference: "-6", value: "-600.00", over: true });
+      expect(await counts.approve(client, { companyId, userId, countId: c.id })).toEqual({ status: "posted" });
+      expect((await shop.held(cement)).onHand).toBe("4");
+      expect((await counts.accuracy(client, { companyId })).get("main")).toMatchObject({ lines: 1, within: 0, percent: 0 });
+      await shop.tied();
+    }));
+
+  it("a spot check picks a few of what is there, and is not counted by the place's person in charge", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      await client.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1, $2, 'administrator')", [companyId, userId]);
+      const keeper = await person(client, companyId, "Aminath", "site_staff");
+      const site = await stock.addPlace(client, { companyId, userId, name: "Tower site", kind: "site", inChargeId: keeper });
+      const ids = [];
+      for (const n of ["A", "B", "C", "D", "E", "F", "G"]) ids.push(await shop.item(`Part ${n}`));
+      await shop.buy(ids.map((itemId, i) => ({ itemId, quantity: "2", amount: `${(i + 1) * 10}.00` })));
+      for (const itemId of ids) await stock.transfer(client, { companyId, userId, itemId, fromPlaceId: null, toPlaceId: site.id, quantity: "2", on: "2026-09-12", arrived: true });
+
+      await expect(counts.create(client, { companyId, userId, kind: "spot", placeId: site.id, counterId: keeper })).rejects.toThrow(/Aminath looks after Tower site/);
+      const s = await counts.create(client, { companyId, userId, kind: "spot", placeId: site.id, counterId: userId });
+      expect(s.items).toBe(5);
+      const v = await counts.view(client, { companyId, userId, countId: s.id, reads: true });
+      expect(new Set(v.lines.map((l) => l.itemId)).size).toBe(5);
+      expect(v.lines.every((l) => ids.includes(l.itemId))).toBe(true);
+      await expect(counts.view(client, { companyId, userId: keeper, countId: s.id, reads: false })).rejects.toThrow(/not yours/);
+    }));
+
+  it("sorts items by value into A, B and C, and says when each is due a count", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId } = shop;
+      const big = await shop.item("Generator");
+      const mid = await shop.item("Cable");
+      const small = await shop.item("Nails");
+      await shop.buy([{ itemId: big, quantity: "1", amount: "8000.00" }, { itemId: mid, quantity: "10", amount: "1500.00" }, { itemId: small, quantity: "100", amount: "500.00" }]); // 2026-09-10
+      const cls = await counts.classes(client, { companyId });
+      expect([cls.get(big), cls.get(mid), cls.get(small)]).toEqual(["A", "B", "C"]);
+      const d = await counts.due(client, { companyId, on: "2026-10-15" });
+      expect(d.find((x) => x.itemId === big)).toMatchObject({ class: "A", dueOn: "2026-10-10", overdue: true, lastCounted: null });
+      expect(d.find((x) => x.itemId === mid)).toMatchObject({ class: "B", dueOn: "2026-12-09", overdue: false });
     }));
 });
 

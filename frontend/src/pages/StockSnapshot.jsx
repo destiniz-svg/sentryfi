@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { AlertTriangle, ChevronRight, Truck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -29,10 +29,11 @@ const KIND = {
   bought: "Came in", opening: "Already on hand", sold: "Sold", returned: "Came back", counted: "Counted", issued: "Used on a job",
   moved: "Sent", undone: "Bill reversed", landed: "Landing cost", recosted: "Re-costed",
 };
-const WRONG = { short: "Short", late: "Late", negative: "Below nothing", still: "Not moving", low: "Low", books: "Books" };
+const WRONG = { short: "Short", late: "Late", negative: "Below nothing", still: "Not moving", low: "Low", books: "Books", due: "Count due" };
 
 export default function StockSnapshot() {
   const { companyId } = useCompany();
+  const nav = useNavigate();
   const [on, setOn] = useState(today());
   const [period, setPeriod] = useState("week");
   const [look, setLook] = useState(null); // { title, q }
@@ -132,6 +133,11 @@ export default function StockSnapshot() {
                     {p.id === "transit" && <Truck size={16} className="text-[var(--ink-muted)] shrink-0" aria-hidden="true" />}
                     <span className="min-w-0 flex-1">
                       <span className="block text-[15px] font-semibold break-words">{p.name}</span>
+                      {p.accuracy && (
+                        <span className="block text-[12px] text-[var(--ink-muted)]" data-testid="place-accuracy">
+                          Counts {p.accuracy.percent}% right ({p.accuracy.within} of {p.accuracy.lines} in 90 days)
+                        </span>
+                      )}
                     </span>
                     <span className="text-[15px] font-semibold tabular">
                       <Money amount={p.value} />
@@ -181,7 +187,7 @@ export default function StockSnapshot() {
                   {s.wrong.map((w, i) => (
                     <Row
                       key={i}
-                      onClick={w.kind === "books" ? undefined : () => open(WRONG[w.kind], { item: w.itemId, place: w.place, ...(w.kind === "short" ? { kinds: "counted", from } : {}) })}
+                      onClick={w.kind === "books" ? undefined : w.kind === "due" ? () => nav("/counts") : () => open(WRONG[w.kind], { item: w.itemId, place: w.place, ...(w.kind === "short" ? { kinds: "counted", from } : {}) })}
                       tag={WRONG[w.kind]}
                       main={w.detail}
                     />

@@ -85,6 +85,14 @@ function StripSlot() {
     enabled: Boolean(companyId) && receives,
     staleTime: 60000,
   });
+  // A count given to them comes first: it is waiting on them alone.
+  const counts = !can("read") && !pathname.startsWith("/counts/");
+  const { data: toCount } = useQuery({
+    queryKey: ["stock", companyId, "counts-mine"],
+    queryFn: () => apiClient.get("/counts/mine").then((r) => r.data.counts),
+    enabled: Boolean(companyId) && counts,
+    staleTime: 60000,
+  });
 
   if (posted) {
     return (
@@ -105,6 +113,17 @@ function StripSlot() {
       <div role="status" aria-live="polite" className="on-ink phone-strip">
         <span className="phone-strip-text">{notice}</span>
       </div>
+    );
+  }
+
+  if (counts && toCount?.length) {
+    return (
+      <Link to={`/counts/${toCount[0].id}`} className="on-ink phone-strip" data-testid="count-strip">
+        <span className="phone-strip-text">
+          {toCount[0].kindName} at {toCount[0].place}
+        </span>
+        <span className="phone-strip-action">Count it</span>
+      </Link>
     );
   }
 

@@ -73,6 +73,8 @@ const More = lazy(() => import("@/pages/More"));
 const Assets = lazy(() => import("@/pages/Assets"));
 const Stock = lazy(() => import("@/pages/Stock"));
 const StockSnapshot = lazy(() => import("@/pages/StockSnapshot"));
+const Counts = lazy(() => import("@/pages/Counts"));
+const Count = lazy(() => import("@/pages/Count"));
 const Payroll = lazy(() => import("@/pages/Payroll"));
 const Advances = lazy(() => import("@/pages/Advances"));
 const PayRun = lazy(() => import("@/pages/PayRun"));
@@ -196,6 +198,8 @@ export const router = createBrowserRouter([
       { path: "assets", element: <Assets /> },
       { path: "stock", element: <Stock /> },
       { path: "inventory", element: <StockSnapshot /> },
+      { path: "counts", element: <Counts /> },
+      { path: "counts/:id", element: <Count /> },
       { path: "payroll", element: <Payroll /> },
       { path: "advances", element: <Advances /> },
       { path: "payroll/runs/:id", element: <PayRun /> },

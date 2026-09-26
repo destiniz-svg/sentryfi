@@ -17,6 +17,17 @@
  */
 const RELEASES = [
   {
+    version: "1.35.0",
+    date: "2026-09-26",
+    title: "Counting, blind: full counts, cycle counts and spot checks",
+    summary: "Count a place, the items due there, or a few picked at random. The counter never sees what the books say until they submit; large differences wait for a second person.",
+    items: [
+      { area: "Stock", kind: "new", title: "Counts", body: "Inventory now has Counts. Count every item at a place, run a cycle count of what is due (valuable items monthly, the rest less often), or spot-check a few picked at random by someone other than the place's person in charge. Anyone in the company can be the counter, on a phone, with no signal.", href: "/counts" },
+      { area: "Stock", kind: "new", title: "Blind, with a second pair of eyes", body: "Nobody sees what the books say until the count is submitted. A difference worth more than MVR 500 waits for someone other than the counter to approve or send back; smaller ones go into the books at once.", href: "/counts" },
+      { area: "Stock", kind: "improved", title: "How right each place's counts are", body: "The Stock page shows each place's count accuracy over 90 days, and places with items due a count under What looks wrong.", href: "/inventory" },
+    ],
+  },
+  {
     version: "1.34.0",
     date: "2026-09-26",
     title: "The owner's stock snapshot",

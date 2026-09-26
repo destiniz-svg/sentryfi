@@ -378,20 +378,31 @@ async function count(client, { companyId, userId, itemId, counted, on, unitCost,
   if (placeId) await place(client, { companyId, placeId });
   // Counted at one place, against what the books say is there.
   const there = (await atPlaces(client, { companyId, itemId })).get(placeKey(placeId)) || 0n;
-  const target = /^0*(\.0*)?$/.test(String(counted ?? "").trim()) && String(counted ?? "").trim() !== "" ? 0n : toUnits(counted);
+  const target = toUnitsOrNone(counted);
   const diff = target - there;
   if (diff === 0n) throw new Error(`The books already say ${unitsText(target)} ${held.item.unit}. Nothing to change.`);
-  let value;
-  if (diff < 0n) value = -costOut(held, -diff);
-  else {
-    const unit = unitCost !== undefined && unitCost !== null && unitCost !== "" ? toLaari(unitCost) : held.units > 0n ? null : undefined;
-    if (unit === undefined) throw new Error(`None was on hand, so say what one ${held.item.unit} cost.`);
-    value = unit === null ? (held.value * diff + held.units / 2n) / held.units : (unit * diff + SCALE / 2n) / SCALE;
-  }
+  const { entry, value } = await postDifference(client, { companyId, userId, held, itemId, placeId, diff, on, note, unitCost, memo: `Counted ${unitsText(target)} ${held.item.unit} ${held.item.name}; the books said ${unitsText(there)}` });
+  return { entry, difference: unitsText(diff), value };
+}
+
+/** What a difference found by counting is worth: out at average cost, in at average (or the cost given when there is none yet). */
+function differenceValue(held, diff, unitCost) {
+  if (diff < 0n) return -costOut(held, -diff);
+  const unit = unitCost !== undefined && unitCost !== null && unitCost !== "" ? toLaari(unitCost) : held.units > 0n ? null : undefined;
+  if (unit === undefined) throw new Error(`None of ${held.item.name} was on hand, so say what one ${held.item.unit} cost.`);
+  return unit === null ? (held.value * diff + held.units / 2n) / held.units : (unit * diff + SCALE / 2n) / SCALE;
+}
+
+/**
+ * A counted difference into the books: the value to 5870 against Stock, so
+ * shrinkage is seen, and a counted move at the place. `held` is the item as
+ * locked by holding().
+ */
+async function postDifference(client, { companyId, userId, held, itemId, placeId, diff, on, note, unitCost, memo }) {
+  const value = differenceValue(held, diff, unitCost);
   if (value === 0n) throw new Error("That difference is worth nothing at this cost, so there is nothing to record.");
   const stockAcc = await account(client, companyId, ACCOUNTS.stock);
   const countedAcc = await account(client, companyId, ACCOUNTS.counted);
-  const memo = `Counted ${unitsText(target)} ${held.item.unit} ${held.item.name}; the books said ${unitsText(there)}`;
   const abs = value < 0n ? -value : value;
   const entry = await postEntry(client, {
     companyId, userId, date: on, source: "stock", narrative: memo,
@@ -401,7 +412,7 @@ async function count(client, { companyId, userId, itemId, counted, on, unitCost,
         : [{ accountId: stockAcc, debit: abs, memo }, { accountId: countedAcc, credit: abs, memo }],
   });
   await recordMove(client, { companyId, userId, itemId, on, kind: "counted", units: diff, value, entryId: entry.id, note: note || null, placeId: placeId || null });
-  return { entry, difference: unitsText(diff), value };
+  return { entry, value };
 }
 
 /** Stock a company already had before Sentryfi, at what it cost. */
@@ -841,6 +852,14 @@ async function snapshot(client, { companyId, on, from }) {
       wrong.push({ kind: "late", itemId: t.item_id, place: TRANSIT, detail: `${unitsText(fromDb(t.quantity))} ${t.unit} of ${t.item} sent to ${nameOf(placeKey(t.to_place_id))} on ${said(t.sent_on)} has not arrived.` });
     }
   }
+  // Counting: how close each place's counts came, and what is due a count there.
+  const counts = require("./counts");
+  const acc = await counts.accuracy(client, { companyId, on });
+  const dueHere = new Map();
+  for (const d of await counts.due(client, { companyId, on })) if (d.overdue) dueHere.set(d.place, (dueHere.get(d.place) || 0) + 1);
+  for (const [p, n] of dueHere) {
+    wrong.push({ kind: "due", place: p, detail: `${n} ${n === 1 ? "item" : "items"} at ${nameOf(p)} ${n === 1 ? "is" : "are"} due a count. Start a cycle count there.` });
+  }
   const kind = (k) => flow.find((r) => r.kind === k) || { q: 0, v: 0, net: 0, n: 0 };
   const sold = kind("sold");
   const back = kind("returned");
@@ -858,7 +877,7 @@ async function snapshot(client, { companyId, on, from }) {
     })),
     places: [...byPlace]
       .filter(([k, p]) => k !== TRANSIT || p.items.length)
-      .map(([k, p]) => ({ id: k, name: nameOf(k), kind: kept.find((x) => placeKey(x.id) === k)?.kind || (k === TRANSIT ? "transit" : "store"), value: formatLaari(p.value), items: p.items })),
+      .map(([k, p]) => ({ id: k, name: nameOf(k), kind: kept.find((x) => placeKey(x.id) === k)?.kind || (k === TRANSIT ? "transit" : "store"), value: formatLaari(p.value), items: p.items, accuracy: acc.get(k) || null })),
     moved: {
       sent: sent.map((t) => ({
         id: t.id, on: t.sent_on, itemId: t.item_id, item: t.item, unit: t.unit, quantity: unitsText(fromDb(t.quantity)),
@@ -971,4 +990,4 @@ async function guessTax(client, { companyId, itemId, ask }) {
   return { tax: a.tax, taxBy: "ai", taxWhy: why, confidence: a.confidence };
 }
 
-module.exports = { guessTax, ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history, atPlaces, places, addPlace, updatePlace, PLACE_KINDS, transfer, arrive, onTheWay, issue, snapshot, moves, units, place };
+module.exports = { guessTax, ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history, atPlaces, places, addPlace, updatePlace, PLACE_KINDS, transfer, arrive, onTheWay, issue, snapshot, moves, units, place, postDifference, differenceValue, toUnitsOrNone, placeKey, MAIN, WHERE };

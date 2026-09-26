@@ -1,4 +1,4 @@
-import { Sparkles, Inbox, Contact, Truck, FileClock, FilePen, FileSignature, Users, Building2, Palette, Banknote, Boxes, Sunrise, CheckCheck, ClipboardList, FileText, HardHat, Ship, Gauge, HandCoins, Landmark, LayoutGrid, Lock, Package, Percent, ReceiptText, Scale, Settings, Upload, Wallet, Wallet2, Warehouse } from "lucide-react";
+import { Sparkles, Inbox, Contact, Truck, FileClock, FilePen, FileSignature, Users, Building2, Palette, Banknote, Boxes, Sunrise, CheckCheck, ClipboardList, FileText, HardHat, Ship, Gauge, HandCoins, Landmark, LayoutGrid, Lock, Package, Percent, ReceiptText, Scale, Settings, Upload, Wallet, Wallet2, Warehouse, ClipboardCheck } from "lucide-react";
 
 /**
  * The desk's places, grouped the way business apps group them (Xero,
@@ -60,6 +60,7 @@ export const SECTIONS = [
     items: [
       { to: "/inventory", icon: Warehouse, label: "Stock", can: "read" },
       { to: "/stock", icon: Boxes, label: "Items" },
+      { to: "/counts", icon: ClipboardCheck, label: "Counts", can: "read" },
       { to: "/shipments", icon: Ship, label: "Shipments" },
     ],
   },
