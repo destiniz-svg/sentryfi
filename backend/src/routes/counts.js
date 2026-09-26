@@ -7,6 +7,7 @@ const { requireCompany, requireCan } = require("../middleware/company");
 const { asCompany } = require("../ledger/session");
 const stock = require("../ledger/stock");
 const counts = require("../ledger/counts");
+const { formatLaari } = require("../ledger/money");
 
 /**
  * Counting sessions. Those who read the books start them, see them, and
@@ -39,6 +40,7 @@ router.get(
         const byPlace = {};
         for (const d of due.filter((x) => x.overdue)) byPlace[d.place] = (byPlace[d.place] || 0) + 1;
         return {
+          tolerance: formatLaari(await counts.tolerance(client, req.companyId)),
           counts: await counts.list(client, ctx),
           due: byPlace,
           places: await stock.places(client, ctx),
@@ -47,6 +49,17 @@ router.get(
       })
     )
   )
+);
+
+// How large a difference may be before a second person decides, in rufiyaa.
+router.put(
+  "/tolerance",
+  requireCan("manage_settings"),
+  refused(async (req, res) => {
+    const amount = z.union([z.string().trim().min(1, "Say an amount."), z.number()]).transform(String).safeParse(req.body?.amount);
+    if (!amount.success) throw ApiError.badRequest(amount.error.issues[0].message);
+    res.json(await as(req, (client, ctx) => counts.setTolerance(client, { ...ctx, amount: amount.data })));
+  })
 );
 
 // A counter's own open counts, for their home screen.

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ClipboardCheck, Dices, Loader2, RefreshCw } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/context/UIContext";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -42,6 +43,7 @@ export default function Counts() {
   return (
     <div>
       <PageHeader title="Counts" description="Counting what is really there, blind: nobody sees what the books say until the count is in." />
+      {data?.tolerance && <Tolerance amount={data.tolerance} canChange={can("manage_settings")} />}
       {can("record") && (
         <div className="grid gap-3 sm:grid-cols-3 mb-6">
           {KINDS.map(([k, title, line, Icon]) => (
@@ -70,6 +72,68 @@ export default function Counts() {
 
       {starting && <Start kind={starting} places={data?.places || []} people={data?.people || []} due={data?.due || {}} onClose={() => setStarting(null)} />}
     </div>
+  );
+}
+
+/** How large a difference may be before a second person decides; changed by whoever manages the company's settings. */
+function Tolerance({ amount, canChange }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const { companyId } = useCompany();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(amount.replace(/,/g, ""));
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    setErr("");
+    setBusy(true);
+    try {
+      const r = await apiClient.put("/counts/tolerance", { amount: value });
+      toast.success(`Differences above MVR ${r.data.tolerance} now wait for approval`);
+      qc.invalidateQueries({ queryKey: ["stock", companyId] });
+      setEditing(false);
+    } catch (ex) {
+      setErr(ex.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!editing) {
+    return (
+      <p className="text-[14px] text-[var(--ink-muted)] mb-4 flex flex-wrap items-center gap-x-2" data-testid="tolerance">
+        <span>
+          A difference worth more than <span className="text-[var(--ink)] font-medium tabular">MVR {amount}</span> waits for someone other than the counter; smaller ones go into the books at once.
+        </span>
+        {canChange && (
+          <button type="button" onClick={() => setEditing(true)} className="underline text-[var(--ink)] min-h-11">
+            Change
+          </button>
+        )}
+      </p>
+    );
+  }
+  return (
+    <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-2 mb-4">
+      <label className="block">
+        <span className="text-sm font-medium block mb-1.5">Wait for approval above (MVR)</span>
+        <input id="count-tolerance" value={value} onChange={(e) => setValue(e.target.value)} inputMode="decimal" className={`${FIELD} w-40 tabular`} autoFocus />
+      </label>
+      <Button type="submit" variant="accent" disabled={busy || value.trim() === ""}>
+        {busy && <Loader2 size={14} className="animate-spin" />}
+        Save
+      </Button>
+      <Button type="button" variant="ghost" onClick={() => setEditing(false)}>
+        Cancel
+      </Button>
+      {err && (
+        <p role="alert" className="w-full text-[13px] text-[var(--danger)]">
+          {err}
+        </p>
+      )}
+    </form>
   );
 }
 

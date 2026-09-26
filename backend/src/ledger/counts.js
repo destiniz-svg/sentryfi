@@ -12,7 +12,7 @@
  */
 const { randomInt } = require("node:crypto");
 const { assumeIdentity } = require("./post");
-const { formatLaari } = require("./money");
+const { formatLaari, toLaari } = require("./money");
 const { today: localToday } = require("./today");
 const stock = require("./stock");
 
@@ -26,6 +26,15 @@ const addDays = (d, n) => new Date(Date.parse(`${String(d).slice(0, 10)}T00:00:0
 async function tolerance(client, companyId) {
   const { rows } = await client.query("SELECT count_tolerance_laari AS t FROM companies WHERE id = $1", [companyId]);
   return BigInt(rows[0]?.t ?? 50000);
+}
+
+/** A new tolerance, in rufiyaa: how large a difference may be before a second person decides. */
+async function setTolerance(client, { companyId, userId, amount }) {
+  await assumeIdentity(client, { companyId, userId });
+  const laari = toLaari(amount);
+  if (laari < 0n) throw new Error("The tolerance is an amount, zero or above.");
+  await client.query("UPDATE companies SET count_tolerance_laari = $2 WHERE id = $1", [companyId, laari.toString()]);
+  return { tolerance: formatLaari(laari) };
 }
 
 /** Each item's value class: A for the items making the first 80% of the value, B the next 15%, C the rest. */
@@ -340,4 +349,4 @@ async function accuracy(client, { companyId, on = localToday() }) {
   return out;
 }
 
-module.exports = { create, view, saveLine, addLine, submit, approve, reopen, cancel, list, due, classes, accuracy, KINDS, EVERY, MAIN };
+module.exports = { setTolerance, tolerance, create, view, saveLine, addLine, submit, approve, reopen, cancel, list, due, classes, accuracy, KINDS, EVERY, MAIN };

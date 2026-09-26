@@ -53,6 +53,15 @@ async function stockIn(page, w, name, qty, amount) {
     // 1. The owner counts the main store, blind. Anything already open there is cancelled first.
     for (const c of (await api(page, "GET", "/counts")).json.counts.filter((x) => x.place === "Main store" && ["counting", "submitted"].includes(x.status))) await api(page, "POST", `/counts/${c.id}/cancel`);
     await page.goto(`${BASE}/counts`, { waitUntil: "networkidle", timeout: 45000 });
+    // The limit is the company's to change; put it back after.
+    await page.getByTestId("tolerance").getByRole("button", { name: "Change" }).click();
+    await page.locator("#count-tolerance").fill("1000");
+    await page.getByRole("button", { name: "Save" }).click();
+    await page.getByTestId("tolerance").filter({ hasText: "MVR 1,000.00" }).waitFor({ timeout: 15000 });
+    await shot(page, "tolerance");
+    ok("the approval limit changes on the page: MVR 1,000.00");
+    await api(page, "PUT", "/counts/tolerance", { amount: "500" });
+    await page.reload({ waitUntil: "networkidle" });
     await page.getByTestId("start-full").click();
     await page.locator("#count-start-place").selectOption("");
     await page.locator("#count-start-counter").selectOption(me.id);

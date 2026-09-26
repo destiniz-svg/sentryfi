@@ -17,6 +17,15 @@
  */
 const RELEASES = [
   {
+    version: "1.35.1",
+    date: "2026-09-26",
+    title: "Your own approval limit for counts",
+    summary: "Choose how large a counted difference may be before a second person has to approve it.",
+    items: [
+      { area: "Stock", kind: "improved", title: "Set the approval limit", body: "On Counts, whoever manages the company's settings can change the limit (MVR 500 to start). Differences above it wait for someone other than the counter; smaller ones go into the books at once.", href: "/counts" },
+    ],
+  },
+  {
     version: "1.35.0",
     date: "2026-09-26",
     title: "Counting, blind: full counts, cycle counts and spot checks",

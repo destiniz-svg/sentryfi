@@ -491,6 +491,20 @@ describe("counting sessions, blind", () => {
       expect((await counts.accuracy(client, { companyId })).get("main")).toEqual({ lines: 2, within: 2, percent: 100 });
     }));
 
+  it("the tolerance is the company's to set: at MVR 1,000 a 600.00 shortfall posts at once", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      await client.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1, $2, 'administrator')", [companyId, userId]);
+      const cement = await shop.item("Cement");
+      await shop.buy([{ itemId: cement, quantity: "10", amount: "1000.00" }]);
+      await expect(counts.setTolerance(client, { companyId, userId, amount: "-5" })).rejects.toThrow();
+      expect(await counts.setTolerance(client, { companyId, userId, amount: "1000" })).toEqual({ tolerance: "1,000.00" });
+      const c = await counts.create(client, { companyId, userId, kind: "full", placeId: null, counterId: userId });
+      await counted(client, companyId, userId, c.id, [[cement, "4"]]);
+      expect(await counts.submit(client, { companyId, userId, countId: c.id })).toEqual({ status: "posted", over: 0 });
+    }));
+
   it("a sale after an item is counted makes no false difference", () =>
     inRollback(async (client) => {
       const shop = await aShop(client);

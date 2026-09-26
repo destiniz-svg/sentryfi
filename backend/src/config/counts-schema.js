@@ -12,6 +12,8 @@
 const COUNTS_SQL = `
 -- A difference worth more than this (either way) waits for a second person. MVR 500 unless changed.
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS count_tolerance_laari BIGINT NOT NULL DEFAULT 50000 CHECK (count_tolerance_laari >= 0);
+-- Changed by whoever manages the company's settings, on the Counts page.
+GRANT UPDATE (count_tolerance_laari) ON companies TO sentryfi_app;
 
 CREATE TABLE IF NOT EXISTS stock_counts (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
