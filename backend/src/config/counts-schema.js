@@ -63,6 +63,13 @@ BEGIN
   END LOOP;
 END $$;
 GRANT SELECT, INSERT, UPDATE ON stock_counts, stock_count_lines TO sentryfi_app;
+
+-- Stock that cost nothing still has a quantity: a move worth nothing may stand without an
+-- entry (no money moves), and only then; every move that carries value has its entry.
+ALTER TABLE stock_moves ALTER COLUMN entry_id DROP NOT NULL;
+DO $$ BEGIN
+  ALTER TABLE stock_moves ADD CONSTRAINT stock_moves_entry_unless_nothing CHECK (entry_id IS NOT NULL OR value_laari = 0);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 `;
 
 module.exports = { COUNTS_SQL };

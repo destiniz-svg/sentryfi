@@ -245,17 +245,43 @@ async function addLine(client, { companyId, userId, countId, itemId }) {
   return { itemId, name: h.item.name, unit: h.item.unit };
 }
 
-/** Each counted difference into the books, at average cost, dated today. */
+/** What the counter may add: counted items not on this count yet. Names and units only; a counter may not read the books. */
+async function addable(client, { companyId, userId, countId, reads }) {
+  const s = await session(client, { companyId, countId });
+  if (!reads && s.counter !== userId) throw new Error("That count is not yours.");
+  const { rows } = await client.query(
+    `SELECT i.id, i.name, i.unit FROM stock_items i
+      WHERE i.company_id = $1 AND i.counted AND i.archived_at IS NULL
+        AND NOT EXISTS (SELECT 1 FROM stock_count_lines l WHERE l.count_id = $2 AND l.item_id = i.id)
+      ORDER BY lower(i.name) LIMIT 500`,
+    [companyId, countId]
+  );
+  return rows.map((r) => ({ itemId: r.id, name: r.name, unit: r.unit }));
+}
+
+/**
+ * Each counted difference into the books, at average cost, dated the day it was
+ * counted, since that is when the stock was so. If that month is already closed,
+ * it goes in today, with the day it was counted in the memo: closed months are
+ * never reopened.
+ */
 async function post(client, { companyId, userId, s }) {
-  const on = localToday();
+  const { rows: last } = await client.query(
+    "SELECT MAX((counted_at AT TIME ZONE 'Indian/Maldives')::date)::text AS d FROM stock_count_lines WHERE count_id = $1 AND counted IS NOT NULL",
+    [s.id]
+  );
+  const countedOn = last[0].d || localToday();
+  const { rows: lock } = await client.query("SELECT books_locked_through($1)::text AS d", [companyId]);
+  const closed = lock[0].d && countedOn <= lock[0].d;
+  const on = closed ? localToday() : countedOn;
   const { rows } = await client.query("SELECT id, item_id, counted, book, reason FROM stock_count_lines WHERE count_id = $1 AND counted IS NOT NULL", [s.id]);
   for (const l of rows) {
     const diff = fromDb(l.counted) - fromDb(l.book);
     if (diff === 0n) continue;
     const h = await stock.holding(client, { companyId, itemId: l.item_id });
-    const memo = `${KINDS[s.kind]} at ${s.place}: counted ${unitsText(fromDb(l.counted))} ${h.item.unit} ${h.item.name}; the books said ${unitsText(fromDb(l.book))}`;
+    const memo = `${KINDS[s.kind]} at ${s.place}${closed ? `, counted on ${countedOn} (a closed month)` : ""}: counted ${unitsText(fromDb(l.counted))} ${h.item.unit} ${h.item.name}; the books said ${unitsText(fromDb(l.book))}`;
     const { entry, value } = await stock.postDifference(client, { companyId, userId, held: h, itemId: l.item_id, placeId: s.place_id, diff, on, note: l.reason || `${KINDS[s.kind]} at ${s.place}`, memo });
-    await client.query("UPDATE stock_count_lines SET entry_id = $2, value_laari = $3 WHERE id = $1", [l.id, entry.id, value.toString()]);
+    await client.query("UPDATE stock_count_lines SET entry_id = $2, value_laari = $3 WHERE id = $1", [l.id, entry?.id || null, value.toString()]);
   }
   await client.query("UPDATE stock_counts SET status = 'posted', decided_by = $2, decided_at = now() WHERE id = $1", [s.id, userId]);
 }
@@ -349,4 +375,4 @@ async function accuracy(client, { companyId, on = localToday() }) {
   return out;
 }
 
-module.exports = { setTolerance, tolerance, create, view, saveLine, addLine, submit, approve, reopen, cancel, list, due, classes, accuracy, KINDS, EVERY, MAIN };
+module.exports = { addable, setTolerance, tolerance, create, view, saveLine, addLine, submit, approve, reopen, cancel, list, due, classes, accuracy, KINDS, EVERY, MAIN };

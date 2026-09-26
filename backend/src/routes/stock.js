@@ -222,8 +222,13 @@ router.get(
   "/snapshot",
   requireCan("read"),
   refused(async (req, res) => {
-    const on = req.query.on ? day.parse(String(req.query.on)) : localToday();
-    const from = req.query.from ? day.parse(String(req.query.from)) : new Date(Date.parse(`${on}T00:00:00Z`) - 6 * 86400000).toISOString().slice(0, 10);
+    const date = (v) => {
+      const d = day.safeParse(String(v));
+      if (!d.success) throw ApiError.badRequest(d.error.issues[0].message);
+      return d.data;
+    };
+    const on = req.query.on ? date(req.query.on) : localToday();
+    const from = req.query.from ? date(req.query.from) : new Date(Date.parse(`${on}T00:00:00Z`) - 6 * 86400000).toISOString().slice(0, 10);
     if (from > on) throw ApiError.badRequest("The period starts after it ends.");
     res.json(await asCompany(req, (client) => stock.snapshot(client, { companyId: req.companyId, on, from })));
   })
@@ -330,7 +335,7 @@ router.post(
     const parsed = issueBody.safeParse(req.body ?? {});
     if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
     const r = await asCompany(req, (client) => stock.issue(client, { companyId: req.companyId, userId: req.user.id, itemId: req.params.id, ...parsed.data }));
-    res.status(201).json({ entryNo: String(r.entry.entryNo), usedOn: r.usedOn });
+    res.status(201).json({ entryNo: r.entry ? String(r.entry.entryNo) : null, usedOn: r.usedOn });
   })
 );
 router.post(
@@ -342,7 +347,7 @@ router.post(
     const r = await asCompany(req, (client) =>
       stock.count(client, { companyId: req.companyId, userId: req.user.id, itemId: req.params.id, ...parsed.data })
     );
-    res.status(201).json({ entryNo: String(r.entry.entryNo), difference: r.difference });
+    res.status(201).json({ entryNo: r.entry ? String(r.entry.entryNo) : null, difference: r.difference });
   })
 );
 

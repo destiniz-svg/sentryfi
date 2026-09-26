@@ -17,6 +17,18 @@
  */
 const RELEASES = [
   {
+    version: "1.35.2",
+    date: "2026-09-26",
+    title: "Counting and stock, tidied",
+    summary: "Counts land on the day they were counted, stock that cost nothing no longer gets stuck, and the counting and Items screens are easier to use.",
+    items: [
+      { area: "Stock", kind: "fixed", title: "A count lands on the day it was counted", body: "Differences go into the books dated the day they were counted, not the day they were approved. If that month is already closed, they go in today and say which day they were counted.", href: "/counts" },
+      { area: "Stock", kind: "fixed", title: "Stock that cost nothing", body: "Samples and other stock that cost nothing can now come short on arrival, be used on a job, or be counted, by quantity alone, with nothing in the books because no money moves.", href: "/stock" },
+      { area: "Stock", kind: "improved", title: "Counting", body: "The counter can add something found at the place that is not on the list, the office can cancel a count while it is still being counted, and the review shows the unit counted.", href: "/counts" },
+      { area: "Stock", kind: "fixed", title: "Items on a phone", body: "The Count, Move, Use on a job and Change buttons are big enough to tap, and a long list of places wraps instead of running into the next column.", href: "/stock" },
+    ],
+  },
+  {
     version: "1.35.1",
     date: "2026-09-26",
     title: "Your own approval limit for counts",

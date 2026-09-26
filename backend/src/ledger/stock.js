@@ -243,7 +243,10 @@ async function invoiceCost(client, { companyId, userId, invoice, lines }) {
       parts.push([place, take]);
       left -= take;
     }
-    if (left > 0n) parts.push([MAIN, left]); // held overall but not placed: from the main store
+    // The places holding stock always cover a sale: they add up to what is held, less what is on
+    // the way (refused above), plus any place below nothing. Should that ever stop being true,
+    // say so rather than quietly taking it from the main store and leaving it below nothing.
+    if (left > 0n) throw new Error(`The places holding ${h.item.name} do not add up to what the books hold. Count it at each place before selling it.`);
     parts.forEach(([place, take], i) => {
       const partCost = i === parts.length - 1 ? costLeft : (cost * take) / units;
       costLeft -= partCost;
@@ -400,7 +403,11 @@ function differenceValue(held, diff, unitCost) {
  */
 async function postDifference(client, { companyId, userId, held, itemId, placeId, diff, on, note, unitCost, memo }) {
   const value = differenceValue(held, diff, unitCost);
-  if (value === 0n) throw new Error("That difference is worth nothing at this cost, so there is nothing to record.");
+  // Stock that cost nothing still has a quantity: it moves with no entry, as there is no money to move.
+  if (value === 0n) {
+    await recordMove(client, { companyId, userId, itemId, on, kind: "counted", units: diff, value, entryId: null, note: note || null, placeId: placeId || null });
+    return { entry: null, value };
+  }
   const stockAcc = await account(client, companyId, ACCOUNTS.stock);
   const countedAcc = await account(client, companyId, ACCOUNTS.counted);
   const abs = value < 0n ? -value : value;
@@ -558,14 +565,13 @@ async function arrive(client, { companyId, userId, transferId, received, on, rea
   );
   if (short > 0n) {
     const value = costOut(held, short);
-    // A move needs an entry, as a count does, so a shortfall worth nothing is counted at the place instead.
-    if (value === 0n) throw new Error(`What came short is worth nothing at its cost, so count ${name} at ${to.name} instead.`);
     const memo = `${unitsText(short)} ${unit} ${name} short on arrival at ${to.name}: ${why}`;
-    const entry = await postEntry(client, {
+    // Stock that cost nothing is short by quantity only: no entry, as no money moves.
+    const entry = value === 0n ? null : await postEntry(client, {
       companyId, userId, date: on, source: "stock", narrative: memo,
       lines: [{ accountId: await account(client, companyId, ACCOUNTS.counted), debit: value, memo }, { accountId: await account(client, companyId, ACCOUNTS.stock), credit: value, memo }],
     });
-    await recordMove(client, { companyId, userId, itemId: t.item_id, on, kind: "counted", units: -short, value: -value, entryId: entry.id, note: `Short on arrival: ${why}`, placeId: t.to_place_id });
+    await recordMove(client, { companyId, userId, itemId: t.item_id, on, kind: "counted", units: -short, value: -value, entryId: entry?.id || null, note: `Short on arrival: ${why}`, placeId: t.to_place_id });
   }
   return { received: unitsText(got), short: unitsText(short), to: to.name };
 }
@@ -616,19 +622,19 @@ async function issue(client, { companyId, userId, itemId, placeId, quantity, on,
   const there = (await atPlaces(client, { companyId, itemId })).get(placeKey(placeId)) || 0n;
   if (units > there) throw new Error(`Only ${unitsText(there)} ${held.item.unit} of ${held.item.name} ${there === SCALE ? "is" : "are"} at ${from.name}.`);
   const value = costOut(held, units);
-  if (value === 0n) throw new Error(`${held.item.name} has no cost yet, so there is nothing to carry to the job. Record the bill that brought it in first.`);
   const { rows: own } = await client.query("SELECT cost_account_id FROM stock_items WHERE id = $1", [itemId]);
   const costAcc = own[0].cost_account_id || (await account(client, companyId, ACCOUNTS.used));
   const on_ = [project, ...dims.map((d) => d.name)].filter(Boolean).join(", ");
   const memo = `${unitsText(units)} ${held.item.unit} ${held.item.name} used on ${on_}`;
-  const entry = await postEntry(client, {
+  // Stock that cost nothing leaves by quantity only: the job carries no cost, and there is no entry.
+  const entry = value === 0n ? null : await postEntry(client, {
     companyId, userId, date: on, source: "stock", narrative: memo,
     lines: [
       { accountId: costAcc, debit: value, projectId: projectId || null, dimensionIds: ids, memo },
       { accountId: await account(client, companyId, ACCOUNTS.stock), credit: value, memo },
     ],
   });
-  await recordMove(client, { companyId, userId, itemId, on, kind: "issued", units: -units, value: -value, entryId: entry.id, note: note ? `Used on ${on_}: ${String(note).trim()}` : `Used on ${on_}`, placeId: placeId || null });
+  await recordMove(client, { companyId, userId, itemId, on, kind: "issued", units: -units, value: -value, entryId: entry?.id || null, note: note ? `Used on ${on_}: ${String(note).trim()}` : `Used on ${on_}`, placeId: placeId || null });
   return { entry, value, usedOn: on_ };
 }
 
@@ -704,7 +710,7 @@ async function history(client, { companyId, itemId }) {
   const { rows } = await client.query(
     `SELECT m.moved_on, m.kind, m.quantity, m.value_laari, m.sale_net_laari, m.note, e.entry_no,
             b.bill_no, s.invoice_no
-       FROM stock_moves m JOIN journal_entries e ON e.id = m.entry_id
+       FROM stock_moves m LEFT JOIN journal_entries e ON e.id = m.entry_id
        LEFT JOIN bills b ON b.id = m.bill_id LEFT JOIN sales_invoices s ON s.id = m.invoice_id
       WHERE m.company_id = $1 AND m.item_id = $2
       ORDER BY m.moved_on DESC, m.created_at DESC`,
@@ -733,7 +739,7 @@ async function history(client, { companyId, itemId }) {
     value: formatLaari(BigInt(r.value_laari)),
     saleNet: r.sale_net_laari === null ? null : formatLaari(BigInt(r.sale_net_laari)),
     note: r.note,
-    entryNo: String(r.entry_no),
+    entryNo: r.entry_no === null ? null : String(r.entry_no),
     document: r.bill_no ? `Bill ${r.bill_no}` : r.invoice_no || null,
   }))].sort((a, b) => String(b.on) < String(a.on) ? -1 : String(b.on) > String(a.on) ? 1 : 0);
 }
@@ -913,13 +919,13 @@ async function moves(client, { companyId, itemId, place, kinds, from, to }) {
     else if (place) c.push(`m.place_id = ${arg(place)}`);
     const { rows } = await client.query(
       `SELECT m.moved_on::text AS on, m.kind, i.name AS item, i.unit, m.quantity, m.value_laari, m.note, e.entry_no, b.bill_no, s.invoice_no, COALESCE(p.name, 'Main store') AS place
-         FROM stock_moves m JOIN stock_items i ON i.id = m.item_id JOIN journal_entries e ON e.id = m.entry_id
+         FROM stock_moves m JOIN stock_items i ON i.id = m.item_id LEFT JOIN journal_entries e ON e.id = m.entry_id
          LEFT JOIN bills b ON b.id = m.bill_id LEFT JOIN sales_invoices s ON s.id = m.invoice_id LEFT JOIN stock_places p ON p.id = m.place_id
         WHERE ${c.join(" AND ")} ORDER BY m.moved_on DESC, m.created_at DESC LIMIT 500`,
       args
     );
     for (const r of rows) {
-      out.push({ on: r.on, kind: r.kind, item: r.item, unit: r.unit, quantity: unitsText(fromDb(r.quantity)), value: formatLaari(BigInt(r.value_laari)), place: r.place, note: r.note, entryNo: String(r.entry_no), document: r.bill_no ? `Bill ${r.bill_no}` : r.invoice_no || null });
+      out.push({ on: r.on, kind: r.kind, item: r.item, unit: r.unit, quantity: unitsText(fromDb(r.quantity)), value: formatLaari(BigInt(r.value_laari)), place: r.place, note: r.note, entryNo: r.entry_no === null ? null : String(r.entry_no), document: r.bill_no ? `Bill ${r.bill_no}` : r.invoice_no || null });
     }
   }
   if (want("moved")) {

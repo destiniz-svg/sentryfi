@@ -172,7 +172,7 @@ export default function Stock() {
                     <>
                       <div className="text-[14px] xl:text-right tabular">
                         {i.onHand} <span className="text-[var(--ink-muted)]">{i.unit}</span>
-                        {i.places && i.places.some((p) => p.id) && <span className="block text-[12px] text-[var(--ink-muted)] whitespace-nowrap">{i.places.map((p) => `${p.name} ${p.onHand}`).join(" · ")}</span>}
+                        {i.places && i.places.some((p) => p.id) && <span className="block text-[12px] text-[var(--ink-muted)] break-words">{i.places.map((p) => `${p.name} ${p.onHand}`).join(" · ")}</span>}
                         {n(i.inTransit) > 0 && <span className="block text-[12px] text-[var(--ink-muted)] whitespace-nowrap">{i.inTransit} on the way</span>}
                         {i.low && <span className="ml-1.5 inline-block rounded-full bg-[var(--warning)]/15 text-[var(--warning)] text-[11px] font-semibold px-2 py-0.5">Low</span>}
                       </div>
@@ -205,26 +205,26 @@ export default function Stock() {
                     {can("record") && (
                       <>
                         {i.counted && n(i.onHand) === 0 && n(i.sold) === 0 && (
-                          <Button variant="outline" size="sm" onClick={() => setOpening(i)}>
+                          <Button variant="outline" size="sm" className="h-11 md:h-8" onClick={() => setOpening(i)}>
                             Already had some
                           </Button>
                         )}
                         {i.counted && (
-                          <Button variant="outline" size="sm" onClick={() => setCounting(i)}>
+                          <Button variant="outline" size="sm" className="h-11 md:h-8" onClick={() => setCounting(i)}>
                             Count
                           </Button>
                         )}
                         {i.counted && places.length > 1 && n(i.onHand) > 0 && (
-                          <Button variant="ghost" size="sm" onClick={() => setMoving(i)}>
+                          <Button variant="ghost" size="sm" className="h-11 md:h-8" onClick={() => setMoving(i)}>
                             Move
                           </Button>
                         )}
                         {i.counted && n(i.onHand) - n(i.inTransit) > 0 && (
-                          <Button variant="ghost" size="sm" onClick={() => setUsing(i)}>
+                          <Button variant="ghost" size="sm" className="h-11 md:h-8" onClick={() => setUsing(i)}>
                             Use on a job
                           </Button>
                         )}
-                        <Button variant="ghost" size="sm" onClick={() => setEditing(i)}>
+                        <Button variant="ghost" size="sm" className="h-11 md:h-8" onClick={() => setEditing(i)}>
                           Change
                         </Button>
                       </>

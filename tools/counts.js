@@ -91,12 +91,14 @@ async function stockIn(page, w, name, qty, amount) {
       const main = it.places ? it.places.find((p) => p.id === null)?.onHand || "0" : it.onHand;
       await input.fill(main);
     }
+    if (await page.locator("#count-add").count()) ok("the counter can add something found there that is not on the list");
+    else console.log("  --   nothing in the books is off this count, so there is nothing to add");
     await page.getByRole("button", { name: "Submit the count" }).click();
     await page.getByTestId("count-review").waitFor({ timeout: 30000 });
     await settle(page);
     await shot(page, "review-posted");
     const row = (await page.getByTestId("review-line").filter({ hasText: `Check cement ${w}` }).innerText()).replace(/\s+/g, " ");
-    if (row.includes("10 bag") && row.includes("-1") && row.includes("100.00")) ok(`one bag short, posted at once: "${row}"`);
+    if (row.includes("10 bag") && row.includes("9 bag") && row.includes("-1") && row.includes("100.00")) ok(`one bag short, posted at once: "${row}"`);
     else bad(`the cement line reads "${row}"`);
     const held = (await api(page, "GET", "/stock")).json.items.find((i) => i.id === cement.id);
     if (held.onHand === "9") ok("the books now say 9");
@@ -158,6 +160,16 @@ async function stockIn(page, w, name, qty, amount) {
         else bad(`the site shows ${JSON.stringify(after.places)}`);
       } else console.log("  --   no SHOOT_COUNTER and SHOOT_COUNTER_NAME, so the field counter part is skipped");
     }
+
+    // The Items page's row buttons are big enough to tap on a phone.
+    const phoneView = await signIn(browser, { phone: true });
+    await phoneView.page.goto(`${BASE}/stock`, { waitUntil: "networkidle", timeout: 45000 });
+    const countBtn = phoneView.page.getByTestId("stock-row").filter({ hasText: `Check cement ${w}` }).getByRole("button", { name: "Count", exact: true });
+    const box = await countBtn.boundingBox();
+    if (box && box.height >= 44) ok(`the Items row buttons are ${Math.round(box.height)}px tall on a phone`);
+    else bad(`the Items row buttons are ${box && Math.round(box.height)}px tall on a phone`);
+    await countBtn.scrollIntoViewIfNeeded();
+    await shot(phoneView.page, "items-phone");
 
     await page.goto(`${BASE}/inventory`, { waitUntil: "networkidle" });
     const acc = page.getByTestId("place-accuracy").first();

@@ -98,6 +98,10 @@ router.post(
     res.json(await as(req, (client, ctx) => counts.saveLine(client, { ...ctx, countId: req.params.id, itemId: req.params.itemId, ...parsed.data })));
   })
 );
+router.get(
+  "/:id/items",
+  refused(async (req, res) => res.json({ items: await as(req, (client, ctx) => counts.addable(client, { ...ctx, countId: req.params.id, reads: req.can("read") })) }))
+);
 router.post(
   "/:id/items",
   refused(async (req, res) => {

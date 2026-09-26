@@ -38,11 +38,13 @@ export default function Count() {
     enabled: Boolean(companyId),
   });
   const mine = c && c.counterId === user?.id;
-  const body = isLoading || !c ? <Skeleton className="h-40 rounded-2xl" /> : c.status === "counting" && mine ? <Counting c={c} /> : <Review c={c} canDecide={can("record") && !mine} reads={can("read")} />;
+  // How many have a number, as they are typed; for the board's band.
+  const [typed, setTyped] = useState(null);
+  const body = isLoading || !c ? <Skeleton className="h-40 rounded-2xl" /> : c.status === "counting" && mine ? <Counting c={c} onTyped={setTyped} /> : <Review c={c} canDecide={can("record") && !mine} reads={can("read")} />;
 
   // Field staff count on their board.
   if (!can("read")) {
-    const done = c ? c.lines.filter((l) => l.counted !== null).length : 0;
+    const done = typed ?? (c ? c.lines.filter((l) => l.counted !== null).length : 0);
     return (
       <PhoneShell heading={c ? c.kindName : "Count"} unit="" figure={c ? `${done}/${c.lines.length}` : "…"} position={c ? c.place : ""} sync="" onSnap={() => setSnapping(true)}>
         <div className="px-5 py-4">{body}</div>
@@ -67,7 +69,7 @@ export default function Count() {
 }
 
 /** The counter's screen: item, unit, how many. Kept on the phone without signal. */
-function Counting({ c }) {
+function Counting({ c, onTyped }) {
   const toast = useToast();
   const qc = useQueryClient();
   const { companyId } = useCompany();
@@ -75,8 +77,26 @@ function Counting({ c }) {
   const [saved, setSaved] = useState(() => Object.fromEntries(c.lines.map((l) => [l.itemId, l.counted !== null])));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [adding, setAdding] = useState("");
   const go = useSendOrKeep((b) => ({ url: `/counts/${c.id}/lines/${b.itemId}`, body: { counted: b.counted }, label: `Counted ${b.counted} of ${b.name}` }));
-  const done = Object.values(saved).filter(Boolean).length;
+  const done = c.lines.filter((l) => String(values[l.itemId] ?? "").trim() !== "").length;
+  // Items found at the place that are not on the list.
+  const { data: more = [] } = useQuery({
+    queryKey: ["stock", companyId, "count-addable", c.id, c.lines.length],
+    queryFn: () => apiClient.get(`/counts/${c.id}/items`).then((r) => r.data.items),
+  });
+
+  async function add() {
+    if (!adding) return;
+    setErr("");
+    try {
+      await apiClient.post(`/counts/${c.id}/items`, { itemId: adding });
+      setAdding("");
+      qc.invalidateQueries({ queryKey: ["stock", companyId, "count", c.id] });
+    } catch (ex) {
+      setErr(ex.message);
+    }
+  }
 
   async function save(l) {
     const v = String(values[l.itemId] ?? "").trim();
@@ -122,10 +142,12 @@ function Counting({ c }) {
               <input
                 aria-label={`How many ${l.name}, in ${l.unit}`}
                 inputMode="decimal"
-                value={values[l.itemId]}
+                value={values[l.itemId] ?? ""}
                 onChange={(e) => {
-                  setValues((v) => ({ ...v, [l.itemId]: e.target.value }));
+                  const next = { ...values, [l.itemId]: e.target.value };
+                  setValues(next);
                   setSaved((s) => ({ ...s, [l.itemId]: false }));
+                  onTyped?.(c.lines.filter((x) => String(next[x.itemId] ?? "").trim() !== "").length);
                 }}
                 onBlur={() => save(l)}
                 onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
@@ -135,6 +157,24 @@ function Counting({ c }) {
           ))}
         </div>
       </Card>
+      {more.length > 0 && (
+        <div className="flex flex-wrap items-end gap-2 mt-3">
+          <label className="block flex-1 min-w-[12rem]">
+            <span className="text-sm font-medium block mb-1.5">Something else is here</span>
+            <select id="count-add" value={adding} onChange={(e) => setAdding(e.target.value)} className="w-full h-11 px-3 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[15px] text-[var(--ink)]">
+              <option value="">Choose the item</option>
+              {more.map((m) => (
+                <option key={m.itemId} value={m.itemId}>
+                  {m.name} ({m.unit})
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button type="button" variant="outline" onClick={add} disabled={!adding}>
+            Add it to the count
+          </Button>
+        </div>
+      )}
       {err && (
         <p role="alert" className="text-[13px] text-[var(--danger)] mt-3">
           {err}
@@ -174,7 +214,23 @@ function Review({ c, canDecide, reads }) {
 
   if (!reads || c.blind) {
     const said = { counting: "Being counted. What the books say stays hidden until it is submitted.", submitted: "Sent. Someone will look at it.", posted: "Sent and in the books. Thank you.", cancelled: "This count was cancelled." }[c.status];
-    return <p className="text-[16px]" data-testid="count-state">{said}</p>;
+    return (
+      <div>
+        <p className="text-[16px]" data-testid="count-state">{said}</p>
+        {c.status === "counting" && canDecide && (
+          <div className="flex justify-end mt-4">
+            <Button variant="ghost" onClick={() => act("cancel", "Count cancelled")} disabled={Boolean(busy)}>
+              Cancel the count
+            </Button>
+          </div>
+        )}
+        {err && (
+          <p role="alert" className="text-[13px] text-[var(--danger)] mt-3">
+            {err}
+          </p>
+        )}
+      </div>
+    );
   }
   const over = c.lines.filter((l) => l.over).length;
   return (
@@ -210,7 +266,7 @@ function Review({ c, canDecide, reads }) {
                   </span>
                   <span className="text-[14px] text-right tabular">
                     <span className="md:hidden text-[12px] text-[var(--ink-muted)] mr-1.5">counted</span>
-                    {l.counted}
+                    {l.counted} {l.unit}
                   </span>
                   <span className={`text-[14px] md:text-right tabular font-semibold ${l.difference.startsWith("-") ? "text-[var(--danger)]" : ""}`}>{l.difference === "0" ? "Agrees" : l.difference}</span>
                   <span className="text-[14px] text-right tabular">{l.value && l.value !== "0.00" ? <Money amount={l.value} /> : "—"}</span>

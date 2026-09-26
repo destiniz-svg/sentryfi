@@ -505,6 +505,42 @@ describe("counting sessions, blind", () => {
       expect(await counts.submit(client, { companyId, userId, countId: c.id })).toEqual({ status: "posted", over: 0 });
     }));
 
+  it("posts on the day it was counted, not the day it was approved", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      await client.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1, $2, 'administrator')", [companyId, userId]);
+      const cement = await shop.item("Cement");
+      await shop.buy([{ itemId: cement, quantity: "10", amount: "1000.00" }]);
+      const c = await counts.create(client, { companyId, userId, kind: "full", placeId: null, counterId: userId });
+      await counted(client, companyId, userId, c.id, [[cement, "9"]]);
+      await client.query("UPDATE stock_count_lines SET counted_at = '2026-09-20 10:00+05' WHERE count_id = $1", [c.id]); // counted six days ago
+      await counts.submit(client, { companyId, userId, countId: c.id });
+      const { rows } = await client.query("SELECT moved_on::text AS d FROM stock_moves WHERE company_id = $1 AND kind = 'counted'", [companyId]);
+      expect(rows).toEqual([{ d: "2026-09-20" }]);
+    }));
+
+  it("stock that cost nothing is counted, short and used by quantity alone, with no entry", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      const samples = await shop.item("Tile samples", "box");
+      const project = (await client.query("INSERT INTO projects (company_id, name) VALUES ($1,'Show flat') RETURNING id", [companyId])).rows[0].id;
+      const site = await stock.addPlace(client, { companyId, userId, name: "Show flat", kind: "site" });
+      const entries = async () => Number((await client.query("SELECT count(*) AS n FROM journal_entries WHERE company_id = $1", [companyId])).rows[0].n);
+      const before = await entries();
+      const found = await stock.count(client, { companyId, userId, itemId: samples, counted: "5", on: "2026-09-12", unitCost: "0" });
+      expect(found.entry).toBeNull();
+      const sent = await stock.transfer(client, { companyId, userId, itemId: samples, fromPlaceId: null, toPlaceId: site.id, quantity: "3", on: "2026-09-13" });
+      expect(await stock.arrive(client, { companyId, userId, transferId: sent.id, received: "2", on: "2026-09-14", reason: "One box broken" })).toMatchObject({ short: "1" });
+      expect((await stock.issue(client, { companyId, userId, itemId: samples, placeId: site.id, quantity: "1", on: "2026-09-15", projectId: project })).entry).toBeNull();
+      expect(await entries()).toBe(before);
+      expect((await shop.held(samples)).onHand).toBe("3");
+      const h = await stock.history(client, { companyId, itemId: samples });
+      expect(h.filter((m) => m.kind !== "moved").every((m) => m.entryNo === null && m.value === "0.00")).toBe(true);
+      await shop.tied();
+    }));
+
   it("a sale after an item is counted makes no false difference", () =>
     inRollback(async (client) => {
       const shop = await aShop(client);
@@ -564,6 +600,11 @@ describe("counting sessions, blind", () => {
       expect(new Set(v.lines.map((l) => l.itemId)).size).toBe(5);
       expect(v.lines.every((l) => ids.includes(l.itemId))).toBe(true);
       await expect(counts.view(client, { companyId, userId: keeper, countId: s.id, reads: false })).rejects.toThrow(/not yours/);
+      // Something found there that is not on the list can be added, from the items not on it yet.
+      const more = await counts.addable(client, { companyId, userId, countId: s.id, reads: true });
+      expect(more.map((m) => m.itemId).sort()).toEqual(ids.filter((i) => !v.lines.some((l) => l.itemId === i)).sort());
+      await counts.addLine(client, { companyId, userId, countId: s.id, itemId: more[0].itemId });
+      expect((await counts.view(client, { companyId, userId, countId: s.id, reads: true })).lines).toHaveLength(6);
     }));
 
   it("sorts items by value into A, B and C, and says when each is due a count", () =>
