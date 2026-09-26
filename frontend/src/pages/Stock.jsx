@@ -14,6 +14,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { useSendOrKeep } from "@/context/OutboxContext";
 import { useToast } from "@/context/UIContext";
 import { formatDate, today } from "@/lib/utils";
+import Arrivals from "@/pages/phone/Arrivals";
 
 /**
  * Items: everything a company buys or sells, in one list. A product is a
@@ -66,16 +67,23 @@ export default function Stock() {
   const [arriving, setArriving] = useState(null);
   const [filter, setFilter] = useState("all");
 
+  // Someone who receives goods but never reads the books (procurement, site
+  // staff) sees only what is on the way, to say it arrived.
+  const reads = can("read");
+  const receives = can("record") || can("receive") || can("capture");
   const { data, isLoading } = useQuery({
     queryKey: ["stock", companyId],
     queryFn: () => apiClient.get("/stock").then((r) => r.data),
-    enabled: Boolean(companyId),
+    enabled: Boolean(companyId) && reads,
   });
   const all = (data?.items || []).filter((i) => !i.archived);
   const list = all.filter(FILTERS.find(([k]) => k === filter)[2]);
   const counted = all.filter((i) => i.counted);
   const places = data?.places || [{ id: null, name: "Main store" }];
   const accounts = data?.accounts || { income: [], cost: [] };
+
+  // On the field board: goods on the way, and nothing else.
+  if (!reads) return <Arrivals />;
 
   return (
     <div>
@@ -129,7 +137,7 @@ export default function Stock() {
             </TabsList>
           </Tabs>
           {counted.length > 0 && (filter === "all" || filter === "counted" || filter === "product") && <Places places={places} people={data?.people || []} projects={data?.projects || []} canAdd={can("record")} onDone={refresh} />}
-          {data?.onTheWay?.length > 0 && <OnTheWay list={data.onTheWay} canReceive={can("record")} onArrive={setArriving} />}
+          {data?.onTheWay?.length > 0 && <OnTheWay list={data.onTheWay} canReceive={receives} onArrive={setArriving} />}
           <Card padding="none" className="overflow-hidden">
             <div className="hidden xl:grid grid-cols-[minmax(0,1.6fr)_110px_120px_130px_130px_230px] gap-4 px-5 py-3 border-b border-[var(--border)] text-[12px] font-medium text-[var(--ink-muted)]">
               <span>Item</span>

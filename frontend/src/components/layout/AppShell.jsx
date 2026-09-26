@@ -21,12 +21,13 @@ import { markOpened } from "@/lib/newMarks";
  * must stand out of the way entirely rather than wrapping them — two navs on
  * one screen is not a style problem, it is two answers to "where am I".
  */
-const BOARD = new Set(["/dashboard", "/bills", "/cash", "/owed", "/me"]);
+const BOARD = new Set(["/dashboard", "/bills", "/cash", "/owed", "/me", "/stock"]);
 
 // Where someone who feeds the books but does not read them may go: the
 // camera, their tin, and their own account. Everything else is the office's.
-// Their inbox and any conversation they were brought into as well.
-const FIELD = new Set(["/dashboard", "/cash", "/owed", "/me", "/go", "/inbox"]);
+// Their inbox and any conversation they were brought into as well, and goods on
+// the way, to say they arrived (quantities only; /stock shows them nothing else).
+const FIELD = new Set(["/dashboard", "/cash", "/owed", "/me", "/go", "/inbox", "/stock"]);
 const talking = (path) => path === "/inbox" || path.startsWith("/talk/");
 
 export function AppShell() {

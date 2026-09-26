@@ -1,4 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "@/api/client";
 import { useUndo } from "@/context/UndoContext";
 import { useOutbox } from "@/context/OutboxContext";
 import { useCompany } from "@/context/CompanyContext";
@@ -72,6 +74,17 @@ function PhoneHeader() {
  */
 function StripSlot() {
   const { posted, left, notice, undoing, undo } = useUndo();
+  // Someone who receives goods but does not read the books hears here that
+  // stock is on the way, when nothing else is using the strip.
+  const { companyId, can } = useCompany();
+  const { pathname } = useLocation();
+  const receives = !can("read") && (can("receive") || can("capture")) && pathname !== "/stock";
+  const { data: coming } = useQuery({
+    queryKey: ["stock", companyId, "on-the-way"],
+    queryFn: () => apiClient.get("/stock/on-the-way").then((r) => r.data.onTheWay),
+    enabled: Boolean(companyId) && receives,
+    staleTime: 60000,
+  });
 
   if (posted) {
     return (
@@ -92,6 +105,17 @@ function StripSlot() {
       <div role="status" aria-live="polite" className="on-ink phone-strip">
         <span className="phone-strip-text">{notice}</span>
       </div>
+    );
+  }
+
+  if (receives && coming?.length) {
+    return (
+      <Link to="/stock" className="on-ink phone-strip" data-testid="arrivals-strip">
+        <span className="phone-strip-text">
+          {coming.length === 1 ? "One delivery on the way" : `${coming.length} deliveries on the way`}
+        </span>
+        <span className="phone-strip-action">Say it arrived</span>
+      </Link>
     );
   }
 

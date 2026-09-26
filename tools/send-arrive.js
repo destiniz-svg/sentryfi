@@ -114,6 +114,40 @@ const shot = (page, name) => page.screenshot({ path: `${process.env.TEMP}/arrive
     if (arrived?.note.includes("7 arrived")) ok(`history: ${arrived.note}`);
     else bad(`the move reads ${arrived?.note}`);
 
+    // Receivers who never read the books (SHOOT_RECEIVERS="email:password,…",
+    // e.g. procurement and site staff): they see only what is on the way, and
+    // say it arrived.
+    for (const pair of (process.env.SHOOT_RECEIVERS || "").split(",").filter(Boolean)) {
+      const [email, password] = pair.split(":");
+      const again = (await api(page, "POST", `/stock/${item.id}/transfer`, { fromPlaceId: null, toPlaceId: site.id, quantity: "1", on: today() })).json;
+      const owner = { email: process.env.SHOOT_EMAIL, password: process.env.SHOOT_PASSWORD };
+      Object.assign(process.env, { SHOOT_EMAIL: email, SHOOT_PASSWORD: password });
+      const them = await signIn(browser, { phone: true });
+      Object.assign(process.env, { SHOOT_EMAIL: owner.email, SHOOT_PASSWORD: owner.password });
+      const r = them.page;
+      // From their home screen, as a person at the site would.
+      await r.goto(`${BASE}/dashboard`, { waitUntil: "networkidle", timeout: 45000 });
+      const strip = r.getByTestId("arrivals-strip");
+      await strip.waitFor({ timeout: 20000 });
+      await shot(r, `receiver-home-${email.split("@")[0]}`);
+      ok(`${email}'s home says: ${(await strip.innerText()).replace(/\s+/g, " ")}`);
+      await strip.click();
+      await r.getByRole("heading", { name: "On the way" }).waitFor({ timeout: 20000 });
+      if (!(await r.getByTestId("arrivals-strip").count())) ok("the strip keeps quiet on the page it points to");
+      else bad("the strip points at the page it is on");
+      if ((await api(r, "GET", "/stock")).status === 403) ok(`${email} cannot read the stock list and its prices`);
+      else bad(`${email} can read the stock list`);
+      const theirs = r.getByTestId("on-the-way-card").filter({ hasText: name });
+      await theirs.first().waitFor({ timeout: 15000 });
+      await shot(r, `receiver-${email.split("@")[0]}`);
+      await theirs.first().getByRole("button", { name: "It arrived" }).click();
+      await r.getByRole("button", { name: "All of it came" }).click();
+      await r.locator("#arrive-qty").waitFor({ state: "detached", timeout: 20000 });
+      const still = (await api(page, "GET", "/stock")).json.onTheWay.some((t) => t.id === again.id);
+      if (!still) ok(`${email} said it arrived`);
+      else bad(`${email} could not say it arrived`);
+    }
+
     const dark = await signIn(browser, { phone: true, dark: true });
     await dark.page.goto(`${BASE}/stock`, { waitUntil: "networkidle", timeout: 45000 });
     await dark.page.getByTestId("stock-row").filter({ hasText: name }).getByRole("button", { name: "Move" }).click();

@@ -301,11 +301,19 @@ router.post(
   })
 );
 
-// Goods sent that have come, all or short with the reason.
+// Goods sent that have come, all or short with the reason. Said by whoever is
+// there: the office, procurement, or site staff at the jetty. What is on the way
+// is quantities only, so field roles who never read the books may see it.
+const receivers = requireCan("record", "receive", "capture");
+router.get(
+  "/on-the-way",
+  requireCan("read", "receive", "capture"),
+  asyncHandler(async (req, res) => res.json({ onTheWay: await asCompany(req, (client) => stock.onTheWay(client, { companyId: req.companyId })) }))
+);
 const arriveBody = z.object({ received: qty, on: dateText, reason: note });
 router.post(
   "/transfers/:transferId/arrive",
-  requireCan("record"),
+  receivers,
   refused(async (req, res) => {
     const parsed = arriveBody.safeParse(req.body ?? {});
     if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);

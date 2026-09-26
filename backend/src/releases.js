@@ -24,6 +24,7 @@ const RELEASES = [
     items: [
       { area: "Stock", kind: "new", title: "Stock, at a glance", body: "Inventory now opens on Stock: this week's deliveries, each place with its quantity and value (goods on the way included), the total and whether it agrees with the books, sales and stock used on jobs, and anything short, late, low or not moving. Pick any date to see how it stood then.", href: "/inventory" },
       { area: "Stock", kind: "improved", title: "Every figure opens onto its moves", body: "Tap a place, an item or a total to see the moves behind it, each with its bill, invoice or entry.", href: "/inventory" },
+      { area: "Stock", kind: "improved", title: "Procurement and site staff say what arrived", body: "People who receive goods but do not read the books see deliveries on the way on their home screen, and say what came, with a reason when some is short. They see quantities only, never prices.", href: "/stock", need: null },
     ],
   },
   {
