@@ -721,11 +721,11 @@ function Places({ places, people, projects, canAdd, onDone }) {
         const said = [p.id ? kindName(p.kind) : null, p.project, p.inCharge].filter(Boolean).join(" · ");
         const inner = (
           <>
-            <span className="font-medium">{p.name}</span>
-            {said && <span className="text-[var(--ink-muted)]">{said}</span>}
+            <span className="font-medium shrink-0">{p.name}</span>
+            {said && <span className="text-[var(--ink-muted)] truncate min-w-0">{said}</span>}
           </>
         );
-        const chip = "h-9 px-3.5 inline-flex items-center gap-2 rounded-full bg-[var(--surface)] lift text-[13px]";
+        const chip = "h-9 px-3.5 max-w-full inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-[var(--surface)] lift text-[13px]";
         return p.id && canAdd ? (
           <button key={p.id} type="button" onClick={() => setEditing(p)} aria-label={`Change ${p.name}`} className={`${chip} hover:bg-[var(--surface-2)]`}>
             {inner}
