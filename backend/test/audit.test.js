@@ -15,6 +15,7 @@ import * as questions from "../src/ledger/auditQuestions";
 import * as comments from "../src/ledger/comments";
 import * as adjust from "../src/ledger/auditAdjustments";
 import * as count from "../src/ledger/auditCount";
+import * as signoffs from "../src/ledger/auditSignoff";
 import * as counts from "../src/ledger/counts";
 import * as stock from "../src/ledger/stock";
 import { unzip } from "../src/ledger/unzip";
@@ -313,6 +314,50 @@ describe("the audit workspace", () => {
       await count.conclude(client, { companyId, userId, observationId: o.id, instructions: "Clear, with tags and a count sheet per aisle.", conclusion: "One undercount of cement; tiles not on the sheet. Extend the count to the back store." });
       await expect(count.record(client, { companyId, userId, observationId: o.id, itemId: cement, direction: "sheet_to_floor", qty: "11" })).rejects.toThrow(/kept as it was/);
       expect((await count.list(client, { companyId, periodId }))[0]).toMatchObject({ tests: 3, done: 3 });
+    }));
+
+  it("signs off only when nothing blocks it, with a note for what is unfinished, and then keeps the period's work as it was", () =>
+    inRollback(async (client) => {
+      const { companyId, userId, accounts } = await withBills(client);
+      await client.query("RESET ROLE");
+      await client.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1, $2, 'auditor')", [companyId, userId]);
+      const { rows: u } = await client.query("INSERT INTO users (name, email, password_hash) VALUES ('Aisha', $1, 'x') RETURNING id", [`aisha+${Math.random().toString(36).slice(2)}@sentryfi.invalid`]);
+      const aisha = u[0].id;
+      await client.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1, $2, 'accountant')", [companyId, aisha]);
+      await assumeIdentity(client, { companyId, userId });
+      const req = { companyId, user: { id: userId, name: "Test" }, can: () => true };
+      const { id: periodId } = await audit.createPeriod(client, { companyId, userId, from: "2025-01-01", to: "2025-12-31" });
+      await audit.draw(client, { companyId, userId, periodId, kind: "bill", how: "random", size: 2 });
+      const aj = await adjust.propose(client, { companyId, userId, periodId, klass: "factual", reason: "Unrecorded accrual", lines: [{ accountId: accounts.expense, debit: "50" }, { accountId: accounts.payable, credit: "50" }] });
+
+      let r = await signoffs.readiness(client, req, { periodId });
+      expect(r.items.find((i) => i.key === "adjustments").state).toBe("block");
+      expect(r.items.find((i) => i.key === "samples")).toMatchObject({ state: "warn", said: "2 of 2 items not yet seen." });
+      await expect(signoffs.signOff(client, req, { periodId, opinion: "unmodified" })).rejects.toThrow(/still waiting for the company/);
+
+      await assumeIdentity(client, { companyId, userId: aisha });
+      await adjust.decide(client, { companyId, userId: aisha, id: aj.id, how: "accept" });
+      await assumeIdentity(client, { companyId, userId });
+      await expect(signoffs.signOff(client, req, { periodId, opinion: "unmodified" })).rejects.toThrow(/Say in a note why you sign anyway/);
+      const done = await signoffs.signOff(client, req, { periodId, opinion: "unmodified", note: "Samples reviewed on paper at the client's office." });
+      expect(done.head).toMatchObject({ no: expect.any(String), hash: expect.stringMatching(/^[0-9a-f]{64}$/) });
+      const p = await audit.period(client, { companyId, periodId });
+      expect(p.signedOff).toMatchObject({ by: "Test", opinion: "unmodified", head: { sealOk: true, loose: expect.arrayContaining(["samples"]) } });
+      await expect(signoffs.signOff(client, req, { periodId, opinion: "unmodified", note: "again and again" })).rejects.toThrow(/signed off already/);
+
+      // Frozen by the database: nothing more is drawn, ticked or set; the pack can still be made.
+      // (Each refusal aborts its own transaction, as a request would; a savepoint stands in for that here.)
+      const refusedIn = async (fn) => {
+        await client.query("SAVEPOINT frozen");
+        await expect(fn()).rejects.toThrow(/signed off/);
+        await client.query("ROLLBACK TO SAVEPOINT frozen");
+      };
+      const s = (await audit.period(client, { companyId, periodId })).samples[0];
+      const item = (await audit.sample(client, { companyId, sampleId: s.id })).items[0];
+      await refusedIn(() => audit.draw(client, { companyId, userId, periodId, kind: "bill", how: "random", size: 1 }));
+      await refusedIn(() => audit.see(client, { companyId, userId, sampleId: s.id, itemId: item.id, note: "late tick" }));
+      await refusedIn(() => adjust.setMateriality(client, { companyId, userId, periodId, materiality: "1000" }));
+      expect((await pack.build(client, { companyId, userId, periodId })).files.length).toBeGreaterThan(10);
     }));
 
   it("lays monetary-unit hits end to end from the seed's start", () => {

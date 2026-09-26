@@ -36,16 +36,14 @@ const bad = (m) => {
     const name = `Joiner ${Date.now().toString(36).slice(-4)}`;
 
     const phone = await signIn(browser, { phone: true });
-    await phone.page.goto(BASE + "/settings", { waitUntil: "networkidle", timeout: 45000 });
-    await phone.page.getByRole("tab", { name: "People" }).click();
+    await phone.page.goto(BASE + "/settings?tab=people", { waitUntil: "networkidle", timeout: 45000 });
     await phone.page.getByTestId("people-list").waitFor({ timeout: 15000 });
     if (await phone.page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)) bad("phone: the People tab scrolls sideways");
     else ok("phone: the People tab fits");
     await phone.page.screenshot({ path: "shots/people-phone.png", fullPage: true });
 
     const { page } = await signIn(browser, { phone: false });
-    await page.goto(BASE + "/settings", { waitUntil: "networkidle", timeout: 45000 });
-    await page.getByRole("tab", { name: "People" }).click();
+    await page.goto(BASE + "/settings?tab=people", { waitUntil: "networkidle", timeout: 45000 });
     await page.getByTestId("people-list").waitFor({ timeout: 15000 });
     await page.fill("#person-email", email);
     await page.selectOption("#person-role", "site_staff");
@@ -161,8 +159,7 @@ const bad = (m) => {
     await them.screenshot({ path: "shots/owed-phone.png", fullPage: true });
     await stranger.close();
 
-    await page.goto(BASE + "/settings", { waitUntil: "networkidle" });
-    await page.getByRole("tab", { name: "People" }).click();
+    await page.goto(BASE + "/settings?tab=people", { waitUntil: "networkidle" });
     const person = page.getByTestId("people-list").locator("li", { hasText: email });
     await person.getByRole("button", { name: /take site staff away/i }).click();
     await person.waitFor({ state: "detached", timeout: 10000 });

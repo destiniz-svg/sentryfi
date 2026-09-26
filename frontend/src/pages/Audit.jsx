@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { createContext, useContext, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AlertTriangle, BadgeCheck, ChevronRight, Download, FileText, Loader2, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -25,6 +25,14 @@ import { formatDate, today } from "@/lib/utils";
  * entry, money and papers, and ticked as seen with a note. Nothing here
  * changes the books.
  */
+
+// Once a period is signed off its work is kept as it was: the controls that write switch off (the database refuses anyway).
+const Frozen = createContext(false);
+function useAudit() {
+  const { can } = useCompany();
+  const frozen = useContext(Frozen);
+  return can("audit") && !frozen;
+}
 
 const KIND = { bill: "Bills", invoice: "Invoices", entry: "Journal entries", payment: "Payments", receipt: "Receipts", credit_note: "Credit notes", claim: "Expense claims" };
 const ONE = { bill: "Bill", invoice: "Invoice", entry: "Entry", payment: "Payment", receipt: "Receipt", credit_note: "Credit note", claim: "Expense claim" };
@@ -117,6 +125,7 @@ function Periods() {
   return (
     <div>
       <PageHeader title="Audit" description="A period to audit, its seal checked, its journal screened, and samples drawn from it. Nothing here changes the books." />
+      <AuditorAccess />
       {can("audit") && (
         <Card padding="lg" className="mb-4">
           <form onSubmit={onSubmit} className="grid sm:grid-cols-[minmax(0,1fr)_170px_170px_auto] gap-3 items-end" data-testid="new-period">
@@ -157,6 +166,7 @@ function Periods() {
                     <span className="block text-[15px] font-semibold truncate">{p.name}</span>
                     <span className="block text-[13px] text-[var(--ink-muted)]">
                       {formatDate(p.from)} to {formatDate(p.to)} · {p.seal ? (p.seal.ok ? "seal intact" : "seal broken") : "seal not checked"}
+                      {p.signedOff ? ` · signed off by ${p.signedOff.by}, ${formatDate(p.signedOff.at)}` : ""}
                     </span>
                   </span>
                   {p.items > 0 && (
@@ -221,13 +231,16 @@ function Period({ id }) {
           <TabsTrigger value="count">Count</TabsTrigger>
           <TabsTrigger value="adjustments">Adjustments</TabsTrigger>
           <TabsTrigger value="pack">Audit pack</TabsTrigger>
+          <TabsTrigger value="signoff">{p.signedOff ? "Signed off" : "Sign-off"}</TabsTrigger>
         </TabsList>
       </Tabs>
 
+      <Frozen.Provider value={Boolean(p.signedOff)}>
+      {p.signedOff && tab !== "signoff" && <SignedBanner s={p.signedOff} />}
       {tab === "overview" && (
         <div className="grid gap-4">
           <Seal seal={p.seal} />
-          {can("audit") && (
+          {can("audit") && !p.signedOff && (
             <p>
               <Button variant="outline" size="sm" onClick={reseal} disabled={busy}>
                 {busy && <Loader2 size={13} className="animate-spin" />}
@@ -257,6 +270,7 @@ function Period({ id }) {
             <RiskGlance id={id} onOpen={() => go("risk")} />
             <QuestionsGlance id={id} onOpen={() => go("questions")} />
             <AdjustmentsGlance id={id} onOpen={() => go("adjustments")} />
+            {!p.signedOff && <ReadinessGlance id={id} onOpen={() => go("signoff")} />}
           </div>
         </div>
       )}
@@ -267,6 +281,8 @@ function Period({ id }) {
       {tab === "count" && <Counting p={p} />}
       {tab === "adjustments" && <Adjustments p={p} />}
       {tab === "pack" && <Pack p={p} />}
+      {tab === "signoff" && <SignOff p={p} />}
+      </Frozen.Provider>
     </div>
   );
 }
@@ -307,10 +323,10 @@ function RiskGlance({ id, onOpen }) {
 // ------------------------------------------------------------------ samples
 
 function Samples({ p }) {
-  const { can } = useCompany();
+  const canAudit = useAudit();
   return (
     <div className="grid gap-4">
-      {can("audit") && <Draw periodId={p.id} />}
+      {canAudit && <Draw periodId={p.id} />}
       <Card padding="none" className="overflow-hidden">
         <div className="px-5 py-3 border-b border-[var(--border)] text-[13px] font-semibold">Samples</div>
         {!p.samples.length ? (
@@ -444,7 +460,7 @@ function Draw({ periodId, preset }) {
 // ------------------------------------------------------------------ journal risk
 
 function Risk({ id }) {
-  const { can } = useCompany();
+  const canAudit = useAudit();
   const { data: r, isLoading } = useRisk(id);
   const [only, setOnly] = useState([]);
   const [drawing, setDrawing] = useState(false);
@@ -472,7 +488,7 @@ function Risk({ id }) {
             </button>
           ))}
         </div>
-        {can("audit") && shown.length > 0 && (
+        {canAudit && shown.length > 0 && (
           <p>
             <Button variant="accent" size="sm" onClick={() => setDrawing(true)}>
               Draw a sample from {only.length ? "these" : "the flagged entries"}
@@ -623,7 +639,7 @@ function AskForm({ periodId, kind, recordId, onAsked, compact = false }) {
 }
 
 function Questions({ p }) {
-  const { can } = useCompany();
+  const canAudit = useAudit();
   const { data: q, isLoading } = useQuestions(p.id);
   const [open, setOpen] = useState(null);
   const [only, setOnly] = useState(null);
@@ -632,7 +648,7 @@ function Questions({ p }) {
   const current = q.questions.find((x) => x.id === open);
   return (
     <div className="grid gap-4">
-      {can("audit") && (
+      {canAudit && (
         <Card padding="lg">
           <AskForm periodId={p.id} kind="audit_period" />
           <p className="text-[12.5px] text-[var(--ink-muted)] mt-3">A general request sits on the audit itself. To ask about one bill, invoice or entry, open it from a sample and ask there, so the answer stays with it.</p>
@@ -750,7 +766,8 @@ function AdjustmentsGlance({ id, onOpen }) {
 }
 
 function Materiality({ p, m }) {
-  const { companyId, can } = useCompany();
+  const { companyId } = useCompany();
+  const canAudit = useAudit();
   const toast = useToast();
   const qc = useQueryClient();
   const [editing, setEditing] = useState(!m);
@@ -769,7 +786,7 @@ function Materiality({ p, m }) {
       setBusy(false);
     }
   }
-  if (!editing || !can("audit")) {
+  if (!editing || !canAudit) {
     return (
       <Card padding="lg" className="flex flex-wrap items-center gap-x-8 gap-y-3" data-testid="materiality">
         {m ? (
@@ -786,7 +803,7 @@ function Materiality({ p, m }) {
         ) : (
           <p className="text-[14px] text-[var(--ink-muted)]">The auditor has not set materiality for this period yet.</p>
         )}
-        {can("audit") && (
+        {canAudit && (
           <button type="button" onClick={() => setEditing(true)} className="text-[13px] underline underline-offset-2 min-h-11 ml-auto">
             Change
           </button>
@@ -993,9 +1010,10 @@ function Decide({ a, p }) {
   const [note, setNote] = useState("");
   const [date, setDate] = useState(() => (p.to < today() ? p.to : today()));
   const [busy, setBusy] = useState(false);
+  const frozen = useContext(Frozen);
   const mine = a.proposedById === user?.id;
-  const decider = can("adjust") && !mine;
-  const withdrawer = can("audit") && mine;
+  const decider = can("adjust") && !mine && !frozen;
+  const withdrawer = can("audit") && mine && !frozen;
   if (a.status !== "proposed" || (!decider && !withdrawer)) return null;
   async function go() {
     setBusy(true);
@@ -1057,14 +1075,14 @@ function Decide({ a, p }) {
 }
 
 function Adjustments({ p }) {
-  const { can } = useCompany();
+  const canAudit = useAudit();
   const { data: a, isLoading } = useAdjustments(p.id);
   if (isLoading || !a) return <Skeleton className="h-60 rounded-2xl" />;
   return (
     <div className="grid gap-4">
       {a.seesMateriality && <Materiality key={a.materiality ? "set" : "unset"} p={p} m={a.materiality} />}
       <Uncorrected a={a} />
-      {can("audit") && <Propose p={p} />}
+      {canAudit && <Propose p={p} />}
       <Card padding="none" className="overflow-hidden">
         <div className="px-5 py-3 border-b border-[var(--border)] text-[13px] font-semibold">Proposed adjustments</div>
         {!a.adjustments.length ? (
@@ -1213,7 +1231,8 @@ function ConfirmationRow({ c, p }) {
       setBusy(false);
     }
   };
-  const editable = ["draft", "authorised", "refused"].includes(c.status);
+  const frozen = useContext(Frozen);
+  const editable = !frozen && ["draft", "authorised", "refused"].includes(c.status);
   // No reply is concluded only after following up: a reminder, or two weeks.
   const [now] = useState(() => Date.now());
   const followedUp = c.requests >= 2 || (c.sentAt && now - new Date(c.sentAt).getTime() > 14 * 864e5);
@@ -1271,7 +1290,7 @@ function ConfirmationRow({ c, p }) {
       )}
 
       <div className="flex flex-wrap gap-2">
-        {(c.status === "authorised" || c.status === "sent") && (
+        {!frozen && (c.status === "authorised" || c.status === "sent") && (
           <Button size="sm" variant={c.status === "sent" ? "outline" : "accent"} disabled={busy || !c.emailChecked} onClick={send}>
             {busy && <Loader2 size={13} className="animate-spin" />}
             {c.status === "sent" ? "Send a reminder" : "Send the request"}
@@ -1315,7 +1334,7 @@ function ConfirmationRow({ c, p }) {
         </p>
       )}
       {c.status === "sent" && !followedUp && <p className="text-[13px] text-[var(--ink-muted)]">If no reply comes, send a reminder; other procedures are open after a reminder, or two weeks.</p>}
-      {(c.status === "replied" || c.status === "refused" || (c.status === "sent" && followedUp)) && (
+      {!frozen && (c.status === "replied" || c.status === "refused" || (c.status === "sent" && followedUp)) && (
         <div className="flex flex-wrap gap-2 items-end">
           <div className="flex-1 min-w-[220px]">
             <Label htmlFor={`conf-note-${c.id}`}>{c.status === "replied" ? "Conclusion (a note is needed for a difference)" : "What was done instead"}</Label>
@@ -1345,6 +1364,7 @@ function ConfirmationRow({ c, p }) {
 /** The company's side: authorise the auditor's requests, or refuse with a reason. It sees states, never replies. */
 function Authorise({ p, list }) {
   const { companyId, can } = useCompany();
+  const frozen = useContext(Frozen);
   const toast = useToast();
   const qc = useQueryClient();
   const [reason, setReason] = useState("");
@@ -1362,7 +1382,7 @@ function Authorise({ p, list }) {
       setBusy(false);
     }
   }
-  if (!waiting.length || !can("approve")) return null;
+  if (!waiting.length || !can("approve") || frozen) return null;
   return (
     <Card padding="lg" className="grid gap-3" data-testid="authorise">
       <h2 className="text-[15px] font-semibold">Your auditor asks to confirm {waiting.length === 1 ? "a balance" : `${waiting.length} balances`}</h2>
@@ -1390,12 +1410,13 @@ function Authorise({ p, list }) {
 }
 
 function Confirmations({ p }) {
+  const frozen = useContext(Frozen);
   const { data, isLoading } = useConfirmations(p.id);
   if (isLoading || !data) return <Skeleton className="h-60 rounded-2xl" />;
   const list = data.confirmations;
   return (
     <div className="grid gap-4">
-      {data.auditor ? <Suggest p={p} /> : <Authorise p={p} list={list} />}
+      {data.auditor ? !frozen && <Suggest p={p} /> : <Authorise p={p} list={list} />}
       <Card padding="none" className="overflow-hidden">
         <div className="px-5 py-3 border-b border-[var(--border)] text-[13px] font-semibold flex flex-wrap justify-between gap-2">
           <span>Balance confirmations</span>
@@ -1491,6 +1512,7 @@ function TestRow({ t, oid, locked }) {
 
 function Observation({ oid, onBack }) {
   const { companyId } = useCompany();
+  const frozen = useContext(Frozen);
   const toast = useToast();
   const qc = useQueryClient();
   const key = ["audit-observation", companyId, oid];
@@ -1501,7 +1523,7 @@ function Observation({ oid, onBack }) {
   const [busy, setBusy] = useState(false);
   if (!o) return <Skeleton className="h-60 rounded-2xl" />;
   const n0 = notes || { instructions: o.instructions || "", conclusion: o.conclusion || "" };
-  const locked = Boolean(o.concludedAt);
+  const locked = Boolean(o.concludedAt) || frozen;
   async function addFloor(e) {
     e.preventDefault();
     setBusy(true);
@@ -1651,6 +1673,7 @@ function Observation({ oid, onBack }) {
 
 function Counting({ p }) {
   const { companyId } = useCompany();
+  const frozen = useContext(Frozen);
   const toast = useToast();
   const qc = useQueryClient();
   const [params, setParams] = useSearchParams();
@@ -1715,6 +1738,8 @@ function Counting({ p }) {
                 <Button size="sm" variant="outline" onClick={() => open(c.observationId)}>
                   Open
                 </Button>
+              ) : frozen ? (
+                <span className="text-[13px] text-[var(--ink-muted)]">Not attended</span>
               ) : (
                 <Button size="sm" variant="accent" disabled={busy === c.id} onClick={() => attend(c.id)}>
                   {busy === c.id && <Loader2 size={13} className="animate-spin" />}
@@ -1725,6 +1750,201 @@ function Counting({ p }) {
           ))}
         </ul>
       )}
+    </Card>
+  );
+}
+
+// ------------------------------------------------------------------ sign-off
+
+const OPINION = { unmodified: "Unmodified", qualified: "Qualified", adverse: "Adverse", disclaimer: "Disclaimer of opinion" };
+const READY = {
+  done: { tone: "success", label: "Done" },
+  warn: { tone: "warning", label: "Not finished" },
+  block: { tone: "danger", label: "Blocks sign-off" },
+  "block-clean": { tone: "danger", label: "Blocks a clean opinion" },
+};
+
+function SignedBanner({ s }) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl bg-[var(--success-soft)] px-4 py-3 mb-4" data-testid="signed-banner">
+      <BadgeCheck size={20} className="text-[var(--success)] shrink-0 mt-0.5" />
+      <p className="text-[14px]">
+        <span className="font-semibold">Signed off by {s.by}, {formatDate(s.at)}.</span> Opinion: {OPINION[s.opinion]}. The period's audit work is kept as it was; the pack can still be made.
+      </p>
+    </div>
+  );
+}
+
+function ReadinessGlance({ id, onOpen }) {
+  const { data: r } = useReadiness(id);
+  const count = (s) => (r ? r.items.filter((i) => s.includes(i.state)).length : 0);
+  return (
+    <Card padding="lg" className="grid gap-3 content-start" data-testid="readiness-glance">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[15px] font-semibold">Sign-off</h2>
+        <button type="button" onClick={onOpen} className="text-[13px] underline underline-offset-2 min-h-11">
+          Open
+        </button>
+      </div>
+      {!r ? (
+        <Skeleton className="h-10 rounded-xl" />
+      ) : (
+        <>
+          <Progress done={count(["done"])} of={r.items.length} />
+          <p className="text-[13.5px] text-[var(--ink-muted)]">
+            {count(["block"]) ? `${count(["block"])} blocking. ` : ""}
+            {count(["warn", "block-clean"]) ? `${count(["warn", "block-clean"])} not finished.` : "Everything done."}
+          </p>
+        </>
+      )}
+    </Card>
+  );
+}
+
+function useReadiness(id) {
+  const { companyId } = useCompany();
+  return useQuery({ queryKey: ["audit-readiness", companyId, id], queryFn: () => apiClient.get(`/audit/${id}/readiness`).then((r) => r.data) });
+}
+
+function SignOff({ p }) {
+  const { companyId, roles } = useCompany();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const { data: r } = useReadiness(p.id);
+  const [opinion, setOpinion] = useState("unmodified");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  // Signing is the auditor's alone: the Auditor role, not the owner's general audit permission.
+  const auditor = (roles || []).includes("auditor");
+  if (p.signedOff) {
+    const s = p.signedOff;
+    return (
+      <Card padding="lg" className="grid gap-2" data-testid="signed">
+        <h2 className="text-[16px] font-semibold">Signed off</h2>
+        <p className="text-[14px]">
+          By {s.by}, {formatDate(s.at)}. Opinion: <span className="font-semibold">{OPINION[s.opinion]}</span>.
+        </p>
+        {s.note && <p className="text-[14px]">“{s.note}”</p>}
+        {s.head?.no && (
+          <p className="text-[12.5px] text-[var(--ink-muted)]">
+            It covers the books up to entry {s.head.no}; the chain's seal there: <span className="font-mono break-all">{s.head.hash}</span>. The seal was {s.head.sealOk ? "intact" : "broken"} when signed.
+          </p>
+        )}
+      </Card>
+    );
+  }
+  if (!r) return <Skeleton className="h-60 rounded-2xl" />;
+  const blocks = r.items.filter((i) => i.state === "block" || (i.state === "block-clean" && opinion === "unmodified"));
+  const loose = r.items.filter((i) => i.state === "warn" || i.state === "block-clean");
+  async function sign() {
+    setBusy(true);
+    try {
+      await apiClient.post(`/audit/${p.id}/signoff`, { opinion, note: note || null });
+      qc.invalidateQueries({ queryKey: ["audit", companyId] });
+      qc.invalidateQueries({ queryKey: ["audit", companyId, p.id] });
+      toast.success("Signed off", "The period's audit work is now kept as it was.");
+    } catch (ex) {
+      toast.error("Not signed off", ex.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="grid gap-4">
+      <Card padding="none" className="overflow-hidden">
+        <div className="px-5 py-3 border-b border-[var(--border)] text-[13px] font-semibold">Before signing</div>
+        <ul className="divide-y divide-[var(--border)]" data-testid="readiness">
+          {r.items.map((i) => (
+            <li key={i.key} className="px-5 py-3 flex flex-wrap items-center justify-between gap-2">
+              <span>
+                <span className="block text-[14.5px] font-medium">{i.name}</span>
+                <span className="block text-[13px] text-[var(--ink-muted)]">{i.said}</span>
+              </span>
+              <Badge tone={READY[i.state].tone}>{READY[i.state].label}</Badge>
+            </li>
+          ))}
+        </ul>
+      </Card>
+      {auditor && (
+        <Card padding="lg" className="grid gap-3" data-testid="sign">
+          <div className="flex flex-wrap gap-3 items-end">
+            <div>
+              <Label htmlFor="signoff-opinion">Opinion</Label>
+              <select id="signoff-opinion" value={opinion} onChange={(e) => setOpinion(e.target.value)} className={`${FIELD} w-60`}>
+                {Object.entries(OPINION).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="signoff-note">{loose.length ? "Why you sign with work unfinished (needed)" : "Note (optional)"}</Label>
+            <textarea id="signoff-note" value={note} onChange={(e) => setNote(e.target.value)} rows={3} className={`${FIELD} h-auto py-2.5`} />
+          </div>
+          {blocks.length > 0 && <p className="text-[13.5px] text-[var(--danger)]">Not yet: {blocks.map((b) => b.name.toLowerCase()).join(", ")}.</p>}
+          <p className="text-[12.5px] text-[var(--ink-muted)]">Signing re-checks the seal and records the chain's last entry, so the sign-off says which state of the books it covers. After it, nothing in this period's audit work changes.</p>
+          <p>
+            <Button variant="accent" disabled={busy || blocks.length > 0 || (loose.length > 0 && note.trim().length < 10)} onClick={sign}>
+              {busy && <Loader2 size={14} className="animate-spin" />}
+              Sign off {p.name}
+            </Button>
+          </p>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+/** The company's view of who audits it, and until when; those who manage people set or end it. */
+function AuditorAccess() {
+  const { companyId } = useCompany();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ["audit-auditors", companyId], queryFn: () => apiClient.get("/audit/access/auditors").then((r) => r.data) });
+  const [dates, setDates] = useState({});
+  if (!data || !data.auditors.length) return null;
+  async function set(id, body) {
+    try {
+      await apiClient.put(`/companies/current/people/${id}/access`, body);
+      qc.invalidateQueries({ queryKey: ["audit-auditors", companyId] });
+      toast.success(body.endNow ? "Access ended" : "Access set", body.endNow ? "They can no longer open these books." : "It ends by itself at the end of that day.");
+    } catch (ex) {
+      toast.error("Not changed", ex.message);
+    }
+  }
+  return (
+    <Card padding="none" className="overflow-hidden mb-4" data-testid="auditor-access">
+      <div className="px-5 py-3 border-b border-[var(--border)]">
+        <h2 className="text-[15px] font-semibold">Your auditors' access</h2>
+        <p className="text-[12.5px] text-[var(--ink-muted)]">Access given for a time ends by itself; after it, they cannot open these books.</p>
+      </div>
+      <ul className="divide-y divide-[var(--border)]">
+        {data.auditors.map((a) => (
+          <li key={a.id} className="px-5 py-3 flex flex-wrap items-center justify-between gap-3">
+            <span>
+              <span className="block text-[14.5px] font-medium">{a.name}</span>
+              <span className="block text-[12.5px] text-[var(--ink-muted)]">
+                {a.email} · {a.ended ? `access ended ${formatDate(a.until)}` : a.until ? `until ${formatDate(a.until)}` : "no end set"}
+              </span>
+            </span>
+            {data.manage && (
+              <span className="flex flex-wrap items-center gap-2">
+                <input type="date" aria-label={`Last day of access for ${a.name}`} value={dates[a.id] || ""} onChange={(e) => setDates({ ...dates, [a.id]: e.target.value })} className={`${FIELD} w-44`} />
+                <Button size="sm" variant="outline" disabled={!dates[a.id]} onClick={() => set(a.id, { until: dates[a.id] })}>
+                  {a.until ? "Change" : "Set an end"}
+                </Button>
+                {!a.ended && (
+                  <Button size="sm" variant="ghost" onClick={() => set(a.id, { endNow: true })}>
+                    End now
+                  </Button>
+                )}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
     </Card>
   );
 }
@@ -2086,7 +2306,7 @@ function Sample({ sid }) {
           ))}
         </ul>
       </Card>
-      {current && <Evidence key={current.id} sample={s} item={current} onClose={() => setOpen(null)} onNext={next} canTick={can("audit")} />}
+      {current && <Evidence key={current.id} sample={s} item={current} onClose={() => setOpen(null)} onNext={next} canTick={can("audit") && !s.signedOff} />}
     </div>
   );
 }

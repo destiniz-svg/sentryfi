@@ -77,7 +77,7 @@ async function about(client, { companyId, kind, id }) {
 async function members(client, companyId) {
   const { rows } = await client.query(
     `SELECT u.id, u.name, u.email, array_agg(m.role::text) AS roles
-       FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.company_id = $1 GROUP BY u.id, u.name, u.email ORDER BY u.name`,
+       FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.company_id = $1 AND (m.access_until IS NULL OR m.access_until > now()) GROUP BY u.id, u.name, u.email ORDER BY u.name`,
     [companyId]
   );
   return rows;

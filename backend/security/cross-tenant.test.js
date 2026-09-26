@@ -1484,4 +1484,33 @@ describe("the auditor's confirmations", () => {
     // The auditor concludes: the difference explained.
     expect((await call(Q, "POST", `/audit/confirmations/${conf.id}/conclude`, { body: { outcome: "explained", note: "Receipt of 55.55 on 28 Dec in transit" } })).status).toBe(200);
   });
+
+  it("ends the auditor's access by itself: every door closes, the database's too, and a new date opens them again", async () => {
+    expect((await call(Q, "GET", "/audit")).status).toBe(200);
+    // Nobody sets their own access; a date in the past is not an end, it is a mistake.
+    denied(await call(A, "PUT", `/companies/current/people/${A.user.id}/access`, { body: { endNow: true } }));
+    denied(await call(A, "PUT", `/companies/current/people/${Q.user.id}/access`, { body: { until: "2020-01-01" } }));
+    // The auditor cannot extend their own access.
+    denied(await call(Q, "PUT", `/companies/current/people/${Q.user.id}/access`, { body: { until: "2999-01-01" } }));
+
+    expect((await call(A, "PUT", `/companies/current/people/${Q.user.id}/access`, { body: { endNow: true } })).status).toBe(200);
+    denied(await call(Q, "GET", "/audit"));
+    denied(await call(Q, "GET", "/bills"));
+    // The replies policy reads the end too: acting as Q, the database shows nothing.
+    expect((await asApp(Q.user.id, "SELECT count(*)::int n FROM audit_confirmation_replies"))[0].n).toBe(0);
+    const people = (await call(A, "GET", "/companies/current/people")).json;
+    expect(people.changes.some((c) => c.change === "access_ended" && c.role === "auditor")).toBe(true);
+    expect(people.members.find((m) => m.user_id === Q.user.id)).toMatchObject({ access_ended: true });
+
+    const soon = new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10);
+    expect((await call(A, "PUT", `/companies/current/people/${Q.user.id}/access`, { body: { until: soon } })).status).toBe(200);
+    expect((await call(Q, "GET", "/audit")).status).toBe(200);
+    expect((await asApp(Q.user.id, "SELECT count(*)::int n FROM audit_confirmation_replies"))[0].n).toBe(1);
+
+    // An invitation carries its end into the membership it makes.
+    denied(await call(A, "POST", "/companies/current/people", { body: { email: `late.${A.tag}@audit.test`, role: "auditor", accessUntil: "2020-01-01" } }));
+    expect((await call(A, "POST", "/companies/current/people", { body: { email: `firm.${A.tag}@audit.test`, role: "auditor", accessUntil: soon } })).status).toBe(201);
+    const { rows } = await db.query("SELECT access_until FROM invites WHERE email = $1", [`firm.${A.tag}@audit.test`]);
+    expect(rows[0].access_until).not.toBeNull();
+  });
 });

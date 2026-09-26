@@ -295,6 +295,42 @@ router.get(
   })
 );
 
+// ------------------------------------------------------------------ sign-off and access
+
+const signoff = require("../ledger/auditSignoff");
+
+/** What is left before the auditor signs: each part, done, unfinished, or blocking. */
+router.get("/:id/readiness", requireCan("read_trail"), refused(async (req, res) => res.json(await asCompany(req, (c) => signoff.readiness(c, req, { periodId: uuid(req.params.id) })))));
+
+router.post(
+  "/:id/signoff",
+  requireCan("audit"),
+  auditorOnly,
+  refused(async (req, res) => {
+    const p = z.object({ opinion: z.enum(["unmodified", "qualified", "adverse", "disclaimer"]), note: z.string().max(2000).nullish() }).safeParse(req.body ?? {});
+    if (!p.success) throw ApiError.badRequest("Say the opinion.");
+    res.json(await asCompany(req, (c) => signoff.signOff(c, req, { periodId: uuid(req.params.id), ...p.data })));
+  })
+);
+
+/** Who holds the Auditor role here, and until when. The company sets the dates in People, or here. */
+router.get(
+  "/access/auditors",
+  requireCan("read_trail"),
+  refused(async (req, res) => {
+    const rows = await asCompany(req, (c) =>
+      c
+        .query(
+          `SELECT u.id, u.name, u.email, m.access_until, (m.access_until IS NOT NULL AND m.access_until <= now()) AS ended
+             FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.company_id = $1 AND m.role = 'auditor' ORDER BY u.name`,
+          [req.companyId]
+        )
+        .then((r) => r.rows)
+    );
+    res.json({ auditors: rows.map((r) => ({ id: r.id, name: r.name, email: r.email, until: r.access_until, ended: r.ended })), manage: req.can("manage_people") });
+  })
+);
+
 // ------------------------------------------------------------------ the year-end count (ISA 501)
 
 const count = require("../ledger/auditCount");

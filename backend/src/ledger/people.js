@@ -32,6 +32,7 @@ function checkRole(role) {
 async function list(client, { companyId }) {
   const { rows: members } = await client.query(
     `SELECT u.id AS user_id, u.name, u.email, array_agg(m.role::text ORDER BY m.role) AS roles,
+            max(m.access_until) AS access_until, bool_and(m.access_until IS NOT NULL AND m.access_until <= now()) AS access_ended,
             (SELECT l.limit_laari::text FROM spending_limits l WHERE l.company_id = $1 AND l.user_id = u.id) AS limit_laari
        FROM memberships m JOIN users u ON u.id = m.user_id
       WHERE m.company_id = $1
@@ -63,10 +64,20 @@ async function list(client, { companyId }) {
  * 23 September 2026). And the answer said whether an address had an account.
  * A link has to be handed to the person, which is the proof it is them.
  */
-async function add(client, { companyId, userId, email, role }) {
+/** An end to someone's access: the end of the day given, Maldives time. Null: no end. */
+function untilOf(accessUntil) {
+  if (!accessUntil) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(accessUntil))) throw new Error("Say the last day of access as a date.");
+  const end = new Date(`${accessUntil}T23:59:59+05:00`);
+  if (end <= new Date()) throw new Error("The last day of access has to be in the future.");
+  return end.toISOString();
+}
+
+async function add(client, { companyId, userId, email, role, accessUntil }) {
   checkRole(role);
   const clean = String(email || "").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) throw new Error("That is not an email address.");
+  const until = untilOf(accessUntil);
 
   const { rows: found } = await client.query(
     `SELECT u.id, u.name FROM users u
@@ -75,19 +86,20 @@ async function add(client, { companyId, userId, email, role }) {
   );
   if (found[0]) {
     const { rowCount } = await client.query(
-      `INSERT INTO memberships (user_id, company_id, role) VALUES ($1,$2,$3)
+      `INSERT INTO memberships (user_id, company_id, role, access_until) VALUES ($1,$2,$3,$4)
        ON CONFLICT (user_id, company_id, role) DO NOTHING`,
-      [found[0].id, companyId, role]
+      [found[0].id, companyId, role, until]
     );
     if (!rowCount) throw new Error(`${found[0].name} already has that role here.`);
     await log(client, { companyId, email: clean, role, change: "added", by: userId });
+    if (until) await log(client, { companyId, email: clean, role, change: "access_limited", by: userId });
     return { added: true, name: found[0].name };
   }
 
   const secret = crypto.randomBytes(24).toString("base64url");
   await client.query(
-    `INSERT INTO invites (company_id, email, role, token_hash, invited_by) VALUES ($1,$2,$3,$4,$5)`,
-    [companyId, clean, role, hash(secret), userId]
+    `INSERT INTO invites (company_id, email, role, token_hash, invited_by, access_until) VALUES ($1,$2,$3,$4,$5,$6)`,
+    [companyId, clean, role, hash(secret), userId, until]
   );
   await log(client, { companyId, email: clean, role, change: "invited", by: userId });
   // The company travels in the link so the join page can act as it; the
@@ -141,7 +153,7 @@ async function readInvite(client, { token }) {
   await client.query("SET LOCAL ROLE sentryfi_app");
   await client.query("SELECT set_config('app.company_id', $1, true)", [companyId]);
   const { rows } = await client.query(
-    `SELECT i.id, i.email, i.role::text AS role, i.accepted_at, i.revoked_at, i.expires_at < now() AS expired,
+    `SELECT i.id, i.email, i.role::text AS role, i.accepted_at, i.revoked_at, i.expires_at < now() AS expired, i.access_until,
             c.name AS company, c.id AS company_id
        FROM invites i JOIN companies c ON c.id = i.company_id
       WHERE i.token_hash = $1`,
@@ -190,8 +202,8 @@ async function acceptInvite(client, { token, name, password }) {
   const invite = await readInvite(client, { token });
   await client.query("SELECT set_config('app.user_id', $1, true)", [user.id]);
   await client.query(
-    `INSERT INTO memberships (user_id, company_id, role) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`,
-    [user.id, invite.company_id, invite.role]
+    `INSERT INTO memberships (user_id, company_id, role, access_until) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`,
+    [user.id, invite.company_id, invite.role, invite.access_until]
   );
   const { rowCount } = await client.query(
     `UPDATE invites SET accepted_at = now(), accepted_by = $2 WHERE id = $1 AND accepted_at IS NULL`,
@@ -202,4 +214,32 @@ async function acceptInvite(client, { token, name, password }) {
   return { user: { id: user.id, name: user.name, email: user.email }, companyId: invite.company_id };
 }
 
-module.exports = { ROLES, list, add, withdraw, removeRole, readInvite, acceptInvite, splitToken };
+/**
+ * Sets, moves or ends someone's access: `until` a date (the end of that day),
+ * `now` to end it at once, or null for no end. Written to the changes, which
+ * nobody can edit.
+ */
+async function setAccess(client, { companyId, userId, memberId, until, endNow = false }) {
+  if (memberId === userId) throw new Error("Someone else sets your own access.");
+  const at = endNow ? new Date().toISOString() : untilOf(until);
+  // The company must always keep an administrator whose access does not end.
+  if (at) {
+    const { rows: admins } = await client.query(
+      `SELECT count(*) FILTER (WHERE user_id <> $2 AND (access_until IS NULL OR access_until > now()))::int AS others,
+              bool_or(user_id = $2) AS is_admin
+         FROM memberships WHERE company_id = $1 AND role = 'administrator'`,
+      [companyId, memberId]
+    );
+    if (admins[0].is_admin && admins[0].others === 0) throw new Error("This is the only administrator. Add another before ending their access.");
+  }
+  const { rows } = await client.query(
+    `UPDATE memberships m SET access_until = $3 FROM users u
+      WHERE m.user_id = u.id AND m.company_id = $1 AND m.user_id = $2 RETURNING u.email, m.role::text AS role`,
+    [companyId, memberId, at]
+  );
+  if (!rows.length) throw new Error("That person is not in this company.");
+  for (const r of rows) await log(client, { companyId, email: r.email, role: r.role, change: endNow ? "access_ended" : "access_limited", by: userId });
+  return { accessUntil: at };
+}
+
+module.exports = { ROLES, list, add, withdraw, removeRole, readInvite, acceptInvite, splitToken, setAccess };

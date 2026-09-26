@@ -6,6 +6,13 @@
  * same one can be shown again; each item in it is ticked as seen, with a note.
  */
 const AUDIT_SQL = `
+-- 1.49.0: access given for a time, ending by itself (an outside auditor's, above all). Null: no end.
+ALTER TABLE memberships ADD COLUMN IF NOT EXISTS access_until TIMESTAMPTZ;
+ALTER TABLE invites ADD COLUMN IF NOT EXISTS access_until TIMESTAMPTZ;
+GRANT UPDATE (access_until) ON memberships TO sentryfi_app;
+ALTER TABLE people_changes DROP CONSTRAINT IF EXISTS people_changes_change_check;
+ALTER TABLE people_changes ADD CONSTRAINT people_changes_change_check CHECK (change IN ('added','removed','invited','invite_withdrawn','joined','access_limited','access_ended'));
+
 CREATE TABLE IF NOT EXISTS audit_periods (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id      UUID NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
@@ -241,12 +248,14 @@ CREATE POLICY auditor_only ON audit_confirmation_replies
   USING (
     company_id = NULLIF(current_setting('app.company_id', true), '')::uuid
     AND EXISTS (SELECT 1 FROM memberships m WHERE m.company_id = audit_confirmation_replies.company_id
-                AND m.user_id = NULLIF(current_setting('app.user_id', true), '')::uuid AND m.role = 'auditor')
+                AND m.user_id = NULLIF(current_setting('app.user_id', true), '')::uuid AND m.role = 'auditor'
+                AND (m.access_until IS NULL OR m.access_until > now()))
   )
   WITH CHECK (
     company_id = NULLIF(current_setting('app.company_id', true), '')::uuid
     AND EXISTS (SELECT 1 FROM memberships m WHERE m.company_id = audit_confirmation_replies.company_id
-                AND m.user_id = NULLIF(current_setting('app.user_id', true), '')::uuid AND m.role = 'auditor')
+                AND m.user_id = NULLIF(current_setting('app.user_id', true), '')::uuid AND m.role = 'auditor'
+                AND (m.access_until IS NULL OR m.access_until > now()))
   );
 GRANT SELECT, INSERT ON audit_confirmation_replies TO sentryfi_app;
 CREATE OR REPLACE FUNCTION audit_reply_is_final() RETURNS trigger LANGUAGE plpgsql AS $f$
@@ -304,15 +313,57 @@ CREATE POLICY auditor_only ON audit_test_counts
   USING (
     company_id = NULLIF(current_setting('app.company_id', true), '')::uuid
     AND EXISTS (SELECT 1 FROM memberships m WHERE m.company_id = audit_test_counts.company_id
-                AND m.user_id = NULLIF(current_setting('app.user_id', true), '')::uuid AND m.role = 'auditor')
+                AND m.user_id = NULLIF(current_setting('app.user_id', true), '')::uuid AND m.role = 'auditor'
+                AND (m.access_until IS NULL OR m.access_until > now()))
   )
   WITH CHECK (
     company_id = NULLIF(current_setting('app.company_id', true), '')::uuid
     AND EXISTS (SELECT 1 FROM memberships m WHERE m.company_id = audit_test_counts.company_id
-                AND m.user_id = NULLIF(current_setting('app.user_id', true), '')::uuid AND m.role = 'auditor')
+                AND m.user_id = NULLIF(current_setting('app.user_id', true), '')::uuid AND m.role = 'auditor'
+                AND (m.access_until IS NULL OR m.access_until > now()))
   );
 GRANT SELECT, INSERT ON audit_test_counts TO sentryfi_app;
 GRANT UPDATE (qty, recorded_by, recorded_at, note) ON audit_test_counts TO sentryfi_app;
+
+-- 1.49.0: sign-off. The auditor marks the period reviewed, with the opinion, the seal re-checked
+-- and the chain's last entry recorded. After it, nothing in the period's audit work changes.
+ALTER TABLE audit_periods ADD COLUMN IF NOT EXISTS signed_off_by UUID REFERENCES users(id);
+ALTER TABLE audit_periods ADD COLUMN IF NOT EXISTS signed_off_at TIMESTAMPTZ;
+ALTER TABLE audit_periods ADD COLUMN IF NOT EXISTS opinion TEXT CHECK (opinion IN ('unmodified','qualified','adverse','disclaimer'));
+ALTER TABLE audit_periods ADD COLUMN IF NOT EXISTS signoff_note TEXT;
+ALTER TABLE audit_periods ADD COLUMN IF NOT EXISTS signoff_head JSONB;
+GRANT UPDATE (signed_off_by, signed_off_at, opinion, signoff_note, signoff_head) ON audit_periods TO sentryfi_app;
+
+CREATE OR REPLACE FUNCTION audit_period_is_open() RETURNS trigger LANGUAGE plpgsql AS $f$
+DECLARE pid UUID;
+BEGIN
+  IF TG_TABLE_NAME = 'audit_periods' THEN
+    IF OLD.signed_off_at IS NOT NULL THEN RAISE EXCEPTION 'The audit of this period is signed off; its work is kept as it was'; END IF;
+    RETURN NEW;
+  ELSIF TG_TABLE_NAME = 'audit_sample_items' THEN
+    SELECT s.period_id INTO pid FROM audit_samples s WHERE s.id = NEW.sample_id;
+  ELSIF TG_TABLE_NAME = 'audit_test_counts' THEN
+    SELECT o.period_id INTO pid FROM audit_observations o WHERE o.id = NEW.observation_id;
+  ELSE
+    pid := NEW.period_id;
+  END IF;
+  IF EXISTS (SELECT 1 FROM audit_periods p WHERE p.id = pid AND p.signed_off_at IS NOT NULL) THEN
+    RAISE EXCEPTION 'The audit of this period is signed off; its work is kept as it was';
+  END IF;
+  RETURN NEW;
+END $f$;
+DO $$
+DECLARE t TEXT;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['audit_periods','audit_samples','audit_sample_items','audit_questions','audit_adjustments','audit_confirmations','audit_observations','audit_test_counts'] LOOP
+    EXECUTE format('DROP TRIGGER IF EXISTS audit_period_is_open ON %I', t);
+    IF t = 'audit_periods' THEN
+      EXECUTE format('CREATE TRIGGER audit_period_is_open BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION audit_period_is_open()', t);
+    ELSE
+      EXECUTE format('CREATE TRIGGER audit_period_is_open BEFORE INSERT OR UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION audit_period_is_open()', t);
+    END IF;
+  END LOOP;
+END $$;
 `;
 
 module.exports = { AUDIT_SQL };

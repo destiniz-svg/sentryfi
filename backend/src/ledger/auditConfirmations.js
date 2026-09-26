@@ -203,7 +203,7 @@ async function byToken(token) {
 
 /** Someone in the company holding the Auditor role, to act as when the reply is written. */
 async function anAuditor(companyId, prefer) {
-  const { rows } = await pool.query("SELECT user_id FROM memberships WHERE company_id = $1 AND role = 'auditor' ORDER BY (user_id = $2) DESC LIMIT 1", [companyId, prefer]);
+  const { rows } = await pool.query("SELECT user_id FROM memberships WHERE company_id = $1 AND role = 'auditor' AND (access_until IS NULL OR access_until > now()) ORDER BY (user_id = $2) DESC LIMIT 1", [companyId, prefer]);
   if (!rows[0]) throw Object.assign(new Error("The auditor no longer has access to these books, so the reply cannot be taken. Contact the auditor."), { status: 409 });
   return rows[0].user_id;
 }
@@ -264,7 +264,7 @@ async function reply({ token, asCompany, body, ip, userAgent }) {
           name.slice(0, 120), String(body.role || "").trim().slice(0, 120) || null, file?.name || null, file?.type || null, file?.bytes || null, String(ip || "").slice(0, 64), String(userAgent || "").slice(0, 300)]
       );
       await client.query("UPDATE audit_confirmations SET status = 'replied' WHERE id = $1", [link.confirmation_id]);
-      const { rows: auditors } = await client.query("SELECT user_id FROM memberships WHERE company_id = $1 AND role = 'auditor'", [link.company_id]);
+      const { rows: auditors } = await client.query("SELECT user_id FROM memberships WHERE company_id = $1 AND role = 'auditor' AND (access_until IS NULL OR access_until > now())", [link.company_id]);
       const { rows: party } = await client.query("SELECT cp.name FROM audit_confirmations c JOIN counterparties cp ON cp.id = c.counterparty_id WHERE c.id = $1", [link.confirmation_id]);
       await push.tell(client, {
         companyId: link.company_id, userIds: auditors.map((a) => a.user_id), kind: "done",

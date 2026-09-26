@@ -223,7 +223,25 @@ router.get(
 const newPerson = z.object({
   email: z.string().trim().toLowerCase().email("That is not an email address."),
   role: z.enum(people.ROLES),
+  // The last day of access, for someone in for a while: an outside auditor, above all.
+  accessUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Say the last day of access as a date.").nullish(),
 });
+
+/** Sets when someone's access ends (a date), ends it now, or clears the end. Logged. */
+router.put(
+  "/current/people/:userId/access",
+  requireCompany,
+  requireCan("manage_people"),
+  asyncHandler(async (req, res) => {
+    const p = z.object({ until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish(), endNow: z.boolean().optional() }).safeParse(req.body ?? {});
+    if (!p.success) throw ApiError.badRequest("Say the last day of access, or end it now.");
+    try {
+      res.json(await asCompany(req, (client) => people.setAccess(client, { companyId: req.companyId, userId: req.user.id, memberId: req.params.userId, until: p.data.until || null, endNow: p.data.endNow === true })));
+    } catch (err) {
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
 
 /** Adds someone, or makes them a link to join with. */
 router.post(

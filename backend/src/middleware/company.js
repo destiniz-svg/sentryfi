@@ -77,6 +77,8 @@ async function resolveCompany(client, { userId, asked }) {
        FROM memberships m
        JOIN companies c ON c.id = m.company_id
       WHERE m.user_id = $1
+        -- Access given for a time ends by itself: after it, the membership counts for nothing.
+        AND (m.access_until IS NULL OR m.access_until > now())
       ORDER BY c.name`,
     [userId]
   );

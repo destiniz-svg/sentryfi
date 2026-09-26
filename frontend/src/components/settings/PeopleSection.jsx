@@ -43,6 +43,12 @@ export function PeopleSection() {
 
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("site_staff");
+  // The last day of access; an outside auditor's is filled in 90 days ahead, to change or clear.
+  const [until, setUntil] = useState("");
+  const pickRole = (r) => {
+    setRole(r);
+    if (r === "auditor" && !until) setUntil(new Date(Date.now() + 90 * 864e5).toISOString().slice(0, 10));
+  };
   const [link, setLink] = useState(null);
   const [err, setErr] = useState("");
 
@@ -58,7 +64,7 @@ export function PeopleSection() {
     setErr("");
     setLink(null);
     try {
-      const r = await add.mutateAsync({ email: email.trim(), role });
+      const r = await add.mutateAsync({ email: email.trim(), role, accessUntil: until || null });
       if (r.added) toast.success(`${r.name} is in`, `As ${ROLE_TEXT[role].label.toLowerCase()}. They see it next time they open Sentryfi.`);
       else setLink({ url: `${window.location.origin}/join/${r.token}`, email: email.trim() });
       setEmail("");
@@ -113,7 +119,10 @@ export function PeopleSection() {
                 {m.name}
                 {m.user_id === data.you.id && <span className="text-[var(--ink-muted)] font-normal"> · you</span>}
               </div>
-              <div className="text-[13px] text-[var(--ink-muted)] break-all">{m.email}</div>
+              <div className="text-[13px] text-[var(--ink-muted)] break-all">
+                {m.email}
+                {m.access_ended ? " · access ended" : m.access_until ? ` · access until ${when(m.access_until)}` : ""}
+              </div>
               <div className="flex flex-wrap gap-2 mt-2">
                 {m.roles.map((r) => (
                   <span
@@ -177,13 +186,20 @@ export function PeopleSection() {
               <label htmlFor="person-role" className="text-xs font-medium text-[var(--ink-muted)] mb-1.5 block">
                 What they may do
               </label>
-              <select id="person-role" value={role} onChange={(e) => setRole(e.target.value)} className={SELECT}>
+              <select id="person-role" value={role} onChange={(e) => pickRole(e.target.value)} className={SELECT}>
                 {Object.entries(ROLE_TEXT).map(([value, r]) => (
                   <option key={value} value={value}>
                     {r.label}: {r.does}
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label htmlFor="person-until" className="text-xs font-medium text-[var(--ink-muted)] mb-1.5 block">
+                Last day of access {role === "auditor" ? "(an outside auditor's ends by itself)" : "(optional)"}
+              </label>
+              <Input id="person-until" type="date" value={until} onChange={(e) => setUntil(e.target.value)} />
+              <p className="text-[12.5px] text-[var(--ink-muted)] mt-1.5">After that day they can no longer open these books. Leave it empty for no end.</p>
             </div>
             {err && (
               <p role="alert" className="text-[13px] text-[var(--danger)]">

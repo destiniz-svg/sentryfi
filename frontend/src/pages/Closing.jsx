@@ -53,6 +53,30 @@ function useRefresh() {
   };
 }
 
+/** Periods the auditor has signed off: shown where the months are closed. */
+function Audited() {
+  const { companyId, can } = useCompany();
+  const { data } = useQuery({ queryKey: ["audit", companyId], queryFn: () => apiClient.get("/audit").then((r) => r.data), enabled: Boolean(companyId) && can("read_trail") });
+  const signed = (data?.periods || []).filter((p) => p.signedOff);
+  if (!signed.length) return null;
+  const on = (iso) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return (
+    <Card padding="lg" className="mb-4" data-testid="audited">
+      <p className="text-[13px] font-semibold mb-1.5">Audited</p>
+      <ul className="grid gap-1 text-[14px]">
+        {signed.map((p) => (
+          <li key={p.id}>
+            <Link to={`/audit/${p.id}?tab=signoff`} className="underline underline-offset-2">
+              {p.name}
+            </Link>
+            : signed off by {p.signedOff.by}, {on(p.signedOff.at)}.
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
 export default function Closing() {
   const { companyId, can } = useCompany();
   const [reopening, setReopening] = useState(false);
@@ -81,6 +105,7 @@ export default function Closing() {
           )
         }
       />
+      <Audited />
 
       <Card padding="lg" className="mb-4">
         <div className="flex flex-wrap items-center justify-between gap-4">

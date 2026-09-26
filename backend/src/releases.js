@@ -17,6 +17,16 @@
  */
 const RELEASES = [
   {
+    version: "1.49.0",
+    date: "2026-09-27",
+    title: "Audit: sign-off, and auditor access that ends by itself",
+    summary: "Your auditor signs off a period when the work is done, and access you give an auditor ends on the day you choose.",
+    items: [
+      { area: "Accounting", kind: "new", title: "Signing off an audit", body: "In Audit, the Sign-off tab shows what is still to do before the auditor signs. When they sign, the seal is checked again and the state of the books it covers is recorded; from then on the period's audit work cannot change. Closing shows which periods are audited.", href: "/audit" },
+      { area: "Company", kind: "new", title: "Access that ends by itself", body: "When you add someone, you can give a last day of access; for an outside auditor it is filled in three months ahead. After that day they can no longer open your books. Change it or end it at once from People, or from Audit.", href: "/settings?tab=people" },
+    ],
+  },
+  {
     version: "1.48.0",
     date: "2026-09-27",
     title: "Audit: attending the year-end count",

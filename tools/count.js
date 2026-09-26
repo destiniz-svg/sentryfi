@@ -53,6 +53,10 @@ const as = async (browser, email, password) => {
     const me = (await api(company, "GET", "/auth/me")).json.user;
     const listed = (await api(company, "GET", "/counts")).json.counts;
     let countId = listed.find((c) => c.status === "counting" && c.place === "Main store" && c.counterId === me.id)?.id;
+    // A count left open at the main store by someone else (an earlier check) is cancelled first.
+    for (const stale of listed.filter((c) => ["counting", "submitted"].includes(c.status) && c.place === "Main store" && c.id !== countId)) {
+      await api(company, "POST", `/counts/${stale.id}/cancel`);
+    }
     if (!countId) {
       const made = await api(company, "POST", "/counts", { kind: "full", placeId: null, counterId: me.id, note: "Year-end count, check" });
       if (made.status !== 201) throw new Error(`count not started: ${JSON.stringify(made.json)}`);

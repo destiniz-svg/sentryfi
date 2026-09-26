@@ -56,7 +56,7 @@ const KINDS = Object.keys(POPULATION);
 const NAMES = { bill: "bills", invoice: "invoices", entry: "journal entries", payment: "payments", receipt: "receipts", credit_note: "credit notes", claim: "expense claims" };
 
 async function periodRow(client, companyId, periodId) {
-  const { rows } = await client.query("SELECT *, from_date::text AS from_text, to_date::text AS to_text FROM audit_periods WHERE id = $1 AND company_id = $2", [periodId, companyId]);
+  const { rows } = await client.query("SELECT *, from_date::text AS from_text, to_date::text AS to_text, (SELECT name FROM users WHERE id = signed_off_by) AS signed_name FROM audit_periods WHERE id = $1 AND company_id = $2", [periodId, companyId]);
   if (!rows[0]) throw new Error("No such period under audit here.");
   return rows[0];
 }
@@ -77,10 +77,13 @@ async function checkSeal(client, { companyId, userId, periodId }) {
   const mine = new Set(rows.map((r) => r.no));
   const problems = chain.problems.map((x) => ({ ...x, inPeriod: mine.has(x.entryNo) }));
   const ok = problems.length === 0;
-  await client.query(
-    "UPDATE audit_periods SET seal_checked_at = now(), seal_ok = $3, seal_entries = $4, seal_problems = $5::jsonb WHERE id = $1 AND company_id = $2",
-    [periodId, companyId, ok, rows.length, JSON.stringify(problems)]
-  );
+  // A signed-off period keeps the seal as it stood at sign-off; a later check is reported, not stored.
+  if (!p.signed_off_at) {
+    await client.query(
+      "UPDATE audit_periods SET seal_checked_at = now(), seal_ok = $3, seal_entries = $4, seal_problems = $5::jsonb WHERE id = $1 AND company_id = $2",
+      [periodId, companyId, ok, rows.length, JSON.stringify(problems)]
+    );
+  }
   return { ok, entries: rows.length, checked: chain.checked, problems };
 }
 
@@ -100,11 +103,12 @@ async function createPeriod(client, { companyId, userId, name, from, to }) {
 const showPeriod = (p) => ({
   id: p.id, name: p.name, from: p.from_text, to: p.to_text,
   seal: p.seal_checked_at ? { at: p.seal_checked_at, ok: p.seal_ok, entries: p.seal_entries, problems: p.seal_problems || [] } : null,
+  signedOff: p.signed_off_at ? { at: p.signed_off_at, by: p.signed_name, opinion: p.opinion, note: p.signoff_note, head: p.signoff_head } : null,
 });
 
 async function periods(client, { companyId }) {
   const { rows } = await client.query(
-    `SELECT p.*, p.from_date::text AS from_text, p.to_date::text AS to_text,
+    `SELECT p.*, p.from_date::text AS from_text, p.to_date::text AS to_text, (SELECT name FROM users WHERE id = p.signed_off_by) AS signed_name,
             (SELECT COUNT(*)::int FROM audit_sample_items i JOIN audit_samples s ON s.id = i.sample_id WHERE s.period_id = p.id) AS items,
             (SELECT COUNT(*)::int FROM audit_sample_items i JOIN audit_samples s ON s.id = i.sample_id WHERE s.period_id = p.id AND i.seen_at IS NOT NULL) AS seen
        FROM audit_periods p WHERE p.company_id = $1 ORDER BY p.to_date DESC, p.created_at DESC`,
@@ -294,7 +298,7 @@ async function prove(client, { companyId, sampleId }) {
 // ------------------------------------------------------------------ reading a sample
 
 async function sample(client, { companyId, sampleId }) {
-  const { rows } = await client.query("SELECT s.*, p.name AS period FROM audit_samples s JOIN audit_periods p ON p.id = s.period_id WHERE s.id = $1 AND s.company_id = $2", [sampleId, companyId]);
+  const { rows } = await client.query("SELECT s.*, p.name AS period, p.signed_off_at FROM audit_samples s JOIN audit_periods p ON p.id = s.period_id WHERE s.id = $1 AND s.company_id = $2", [sampleId, companyId]);
   if (!rows[0]) throw new Error("No such sample here.");
   const s = rows[0];
   const { rows: items } = await client.query(
@@ -305,7 +309,7 @@ async function sample(client, { companyId, sampleId }) {
     [sampleId, companyId]
   );
   return {
-    id: s.id, periodId: s.period_id, period: s.period, kind: s.kind, how: s.how, said: ruleText(s), seed: s.seed,
+    id: s.id, periodId: s.period_id, period: s.period, kind: s.kind, how: s.how, said: ruleText(s), seed: s.seed, signedOff: Boolean(s.signed_off_at),
     population: s.population, populationValue: s.population_laari === null ? null : f(s.population_laari),
     items: items.map((i) => ({
       id: i.id, docId: i.doc_id, no: i.doc_no, on: i.day, party: i.party, amount: f(i.amount_laari), why: i.why,
