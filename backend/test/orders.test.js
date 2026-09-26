@@ -98,6 +98,9 @@ describe("a purchase order", () => {
       await expect(orders.deliver(client, { companyId, userId, orderId: o.id, lines: [{ orderLineId: cement.id, quantity: "1" }] })).rejects.toThrow(/Only 0 of Cement is still to come/);
       const second = await orders.billFromOrder(client, { companyId, userId, orderId: o.id, billNo: "INV-2", issueDate: "2026-09-12", gstTreatment: "none_unregistered", lines: [{ orderLineId: cement.id, quantity: "40", unitPrice: "125" }] });
       expect(second.differences).toEqual(["Cement: MVR 125.00 a unit, not the MVR 120.00 ordered"]);
+      // Over 4% above the order: held until someone accepts it with a reason.
+      expect(second.held).toHaveLength(1);
+      await require("../src/ledger/bills").acceptMatch(client, { companyId, userId, billId: second.bill.id, note: "Price rise agreed" });
       await co.post(second.bill.id);
       s = await orders.load(client, { companyId, orderId: o.id });
       expect(s.status).toBe("done");

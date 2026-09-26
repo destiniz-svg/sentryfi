@@ -45,6 +45,8 @@ const itemBody = z.object({
   // Kept in batches, each with its expiry: bills say which batch came in, and stock goes out earliest to expire first.
   batches: z.boolean().optional(),
   packSize: z.union([z.string().trim(), z.number()]).transform(String).nullish(),
+  // Billed on what arrived or on what was ordered; null follows the supplier.
+  billControl: z.enum(["received", "ordered"]).nullish(),
 });
 
 /** The pack an item comes in, checked: both said or neither, a product's only, more or less than one of its own unit. */
@@ -173,6 +175,7 @@ router.post(
         if (!it.counted) throw ApiError.badRequest("Only stock that is counted is kept in batches.");
         await client.query("UPDATE stock_items SET batches = true WHERE id = $1", [rows[0].id]);
       }
+      if (b.billControl) await client.query("UPDATE stock_items SET bill_control = $2 WHERE id = $1", [rows[0].id, b.billControl]);
       return rows[0];
     });
     res.status(201).json({ item });
@@ -227,6 +230,7 @@ router.patch(
       const batched = has("batches") ? b.batches && it.counted : was.batches && it.counted;
       if (has("batches") && b.batches && !it.counted) throw ApiError.badRequest("Only stock that is counted is kept in batches.");
       if (batched !== was.batches) await client.query("UPDATE stock_items SET batches = $3 WHERE id = $1 AND company_id = $2", [req.params.id, req.companyId, batched]);
+      if (has("billControl")) await client.query("UPDATE stock_items SET bill_control = $3 WHERE id = $1 AND company_id = $2", [req.params.id, req.companyId, b.billControl || null]);
       if (has("tax")) await client.query("UPDATE stock_items SET tax = $3, tax_by = $4, tax_why = NULL WHERE id = $1 AND company_id = $2", [req.params.id, req.companyId, b.tax || null, b.tax ? "you" : null]);
       return true;
     });

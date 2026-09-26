@@ -17,6 +17,16 @@
  */
 const RELEASES = [
   {
+    version: "1.40.0",
+    date: "2026-09-26",
+    title: "Bills checked against their order",
+    summary: "A bill made from a purchase order is checked against what arrived and what was ordered. One priced too far above its order waits for someone to accept it with a reason, or send it back.",
+    items: [
+      { area: "Purchases", kind: "new", title: "Billed on what arrived, or on order", body: "A supplier's bills are for what arrived (the usual) or for what was ordered, when they are paid ahead. Set it on the supplier; an item can say otherwise. A bill made from an order can only be for that much.", href: "/suppliers" },
+      { area: "Purchases", kind: "new", title: "Priced above the order", body: "A bill priced more than 2% above its order does not go in the books. It waits in Approvals and Needs you, where someone who approves accepts it with a reason or sends it back. The 2% can be changed in Approvals.", href: "/approvals" },
+    ],
+  },
+  {
     version: "1.39.0",
     date: "2026-09-26",
     title: "What is still owed",

@@ -42,6 +42,8 @@ const fields = z.object({
   creditLimit: z.string().regex(/^\d+(\.\d{1,2})?$/, "The credit limit is an amount.").or(z.literal("")).nullable().optional(),
   tags: z.array(z.string().max(30)).max(10).optional(),
   archived: z.boolean().optional(),
+  // A supplier's bills: for what arrived, or for what was ordered (paid ahead).
+  billControl: z.enum(["received", "ordered"]).optional(),
 });
 const parse = (body) => {
   const p = fields.safeParse(body ?? {});

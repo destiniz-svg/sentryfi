@@ -95,6 +95,19 @@ ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS closed_by UUID REFERENCES users
 ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS close_reason TEXT;
 GRANT UPDATE (closed_at, closed_by, close_reason) ON order_lines TO sentryfi_app;
 
+-- A bill matches its order. A supplier bills for what was received (the usual) or,
+-- when paid ahead, for what was ordered; an item may say otherwise for itself.
+ALTER TABLE counterparties ADD COLUMN IF NOT EXISTS bill_control TEXT NOT NULL DEFAULT 'received' CHECK (bill_control IN ('received','ordered'));
+ALTER TABLE stock_items ADD COLUMN IF NOT EXISTS bill_control TEXT CHECK (bill_control IN ('received','ordered'));
+-- A price this far above the order (in hundredths of a percent; 2% unless changed) holds the bill.
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS price_tolerance_bp INTEGER NOT NULL DEFAULT 200 CHECK (price_tolerance_bp >= 0);
+GRANT UPDATE (price_tolerance_bp) ON companies TO sentryfi_app;
+-- Why a bill waits (prices above its order), and who accepted it, with their reason.
+ALTER TABLE bills ADD COLUMN IF NOT EXISTS match_held JSONB;
+ALTER TABLE bills ADD COLUMN IF NOT EXISTS match_accepted_by UUID REFERENCES users(id);
+ALTER TABLE bills ADD COLUMN IF NOT EXISTS match_accepted_at TIMESTAMPTZ;
+ALTER TABLE bills ADD COLUMN IF NOT EXISTS match_note TEXT;
+
 -- Quotes: an order not yet agreed. Accepted, it becomes a sales order.
 ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_kind_check;
 ALTER TABLE orders ADD CONSTRAINT orders_kind_check CHECK (kind IN ('purchase','sale','quote'));

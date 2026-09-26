@@ -778,6 +778,53 @@ describe("what is still owed", () => {
     }));
 });
 
+describe("a bill checked against its order and what arrived", () => {
+  it("bills only what arrived, unless the supplier or item is billed on order; a price above tolerance is held until accepted", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      const { acceptMatch } = await import("../src/ledger/bills");
+      const accounts = { expense: shop.accounts.expense, payable: shop.accounts.payable, taxReclaimable: shop.accounts.taxReclaimable };
+      const cement = await shop.item("Cement");
+      const po = await orders.create(client, { companyId, userId, kind: "purchase", counterpartyId: shop.supplier, lines: [{ itemId: cement, quantity: "10", unitPrice: "100" }], approveUpTo: null });
+      const line = (await orders.load(client, { companyId, orderId: po.id })).lines[0].id;
+
+      // Nothing has arrived: nothing to bill.
+      await expect(orders.billFromOrder(client, { companyId, userId, orderId: po.id, gstTreatment: "none_unregistered", lines: [{ orderLineId: line, quantity: "1" }] })).rejects.toThrow();
+      // The item billed on order: all ten may be billed before they come.
+      await client.query("UPDATE stock_items SET bill_control = 'ordered' WHERE id = $1", [cement]);
+      expect(orders.show(await orders.load(client, { companyId, orderId: po.id })).lines[0]).toMatchObject({ billable: "10", billedOnOrder: true });
+      // The item follows the supplier again, and the supplier bills on order: the same.
+      await client.query("UPDATE stock_items SET bill_control = NULL WHERE id = $1", [cement]);
+      await client.query("UPDATE counterparties SET bill_control = 'ordered' WHERE id = $1", [shop.supplier]);
+      expect(orders.show(await orders.load(client, { companyId, orderId: po.id })).lines[0].billable).toBe("10");
+      // An item set to "what arrived" overrides the supplier.
+      await client.query("UPDATE stock_items SET bill_control = 'received' WHERE id = $1", [cement]);
+      expect(orders.show(await orders.load(client, { companyId, orderId: po.id })).lines[0].billable).toBe("0");
+
+      // Four arrive. Billed at 101 (1%, within the 2% tolerance): not held.
+      await orders.deliver(client, { companyId, userId, orderId: po.id, lines: [{ orderLineId: line, quantity: "4" }] });
+      await expect(orders.billFromOrder(client, { companyId, userId, orderId: po.id, gstTreatment: "none_unregistered", lines: [{ orderLineId: line, quantity: "5", unitPrice: "100" }] })).rejects.toThrow();
+      const ok = await orders.billFromOrder(client, { companyId, userId, orderId: po.id, gstTreatment: "none_unregistered", lines: [{ orderLineId: line, quantity: "2", unitPrice: "101" }] });
+      expect(ok.held).toEqual([]);
+
+      // Billed at 110: held; it cannot go in the books until accepted with a reason.
+      const far = await orders.billFromOrder(client, { companyId, userId, orderId: po.id, gstTreatment: "none_unregistered", lines: [{ orderLineId: line, quantity: "2", unitPrice: "110" }] });
+      expect(far.held[0]).toMatch(/MVR 110\.00 a unit on the bill, MVR 100\.00 on the order/);
+      await expect(postBill(client, { companyId, userId, billId: far.bill.id, accounts })).rejects.toThrow(/priced above its order/);
+      await expect(acceptMatch(client, { companyId, userId, billId: far.bill.id, note: "" })).rejects.toThrow(/Say why/);
+      await acceptMatch(client, { companyId, userId, billId: far.bill.id, note: "Fuel surcharge agreed by phone" });
+      await expect(acceptMatch(client, { companyId, userId, billId: far.bill.id, note: "again" })).rejects.toThrow(/accepted already/);
+      await expect(acceptMatch(client, { companyId, userId, billId: ok.bill.id, note: "nothing to accept" })).rejects.toThrow(/matches its order/);
+      await postBill(client, { companyId, userId, billId: far.bill.id, accounts });
+
+      // A wider tolerance lets the same price through.
+      await client.query("UPDATE companies SET price_tolerance_bp = 1500 WHERE id = $1", [companyId]);
+      await orders.deliver(client, { companyId, userId, orderId: po.id, lines: [{ orderLineId: line, quantity: "2" }] });
+      expect((await orders.billFromOrder(client, { companyId, userId, orderId: po.id, gstTreatment: "none_unregistered", lines: [{ orderLineId: line, quantity: "1", unitPrice: "110" }] })).held).toEqual([]);
+    }));
+});
+
 describe("stock used on a job", () => {
   it("leaves its place at average cost and carries that cost to the project and department", () =>
     inRollback(async (client) => {

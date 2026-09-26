@@ -174,7 +174,7 @@ router.post(
   refused(async (req, res) => {
     const b = parse(billBody, req.body);
     const r = await on(req, (client, ctx) => orders.billFromOrder(client, { ...ctx, orderId: req.params.id, ...b }));
-    res.status(201).json({ billId: r.bill.id, gross: formatLaari(BigInt(r.bill.gross_laari)), differences: r.differences });
+    res.status(201).json({ billId: r.bill.id, gross: formatLaari(BigInt(r.bill.gross_laari)), differences: r.differences, held: r.held });
   })
 );
 

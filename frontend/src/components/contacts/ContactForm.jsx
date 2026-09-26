@@ -54,6 +54,7 @@ export function ContactForm({ contact, side = "customers", onClose, onSaved }) {
     gstNumber: d.gstNumber || "",
     address: d.address || "",
     paymentTermsDays: d.paymentTermsDays ?? "",
+    billControl: d.billControl || "received",
     creditLimit: d.creditLimit ? d.creditLimit.replace(/,/g, "") : "",
     tags: d.tags || [],
     notes: d.notes || "",
@@ -131,6 +132,14 @@ export function ContactForm({ contact, side = "customers", onClose, onSaved }) {
               <Field label="Pays within (days)" hint="Leave empty for 30.">
                 <input value={f.paymentTermsDays} onChange={set("paymentTermsDays")} inputMode="numeric" pattern="[0-9]*" placeholder="30" className={FIELD} />
               </Field>
+              {f.supplier && (
+                <Field label="Their bills are for" hint="Checked against the order when a bill is made from it.">
+                  <select id="contact-bill-control" value={f.billControl} onChange={set("billControl")} className={FIELD}>
+                    <option value="received">What arrived</option>
+                    <option value="ordered">What was ordered (paid ahead)</option>
+                  </select>
+                </Field>
+              )}
               {f.customer && (
                 <Field label="Credit limit (MVR)" hint="A warning when what they owe goes over it.">
                   <input value={f.creditLimit} onChange={set("creditLimit")} inputMode="decimal" placeholder="50000" className={FIELD} />

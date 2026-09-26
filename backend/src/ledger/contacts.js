@@ -189,7 +189,7 @@ async function show(client, { companyId, id }) {
     archived: Boolean(c.archived_at),
     details: {
       email: c.email, phone: c.phone, address: c.address, tin: c.tin, gstNumber: c.gst_number, gstRegistered: c.gst_registered,
-      paymentTermsDays: c.payment_terms_days, creditLimit: c.credit_limit_laari != null ? f(c.credit_limit_laari) : null,
+      paymentTermsDays: c.payment_terms_days, creditLimit: c.credit_limit_laari != null ? f(c.credit_limit_laari) : null, billControl: c.bill_control,
       notes: c.notes, tags: c.tags, alsoKnownAs: c.also_known_as,
       mergedIn: fam.map((x) => x.name),
       opening: Object.fromEntries(openings.map((o) => [o.side, { amount: f(o.gross_laari), on: o.on }])),
@@ -320,6 +320,8 @@ async function update(client, { companyId, id, body }) {
   }
   for (const [k, col] of Object.entries(FIELDS)) if (body[k] !== undefined) set(col, k === "paymentTermsDays" ? body[k] : clean(body[k]));
   if (body.creditLimit !== undefined) set("credit_limit_laari", body.creditLimit ? toLaari(body.creditLimit).toString() : null);
+  // Their bills are for what arrived (the usual), or for what was ordered (paid ahead).
+  if (body.billControl !== undefined) set("bill_control", body.billControl);
   if (body.tags !== undefined) set("tags", (body.tags || []).map((t) => String(t).trim()).filter(Boolean).slice(0, 10));
   if (body.customer !== undefined || body.supplier !== undefined) {
     const kind = [body.customer && "customer", body.supplier && "supplier"].filter(Boolean);

@@ -72,7 +72,7 @@ async function collect(client, req) {
 
     // 3. Recorded, decided, and still not in the books.
     const { rows: unposted } = await client.query(
-      `SELECT b.id, b.bill_no, b.gross_laari, c.name AS supplier,
+      `SELECT b.id, b.bill_no, b.gross_laari, c.name AS supplier, b.match_held, b.match_accepted_at,
               (CURRENT_DATE - b.received_at::date)::int AS days
          FROM bills b
          LEFT JOIN counterparties c ON c.id = b.counterparty_id
@@ -84,6 +84,17 @@ async function collect(client, req) {
       [req.companyId]
     );
     for (const row of unposted) {
+      // Priced above its order: someone who approves accepts it with a reason, or sends it back.
+      if (row.match_held && !row.match_accepted_at) {
+        found.push({
+          kind: "blocked",
+          title: `MVR ${formatLaari(BigInt(row.gross_laari))} from ${row.supplier || "an unnamed supplier"} is priced above its order`,
+          detail: row.match_held.join("; "),
+          does: "Accept it with a reason, or send it back",
+          href: `/approvals?open=match:${row.id}`,
+        });
+        continue;
+      }
       found.push({
         kind: row.days > 7 ? "ageing" : "waiting",
         title: `MVR ${formatLaari(BigInt(row.gross_laari))} from ${row.supplier || "an unnamed supplier"}`,

@@ -67,7 +67,7 @@ export default function Order() {
   const buying = o.kind === "purchase";
   const st = ORDER_STATUS[o.status];
   const toMove = o.lines.some((l) => n(l.left) > 0);
-  const toBill = o.lines.some((l) => n(l.billed) < n(l.delivered));
+  const toBill = o.lines.some((l) => n(l.billable) > 0);
   const quote = o.kind === "quote";
   const live = !quote && !["cancelled", "done", "awaiting_approval"].includes(o.status);
 
@@ -229,7 +229,7 @@ export default function Order() {
                     {l.quantity} {l.unit || ""}
                   </td>
                   {!quote && <td className={`px-2 sm:px-3 py-3 ${n(l.delivered) < n(l.quantity) ? "text-[var(--ink-muted)]" : ""}`}>{l.delivered}</td>}
-                  {!quote && <td className={`px-2 sm:px-3 py-3 ${n(l.billed) < n(l.delivered) ? "text-[var(--accent-strong)] font-semibold" : "text-[var(--ink-muted)]"}`}>{l.billed}</td>}
+                  {!quote && <td className={`px-2 sm:px-3 py-3 ${n(l.billable) > 0 ? "text-[var(--accent-strong)] font-semibold" : "text-[var(--ink-muted)]"}`}>{l.billed}</td>}
                   <td className="px-3 py-3 text-[var(--ink-muted)] hidden sm:table-cell">
                     <Money amount={l.price} />
                   </td>
@@ -425,8 +425,8 @@ function Deliver({ o, onClose, run }) {
 
 function Bill({ o, onClose, run, nav }) {
   const buying = o.kind === "purchase";
-  const due = o.lines.filter((l) => n(l.delivered) > n(l.billed));
-  const [rows, setRows] = useState(Object.fromEntries(due.map((l) => [l.id, { quantity: String(n(l.delivered) - n(l.billed)), unitPrice: String(n(l.price)) }])));
+  const due = o.lines.filter((l) => n(l.billable) > 0);
+  const [rows, setRows] = useState(Object.fromEntries(due.map((l) => [l.id, { quantity: l.billable, unitPrice: String(n(l.price)) }])));
   const [f, setF] = useState({ billNo: "", issueDate: today(), gstTreatment: "exclusive" });
   const [busy, setBusy] = useState(false);
   const net = due.reduce((a, l) => a + n(rows[l.id].quantity) * n(rows[l.id].unitPrice), 0);
@@ -439,7 +439,7 @@ function Bill({ o, onClose, run, nav }) {
       { ...f, billNo: buying ? f.billNo || null : undefined, lines },
       (x) => [
         buying ? `Bill made · MVR ${x.gross}` : `Invoice ${x.invoiceNo} made · MVR ${x.gross}`,
-        x.differences.length ? `Not as ordered: ${x.differences.join("; ")}.` : buying ? "Check it against the supplier's paper, then put it in the books." : "Put it in the books when it goes to the customer.",
+        x.held?.length ? `Held: priced above the order (${x.held.join("; ")}). Someone who approves accepts it with a reason, or sends it back.` : x.differences.length ? `Not as ordered: ${x.differences.join("; ")}.` : buying ? "Check it against the supplier's paper, then put it in the books." : "Put it in the books when it goes to the customer.",
       ]
     );
     setBusy(false);
@@ -449,7 +449,7 @@ function Bill({ o, onClose, run, nav }) {
     }
   }
   return (
-    <Modal open onClose={onClose} as="form" onSubmit={onSubmit} title={buying ? "The supplier's bill" : "The invoice"} description={`For what ${buying ? "arrived" : "went out"} and is not yet ${buying ? "billed" : "invoiced"}. Change a price only if ${buying ? "their paper" : "you agreed"} says otherwise.`}>
+    <Modal open onClose={onClose} as="form" onSubmit={onSubmit} title={buying ? "The supplier's bill" : "The invoice"} description={`For what ${buying ? (due.some((l) => l.billedOnOrder) ? "was ordered" : "arrived") : "went out"} and is not yet ${buying ? "billed" : "invoiced"}. Change a price only if ${buying ? "their paper" : "you agreed"} says otherwise.`}>
       <div className="grid gap-3">
         {due.map((l) => (
           <div key={l.id} className="grid grid-cols-[minmax(0,1fr)_90px_110px] gap-2 items-center">

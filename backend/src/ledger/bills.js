@@ -154,6 +154,21 @@ async function findPossibleDuplicates(client, { companyId, userId, bill }) {
  *
  * Must be called inside a transaction.
  */
+/** A bill held for being priced above its order, accepted with the reason; it may then go into the books. */
+async function acceptMatch(client, { companyId, userId, billId, note }) {
+  await assumeIdentity(client, { companyId, userId });
+  const { rows } = await client.query("SELECT match_held, match_accepted_at, voided_at, status FROM bills WHERE id = $1 AND company_id = $2", [billId, companyId]);
+  const b = rows[0];
+  if (!b) throw new Error("No such bill in these books");
+  if (!b.match_held) throw new Error("That bill matches its order; there is nothing to accept.");
+  if (b.match_accepted_at) throw new Error("That difference has been accepted already.");
+  if (b.voided_at) throw new Error("That bill was sent back.");
+  const why = String(note || "").trim();
+  if (why.length < 3) throw new Error("Say why the higher price is right, so it can be read later.");
+  await client.query("UPDATE bills SET match_accepted_by = $3, match_accepted_at = now(), match_note = $4 WHERE id = $1 AND company_id = $2", [billId, companyId, userId, why.slice(0, 300)]);
+  return { accepted: true };
+}
+
 async function postBill(client, { companyId, userId, billId, accounts }) {
   await assumeIdentity(client, { companyId, userId });
 
@@ -172,6 +187,10 @@ async function postBill(client, { companyId, userId, billId, accounts }) {
   }
   if (bill.voided_at) {
     throw new Error("This bill was voided. Record a new one instead.");
+  }
+  // Priced above its order beyond the tolerance: someone accepts it first, or it goes back.
+  if (bill.match_held && !bill.match_accepted_at) {
+    throw new Error(`This bill is priced above its order (${bill.match_held.join("; ")}). Someone who approves accepts it with a reason, or it is sent back.`);
   }
   if (bill.gst_treatment === "unknown") {
     throw new Error(
@@ -265,4 +284,4 @@ async function postBill(client, { companyId, userId, billId, accounts }) {
   return { entry, duplicatesWarned: duplicates };
 }
 
-module.exports = { splitTax, findPossibleDuplicates, postBill };
+module.exports = { splitTax, findPossibleDuplicates, postBill, acceptMatch };

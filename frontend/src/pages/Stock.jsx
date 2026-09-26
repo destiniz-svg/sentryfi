@@ -374,6 +374,7 @@ function ItemForm({ item, items = [], accounts, onClose, onDone }) {
     packUnit: item?.packUnit || "",
     packSize: item?.packSize || "",
     batches: Boolean(item?.batches),
+    billControl: item?.billControl || "",
   }));
   const [err, setErr] = useState("");
   const put = (patch) => setF((x) => ({ ...x, ...patch }));
@@ -405,6 +406,7 @@ function ItemForm({ item, items = [], accounts, onClose, onDone }) {
         photo: f.photo,
         ...(f.kind === "product" ? { packUnit: f.packUnit.trim() || null, packSize: f.packUnit.trim() ? f.packSize.trim() || null : null } : {}),
         batches: f.kind === "product" && f.counted && f.batches,
+        billControl: f.buys ? f.billControl || null : null,
         // Sent only when picked, so saving does not turn a suggestion into your answer.
         ...(f.taxPicked ? { tax: f.tax || null } : {}),
         ...(bundle ? { parts: f.parts.filter((p) => p.itemId && Number(p.quantity) > 0) } : {}),
@@ -530,6 +532,13 @@ function ItemForm({ item, items = [], accounts, onClose, onDone }) {
         {!bundle && <Side label="You buy it" on={f.buys} onChange={(buys) => put({ buys })}>
           <Field label="Cost (optional)">
             <input id="item-buy-price" value={f.buyPrice} onChange={set("buyPrice")} inputMode="decimal" placeholder="0.00" className={`${FIELD} tabular`} />
+          </Field>
+          <Field label="Suppliers bill it for">
+            <select id="item-bill-control" value={f.billControl} onChange={set("billControl")} className={FIELD}>
+              <option value="">As the supplier is set</option>
+              <option value="received">What arrived</option>
+              <option value="ordered">What was ordered (paid ahead)</option>
+            </select>
           </Field>
           {service || !f.counted ? (
             <Field label="Kind of cost">

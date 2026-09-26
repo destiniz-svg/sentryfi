@@ -795,7 +795,7 @@ async function issue(client, { companyId, userId, itemId, placeId, quantity, on,
 /** Every item: what kind it is, how it is bought and sold, and for a counted product what is on hand, its value, its average cost, and what its sales earned over their cost. */
 async function list(client, { companyId }) {
   const { rows } = await client.query(
-    `SELECT i.id, i.name, i.code, i.unit, i.pack_unit, i.pack_size, i.batches, i.sale_price_laari, i.archived_at, i.reorder_at,
+    `SELECT i.id, i.name, i.code, i.unit, i.pack_unit, i.pack_size, i.batches, i.bill_control, i.sale_price_laari, i.archived_at, i.reorder_at,
             i.kind, i.counted, i.sells, i.buys, i.buy_price_laari, i.income_account_id, i.cost_account_id, i.photo, i.tax, i.tax_by, i.tax_why,
             (SELECT json_agg(json_build_object('itemId', p.item_id, 'quantity', trim(to_char(p.quantity, 'FM999999990.####'), '.'))) FROM bundle_parts p WHERE p.bundle_id = i.id) AS parts,
             COALESCE(SUM(m.quantity), 0) AS on_hand,
@@ -850,6 +850,7 @@ async function list(client, { companyId }) {
       packSize: r.pack_size === null ? null : unitsText(fromDb(r.pack_size)),
       onHandPacks: packsText(units, r),
       batches: r.batches,
+      billControl: r.bill_control,
       nextBatch: firstOut.get(r.id) || null,
       // Spoken for by customers, coming from suppliers, and what is free to sell: on hand, less
       // what is on the way between places and what is reserved.

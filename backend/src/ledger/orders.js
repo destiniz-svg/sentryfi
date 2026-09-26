@@ -86,7 +86,7 @@ async function create(client, { companyId, userId, kind, counterpartyId, partyNa
 /** An order with each line's ordered, delivered and billed quantities, and where it stands. */
 async function load(client, { companyId, orderId }) {
   const { rows } = await client.query(
-    `SELECT o.*, c.name AS party, p.name AS project, u.name AS approver, cu.name AS orderer FROM orders o
+    `SELECT o.*, c.name AS party, c.bill_control AS party_bill_control, p.name AS project, u.name AS approver, cu.name AS orderer FROM orders o
        JOIN counterparties c ON c.id = o.counterparty_id LEFT JOIN projects p ON p.id = o.project_id
        LEFT JOIN users u ON u.id = o.approved_by LEFT JOIN users cu ON cu.id = o.created_by
       WHERE o.id = $1 AND o.company_id = $2`,
@@ -95,7 +95,7 @@ async function load(client, { companyId, orderId }) {
   const o = rows[0];
   if (!o) throw new Error("That order is not in these books.");
   const { rows: lines } = await client.query(
-    `SELECT l.*, a.name AS account_name, i.name AS item_name,
+    `SELECT l.*, a.name AS account_name, i.name AS item_name, i.bill_control AS item_bill_control,
             COALESCE((SELECT SUM(d.quantity) FROM order_delivery_lines d WHERE d.order_line_id = l.id), 0) AS delivered,
             COALESCE((SELECT SUM(b.quantity) FROM order_billed b
                        LEFT JOIN bills bl ON bl.id = b.bill_id LEFT JOIN sales_invoices s ON s.id = b.invoice_id
@@ -110,7 +110,12 @@ async function load(client, { companyId, orderId }) {
     const billedUnits = stock.fromDb(l.billed);
     // Closed short: what has gone out (or come in, or been billed) is all there will be.
     const moved = deliveredUnits > billedUnits ? deliveredUnits : billedUnits;
-    return { ...l, units, deliveredUnits, billedUnits, wanted: l.closed_at ? moved : units, price: BigInt(l.unit_price_laari) };
+    const wanted = l.closed_at ? moved : units;
+    // What may be billed (or invoiced) now: what arrived (or went out), or, for a supplier (or
+    // item) billed on order, all that was ordered; less what is billed already.
+    const onOrder = o.kind === "purchase" && (l.item_bill_control || o.party_bill_control) === "ordered";
+    const upTo = onOrder ? wanted : deliveredUnits;
+    return { ...l, units, deliveredUnits, billedUnits, wanted, billable: upTo > billedUnits ? upTo - billedUnits : 0n, billedOnOrder: onOrder, price: BigInt(l.unit_price_laari) };
   });
   const all = (k) => out.every((l) => l[k] >= l.wanted);
   const any = (k) => out.some((l) => l[k] > 0n);
@@ -177,14 +182,19 @@ function toBill(s, lines) {
   const byId = new Map(s.lines.map((l) => [l.id, l]));
   const chosen = lines?.length
     ? lines.map((l) => ({ line: byId.get(l.orderLineId), units: stock.toUnits(l.quantity), price: l.unitPrice !== undefined && l.unitPrice !== null && l.unitPrice !== "" ? toLaari(l.unitPrice) : null }))
-    : s.lines.filter((l) => l.deliveredUnits > l.billedUnits).map((l) => ({ line: l, units: l.deliveredUnits - l.billedUnits, price: null }));
+    : s.lines.filter((l) => l.billable > 0n).map((l) => ({ line: l, units: l.billable, price: null }));
   if (!chosen.length) throw new Error(`Nothing has ${s.order.kind === "purchase" ? "arrived" : "gone out"} that is not already ${s.order.kind === "purchase" ? "billed" : "invoiced"}.`);
   const differences = [];
   for (const c of chosen) {
     if (!c.line) throw new Error("That line is not on this order.");
-    const left = c.line.deliveredUnits - c.line.billedUnits;
+    // A bill takes no more than was received (or, billed on order, ordered), less what is billed already.
+    const left = c.line.billable;
     if (c.units > left) {
-      throw new Error(`Only ${stock.unitsText(left)} of ${c.line.description} ${s.order.kind === "purchase" ? "has arrived and is not billed" : "has gone out and is not invoiced"}. Record the delivery first.`);
+      throw new Error(
+        c.line.billedOnOrder
+          ? `Only ${stock.unitsText(left)} of ${c.line.description} is ordered and not yet billed.`
+          : `Only ${stock.unitsText(left)} of ${c.line.description} ${s.order.kind === "purchase" ? "has arrived and is not billed" : "has gone out and is not invoiced"}. Record the delivery first.`
+      );
     }
     c.price = c.price ?? c.line.price;
     if (c.price !== c.line.price) differences.push(`${c.line.description}: MVR ${formatLaari(c.price)} a unit, not the MVR ${formatLaari(c.line.price)} ordered`);
@@ -227,7 +237,15 @@ async function billFromOrder(client, { companyId, userId, orderId, billNo, issue
   for (const c of chosen) {
     await client.query("INSERT INTO order_billed (company_id, order_line_id, bill_id, quantity, amount_laari) VALUES ($1,$2,$3,$4,$5)", [companyId, c.line.id, bill.id, stock.unitsText(c.units), c.amount.toString()]);
   }
-  return { bill, differences };
+  // A price above the order by more than the company's tolerance holds the bill: it does not
+  // go into the books until someone accepts it with a reason, or it is sent back.
+  const { rows: tol } = await client.query("SELECT price_tolerance_bp FROM companies WHERE id = $1", [companyId]);
+  const bp = BigInt(tol[0]?.price_tolerance_bp ?? 200);
+  const held = chosen
+    .filter((c) => c.price > c.line.price && (c.price - c.line.price) * 10000n > c.line.price * bp)
+    .map((c) => `${c.line.description}: MVR ${formatLaari(c.price)} a unit on the bill, MVR ${formatLaari(c.line.price)} on the order`);
+  if (held.length) await client.query("UPDATE bills SET match_held = $2::jsonb WHERE id = $1", [bill.id, JSON.stringify(held)]);
+  return { bill, differences, held };
 }
 
 /** The customer's invoice for what went out, at the ordered prices, ready to post. */
@@ -379,6 +397,8 @@ function show(s) {
       // Still to go out (or come in); nothing once the line is closed short.
       left: stock.unitsText(l.wanted > l.deliveredUnits ? l.wanted - l.deliveredUnits : 0n),
       closed: l.closed_at ? { at: l.closed_at, reason: l.close_reason } : null,
+      // What a bill may still be for: what arrived, or what was ordered when billed on order.
+      billable: stock.unitsText(l.billable), billedOnOrder: l.billedOnOrder,
       price: f(l.price), amount: f(times(l.price, l.units)),
     })),
   };

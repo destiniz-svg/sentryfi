@@ -12,7 +12,7 @@ const stockLedger = require("../ledger/stock");
 const billSplit = require("../ledger/billSplit");
 const adviser = require("../ledger/adviser");
 const { CATEGORIES } = require("../ledger/assets");
-const { splitTax, findPossibleDuplicates, postBill } = require("../ledger/bills");
+const { splitTax, findPossibleDuplicates, postBill, acceptMatch } = require("../ledger/bills");
 const taxEngine = require("../ledger/tax");
 const fx = require("../ledger/fx");
 const { findOrCreate, observe } = require("../ledger/counterparties");
@@ -590,6 +590,22 @@ router.put(
         return saved;
       });
       res.json({ ok: true, parts: r.parts, rest: formatLaari(r.rest) });
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      throw ApiError.badRequest(err.message);
+    }
+  })
+);
+
+/** A bill priced above its order, accepted by someone who approves, with the reason. */
+router.post(
+  "/:id/match/accept",
+  requireCan("approve"),
+  asyncHandler(async (req, res) => {
+    const note = z.string().trim().min(3, "Say why the higher price is right.").max(300).safeParse(req.body?.note);
+    if (!note.success) throw ApiError.badRequest(note.error.issues[0].message);
+    try {
+      res.json(await asCompany(req, (client) => acceptMatch(client, { companyId: req.companyId, userId: req.user.id, billId: req.params.id, note: note.data })));
     } catch (err) {
       if (err instanceof ApiError) throw err;
       throw ApiError.badRequest(err.message);

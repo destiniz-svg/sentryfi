@@ -218,7 +218,8 @@ router.get(
            LEFT JOIN counterparties c ON c.id = b.counterparty_id LEFT JOIN users u ON u.id = b.received_by
            LEFT JOIN orders o ON o.id = b.order_id
           WHERE b.company_id = $1 AND b.status IN ('draft','awaiting_review') AND b.voided_at IS NULL
-            AND b.gross_laari > l.limit_laari AND (o.id IS NULL OR o.approved_at IS NULL)`,
+            AND b.gross_laari > l.limit_laari AND (o.id IS NULL OR o.approved_at IS NULL)
+            AND (b.match_held IS NULL OR b.match_accepted_at IS NOT NULL)`,
         [companyId]
       );
       for (const b of bills) {
@@ -227,9 +228,38 @@ router.get(
           amount: formatLaari(BigInt(b.gross_laari)), mine: false, within: within(b.gross_laari), href: "/bills",
         });
       }
-      return { items, limit: upTo === null ? null : formatLaari(upTo < 0n ? 0n : upTo) };
+      // Priced above its order beyond the tolerance: accepted with a reason, or sent back.
+      const { rows: held } = await client.query(
+        `SELECT b.id, b.bill_no, b.gross_laari, b.match_held, c.name AS supplier, u.name AS recorder FROM bills b
+           LEFT JOIN counterparties c ON c.id = b.counterparty_id LEFT JOIN users u ON u.id = b.received_by
+          WHERE b.company_id = $1 AND b.match_held IS NOT NULL AND b.match_accepted_at IS NULL AND b.voided_at IS NULL AND b.status IN ('draft','awaiting_review')`,
+        [companyId]
+      );
+      for (const b of held) {
+        items.push({
+          kind: "match", id: b.id, title: `${b.supplier || "A supplier"}${b.bill_no ? ` · ${b.bill_no}` : ""}`, by: b.recorder,
+          amount: formatLaari(BigInt(b.gross_laari)), mine: false, within: true, detail: b.match_held.join("; "), href: "/bills",
+        });
+      }
+      const { rows: tol } = await client.query("SELECT price_tolerance_bp FROM companies WHERE id = $1", [companyId]);
+      return { items, priceTolerance: percent(tol[0].price_tolerance_bp), limit: upTo === null ? null : formatLaari(upTo < 0n ? 0n : upTo) };
     });
     res.json(out);
+  })
+);
+
+const percent = (bp) => String(bp / 100);
+
+/** How far above its order a bill's price may be before it is held, in percent. */
+router.put(
+  "/approvals/price-tolerance",
+  requireCan("manage_settings"),
+  asyncHandler(async (req, res) => {
+    const p = z.union([z.string().trim(), z.number()]).transform(String).refine((v) => /^d{1,3}(.d{1,2})?$/.test(v) && Number(v) <= 100, "Say a percent, like 2 or 2.5.").safeParse(req.body?.percent);
+    if (!p.success) throw ApiError.badRequest(p.error.issues[0].message);
+    const bp = Math.round(Number(p.data) * 100);
+    await on(req, (client, { companyId }) => client.query("UPDATE companies SET price_tolerance_bp = $2 WHERE id = $1", [companyId, bp]));
+    res.json({ priceTolerance: percent(bp) });
   })
 );
 
