@@ -104,14 +104,15 @@ async function load(client, { companyId, orderId }) {
       WHERE l.order_id = $1 ORDER BY l.position`,
     [orderId]
   );
-  const out = lines.map((l) => ({
-    ...l,
-    units: stock.fromDb(l.quantity),
-    deliveredUnits: stock.fromDb(l.delivered),
-    billedUnits: stock.fromDb(l.billed),
-    price: BigInt(l.unit_price_laari),
-  }));
-  const all = (k) => out.every((l) => l[k] >= l.units);
+  const out = lines.map((l) => {
+    const units = stock.fromDb(l.quantity);
+    const deliveredUnits = stock.fromDb(l.delivered);
+    const billedUnits = stock.fromDb(l.billed);
+    // Closed short: what has gone out (or come in, or been billed) is all there will be.
+    const moved = deliveredUnits > billedUnits ? deliveredUnits : billedUnits;
+    return { ...l, units, deliveredUnits, billedUnits, wanted: l.closed_at ? moved : units, price: BigInt(l.unit_price_laari) };
+  });
+  const all = (k) => out.every((l) => l[k] >= l.wanted);
   const any = (k) => out.some((l) => l[k] > 0n);
   const expired = o.valid_until && new Date(o.valid_until) < new Date(localToday());
   const status = o.kind === "quote"
@@ -124,7 +125,7 @@ async function load(client, { companyId, orderId }) {
         ? "done"
         : all("billedUnits")
           // Invoiced ahead (an accepted quote's draft), goods still to go out.
-          ? out.some((l) => l.item_id && l.deliveredUnits < l.units) ? "invoiced" : "done"
+          ? out.some((l) => l.item_id && l.deliveredUnits < l.wanted) ? "invoiced" : "done"
         : all("deliveredUnits")
           ? "delivered"
           : any("deliveredUnits")
@@ -155,7 +156,7 @@ async function deliver(client, { companyId, userId, orderId, deliveredOn, refere
   const taking = lines.map((l) => ({ line: byId.get(l.orderLineId), units: stock.toUnits(l.quantity) }));
   for (const t of taking) {
     if (!t.line) throw new Error("That line is not on this order.");
-    const left = t.line.units - t.line.deliveredUnits;
+    const left = t.line.wanted - t.line.deliveredUnits;
     if (t.units > left) throw new Error(`Only ${stock.unitsText(left)} of ${t.line.description} ${s.order.kind === "purchase" ? "is still to come" : "is still to go"}.`);
   }
   if (!taking.length) throw new Error("Say how many of what.");
@@ -266,7 +267,7 @@ async function invoicePart(client, { companyId, userId, orderId, percent, amount
   const s = await load(client, { companyId, orderId });
   if (s.order.kind !== "sale") throw new Error("Only a sales order is invoiced in parts.");
   if (s.status === "cancelled") throw new Error("That order is cancelled.");
-  const open = s.lines.map((l) => (l.units > l.billedUnits ? l.units - l.billedUnits : 0n));
+  const open = s.lines.map((l) => (l.wanted > l.billedUnits ? l.wanted - l.billedUnits : 0n));
   const left = s.lines.reduce((a, l, i) => a + times(l.price, open[i]), 0n);
   if (left <= 0n) {
     const draft = s.invoices.length === 1 && s.invoices[0].status === "draft" ? s.invoices[0] : null;
@@ -370,11 +371,14 @@ function show(s) {
     total: f(s.total),
     delivered: f(s.lines.reduce((a, l) => a + times(l.price, l.deliveredUnits), 0n)),
     billed: f(s.lines.reduce((a, l) => a + times(l.price, l.billedUnits), 0n)),
-    left: f(s.lines.reduce((a, l) => a + (l.units > l.billedUnits ? times(l.price, l.units - l.billedUnits) : 0n), 0n)),
+    left: f(s.lines.reduce((a, l) => a + (l.wanted > l.billedUnits ? times(l.price, l.wanted - l.billedUnits) : 0n), 0n)),
     invoices: (s.invoices || []).map((i) => ({ id: i.id, number: i.invoice_no, subject: i.subject, status: i.status, net: f(BigInt(i.net_laari)) })),
     lines: s.lines.map((l) => ({
       id: l.id, description: l.description, item: l.item_name, itemId: l.item_id, account: l.account_name, accountId: l.account_id, unit: l.unit,
       quantity: stock.unitsText(l.units), delivered: stock.unitsText(l.deliveredUnits), billed: stock.unitsText(l.billedUnits),
+      // Still to go out (or come in); nothing once the line is closed short.
+      left: stock.unitsText(l.wanted > l.deliveredUnits ? l.wanted - l.deliveredUnits : 0n),
+      closed: l.closed_at ? { at: l.closed_at, reason: l.close_reason } : null,
       price: f(l.price), amount: f(times(l.price, l.units)),
     })),
   };
@@ -400,11 +404,64 @@ async function committedOn(client, { companyId, projectId }) {
   for (const r of rows) {
     const s = await load(client, { companyId, orderId: r.id });
     for (const l of s.lines) {
-      const open = l.units > l.billedUnits ? times(l.price, l.units - l.billedUnits) : 0n;
+      const open = l.wanted > l.billedUnits ? times(l.price, l.wanted - l.billedUnits) : 0n;
       if (open > 0n) out.push({ orderId: s.order.id, number: s.order.number, supplier: s.order.party, description: l.description, accountId: l.account_id, open, amount: times(l.price, l.units), billed: times(l.price, l.billedUnits) });
     }
   }
   return out;
 }
 
-module.exports = { times, answerQuote, create, load, approve, deliver, billFromOrder, invoiceFromOrder, invoicePart, finish, show, list, committedOn, nextNumber };
+/**
+ * A line closed short: what has gone out (or come in) so far is all there
+ * will be, with the reason. It stops being expected, reserved or on order;
+ * nothing already moved or billed changes.
+ */
+async function closeLine(client, { companyId, userId, orderId, lineId, reason }) {
+  await assumeIdentity(client, { companyId, userId });
+  const s = await load(client, { companyId, orderId });
+  if (s.order.kind === "quote") throw new Error("A quote is answered, not closed a line at a time.");
+  if (["cancelled", "done"].includes(s.status)) throw new Error("That order is finished.");
+  const l = s.lines.find((x) => x.id === lineId);
+  if (!l) throw new Error("That line is not on this order.");
+  if (l.closed_at) throw new Error("That line is closed already.");
+  if (l.deliveredUnits >= l.units) throw new Error("All of that line has gone already; there is nothing left to stop expecting.");
+  const why = String(reason || "").trim();
+  if (why.length < 3) throw new Error("Say why the rest will not come, so it can be read later.");
+  await client.query("UPDATE order_lines SET closed_at = now(), closed_by = $2, close_reason = $3 WHERE id = $1", [lineId, userId, why.slice(0, 300)]);
+  return { left: stock.unitsText(l.units - l.deliveredUnits) };
+}
+
+/**
+ * What is still owed across open orders, oldest expected first: each line with
+ * something still to go out to a customer or come in from a supplier, and each
+ * purchase line that has arrived but not been billed (in no stock figure until
+ * the bill posts).
+ */
+async function owed(client, { companyId }) {
+  const { rows } = await client.query(
+    `SELECT id, expected_on::text AS expected FROM orders WHERE company_id = $1 AND kind IN ('sale','purchase') AND cancelled_at IS NULL AND closed_at IS NULL
+        AND (NOT needs_approval OR approved_at IS NOT NULL) ORDER BY COALESCE(expected_on, ordered_on), created_at`,
+    [companyId]
+  );
+  const today = localToday();
+  const out = [];
+  for (const r of rows) {
+    const s = await load(client, { companyId, orderId: r.id });
+    for (const l of s.lines) {
+      const left = l.wanted > l.deliveredUnits ? l.wanted - l.deliveredUnits : 0n;
+      const waitingBill = s.order.kind === "purchase" && l.deliveredUnits > l.billedUnits ? l.deliveredUnits - l.billedUnits : 0n;
+      if (left === 0n && waitingBill === 0n) continue;
+      out.push({
+        orderId: s.order.id, number: s.order.number, kind: s.order.kind, party: s.order.party, lineId: l.id,
+        description: l.description, itemId: l.item_id, unit: l.unit,
+        ordered: stock.unitsText(l.units), delivered: stock.unitsText(l.deliveredUnits), left: stock.unitsText(left), waitingBill: stock.unitsText(waitingBill),
+        // As text from the database: a DATE made into a JavaScript date can land a day early in Malé.
+        expectedOn: r.expected,
+        late: left > 0n && Boolean(r.expected) && r.expected < today,
+      });
+    }
+  }
+  return out;
+}
+
+module.exports = { times, answerQuote, create, load, approve, deliver, billFromOrder, invoiceFromOrder, invoicePart, finish, show, list, committedOn, nextNumber, closeLine, owed };

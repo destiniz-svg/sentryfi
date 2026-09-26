@@ -89,6 +89,11 @@ BEGIN
   END LOOP;
 END $$;
 GRANT SELECT, INSERT, UPDATE ON orders TO sentryfi_app;
+-- A line closed short: what has gone out (or come in) is all there will be, with the reason.
+ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;
+ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS closed_by UUID REFERENCES users(id);
+ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS close_reason TEXT;
+GRANT UPDATE (closed_at, closed_by, close_reason) ON order_lines TO sentryfi_app;
 
 -- Quotes: an order not yet agreed. Accepted, it becomes a sales order.
 ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_kind_check;

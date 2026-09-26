@@ -746,6 +746,38 @@ describe("promised and coming", () => {
     }));
 });
 
+describe("what is still owed", () => {
+  it("lists what is left to go and to come, lets a line close short with its reason, and shows goods waiting for their bill", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      const cement = await shop.item("Cement");
+      await shop.buy([{ itemId: cement, quantity: "20", amount: "2000.00" }]);
+      const so = await orders.create(client, { companyId, userId, kind: "sale", counterpartyId: shop.customer, expectedOn: "2026-09-01", lines: [{ itemId: cement, quantity: "10", unitPrice: "200" }] });
+      const soLine = (await orders.load(client, { companyId, orderId: so.id })).lines[0].id;
+      await orders.deliver(client, { companyId, userId, orderId: so.id, lines: [{ orderLineId: soLine, quantity: "4" }] });
+      const po = await orders.create(client, { companyId, userId, kind: "purchase", counterpartyId: shop.supplier, lines: [{ itemId: cement, quantity: "6", unitPrice: "100" }], approveUpTo: null });
+      const poLine = (await orders.load(client, { companyId, orderId: po.id })).lines[0].id;
+      await orders.deliver(client, { companyId, userId, orderId: po.id, lines: [{ orderLineId: poLine, quantity: "6" }] });
+
+      let owed = await orders.owed(client, { companyId });
+      expect(owed.find((l) => l.lineId === soLine)).toMatchObject({ kind: "sale", ordered: "10", delivered: "4", left: "6", expectedOn: "2026-09-01", late: true });
+      expect(owed.find((l) => l.lineId === poLine)).toMatchObject({ kind: "purchase", left: "0", waitingBill: "6" });
+
+      // Closed short: a reason is needed; after, nothing is left, the rest is not reserved, and no more can go.
+      await expect(orders.closeLine(client, { companyId, userId, orderId: so.id, lineId: soLine, reason: "" })).rejects.toThrow(/Say why/);
+      expect(await orders.closeLine(client, { companyId, userId, orderId: so.id, lineId: soLine, reason: "Customer took the rest elsewhere" })).toEqual({ left: "6" });
+      await expect(orders.closeLine(client, { companyId, userId, orderId: so.id, lineId: soLine, reason: "again" })).rejects.toThrow(/closed already/);
+      owed = await orders.owed(client, { companyId });
+      expect(owed.find((l) => l.lineId === soLine)).toBeUndefined();
+      const s = orders.show(await orders.load(client, { companyId, orderId: so.id }));
+      expect(s.status).toBe("delivered");
+      expect(s.lines[0]).toMatchObject({ left: "0", closed: { reason: "Customer took the rest elsewhere" } });
+      expect((await shop.held(cement)).reserved).toBe("4"); // gone out, not yet invoiced: still in the books, still spoken for
+      await expect(orders.deliver(client, { companyId, userId, orderId: so.id, lines: [{ orderLineId: soLine, quantity: "1" }] })).rejects.toThrow(/Only 0 of Cement is still to go/);
+    }));
+});
+
 describe("stock used on a job", () => {
   it("leaves its place at average cost and carries that cost to the project and department", () =>
     inRollback(async (client) => {

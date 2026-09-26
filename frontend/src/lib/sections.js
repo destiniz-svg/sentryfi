@@ -61,6 +61,7 @@ export const SECTIONS = [
       { to: "/inventory", icon: Warehouse, label: "Stock", can: "read" },
       { to: "/stock", icon: Boxes, label: "Items" },
       { to: "/counts", icon: ClipboardCheck, label: "Counts", can: "read" },
+      { to: "/still-owed", icon: ClipboardList, label: "Still owed", can: "read" },
       { to: "/shipments", icon: Ship, label: "Shipments" },
     ],
   },

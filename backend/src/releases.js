@@ -17,6 +17,16 @@
  */
 const RELEASES = [
   {
+    version: "1.39.0",
+    date: "2026-09-26",
+    title: "What is still owed",
+    summary: "One list of what open orders still have to send and bring, what is late, and what has come in waiting for its bill. Close a line short when the rest will not come.",
+    items: [
+      { area: "Stock", kind: "new", title: "Still owed", body: "Inventory now has Still owed: what is still to go out to customers, still to come in from suppliers (marked late past the expected date), and what has come in but waits for the supplier's bill.", href: "/still-owed" },
+      { area: "Purchases", kind: "new", title: "Close a line short", body: "On an order, a line that has partly gone out or come in can be closed short, with the reason. The rest is no longer expected, reserved or counted as on order; nothing already moved or billed changes.", href: "/orders?kind=purchase" },
+    ],
+  },
+  {
     version: "1.38.0",
     date: "2026-09-26",
     title: "Promised, coming, and free to sell",

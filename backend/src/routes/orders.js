@@ -54,6 +54,23 @@ router.get(
   })
 );
 
+/** What is still owed across open orders: to go out, to come in, and arrived waiting for the bill. */
+router.get(
+  "/owed",
+  canSee,
+  asyncHandler(async (req, res) => res.json({ lines: await on(req, (client, ctx) => orders.owed(client, ctx)) }))
+);
+
+/** A line closed short, with the reason: the rest is no longer expected. */
+router.post(
+  "/:id/lines/:lineId/close",
+  requireCan("record", "order"),
+  refused(async (req, res) => {
+    const b = parse(z.object({ reason: z.string().trim().min(3, "Say why the rest will not come.").max(300) }), req.body);
+    res.json(await on(req, (client, ctx) => orders.closeLine(client, { ...ctx, orderId: req.params.id, lineId: req.params.lineId, reason: b.reason })));
+  })
+);
+
 /** The choices a new order needs, so ordering needs no other permission. */
 router.get(
   "/options",

@@ -208,7 +208,7 @@ async function overview(client, { companyId, from, to, compare }) {
   for (const { id } of pos) {
     const s = await orders.load(client, { companyId, orderId: id });
     let open = 0n;
-    for (const l of s.lines) if (l.units > l.billedUnits) open += orders.times(l.price, l.units - l.billedUnits);
+    for (const l of s.lines) if (l.wanted > l.billedUnits) open += orders.times(l.price, l.wanted - l.billedUnits);
     if (open > 0n) committed.push({ kind: "order", id, what: `${s.order.number} · ${s.order.party || "supplier"}`, project: s.order.project || null, open });
   }
   const { rows: subs } = await client.query(

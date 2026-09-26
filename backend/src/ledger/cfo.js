@@ -120,7 +120,7 @@ async function figures(client, { companyId, today }) {
   );
   for (const r of po) {
     const s = await orders.load(client, { companyId, orderId: r.id });
-    const open = s.lines.reduce((a, l) => a + (l.units > l.billedUnits ? (l.price * (l.units - l.billedUnits) + 5000n) / 10000n : 0n), 0n);
+    const open = s.lines.reduce((a, l) => a + (l.wanted > l.billedUnits ? (l.price * (l.wanted - l.billedUnits) + 5000n) / 10000n : 0n), 0n);
     if (open > 0n) outParts.push({ kind: "order", id: s.order.id, label: `${s.order.number} to ${s.order.party} (ordered, not yet billed)`, due: s.order.expected_on ? String(s.order.expected_on).slice(0, 10) : null, amount: open });
   }
   for (const l of await require("./loans").list(client, { companyId })) {

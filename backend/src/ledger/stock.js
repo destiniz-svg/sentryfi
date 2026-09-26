@@ -233,7 +233,7 @@ async function batchFor(client, { companyId, userId, itemId, code, expiresOn }) 
  */
 async function committed(client, { companyId }) {
   const { rows } = await client.query(
-    `SELECT o.kind, l.item_id, l.unit, i.unit AS item_unit, i.pack_unit, i.pack_size, l.quantity,
+    `SELECT o.kind, l.item_id, l.unit, i.unit AS item_unit, i.pack_unit, i.pack_size, l.quantity, l.closed_at,
             COALESCE((SELECT SUM(d.quantity) FROM order_delivery_lines d WHERE d.order_line_id = l.id), 0) AS delivered,
             -- Only posted bills and invoices move stock: a draft made from the order leaves it spoken for.
             COALESCE((SELECT SUM(b.quantity) FROM order_billed b
@@ -250,7 +250,9 @@ async function committed(client, { companyId }) {
     const billed = fromDb(r.billed);
     const delivered = fromDb(r.delivered);
     const done = r.kind === "sale" ? billed : delivered > billed ? delivered : billed;
-    const left = fromDb(r.quantity) - done;
+    // A line closed short wants only what has already moved.
+    const wanted = r.closed_at ? (delivered > billed ? delivered : billed) : fromDb(r.quantity);
+    const left = wanted - done;
     if (left <= 0n) continue;
     const units = inBase({ unit: r.item_unit, pack_unit: r.pack_unit, pack_size: r.pack_size }, left, r.unit);
     const c = out.get(r.item_id) || { reserved: 0n, onOrder: 0n };

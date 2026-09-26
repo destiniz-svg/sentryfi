@@ -35,6 +35,7 @@ export default function Order() {
   const qc = useQueryClient();
   const nav = useNavigate();
   const [open, setOpen] = useState(null);
+  const [closing, setClosing] = useState(null); // a line being closed short
   const { data: o, isLoading } = useQuery({
     queryKey: ["orders", companyId, id],
     queryFn: () => apiClient.get(`/orders/${id}`).then((r) => r.data),
@@ -65,7 +66,7 @@ export default function Order() {
   if (isLoading || !o) return <Skeleton className="h-60 rounded-2xl" />;
   const buying = o.kind === "purchase";
   const st = ORDER_STATUS[o.status];
-  const toMove = o.lines.some((l) => n(l.delivered) < n(l.quantity));
+  const toMove = o.lines.some((l) => n(l.left) > 0);
   const toBill = o.lines.some((l) => n(l.billed) < n(l.delivered));
   const quote = o.kind === "quote";
   const live = !quote && !["cancelled", "done", "awaiting_approval"].includes(o.status);
@@ -206,6 +207,23 @@ export default function Order() {
                   <td className="text-left px-4 sm:px-5 py-3">
                     <div>{l.description}</div>
                     <div className="text-[12px] text-[var(--ink-muted)]">{l.item ? "Stock" : l.account || ""}</div>
+                    {!quote && l.closed && (
+                      <div className="text-[12px] text-[var(--ink-muted)]" data-testid="line-closed">
+                        Closed short: {l.closed.reason}
+                      </div>
+                    )}
+                    {!quote && !l.closed && n(l.left) > 0 && (
+                      <div className="text-[12px] flex flex-wrap items-center gap-x-2" data-testid="line-left">
+                        <span className="text-[var(--ink-muted)]">
+                          {l.left} {l.unit || ""} still to {buying ? "come" : "go"}
+                        </span>
+                        {live && can("record") && n(l.delivered) > 0 && (
+                          <button type="button" onClick={() => setClosing(l)} className="underline min-h-11 sm:min-h-0">
+                            Close short
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td className="px-2 sm:px-3 py-3">
                     {l.quantity} {l.unit || ""}
@@ -284,9 +302,48 @@ export default function Order() {
       <Conversation kind={DOC_KIND[o.kind]} id={o.id} />
 
       {open === "deliver" && <Deliver o={o} onClose={() => setOpen(null)} run={run} />}
+      {closing && <CloseShort o={o} line={closing} onClose={() => setClosing(null)} run={run} />}
       {open === "bill" && <Bill o={o} onClose={() => setOpen(null)} run={run} nav={nav} />}
       {open === "part" && <Part o={o} onClose={() => setOpen(null)} run={run} nav={nav} />}
     </div>
+  );
+}
+
+/** Closing a line short: what has moved is all there will be, and why is kept. */
+function CloseShort({ o, line, onClose, run }) {
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const buying = o.kind === "purchase";
+  async function onSubmit(e) {
+    e.preventDefault();
+    setBusy(true);
+    const r = await run(`/orders/${o.id}/lines/${line.id}/close`, { reason }, (x) => [`${line.description} closed short`, `${x.left} ${line.unit || ""} will no longer be expected.`]);
+    setBusy(false);
+    if (r) onClose();
+  }
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      as="form"
+      onSubmit={onSubmit}
+      title={`Close ${line.description} short`}
+      description={`${line.delivered} of ${line.quantity} ${line.unit || ""} ${buying ? "came" : "went out"}. The other ${line.left} will no longer be expected${buying ? "" : " or kept for this customer"}. Nothing already ${buying ? "received or billed" : "sent or invoiced"} changes.`}
+    >
+      <label className="block">
+        <span className="text-sm font-medium block mb-1.5">Why the rest will not {buying ? "come" : "go"}</span>
+        <input id="close-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={buying ? "Supplier is out of stock" : "Customer took the rest elsewhere"} className={FIELD} autoFocus />
+      </label>
+      <div className="flex justify-end gap-2 mt-6">
+        <Button type="button" variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="accent" disabled={busy || reason.trim().length < 3}>
+          {busy && <Loader2 size={14} className="animate-spin" />}
+          Close it short
+        </Button>
+      </div>
+    </Modal>
   );
 }
 
@@ -294,7 +351,8 @@ function Deliver({ o, onClose, run }) {
   const buying = o.kind === "purchase";
   const { sendOrKeep } = useOutbox();
   const toast = useToast();
-  const left = (l) => Math.max(0, n(l.quantity) - n(l.delivered));
+  // What is still to move: none on a line closed short.
+  const left = (l) => Math.max(0, n(l.left));
   const [qty, setQty] = useState(Object.fromEntries(o.lines.map((l) => [l.id, String(left(l))])));
   const [f, setF] = useState({ deliveredOn: today(), reference: "", placeId: "" });
   const places = buying ? o.places || [] : [];
