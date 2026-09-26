@@ -99,6 +99,45 @@ router.get(
 );
 router.get("/:id/packs", requireCan("read_trail"), refused(async (req, res) => res.json({ packs: await as(req, (c, ctx) => require("../ledger/auditPack").packs(c, { ...ctx, periodId: uuid(req.params.id) })) })));
 
+// ------------------------------------------------------------------ questions
+
+const questions = require("../ledger/auditQuestions");
+const { rolesCan } = require("../middleware/company");
+
+/** The period's questions to the company, with their state. */
+router.get("/:id/questions", requireCan("read_trail"), refused(async (req, res) => res.json(await asCompany(req, (c) => questions.list(c, req, { periodId: uuid(req.params.id) })))));
+
+/** Who in the company can be asked: those who keep the books (read them and record or approve), not other auditors. */
+router.get(
+  "/:id/answerers",
+  requireCan("read_trail"),
+  refused(async (req, res) => {
+    const people = await asCompany(req, (c) => require("../ledger/comments").members(c, req.companyId));
+    res.json({ people: people.filter((m) => m.id !== req.user.id && rolesCan(m.roles, "read") && (rolesCan(m.roles, "record") || rolesCan(m.roles, "approve"))).map((m) => ({ id: m.id, name: m.name })) });
+  })
+);
+
+router.post(
+  "/:id/questions",
+  requireCan("audit"),
+  refused(async (req, res) => {
+    const p = z
+      .object({
+        kind: z.string().max(20),
+        recordId: z.string().uuid().nullish(),
+        body: z.string().trim().min(3, "Write the question.").max(4000),
+        askOf: z.string().uuid({ message: "Say who in the company should answer." }),
+        dueOn: z.string().regex(/^d{4}-d{2}-d{2}$/).nullish(),
+      })
+      .safeParse(req.body ?? {});
+    if (!p.success) throw ApiError.badRequest(p.error.issues[0].message);
+    res.status(201).json(await asCompany(req, (c) => questions.ask(c, req, { periodId: uuid(req.params.id), ...p.data })));
+  })
+);
+
+/** A journal entry, for a question's conversation page: its lines, who posted it and when. Anyone who reads the books. */
+router.get("/entries/:eid", requireCan("read"), refused(async (req, res) => res.json({ entry: await as(req, (c, ctx) => audit.entryOf(c, ctx.companyId, uuid(req.params.eid))) })));
+
 /** Re-draws a sample from its seed and rule, and says whether it is the same. */
 router.post("/samples/:sid/prove", requireCan("read_trail"), refused(async (req, res) => res.json(await as(req, (c, ctx) => audit.prove(c, { ...ctx, sampleId: uuid(req.params.sid) })))));
 

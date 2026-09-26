@@ -17,6 +17,15 @@
  */
 const RELEASES = [
   {
+    version: "1.45.0",
+    date: "2026-09-27",
+    title: "Audit: questions to the company",
+    summary: "The auditor asks a named person about any document or entry, or for anything the audit needs, and follows each to an answer.",
+    items: [
+      { area: "Accounting", kind: "new", title: "Questions from the auditor", body: "In Audit, the auditor can ask about a bill, invoice, payment, receipt, claim or entry from a sample, or make a general request, of someone who keeps the books, by a date. It waits for them in Needs you; they answer on the record itself, with papers attached, and the auditor sees what is late, open, answered and closed.", href: "/audit" },
+    ],
+  },
+  {
     version: "1.44.0",
     date: "2026-09-27",
     title: "The audit pack",

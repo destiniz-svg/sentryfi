@@ -446,4 +446,4 @@ async function see(client, { companyId, userId, sampleId, itemId, seen, note }) 
   return { seen: seen !== false };
 }
 
-module.exports = { createPeriod, checkSeal, periods, period, draw, prove, sample, evidence, see, KINDS, NAMES, mus, fingerprint };
+module.exports = { createPeriod, checkSeal, periods, period, draw, prove, sample, evidence, see, entryOf, KINDS, NAMES, mus, fingerprint };

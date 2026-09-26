@@ -11,8 +11,14 @@ import { postBill } from "../src/ledger/bills";
 import * as audit from "../src/ledger/audit";
 import * as risk from "../src/ledger/auditRisk";
 import * as pack from "../src/ledger/auditPack";
+import * as questions from "../src/ledger/auditQuestions";
+import * as comments from "../src/ledger/comments";
 import { unzip } from "../src/ledger/unzip";
 import { createHash } from "crypto";
+
+// The role table sits beside the server settings, which refuse to load without these.
+process.env.DATABASE_URL ||= process.env.TEST_DATABASE_URL || "postgres://unused:unused@127.0.0.1:5432/unused";
+process.env.JWT_SECRET ||= "audit-test-secret-long-enough-to-pass-validation";
 
 afterAll(closePool);
 
@@ -166,6 +172,40 @@ describe("the audit workspace", () => {
       expect(pack.cell("=HYPERLINK(1)")).toBe("'=HYPERLINK(1)");
       expect(pack.cell("-12.50")).toBe("-12.50");
       void accounts;
+    }));
+
+  it("asks the company questions on a document or the audit as a whole, and follows them to closed", () =>
+    inRollback(async (client) => {
+      const { companyId, userId } = await withBills(client);
+      await client.query("RESET ROLE"); // people are added as the owner would
+      await client.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1, $2, 'auditor')", [companyId, userId]);
+      const { rows: u } = await client.query("INSERT INTO users (name, email, password_hash) VALUES ('Aisha', $1, 'x') RETURNING id", [`aisha+${Math.random().toString(36).slice(2)}@sentryfi.invalid`]);
+      const aisha = u[0].id;
+      await client.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1, $2, 'accountant')", [companyId, aisha]);
+      await assumeIdentity(client, { companyId, userId });
+      const can = (list) => (a) => list.includes(a);
+      const auditor = { companyId, user: { id: userId, name: "Test" }, can: can(["read", "read_trail", "audit"]) };
+      const accountant = { companyId, user: { id: aisha, name: "Aisha" }, can: can(["read", "record", "read_trail", "audit"]) };
+      const { id: periodId } = await audit.createPeriod(client, { companyId, userId, from: "2025-01-01", to: "2025-12-31" });
+      const big = await audit.draw(client, { companyId, userId, periodId, kind: "bill", how: "over", over: "500" });
+      const item = (await audit.sample(client, { companyId, sampleId: big.id })).items[0];
+
+      await expect(questions.ask(client, auditor, { periodId, kind: "bill", recordId: item.docId, body: "Where is the delivery note?" })).rejects.toThrow(/who in the company/);
+      const onBill = await questions.ask(client, auditor, { periodId, kind: "bill", recordId: item.docId, body: "Where is the delivery note?", askOf: aisha, dueOn: "2020-01-01" });
+      await questions.ask(client, auditor, { periodId, kind: "audit_period", body: "Please send the loan agreement.", askOf: aisha, dueOn: "2999-01-01" });
+      let q = await questions.list(client, auditor, { periodId });
+      expect(q.counts).toEqual({ open: 1, late: 1, answered: 0, closed: 0 });
+      expect(q.questions.find((x) => x.kind === "bill")).toMatchObject({ about: "Bill Island Hardware IH-6", status: "late", of: "Aisha", by: "Test" });
+      expect(q.questions.find((x) => x.kind === "audit_period")).toMatchObject({ about: "The audit as a whole", href: `/audit/${periodId}?tab=questions` });
+
+      // Aisha answers on the bill's own conversation: the ask is answered, her reply shows.
+      await comments.post(client, accountant, { kind: "bill", id: item.docId, body: "Attached: DN-88, signed on site." });
+      q = await questions.list(client, auditor, { periodId });
+      expect(q.questions.find((x) => x.kind === "bill")).toMatchObject({ status: "answered", replies: 1, latest: expect.objectContaining({ by: "Aisha", body: "Attached: DN-88, signed on site." }) });
+      // The auditor closes it.
+      await comments.settle(client, auditor, onBill.id, true);
+      expect((await questions.list(client, auditor, { periodId })).counts).toEqual({ open: 1, late: 0, answered: 0, closed: 1 });
+      await expect(questions.ask(client, auditor, { periodId, kind: "shipment", recordId: item.docId, body: "x?", askOf: aisha })).rejects.toThrow(/document, an entry/);
     }));
 
   it("lays monetary-unit hits end to end from the seed's start", () => {

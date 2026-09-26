@@ -13,6 +13,41 @@ import { FieldFrame } from "@/components/phone/FieldFrame";
  * record they cannot open (site staff asked about a bill, say). They see what
  * it is and what is said, never the books behind it.
  */
+/** A journal entry asked about: its lines, who posted it and when. */
+function EntryLines({ id }) {
+  const { companyId } = useCompany();
+  const { data } = useQuery({ queryKey: ["entry", companyId, id], queryFn: () => apiClient.get(`/audit/entries/${id}`).then((r) => r.data.entry) });
+  if (!data) return <Skeleton className="h-24 rounded-2xl mt-5" />;
+  return (
+    <div className="mt-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3" data-testid="entry-lines">
+      <p className="text-[13px] text-[var(--ink-muted)]">
+        {data.narrative} · dated {data.on} · posted by {data.posted_by}
+        {data.reversed_by ? ` · reversed by entry ${data.reversed_by}` : ""}
+      </p>
+      <div className="overflow-x-auto mt-2">
+        <table className="w-full text-[13px] tabular">
+          <thead>
+            <tr className="text-[var(--ink-muted)]">
+              <th className="text-left font-medium py-1">Account</th>
+              <th className="text-right font-medium py-1">Debit</th>
+              <th className="text-right font-medium py-1">Credit</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.lines.map((l, i) => (
+              <tr key={i} className="border-t border-[var(--border)]">
+                <td className="py-1.5 pr-2">{l.account}{l.memo ? ` · ${l.memo}` : ""}</td>
+                <td className="py-1.5 text-right">{l.debit === "0.00" ? "" : l.debit}</td>
+                <td className="py-1.5 text-right">{l.credit === "0.00" ? "" : l.credit}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function Talk() {
   const { kind, id } = useParams();
   const { companyId, can } = useCompany();
@@ -48,6 +83,7 @@ export default function Talk() {
       </div>
       </>)}
       {!data.record.opens && <p className="text-[14px] text-[var(--ink-muted)] mt-1">You were brought into this conversation. You see what is said here, not the record itself.</p>}
+      {kind === "entry" && can("read") && <EntryLines id={id} />}
       <Conversation kind={kind} id={id} className="mt-5" />
     </div>
     </FieldFrame>

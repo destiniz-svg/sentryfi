@@ -122,6 +122,39 @@ const settle = (page) => page.waitForTimeout(700);
     await shot(page, "pack");
     ok("the pack is on record with its fingerprint");
 
+    // Questions: a general request, answered by someone in the company when their login is given (SHOOT_ANSWERER_EMAIL). Questions on a document are covered by test/audit.test.js.
+    const periodId = page.url().match(/audit\/([0-9a-f-]{36})/)[1];
+    const people = (await api(page, "GET", `/audit/${periodId}/answerers`)).json.people;
+    if (!people.length) ok("nobody else keeps these books, so the question steps are skipped here");
+    else {
+      await page.getByRole("tab", { name: "Questions" }).click();
+      await page.locator("#ask-body-audit_period").fill("Please send the loan agreement and the bank's confirmation of the year-end balance.");
+      await page.locator("#ask-of-audit_period").selectOption(people[0].id);
+      await page.getByRole("button", { name: "Ask", exact: true }).click();
+      await page.getByTestId("questions").waitFor({ timeout: 15000 });
+      if ((await page.getByTestId("questions").innerText()).includes("loan agreement")) ok(`a general request is asked of ${people[0].name}`);
+      else bad("the request is not listed");
+      await settle(page);
+      await shot(page, "questions");
+      if (process.env.SHOOT_ANSWERER_EMAIL) {
+        const [email, password] = [process.env.SHOOT_EMAIL, process.env.SHOOT_PASSWORD];
+        process.env.SHOOT_EMAIL = process.env.SHOOT_ANSWERER_EMAIL;
+        process.env.SHOOT_PASSWORD = process.env.SHOOT_ANSWERER_PASSWORD;
+        const { page: them } = await signIn(browser, { phone: false });
+        [process.env.SHOOT_EMAIL, process.env.SHOOT_PASSWORD] = [email, password];
+        await them.goto(`${BASE}/audit/${periodId}?tab=questions`, { waitUntil: "networkidle", timeout: 45000 });
+        await them.getByTestId("questions").locator("button").filter({ hasText: "loan agreement" }).first().click();
+        await them.getByLabel("Write a comment").fill("The agreement is attached; the bank letter follows on Monday.");
+        await them.getByRole("button", { name: "Send", exact: true }).click();
+        await them.getByText("the bank letter follows on Monday").first().waitFor({ timeout: 15000 });
+        await them.close();
+        await page.reload({ waitUntil: "networkidle" });
+        const state = await page.getByTestId("questions").locator("li").filter({ hasText: "loan agreement" }).first().innerText();
+        if (/Answered/.test(state) && /bank letter follows/.test(state)) ok("they answer in the conversation; the auditor sees it answered, with the reply");
+        else bad(`after answering, the row reads "${state.replace(/\s+/g, " ")}"`);
+      }
+    }
+
     const canRecord = (await api(page, "GET", "/companies/current")).json?.can?.record;
     if (canRecord === false) {
       const tried = await api(page, "POST", "/bills", { supplierName: "Auditor check", amount: "1", gstTreatment: "none_unregistered" });

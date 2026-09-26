@@ -54,6 +54,11 @@ const KINDS = {
   project: { name: "Project", sql: "SELECT name AS label, NULL::uuid AS owner FROM projects WHERE id = $1 AND company_id = $2", href: (id) => `/projects/${id}` },
   contact: { name: "", sql: "SELECT name AS label, NULL::uuid AS owner FROM counterparties WHERE id = $1 AND company_id = $2", href: (id) => `/contacts/${id}` },
   shipment: { name: "Shipment", sql: "SELECT reference AS label, created_by AS owner FROM shipments WHERE id = $1 AND company_id = $2", href: (id) => `/shipments/${id}` },
+  // For the auditor's questions: a journal entry, a payment and a receipt, and the audit itself.
+  entry: { name: "Entry", sql: "SELECT entry_no::text AS label, posted_by AS owner FROM journal_entries WHERE id = $1 AND company_id = $2", href: (id) => `/talk/entry/${id}` },
+  payment: { name: "Payment", sql: "SELECT COALESCE(NULLIF(reference, ''), to_char(paid_on, 'DD Mon YYYY')) AS label, created_by AS owner FROM payment_runs WHERE id = $1 AND company_id = $2", href: (id) => `/talk/payment/${id}` },
+  receipt: { name: "Receipt", sql: "SELECT to_char(received_on, 'DD Mon YYYY') AS label, received_by AS owner FROM receipts WHERE id = $1 AND company_id = $2", href: (id) => `/documents/receipt/${id}` },
+  audit_period: { name: "Audit", sql: "SELECT name AS label, created_by AS owner FROM audit_periods WHERE id = $1 AND company_id = $2", href: (id) => `/audit/${id}?tab=questions`, need: "read_trail" },
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

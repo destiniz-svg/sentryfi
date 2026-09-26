@@ -97,6 +97,25 @@ CREATE POLICY company_isolation ON audit_packs
   USING (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid)
   WITH CHECK (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid);
 GRANT SELECT, INSERT ON audit_packs TO sentryfi_app;
+-- 1.45.0: the auditor's questions, each an ask on a record's conversation, kept against its period.
+CREATE TABLE IF NOT EXISTS audit_questions (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id  UUID NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
+  period_id   UUID NOT NULL REFERENCES audit_periods(id),
+  comment_id  UUID NOT NULL UNIQUE REFERENCES comments(id),
+  kind        TEXT NOT NULL,
+  record_id   UUID NOT NULL,
+  created_by  UUID NOT NULL REFERENCES users(id),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS audit_questions_period_idx ON audit_questions(company_id, period_id);
+ALTER TABLE audit_questions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_questions FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS company_isolation ON audit_questions;
+CREATE POLICY company_isolation ON audit_questions
+  USING (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid)
+  WITH CHECK (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid);
+GRANT SELECT, INSERT ON audit_questions TO sentryfi_app;
 GRANT SELECT, INSERT ON audit_periods, audit_samples, audit_sample_items TO sentryfi_app;
 GRANT UPDATE (seal_checked_at, seal_ok, seal_entries, seal_problems) ON audit_periods TO sentryfi_app;
 GRANT UPDATE (seen_by, seen_at, note) ON audit_sample_items TO sentryfi_app;

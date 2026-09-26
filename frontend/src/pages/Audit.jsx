@@ -13,6 +13,7 @@ import { apiClient } from "@/api/client";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 import { openFile } from "@/components/documents/Attachments";
+import { Conversation } from "@/components/talk/Conversation";
 import { FIELD } from "@/lib/shipments";
 import { formatDate } from "@/lib/utils";
 
@@ -214,6 +215,7 @@ function Period({ id }) {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="samples">Samples{p.samples.length ? ` · ${p.samples.length}` : ""}</TabsTrigger>
           <TabsTrigger value="risk">Journal risk</TabsTrigger>
+          <TabsTrigger value="questions">Questions</TabsTrigger>
           <TabsTrigger value="pack">Audit pack</TabsTrigger>
         </TabsList>
       </Tabs>
@@ -229,7 +231,7 @@ function Period({ id }) {
               </Button>
             </p>
           )}
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-3 gap-4">
             <Card padding="lg" className="grid gap-3 content-start">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-[15px] font-semibold">Samples</h2>
@@ -249,11 +251,13 @@ function Period({ id }) {
               )}
             </Card>
             <RiskGlance id={id} onOpen={() => go("risk")} />
+            <QuestionsGlance id={id} onOpen={() => go("questions")} />
           </div>
         </div>
       )}
       {tab === "samples" && <Samples p={p} />}
       {tab === "risk" && <Risk id={id} />}
+      {tab === "questions" && <Questions p={p} />}
       {tab === "pack" && <Pack p={p} />}
     </div>
   );
@@ -509,6 +513,182 @@ function Risk({ id }) {
   );
 }
 
+// ------------------------------------------------------------------ questions
+
+const STATE = {
+  late: { label: "Late", tone: "danger" },
+  open: { label: "Open", tone: "warning" },
+  answered: { label: "Answered", tone: "accent" },
+  closed: { label: "Closed", tone: "success" },
+  withdrawn: { label: "Withdrawn", tone: "neutral" },
+};
+
+function useQuestions(id) {
+  const { companyId } = useCompany();
+  return useQuery({ queryKey: ["audit-questions", companyId, id], queryFn: () => apiClient.get(`/audit/${id}/questions`).then((r) => r.data), enabled: Boolean(companyId), refetchInterval: 30_000 });
+}
+
+function QuestionsGlance({ id, onOpen }) {
+  const { data: q } = useQuestions(id);
+  return (
+    <Card padding="lg" className="grid gap-3 content-start" data-testid="questions-glance">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[15px] font-semibold">Questions</h2>
+        <button type="button" onClick={onOpen} className="text-[13px] underline underline-offset-2 min-h-11">
+          Open
+        </button>
+      </div>
+      {!q ? (
+        <Skeleton className="h-10 rounded-xl" />
+      ) : !q.questions.length ? (
+        <p className="text-[14px] text-[var(--ink-muted)]">None asked yet.</p>
+      ) : (
+        <p className="flex flex-wrap gap-2">
+          {["late", "open", "answered", "closed"].map((s) =>
+            q.counts[s] ? (
+              <Badge key={s} tone={STATE[s].tone}>
+                {q.counts[s]} {STATE[s].label.toLowerCase()}
+              </Badge>
+            ) : null
+          )}
+        </p>
+      )}
+    </Card>
+  );
+}
+
+/** Asks someone in the company a question, on a record or on the audit as a whole. */
+function AskForm({ periodId, kind, recordId, onAsked, compact = false }) {
+  const { companyId } = useCompany();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ["audit-answerers", companyId, periodId], queryFn: () => apiClient.get(`/audit/${periodId}/answerers`).then((r) => r.data.people), staleTime: 60_000 });
+  const [f, setF] = useState({ body: "", askOf: "", dueOn: "" });
+  const [busy, setBusy] = useState(false);
+  async function onSubmit(e) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await apiClient.post(`/audit/${periodId}/questions`, { kind, recordId: recordId || null, body: f.body, askOf: f.askOf, dueOn: f.dueOn || null });
+      qc.invalidateQueries({ queryKey: ["audit-questions", companyId, periodId] });
+      qc.invalidateQueries({ queryKey: ["comments", companyId] });
+      setF({ body: "", askOf: f.askOf, dueOn: "" });
+      toast.success("Asked", "They are told, and it waits for them in Needs you.");
+      onAsked?.();
+    } catch (ex) {
+      toast.error("Not asked", ex.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const people = data || [];
+  return (
+    <form onSubmit={onSubmit} className="grid gap-3" data-testid="ask-form">
+      <div>
+        <Label htmlFor={`ask-body-${kind}`}>{compact ? "Ask the company about this" : "Request or question"}</Label>
+        <textarea id={`ask-body-${kind}`} value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} rows={compact ? 2 : 3} placeholder={compact ? "Where is the delivery note for this?" : "Please send the loan agreement and the bank's confirmation of the balance."} className={`${FIELD} h-auto py-2.5`} />
+      </div>
+      <div className="flex flex-wrap gap-3 items-end">
+        <div>
+          <Label htmlFor={`ask-of-${kind}`}>Who answers</Label>
+          <select id={`ask-of-${kind}`} value={f.askOf} onChange={(e) => setF({ ...f, askOf: e.target.value })} className={`${FIELD} w-52`}>
+            <option value="">Choose someone</option>
+            {people.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <Label htmlFor={`ask-due-${kind}`}>By (optional)</Label>
+          <input id={`ask-due-${kind}`} type="date" value={f.dueOn} onChange={(e) => setF({ ...f, dueOn: e.target.value })} className={`${FIELD} w-44`} />
+        </div>
+        <Button type="submit" variant={compact ? "outline" : "accent"} disabled={busy || f.body.trim().length < 3 || !f.askOf}>
+          {busy && <Loader2 size={14} className="animate-spin" />}
+          Ask
+        </Button>
+      </div>
+      {!people.length && data && <p className="text-[13px] text-[var(--ink-muted)]">Nobody in the company keeps the books yet, so there is nobody to ask.</p>}
+    </form>
+  );
+}
+
+function Questions({ p }) {
+  const { can } = useCompany();
+  const { data: q, isLoading } = useQuestions(p.id);
+  const [open, setOpen] = useState(null);
+  const [only, setOnly] = useState(null);
+  if (isLoading || !q) return <Skeleton className="h-60 rounded-2xl" />;
+  const shown = only ? q.questions.filter((x) => x.status === only) : q.questions;
+  const current = q.questions.find((x) => x.id === open);
+  return (
+    <div className="grid gap-4">
+      {can("audit") && (
+        <Card padding="lg">
+          <AskForm periodId={p.id} kind="audit_period" />
+          <p className="text-[12.5px] text-[var(--ink-muted)] mt-3">A general request sits on the audit itself. To ask about one bill, invoice or entry, open it from a sample and ask there, so the answer stays with it.</p>
+        </Card>
+      )}
+      <div className="flex flex-wrap gap-2" data-testid="question-states">
+        {["late", "open", "answered", "closed"].map((s) => (
+          <button
+            key={s}
+            type="button"
+            aria-pressed={only === s}
+            onClick={() => setOnly(only === s ? null : s)}
+            className={`h-9 px-3 rounded-full border text-[13px] ${only === s ? "bg-[var(--ink)] text-[var(--bg)] border-[var(--ink)]" : "border-[var(--border)] hover:border-[var(--ink-muted)]"}`}
+          >
+            {STATE[s].label} <span className="tabular opacity-70">{q.counts[s]}</span>
+          </button>
+        ))}
+      </div>
+      <Card padding="none" className="overflow-hidden">
+        {!shown.length ? (
+          <p className="px-5 py-4 text-[14px] text-[var(--ink-muted)]">{q.questions.length ? "None in that state." : "No questions yet. Each is asked of a named person, with a date if it matters, and waits for them in Needs you."}</p>
+        ) : (
+          <ul className="divide-y divide-[var(--border)]" data-testid="questions">
+            {shown.map((x) => (
+              <li key={x.id}>
+                <button type="button" onClick={() => setOpen(x.id)} className="w-full text-left px-5 py-3.5 hover:bg-[var(--surface-2)] grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1">
+                  <span className="min-w-0">
+                    <span className="block text-[12.5px] text-[var(--ink-muted)]">{x.about}</span>
+                    <span className="block text-[14.5px] font-medium">{x.body}</span>
+                    <span className="block text-[12.5px] text-[var(--ink-muted)] mt-0.5">
+                      Asked of {x.of} by {x.by}, {formatDate(x.at)}
+                      {x.dueOn ? ` · by ${formatDate(x.dueOn)}` : ""}
+                      {x.replies ? ` · ${x.replies} ${x.replies === 1 ? "reply" : "replies"}` : ""}
+                      {x.files ? ` · ${x.files} ${x.files === 1 ? "file" : "files"}` : ""}
+                    </span>
+                    {x.latest && (
+                      <span className="block text-[13px] mt-1 border-l-2 border-[var(--border)] pl-2">
+                        {x.latest.by}: {x.latest.body.length > 160 ? `${x.latest.body.slice(0, 159)}…` : x.latest.body}
+                      </span>
+                    )}
+                  </span>
+                  <Badge tone={STATE[x.status].tone} className="self-start">
+                    {STATE[x.status].label}
+                  </Badge>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+      {current && (
+        <Modal open onClose={() => setOpen(null)} title={current.about} description={`${STATE[current.status].label} · asked of ${current.of}${current.dueOn ? `, by ${formatDate(current.dueOn)}` : ""}`}>
+          {current.href && current.kind !== "audit_period" && (
+            <Link to={current.href} className="text-[13px] underline underline-offset-2">
+              Open the record
+            </Link>
+          )}
+          <Conversation kind={current.kind} id={current.recordId} title="The conversation" className="mt-3" />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 // ------------------------------------------------------------------ the pack
 
 const CONTENTS = [
@@ -737,6 +917,14 @@ function Evidence({ sample, item, onClose, onNext, canTick }) {
             )}
           </Part>
         </div>
+      )}
+      {canTick && (
+        <details className="mt-5 rounded-xl border border-[var(--border)] px-3 py-2 group">
+          <summary className="cursor-pointer text-[14px] font-medium min-h-9 flex items-center">Ask the company about this</summary>
+          <div className="pt-2 pb-1">
+            <AskForm periodId={sample.periodId} kind={sample.kind} recordId={item.docId} compact />
+          </div>
+        </details>
       )}
       {canTick ? (
         <>
