@@ -280,7 +280,7 @@ describe("stock kept in more than one place", () => {
       await expect(stock.addPlace(client, { companyId, userId, name: "the Yard" })).rejects.toThrow(/already a place/);
 
       const valueBefore = await shop.tied();
-      await stock.transfer(client, { companyId, userId, itemId: cement, fromPlaceId: null, toPlaceId: yard.id, quantity: "6", on: "2026-09-12" });
+      await stock.transfer(client, { companyId, userId, itemId: cement, fromPlaceId: null, toPlaceId: yard.id, quantity: "6", on: "2026-09-12", arrived: true });
       expect(await shop.tied()).toBe(valueBefore); // where it is changed, not what it is worth
       await expect(stock.transfer(client, { companyId, userId, itemId: cement, fromPlaceId: null, toPlaceId: yard.id, quantity: "5", on: "2026-09-12" })).rejects.toThrow(/Only 4 bag/);
 
@@ -330,6 +330,103 @@ describe("stock kept in more than one place", () => {
       await stock.undoBillStock(client, { companyId, userId, billId: rows[0].id, entryId: r.id, on: "2026-09-21" });
       expect((await stock.atPlaces(client, { companyId, itemId: cement })).get(site.id) || 0n).toBe(0n);
       await shop.tied();
+    }));
+});
+
+describe("sending stock and its arrival", () => {
+  it("is on the way until it arrives, cannot be sold meanwhile, and a shortfall is written off at the place with its reason", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      const cement = await shop.item("Cement");
+      await shop.buy([{ itemId: cement, quantity: "10", amount: "1000.00" }]); // 100.00 each, main store
+      const site = await stock.addPlace(client, { companyId, userId, name: "Tower site", kind: "site" });
+
+      const sent = await stock.transfer(client, { companyId, userId, itemId: cement, fromPlaceId: null, toPlaceId: site.id, quantity: "8", on: "2026-09-12", note: "On the dhoni" });
+      expect(sent.onTheWay).toBe(true);
+      let at = await stock.atPlaces(client, { companyId, itemId: cement });
+      expect(at.get("main")).toBe(stock.toUnits("2"));
+      expect(at.get(site.id)).toBeUndefined();
+      expect((await shop.held(cement)).inTransit).toBe("8");
+      const [way] = await stock.onTheWay(client, { companyId });
+      expect(way).toMatchObject({ id: sent.id, item: "Cement", quantity: "8", from: "Main store", to: "Tower site", sentOn: "2026-09-12", note: "On the dhoni" });
+      // What is on the way cannot be sold, and nothing can be sent onward from where it has not reached.
+      await expect(shop.sell([{ itemId: cement, quantity: 3, unitPrice: "200.00" }])).rejects.toThrow(/still on the way/);
+      await expect(stock.transfer(client, { companyId, userId, itemId: cement, fromPlaceId: site.id, toPlaceId: null, quantity: "1", on: "2026-09-13" })).rejects.toThrow(/Only 0 bag/);
+
+      // Seven came: the one short needs a reason, more than was sent is refused, and it cannot arrive before it left.
+      const arrive = (over) => stock.arrive(client, { companyId, userId, transferId: sent.id, received: "7", on: "2026-09-14", ...over });
+      await expect(arrive({})).rejects.toThrow(/Say why 1 bag is short/);
+      await expect(arrive({ received: "9" })).rejects.toThrow(/8 bag were sent/);
+      await expect(arrive({ reason: "Split bag", on: "2026-09-11" })).rejects.toThrow(/cannot arrive before/);
+      const valueBefore = await shop.tied();
+      const got = await arrive({ reason: "One bag split on the jetty" });
+      expect(got).toEqual({ received: "7", short: "1", to: "Tower site" });
+      await expect(arrive({ reason: "again" })).rejects.toThrow(/already arrived/);
+
+      at = await stock.atPlaces(client, { companyId, itemId: cement });
+      expect(at.get(site.id)).toBe(stock.toUnits("7"));
+      expect(at.get("transit") || 0n).toBe(0n);
+      expect(await stock.onTheWay(client, { companyId })).toEqual([]);
+      expect(await shop.tied()).toBe(valueBefore - 10000n); // the lost bag, at its average cost
+      const { rows } = await client.query(
+        "SELECT SUM(l.debit_laari) AS d FROM journal_lines l JOIN accounts a ON a.id = l.account_id WHERE a.company_id = $1 AND a.code = '5870'",
+        [companyId]
+      );
+      expect(BigInt(rows[0].d)).toBe(10000n);
+      const h = await stock.history(client, { companyId, itemId: cement });
+      expect(h.find((x) => x.kind === "moved").note).toBe("From Main store to Tower site, 7 arrived 2026-09-14: On the dhoni");
+      expect(h.find((x) => x.kind === "counted").note).toBe("Short on arrival: One bag split on the jetty");
+      expect((await verifyChain(client, { companyId, userId })).ok).toBe(true);
+    }));
+
+  it("all arriving writes nothing into the books", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      const cement = await shop.item("Cement");
+      await shop.buy([{ itemId: cement, quantity: "4", amount: "400.00" }]);
+      const van = await stock.addPlace(client, { companyId, userId, name: "Van", kind: "vehicle" });
+      const sent = await stock.transfer(client, { companyId, userId, itemId: cement, fromPlaceId: null, toPlaceId: van.id, quantity: "4", on: "2026-09-12" });
+      const before = (await client.query("SELECT count(*) AS n FROM journal_entries WHERE company_id = $1", [companyId])).rows[0].n;
+      expect(await stock.arrive(client, { companyId, userId, transferId: sent.id, received: "4", on: "2026-09-12" })).toMatchObject({ short: "0" });
+      expect((await client.query("SELECT count(*) AS n FROM journal_entries WHERE company_id = $1", [companyId])).rows[0].n).toBe(before);
+      expect((await stock.atPlaces(client, { companyId, itemId: cement })).get(van.id)).toBe(stock.toUnits("4"));
+    }));
+});
+
+describe("stock used on a job", () => {
+  it("leaves its place at average cost and carries that cost to the project and department", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      const cement = await shop.item("Cement");
+      await shop.buy([{ itemId: cement, quantity: "3", amount: "300.00" }]);
+      await shop.buy([{ itemId: cement, quantity: "1", amount: "140.00" }]); // average now 110.00
+      const project = (await client.query("INSERT INTO projects (company_id, name) VALUES ($1,'Hulhumale tower') RETURNING id", [companyId])).rows[0].id;
+      const dept = (await client.query("INSERT INTO dimensions (company_id, kind, name) VALUES ($1,'department','Civil') RETURNING id", [companyId])).rows[0].id;
+
+      const use = (over) => stock.issue(client, { companyId, userId, itemId: cement, placeId: null, quantity: "2", on: "2026-09-15", ...over });
+      await expect(use({})).rejects.toThrow(/which project or department/);
+      await expect(use({ projectId: project, quantity: "5" })).rejects.toThrow(/Only 4 bag/);
+      const r = await use({ projectId: project, dimensionIds: [dept], note: "Slab pour" });
+      expect(r.value).toBe(22000n);
+      expect(r.usedOn).toBe("Hulhumale tower, Civil");
+
+      const { rows } = await client.query(
+        `SELECT a.code, a.name, l.debit_laari, l.project_id, l.dimension_ids FROM journal_lines l JOIN accounts a ON a.id = l.account_id
+          WHERE l.entry_id = $1 AND l.debit_laari > 0`,
+        [r.entry.id]
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ code: "5060", name: "Materials used on jobs", project_id: project, dimension_ids: [dept] });
+      expect(BigInt(rows[0].debit_laari)).toBe(22000n);
+
+      const held = await shop.held(cement);
+      expect(held).toMatchObject({ onHand: "2", value: "220.00", sold: "0", costOfSales: "0.00" }); // used, not sold
+      await shop.tied();
+      const h = await stock.history(client, { companyId, itemId: cement });
+      expect(h.find((x) => x.kind === "issued")).toMatchObject({ quantity: "-2", value: "-220.00", note: "Used on Hulhumale tower, Civil: Slab pour" });
     }));
 });
 

@@ -17,6 +17,16 @@
  */
 const RELEASES = [
   {
+    version: "1.33.0",
+    date: "2026-09-26",
+    title: "Send and arrive, and stock used on a job",
+    summary: "Stock sent to another place is on the way until someone there says what came. Stock used on a project or department carries its cost there.",
+    items: [
+      { area: "Stock", kind: "new", title: "On the way until it arrives", body: "Sending stock to another place puts it on the way. Whoever is there taps It arrived and says how many came; anything short needs a reason and is written off at average cost. Tick It's there already for a move across the yard.", href: "/stock" },
+      { area: "Stock", kind: "new", title: "Use on a job", body: "Take stock out for a project or a department. It leaves at average cost, and the project or department carries that cost. Taking it from a site fills in the site's project.", href: "/stock" },
+    ],
+  },
+  {
     version: "1.32.0",
     date: "2026-09-26",
     title: "Stock places, for real",

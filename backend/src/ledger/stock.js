@@ -23,6 +23,7 @@ const ACCOUNTS = {
   cogs: ["5050", "Cost of goods sold", "expense"],
   counted: ["5870", "Stock counted short or over", "expense"],
   opening: ["3900", "Opening balances", "equity"],
+  used: ["5060", "Materials used on jobs", "expense"],
 };
 
 async function account(client, companyId, [code, name, type]) {
@@ -80,21 +81,24 @@ function mustCount(held) {
 }
 
 const MAIN = "main";
+// Sent and not yet arrived: held by the company, at no place it can sell from.
+const TRANSIT = "transit";
 const placeKey = (id) => id || MAIN;
 
 /**
- * How many of an item are at each place: its movements there, plus what was
- * moved in, less what was moved out. Keyed by place id, "main" for the main store.
+ * Where each unit is: its movements at their place, what was moved out of a
+ * place, and what was moved in once it arrived (on the way until then).
+ * `only` narrows it to one item ($2).
  */
+const WHERE = (only = "") => `
+  SELECT m.item_id AS item, m.place_id::text AS place, m.quantity AS q FROM stock_moves m WHERE m.company_id = $1 ${only && "AND m.item_id = $2"}
+  UNION ALL SELECT t.item_id, CASE WHEN t.arrives AND a.id IS NULL THEN '${TRANSIT}' ELSE t.to_place_id::text END, t.quantity
+    FROM stock_transfers t LEFT JOIN stock_arrivals a ON a.transfer_id = t.id WHERE t.company_id = $1 ${only && "AND t.item_id = $2"}
+  UNION ALL SELECT t.item_id, t.from_place_id::text, -t.quantity FROM stock_transfers t WHERE t.company_id = $1 ${only && "AND t.item_id = $2"}`;
+
+/** How many of an item are at each place, keyed by place id: "main" for the main store, "transit" for on the way. */
 async function atPlaces(client, { companyId, itemId }) {
-  const { rows } = await client.query(
-    `SELECT place, SUM(q) AS q FROM (
-       SELECT place_id AS place, quantity AS q FROM stock_moves WHERE company_id = $1 AND item_id = $2
-       UNION ALL SELECT to_place_id, quantity FROM stock_transfers WHERE company_id = $1 AND item_id = $2
-       UNION ALL SELECT from_place_id, -quantity FROM stock_transfers WHERE company_id = $1 AND item_id = $2
-     ) x GROUP BY place`,
-    [companyId, itemId]
-  );
+  const { rows } = await client.query(`SELECT place, SUM(q) AS q FROM (${WHERE("item")}) x GROUP BY place`, [companyId, itemId]);
   return new Map(rows.map((r) => [placeKey(r.place), fromDb(r.q)]));
 }
 
@@ -220,7 +224,11 @@ async function invoiceCost(client, { companyId, userId, invoice, lines }) {
     // Where it leaves from: the main store first, then the place holding most.
     // The cost is shared by units, the last part taking what rounding leaves.
     const at = places.get(l.item_id);
-    const order = [...at.entries()].filter(([, q]) => q > 0n).sort(([a, qa], [b, qb]) => (a === MAIN ? -1 : b === MAIN ? 1 : qb > qa ? 1 : qb < qa ? -1 : 0));
+    const onWay = at.get(TRANSIT) || 0n;
+    if (onWay > 0n && units > h.units + units - onWay) {
+      throw new Error(`${unitsText(onWay)} ${h.item.unit} of ${h.item.name} ${onWay === SCALE ? "is" : "are"} still on the way. Say they arrived before selling them.`);
+    }
+    const order = [...at.entries()].filter(([p, q]) => q > 0n && p !== TRANSIT).sort(([a, qa], [b, qb]) => (a === MAIN ? -1 : b === MAIN ? 1 : qb > qa ? 1 : qb < qa ? -1 : 0));
     let left = units;
     let costLeft = cost;
     const parts = [];
@@ -329,7 +337,7 @@ async function recost(client, { companyId, userId, itemId, since, why }) {
   let value = 0n;
   for (const m of rows) {
     const q = fromDb(m.quantity);
-    if (q < 0n && (m.kind === "sold" || m.kind === "counted")) {
+    if (q < 0n && (m.kind === "sold" || m.kind === "counted" || m.kind === "issued")) {
       if (-q > units) return null; // the dates do not replay cleanly; leave it as posted
       value -= costOut({ units, value, item: held.item }, -q);
     } else value += BigInt(m.value_laari);
@@ -473,8 +481,12 @@ async function updatePlace(client, { companyId, placeId, name, kind, inChargeId,
   return rows[0];
 }
 
-/** Stock taken from one place to another: where it is changes, what it is worth does not. */
-async function transfer(client, { companyId, userId, itemId, fromPlaceId, toPlaceId, quantity, on, note }) {
+/**
+ * Stock taken from one place to another: where it is changes, what it is worth
+ * does not. It is on the way until a person says it arrived, unless it is
+ * there already (`arrived`), like a move across the yard.
+ */
+async function transfer(client, { companyId, userId, itemId, fromPlaceId, toPlaceId, quantity, on, note, arrived = false }) {
   await assumeIdentity(client, { companyId, userId });
   if ((fromPlaceId || null) === (toPlaceId || null)) throw new Error("It is already there.");
   const held = await holding(client, { companyId, itemId });
@@ -485,11 +497,123 @@ async function transfer(client, { companyId, userId, itemId, fromPlaceId, toPlac
   if (units <= 0n) throw new Error("How many are moving?");
   const there = (await atPlaces(client, { companyId, itemId })).get(placeKey(fromPlaceId)) || 0n;
   if (units > there) throw new Error(`Only ${unitsText(there)} ${held.item.unit} of ${held.item.name} ${there === SCALE ? "is" : "are"} at ${from.name}.`);
-  await client.query(
-    "INSERT INTO stock_transfers (company_id, item_id, from_place_id, to_place_id, quantity, moved_on, note, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
-    [companyId, itemId, fromPlaceId || null, toPlaceId || null, unitsText(units), on, note ? String(note).trim() : null, userId]
+  const { rows } = await client.query(
+    "INSERT INTO stock_transfers (company_id, item_id, from_place_id, to_place_id, quantity, moved_on, note, created_by, arrives) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id",
+    [companyId, itemId, fromPlaceId || null, toPlaceId || null, unitsText(units), on, note ? String(note).trim() : null, userId, !arrived]
   );
-  return { moved: unitsText(units), from: from.name, to: to.name };
+  return { id: rows[0].id, moved: unitsText(units), from: from.name, to: to.name, onTheWay: !arrived };
+}
+
+/** A quantity that may be nothing at all, as whole ten-thousandths. */
+function toUnitsOrNone(q) {
+  const s = String(q ?? "").trim();
+  return /^0*(\.0*)?$/.test(s) && s !== "" ? 0n : toUnits(s);
+}
+
+/**
+ * Goods sent that have come: all of them, or fewer with the reason. What came
+ * short is written off at the place it was going to, at average cost, to 5870
+ * like a count, so a loss on the way is seen and not buried. More than was sent
+ * is refused: the extra is counted at the place instead.
+ */
+async function arrive(client, { companyId, userId, transferId, received, on, reason }) {
+  await assumeIdentity(client, { companyId, userId });
+  const sql = `SELECT t.id, t.item_id, t.to_place_id, t.quantity, t.moved_on::text AS sent_on, t.arrives, a.id AS arrived
+                 FROM stock_transfers t LEFT JOIN stock_arrivals a ON a.transfer_id = t.id
+                WHERE t.id = $1 AND t.company_id = $2`;
+  const first = (await client.query(sql, [transferId, companyId])).rows[0];
+  if (!first) throw new Error("That transfer is not in these books.");
+  // A transfer is never changed, so the item is what is locked; read again under the lock so two people cannot both receive it.
+  const held = await holding(client, { companyId, itemId: first.item_id });
+  const t = (await client.query(sql, [transferId, companyId])).rows[0];
+  if (!t.arrives || t.arrived) throw new Error("That has already arrived.");
+  const to = t.to_place_id ? await place(client, { companyId, placeId: t.to_place_id }) : { name: "Main store" };
+  const sent = fromDb(t.quantity);
+  const got = toUnitsOrNone(received);
+  const { unit, name } = held.item;
+  if (got > sent) throw new Error(`${unitsText(sent)} ${unit} were sent. Count the extra at ${to.name} instead.`);
+  if (String(on) < t.sent_on) throw new Error(`It was sent on ${t.sent_on}, so it cannot arrive before then.`);
+  const short = sent - got;
+  const why = reason ? String(reason).trim() : "";
+  if (short > 0n && why.length < 3) throw new Error(`Say why ${unitsText(short)} ${unit} ${short === SCALE ? "is" : "are"} short.`);
+  await client.query(
+    "INSERT INTO stock_arrivals (company_id, transfer_id, received, arrived_on, reason, created_by) VALUES ($1,$2,$3,$4,$5,$6)",
+    [companyId, transferId, unitsText(got), on, why || null, userId]
+  );
+  if (short > 0n) {
+    const value = costOut(held, short);
+    // A move needs an entry, as a count does, so a shortfall worth nothing is counted at the place instead.
+    if (value === 0n) throw new Error(`What came short is worth nothing at its cost, so count ${name} at ${to.name} instead.`);
+    const memo = `${unitsText(short)} ${unit} ${name} short on arrival at ${to.name}: ${why}`;
+    const entry = await postEntry(client, {
+      companyId, userId, date: on, source: "stock", narrative: memo,
+      lines: [{ accountId: await account(client, companyId, ACCOUNTS.counted), debit: value, memo }, { accountId: await account(client, companyId, ACCOUNTS.stock), credit: value, memo }],
+    });
+    await recordMove(client, { companyId, userId, itemId: t.item_id, on, kind: "counted", units: -short, value: -value, entryId: entry.id, note: `Short on arrival: ${why}`, placeId: t.to_place_id });
+  }
+  return { received: unitsText(got), short: unitsText(short), to: to.name };
+}
+
+/** What is on the way, oldest first, with where it is going and who looks after that place. */
+async function onTheWay(client, { companyId }) {
+  const { rows } = await client.query(
+    `SELECT t.id, t.item_id, i.name AS item, i.unit, t.quantity, t.moved_on::text AS sent_on, t.note,
+            COALESCE(f.name, 'Main store') AS from_name, t.to_place_id, COALESCE(p.name, 'Main store') AS to_name,
+            p.in_charge, s.name AS sent_by
+       FROM stock_transfers t JOIN stock_items i ON i.id = t.item_id
+       LEFT JOIN stock_arrivals a ON a.transfer_id = t.id
+       LEFT JOIN stock_places f ON f.id = t.from_place_id LEFT JOIN stock_places p ON p.id = t.to_place_id
+       LEFT JOIN users s ON s.id = t.created_by
+      WHERE t.company_id = $1 AND t.arrives AND a.id IS NULL
+      ORDER BY t.moved_on, t.created_at`,
+    [companyId]
+  );
+  return rows.map((r) => ({
+    id: r.id, itemId: r.item_id, item: r.item, unit: r.unit, quantity: unitsText(fromDb(r.quantity)), sentOn: r.sent_on, note: r.note,
+    from: r.from_name, toPlaceId: r.to_place_id, to: r.to_name, inChargeId: r.in_charge, sentBy: r.sent_by,
+  }));
+}
+
+/**
+ * Stock used on a job: it leaves a place at average cost, and that cost goes
+ * to the item's own kind of cost (or materials used) on the project or
+ * department it was used on, so the job carries what it used.
+ */
+async function issue(client, { companyId, userId, itemId, placeId, quantity, on, projectId, dimensionIds = [], note }) {
+  await assumeIdentity(client, { companyId, userId });
+  const held = await holding(client, { companyId, itemId });
+  mustCount(held);
+  const from = placeId ? await place(client, { companyId, placeId }) : { name: "Main store" };
+  const ids = [...new Set((dimensionIds || []).filter(Boolean))];
+  if (!projectId && !ids.length) throw new Error("Say which project or department it was used on.");
+  let project = null;
+  if (projectId) {
+    const { rows } = await client.query("SELECT name FROM projects WHERE id = $1 AND company_id = $2 AND archived_at IS NULL", [projectId, companyId]);
+    if (!rows.length) throw new Error("That project is not in these books.");
+    project = rows[0].name;
+  }
+  const { rows: dims } = ids.length
+    ? await client.query("SELECT name FROM dimensions WHERE company_id = $1 AND id = ANY($2::uuid[]) AND archived_at IS NULL", [companyId, ids])
+    : { rows: [] };
+  if (dims.length !== ids.length) throw new Error("That department is not in these books.");
+  const units = toUnits(quantity);
+  const there = (await atPlaces(client, { companyId, itemId })).get(placeKey(placeId)) || 0n;
+  if (units > there) throw new Error(`Only ${unitsText(there)} ${held.item.unit} of ${held.item.name} ${there === SCALE ? "is" : "are"} at ${from.name}.`);
+  const value = costOut(held, units);
+  if (value === 0n) throw new Error(`${held.item.name} has no cost yet, so there is nothing to carry to the job. Record the bill that brought it in first.`);
+  const { rows: own } = await client.query("SELECT cost_account_id FROM stock_items WHERE id = $1", [itemId]);
+  const costAcc = own[0].cost_account_id || (await account(client, companyId, ACCOUNTS.used));
+  const on_ = [project, ...dims.map((d) => d.name)].filter(Boolean).join(", ");
+  const memo = `${unitsText(units)} ${held.item.unit} ${held.item.name} used on ${on_}`;
+  const entry = await postEntry(client, {
+    companyId, userId, date: on, source: "stock", narrative: memo,
+    lines: [
+      { accountId: costAcc, debit: value, projectId: projectId || null, dimensionIds: ids, memo },
+      { accountId: await account(client, companyId, ACCOUNTS.stock), credit: value, memo },
+    ],
+  });
+  await recordMove(client, { companyId, userId, itemId, on, kind: "issued", units: -units, value: -value, entryId: entry.id, note: note ? `Used on ${on_}: ${String(note).trim()}` : `Used on ${on_}`, placeId: placeId || null });
+  return { entry, value, usedOn: on_ };
 }
 
 // ------------------------------------------------------------------ reading
@@ -513,14 +637,7 @@ async function list(client, { companyId }) {
   const kept = await places(client, { companyId });
   const byPlace = new Map();
   if (kept.length > 1) {
-    const { rows: at } = await client.query(
-      `SELECT item, place, SUM(q) AS q FROM (
-         SELECT item_id AS item, place_id AS place, quantity AS q FROM stock_moves WHERE company_id = $1
-         UNION ALL SELECT item_id, to_place_id, quantity FROM stock_transfers WHERE company_id = $1
-         UNION ALL SELECT item_id, from_place_id, -quantity FROM stock_transfers WHERE company_id = $1
-       ) x GROUP BY item, place`,
-      [companyId]
-    );
+    const { rows: at } = await client.query(`SELECT item, place, SUM(q) AS q FROM (${WHERE()}) x GROUP BY item, place`, [companyId]);
     for (const r of at) {
       if (!byPlace.has(r.item)) byPlace.set(r.item, new Map());
       byPlace.get(r.item).set(placeKey(r.place), fromDb(r.q));
@@ -561,6 +678,7 @@ async function list(client, { companyId }) {
       margin: formatLaari(sales - cost),
       marginPercent: sales > 0n ? Number(((sales - cost) * 1000n) / sales) / 10 : null,
       places: kept.length > 1 ? kept.map((p) => ({ id: p.id, name: p.name, onHand: unitsText(byPlace.get(r.id)?.get(placeKey(p.id)) || 0n) })).filter((p) => p.onHand !== "0") : null,
+      inTransit: unitsText(byPlace.get(r.id)?.get(TRANSIT) || 0n),
     };
   });
 }
@@ -577,15 +695,21 @@ async function history(client, { companyId, itemId }) {
     [companyId, itemId]
   );
   const { rows: moved } = await client.query(
-    `SELECT t.moved_on, t.quantity, t.note, COALESCE(f.name, 'Main store') AS from_name, COALESCE(p.name, 'Main store') AS to_name
+    `SELECT t.moved_on, t.quantity, t.note, t.arrives, a.id AS arrival, a.arrived_on::text AS arrived_on, a.received,
+            COALESCE(f.name, 'Main store') AS from_name, COALESCE(p.name, 'Main store') AS to_name
        FROM stock_transfers t LEFT JOIN stock_places f ON f.id = t.from_place_id LEFT JOIN stock_places p ON p.id = t.to_place_id
+       LEFT JOIN stock_arrivals a ON a.transfer_id = t.id
       WHERE t.company_id = $1 AND t.item_id = $2`,
     [companyId, itemId]
   );
-  const moves = moved.map((t) => ({
-    on: t.moved_on, kind: "moved", quantity: unitsText(fromDb(t.quantity)), value: "0.00", saleNet: null,
-    note: `From ${t.from_name} to ${t.to_name}${t.note ? `: ${t.note}` : ""}`, entryNo: null, document: null,
-  }));
+  const moves = moved.map((t) => {
+    const sent = fromDb(t.quantity);
+    const where = !t.arrives ? "" : !t.arrival ? ", on the way" : fromDb(t.received) === sent ? `, arrived ${t.arrived_on}` : `, ${unitsText(fromDb(t.received))} arrived ${t.arrived_on}`;
+    return {
+      on: t.moved_on, kind: "moved", quantity: unitsText(sent), value: "0.00", saleNet: null,
+      note: `From ${t.from_name} to ${t.to_name}${where}${t.note ? `: ${t.note}` : ""}`, entryNo: null, document: null,
+    };
+  });
   return [...moves, ...rows.map((r) => ({
     on: r.moved_on,
     kind: r.kind,
@@ -638,4 +762,4 @@ async function guessTax(client, { companyId, itemId, ask }) {
   return { tax: a.tax, taxBy: "ai", taxWhy: why, confidence: a.confidence };
 }
 
-module.exports = { guessTax, ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history, atPlaces, places, addPlace, updatePlace, PLACE_KINDS, transfer, units, place };
+module.exports = { guessTax, ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history, atPlaces, places, addPlace, updatePlace, PLACE_KINDS, transfer, arrive, onTheWay, issue, units, place };

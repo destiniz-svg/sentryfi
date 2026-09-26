@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Camera, Loader2, Package, Plus, Wrench, X } from "lucide-react";
+import { Box, Camera, Loader2, Package, Plus, Truck, Wrench, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -62,6 +62,8 @@ export default function Stock() {
   const [opening, setOpening] = useState(null);
   const [looking, setLooking] = useState(null);
   const [moving, setMoving] = useState(null);
+  const [using, setUsing] = useState(null);
+  const [arriving, setArriving] = useState(null);
   const [filter, setFilter] = useState("all");
 
   const { data, isLoading } = useQuery({
@@ -127,6 +129,7 @@ export default function Stock() {
             </TabsList>
           </Tabs>
           {counted.length > 0 && (filter === "all" || filter === "counted" || filter === "product") && <Places places={places} people={data?.people || []} projects={data?.projects || []} canAdd={can("record")} onDone={refresh} />}
+          {data?.onTheWay?.length > 0 && <OnTheWay list={data.onTheWay} canReceive={can("record")} onArrive={setArriving} />}
           <Card padding="none" className="overflow-hidden">
             <div className="hidden xl:grid grid-cols-[minmax(0,1.6fr)_110px_120px_130px_130px_230px] gap-4 px-5 py-3 border-b border-[var(--border)] text-[12px] font-medium text-[var(--ink-muted)]">
               <span>Item</span>
@@ -162,6 +165,7 @@ export default function Stock() {
                       <div className="text-[14px] xl:text-right tabular">
                         {i.onHand} <span className="text-[var(--ink-muted)]">{i.unit}</span>
                         {i.places && i.places.some((p) => p.id) && <span className="block text-[12px] text-[var(--ink-muted)] whitespace-nowrap">{i.places.map((p) => `${p.name} ${p.onHand}`).join(" · ")}</span>}
+                        {n(i.inTransit) > 0 && <span className="block text-[12px] text-[var(--ink-muted)] whitespace-nowrap">{i.inTransit} on the way</span>}
                         {i.low && <span className="ml-1.5 inline-block rounded-full bg-[var(--warning)]/15 text-[var(--warning)] text-[11px] font-semibold px-2 py-0.5">Low</span>}
                       </div>
                       <div className="text-[14px] text-right text-[var(--ink-muted)]">
@@ -189,7 +193,7 @@ export default function Stock() {
                       {i.sells && i.buys ? "Bought and sold" : i.sells ? "Sold" : "Bought"}, not counted
                     </div>
                   )}
-                  <div className="col-span-2 xl:col-span-1 flex gap-2 xl:justify-end">
+                  <div className="col-span-2 xl:col-span-1 flex flex-wrap gap-2 xl:justify-end">
                     {can("record") && (
                       <>
                         {i.counted && n(i.onHand) === 0 && n(i.sold) === 0 && (
@@ -205,6 +209,11 @@ export default function Stock() {
                         {i.counted && places.length > 1 && n(i.onHand) > 0 && (
                           <Button variant="ghost" size="sm" onClick={() => setMoving(i)}>
                             Move
+                          </Button>
+                        )}
+                        {i.counted && n(i.onHand) - n(i.inTransit) > 0 && (
+                          <Button variant="ghost" size="sm" onClick={() => setUsing(i)}>
+                            Use on a job
                           </Button>
                         )}
                         <Button variant="ghost" size="sm" onClick={() => setEditing(i)}>
@@ -223,6 +232,8 @@ export default function Stock() {
       {editing && <ItemForm item={editing.id ? editing : null} items={all} accounts={accounts} onClose={() => setEditing(null)} onDone={refresh} />}
       {counting && <Count item={counting} places={places} onClose={() => setCounting(null)} onDone={refresh} />}
       {moving && <Move item={moving} places={places} onClose={() => setMoving(null)} onDone={refresh} />}
+      {using && <Use item={using} places={places} projects={data?.projects || []} departments={data?.departments || []} onClose={() => setUsing(null)} onDone={refresh} />}
+      {arriving && <Arrive sent={arriving} onClose={() => setArriving(null)} onDone={refresh} />}
       {opening && <Opening item={opening} onClose={() => setOpening(null)} onDone={refresh} />}
       {looking && <History item={looking} onClose={() => setLooking(null)} />}
     </div>
@@ -829,7 +840,11 @@ function PlaceForm({ place, people, projects, onClose, onDone }) {
   );
 }
 
-/** Taking stock from one place to another. Nothing is posted: only where it is changes. */
+/**
+ * Sending stock from one place to another. Nothing is posted: only where it is
+ * changes. It is on the way until someone there says it arrived, unless it is
+ * there already, like a move across the yard.
+ */
 function Move({ item, places, onClose, onDone }) {
   const toast = useToast();
   const held = (id) => (item.places ? item.places.find((p) => p.id === id)?.onHand || "0" : id === null ? item.onHand : "0");
@@ -837,6 +852,7 @@ function Move({ item, places, onClose, onDone }) {
   const [to, setTo] = useState(places.find((p) => (p.id || "") !== (places.find((x) => n(held(x.id)) > 0)?.id || ""))?.id || "");
   const [quantity, setQuantity] = useState("");
   const [on, setOn] = useState(today());
+  const [arrived, setArrived] = useState(false);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   async function onSubmit(e) {
@@ -844,8 +860,11 @@ function Move({ item, places, onClose, onDone }) {
     setErr("");
     setBusy(true);
     try {
-      const r = await apiClient.post(`/stock/${item.id}/transfer`, { fromPlaceId: from || null, toPlaceId: to || null, quantity, on });
-      toast.success(`${r.data.moved} ${item.unit} of ${item.name} moved`, `From ${r.data.from} to ${r.data.to}. Its value is unchanged.`);
+      const r = await apiClient.post(`/stock/${item.id}/transfer`, { fromPlaceId: from || null, toPlaceId: to || null, quantity, on, arrived });
+      toast.success(
+        r.data.onTheWay ? `${r.data.moved} ${item.unit} of ${item.name} on the way` : `${r.data.moved} ${item.unit} of ${item.name} moved`,
+        r.data.onTheWay ? `To ${r.data.to}. Whoever is there says when it arrives, and what came.` : `From ${r.data.from} to ${r.data.to}. Its value is unchanged.`
+      );
       onDone();
       onClose();
     } catch (ex) {
@@ -860,7 +879,7 @@ function Move({ item, places, onClose, onDone }) {
     </option>
   );
   return (
-    <Modal open onClose={onClose} as="form" onSubmit={onSubmit} title={`Move ${item.name}`} description="From one place to another. What it is worth does not change, so nothing goes into the books.">
+    <Modal open onClose={onClose} as="form" onSubmit={onSubmit} title={`Send ${item.name}`} description="From one place to another. It is on the way until someone there says it arrived. What it is worth does not change.">
       <div className="grid gap-4">
         <div className="grid sm:grid-cols-2 gap-4">
           <Field label="From">
@@ -878,10 +897,17 @@ function Move({ item, places, onClose, onDone }) {
           <Field label={`How many, in ${item.unit}`}>
             <input id="move-qty" value={quantity} onChange={(e) => setQuantity(e.target.value)} inputMode="decimal" placeholder={held(from || null)} className={`${FIELD} tabular`} />
           </Field>
-          <Field label="Moved on">
+          <Field label="Sent on">
             <input id="move-on" type="date" value={on} onChange={(e) => setOn(e.target.value)} className={FIELD} />
           </Field>
         </div>
+        <label className="flex items-start gap-2.5 text-[14px] cursor-pointer min-h-11">
+          <input id="move-arrived" type="checkbox" checked={arrived} onChange={(e) => setArrived(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--ink)]" />
+          <span>
+            <span className="font-medium">It's there already</span>
+            <span className="block text-[13px] text-[var(--ink-muted)]">Moved across the yard, or checked in as it came. Nobody needs to say it arrived.</span>
+          </span>
+        </label>
         {err && <p role="alert" className="text-[14px] text-[var(--danger)]">{err}</p>}
         <div className="flex justify-end gap-2">
           <Button variant="ghost" type="button" onClick={onClose}>
@@ -889,10 +915,208 @@ function Move({ item, places, onClose, onDone }) {
           </Button>
           <Button variant="accent" type="submit" disabled={busy || !quantity.trim() || (from || "") === (to || "")}>
             {busy && <Loader2 size={14} className="animate-spin" />}
-            Move it
+            {arrived ? "Move it" : "Send it"}
           </Button>
         </div>
       </div>
+    </Modal>
+  );
+}
+
+/** What has been sent and not yet arrived, oldest first: one card each, with one thing to do. */
+function OnTheWay({ list, canReceive, onArrive }) {
+  return (
+    <section className="mb-4" aria-labelledby="on-the-way" data-testid="on-the-way">
+      <h2 id="on-the-way" className="text-[13px] font-medium text-[var(--ink-muted)] mb-2">
+        On the way
+      </h2>
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        {list.map((t) => (
+          <Card key={t.id} padding="md" className="flex items-center gap-3" data-testid="on-the-way-card">
+            <span className="h-10 w-10 shrink-0 rounded-full bg-[var(--surface-2)] inline-flex items-center justify-center text-[var(--ink-muted)]" aria-hidden="true">
+              <Truck size={17} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-semibold leading-snug break-words">
+                <span className="tabular">{t.quantity}</span> {t.unit} {t.item}
+              </span>
+              <span className="block text-[13px] text-[var(--ink-muted)] leading-snug break-words mt-0.5">
+                {t.from} to <span className="text-[var(--ink)]">{t.to}</span>
+              </span>
+              <span className="block text-[12px] text-[var(--ink-muted)] leading-snug mt-0.5">
+                Sent {formatDate(t.sentOn)}{t.sentBy ? ` by ${t.sentBy}` : ""}{t.note ? ` · ${t.note}` : ""}
+              </span>
+            </span>
+            {canReceive && (
+              <Button variant="accent" className="shrink-0" onClick={() => onArrive(t)}>
+                It arrived
+              </Button>
+            )}
+          </Card>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Saying what came. All of it is the usual answer, so that is where it starts;
+ * fewer asks why. Said on a jetty with no signal, it is kept on the phone.
+ */
+function Arrive({ sent, onClose, onDone }) {
+  const toast = useToast();
+  const [received, setReceived] = useState(sent.quantity);
+  const [on, setOn] = useState(today() < sent.sentOn ? sent.sentOn : today());
+  const [reason, setReason] = useState("");
+  const [err, setErr] = useState("");
+  const go = useSendOrKeep((body) => ({ url: `/stock/transfers/${sent.id}/arrive`, body, label: `${body.received} ${sent.unit} of ${sent.item} arrived at ${sent.to}` }));
+  const missing = n(sent.quantity) - n(received);
+  const short = received.trim() !== "" && missing > 0;
+  const over = missing < 0;
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    setErr("");
+    try {
+      const r = await go.mutateAsync({ received, on, reason: short ? reason : null });
+      if (r.queued) {
+        toast.success("Kept on this phone", "It is marked as arrived by itself when there is signal.");
+        return onClose();
+      }
+      onDone();
+      toast.success(
+        `${r.received} ${sent.unit} of ${sent.item} at ${r.to}`,
+        n(r.short) > 0 ? `${r.short} short, written off at average cost with your reason.` : "All of it came."
+      );
+      onClose();
+    } catch (ex) {
+      setErr(ex.message);
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} as="form" onSubmit={onSubmit} title={`${sent.item} arrived`} description={`${sent.quantity} ${sent.unit} were sent from ${sent.from} to ${sent.to} on ${formatDate(sent.sentOn)}.`}>
+      <div className="grid gap-4">
+        <div className="grid sm:grid-cols-2 gap-4">
+          <Field label={`How many came, in ${sent.unit}`} hint={over ? `Only ${sent.quantity} were sent. Count the extra at ${sent.to} instead.` : undefined}>
+            <input id="arrive-qty" value={received} onChange={(e) => setReceived(e.target.value)} inputMode="decimal" className={`${FIELD} tabular`} />
+          </Field>
+          <Field label="Arrived on">
+            <input id="arrive-on" type="date" value={on} min={sent.sentOn} onChange={(e) => setOn(e.target.value)} className={FIELD} />
+          </Field>
+        </div>
+        {short && (
+          <Field label={`Why ${missing} ${sent.unit} ${missing === 1 ? "is" : "are"} short`} hint="What is short is written off at average cost, on its own line, so a loss on the way is seen.">
+            <input id="arrive-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="One bag split on the jetty" className={FIELD} autoFocus />
+          </Field>
+        )}
+      </div>
+      <Failure err={err} />
+      <Actions onClose={onClose} busy={go.isPending} disabled={received.trim() === "" || over || (short && reason.trim().length < 3)}>
+        {short ? "Record what came" : "All of it came"}
+      </Actions>
+    </Modal>
+  );
+}
+
+/**
+ * Stock used on a job: it leaves its place at average cost, and that cost is
+ * carried to the project or department. A site tied to a project starts there.
+ */
+function Use({ item, places, projects, departments, onClose, onDone }) {
+  const toast = useToast();
+  const held = (id) => (item.places ? item.places.find((p) => p.id === id)?.onHand || "0" : id === null ? String(n(item.onHand) - n(item.inTransit)) : "0");
+  const start = places.find((p) => n(held(p.id)) > 0) || places[0];
+  const [from, setFrom] = useState(start.id || "");
+  const [projectId, setProjectId] = useState(start.projectId || "");
+  const [departmentId, setDepartmentId] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [on, setOn] = useState(today());
+  const [note, setNote] = useState("");
+  const [err, setErr] = useState("");
+  const go = useSendOrKeep((body) => ({ url: `/stock/${item.id}/issue`, body, label: `${body.quantity} ${item.unit} of ${item.name} used on a job` }));
+  const cost = item.averageCost && n(quantity) > 0 ? (n(item.averageCost) * n(quantity)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null;
+
+  function pickPlace(id) {
+    setFrom(id);
+    const p = places.find((x) => (x.id || "") === id);
+    if (p?.projectId) setProjectId(p.projectId);
+  }
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    setErr("");
+    try {
+      const r = await go.mutateAsync({ placeId: from || null, quantity, on, projectId: projectId || null, dimensionIds: departmentId ? [departmentId] : [], note: note || null });
+      if (r.queued) {
+        toast.success("Kept on this phone", "It goes into the books by itself when there is signal.");
+        return onClose();
+      }
+      onDone();
+      toast.success(`${quantity} ${item.unit} of ${item.name} used on ${r.usedOn}`, `Its cost is carried there. Entry ${r.entryNo}.`);
+      onClose();
+    } catch (ex) {
+      setErr(ex.message);
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} as="form" onSubmit={onSubmit} title={`Use ${item.name} on a job`} description="It leaves stock at its average cost, and the job or department carries that cost.">
+      <div className="grid gap-4">
+        <div className="grid sm:grid-cols-2 gap-4">
+          {places.length > 1 && (
+            <Field label="Taken from">
+              <select id="use-from" value={from} onChange={(e) => pickPlace(e.target.value)} className={FIELD}>
+                {places.map((p) => (
+                  <option key={p.id || "main"} value={p.id || ""}>
+                    {p.name} ({held(p.id)} {item.unit})
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+          <Field label={`How many, in ${item.unit}`} hint={cost ? `About MVR ${cost} at average cost` : undefined}>
+            <input id="use-qty" value={quantity} onChange={(e) => setQuantity(e.target.value)} inputMode="decimal" placeholder={held(from || null)} className={`${FIELD} tabular`} />
+          </Field>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <Field label="Project">
+            <select id="use-project" value={projectId} onChange={(e) => setProjectId(e.target.value)} className={FIELD}>
+              <option value="">No project</option>
+              {projects.map((j) => (
+                <option key={j.id} value={j.id}>
+                  {j.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Department">
+            <select id="use-department" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} className={FIELD}>
+              <option value="">No department</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <Field label="Used on">
+            <input id="use-on" type="date" value={on} onChange={(e) => setOn(e.target.value)} className={FIELD} />
+          </Field>
+          <Field label="What for (optional)">
+            <input id="use-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Slab pour, level 3" className={FIELD} />
+          </Field>
+        </div>
+        {!projects.length && !departments.length && (
+          <p className="text-[13px] text-[var(--ink-muted)]">Add a project or a department first, so the cost has somewhere to go.</p>
+        )}
+      </div>
+      <Failure err={err} />
+      <Actions onClose={onClose} busy={go.isPending} disabled={!quantity.trim() || (!projectId && !departmentId)}>
+        Use it
+      </Actions>
     </Modal>
   );
 }

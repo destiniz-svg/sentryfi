@@ -61,6 +61,29 @@ ALTER TABLE order_deliveries ADD COLUMN IF NOT EXISTS place_id UUID REFERENCES s
 GRANT SELECT, INSERT, UPDATE ON stock_places TO sentryfi_app;
 -- A move between places is history too: added, never changed.
 GRANT SELECT, INSERT ON stock_transfers TO sentryfi_app;
+
+-- Send and arrive. A transfer that arrives is on the way until a person at the
+-- other end says what came; one that does not (every transfer before this, and
+-- one marked as there already) is at its new place at once. What came short is
+-- written off there, with its reason, as a stock move of its own.
+ALTER TABLE stock_transfers ADD COLUMN IF NOT EXISTS arrives BOOLEAN NOT NULL DEFAULT false;
+CREATE TABLE IF NOT EXISTS stock_arrivals (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id   UUID NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
+  transfer_id  UUID NOT NULL UNIQUE REFERENCES stock_transfers(id),
+  received     NUMERIC(18,4) NOT NULL CHECK (received >= 0),
+  arrived_on   DATE NOT NULL,
+  reason       TEXT,
+  created_by   UUID NOT NULL REFERENCES users(id),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE stock_arrivals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stock_arrivals FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS company_isolation ON stock_arrivals;
+CREATE POLICY company_isolation ON stock_arrivals
+  USING (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid)
+  WITH CHECK (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid);
+GRANT SELECT, INSERT ON stock_arrivals TO sentryfi_app;
 `;
 
 module.exports = { PLACES_SQL };

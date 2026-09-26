@@ -120,6 +120,9 @@ router.get(
         // Who can be put in charge of a place, and the projects a site can belong to.
         people: (await client.query("SELECT u.id, u.name FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.company_id = $1 ORDER BY lower(u.name)", [req.companyId])).rows,
         projects: (await client.query("SELECT id, name FROM projects WHERE company_id = $1 AND archived_at IS NULL ORDER BY lower(name)", [req.companyId])).rows,
+        // The departments stock can be used on, and what is sent and not yet arrived.
+        departments: (await client.query("SELECT id, name FROM dimensions WHERE company_id = $1 AND kind = 'department' AND archived_at IS NULL ORDER BY lower(name)", [req.companyId])).rows,
+        onTheWay: await stock.onTheWay(client, { companyId: req.companyId }),
         accounts: { income: accounts.filter((x) => x.type === "income"), cost: accounts.filter((x) => x.type === "expense") },
       };
     });
@@ -250,7 +253,8 @@ router.patch(
   })
 );
 
-const transferBody = z.object({ fromPlaceId: place, toPlaceId: place, quantity: qty, on: dateText, note: z.string().trim().max(300).nullish() });
+const note = z.string().trim().max(300).nullish();
+const transferBody = z.object({ fromPlaceId: place, toPlaceId: place, quantity: qty, on: dateText, note, arrived: z.boolean().optional() });
 router.post(
   "/:id/transfer",
   requireCan("record"),
@@ -258,6 +262,31 @@ router.post(
     const parsed = transferBody.safeParse(req.body ?? {});
     if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
     res.status(201).json(await asCompany(req, (client) => stock.transfer(client, { companyId: req.companyId, userId: req.user.id, itemId: req.params.id, ...parsed.data })));
+  })
+);
+
+// Goods sent that have come, all or short with the reason.
+const arriveBody = z.object({ received: qty, on: dateText, reason: note });
+router.post(
+  "/transfers/:transferId/arrive",
+  requireCan("record"),
+  refused(async (req, res) => {
+    const parsed = arriveBody.safeParse(req.body ?? {});
+    if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
+    res.status(201).json(await asCompany(req, (client) => stock.arrive(client, { companyId: req.companyId, userId: req.user.id, transferId: req.params.transferId, ...parsed.data })));
+  })
+);
+
+// Stock used on a project or department, its cost carried there.
+const issueBody = z.object({ placeId: place, quantity: qty, on: dateText, projectId: z.string().uuid().nullish(), dimensionIds: z.array(z.string().uuid()).max(5).optional(), note });
+router.post(
+  "/:id/issue",
+  requireCan("record"),
+  refused(async (req, res) => {
+    const parsed = issueBody.safeParse(req.body ?? {});
+    if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
+    const r = await asCompany(req, (client) => stock.issue(client, { companyId: req.companyId, userId: req.user.id, itemId: req.params.id, ...parsed.data }));
+    res.status(201).json({ entryNo: String(r.entry.entryNo), usedOn: r.usedOn });
   })
 );
 router.post(
