@@ -77,12 +77,12 @@ CREATE INDEX IF NOT EXISTS shipment_costs_idx ON shipment_costs(company_id, ship
 -- A landing cost shared into goods adds value without adding any.
 ALTER TABLE stock_moves ADD COLUMN IF NOT EXISTS shipment_id UUID REFERENCES shipments(id);
 ALTER TABLE stock_moves DROP CONSTRAINT IF EXISTS stock_moves_kind_check;
-ALTER TABLE stock_moves ADD CONSTRAINT stock_moves_kind_check CHECK (kind IN ('bought','sold','counted','opening','undone','landed','returned','recosted','issued'));
+ALTER TABLE stock_moves ADD CONSTRAINT stock_moves_kind_check CHECK (kind IN ('bought','sold','counted','opening','undone','landed','returned','recosted','issued','written_down'));
 ALTER TABLE stock_moves DROP CONSTRAINT IF EXISTS stock_moves_quantity_check;
-ALTER TABLE stock_moves ADD CONSTRAINT stock_moves_quantity_check CHECK (quantity <> 0 OR kind IN ('landed','recosted'));
+ALTER TABLE stock_moves ADD CONSTRAINT stock_moves_quantity_check CHECK (quantity <> 0 OR kind IN ('landed','recosted','written_down'));
 ALTER TABLE stock_moves DROP CONSTRAINT IF EXISTS stock_move_direction;
 ALTER TABLE stock_moves ADD CONSTRAINT stock_move_direction CHECK (
-  (quantity > 0 AND value_laari >= 0) OR (quantity < 0 AND value_laari <= 0) OR (quantity = 0 AND kind = 'landed' AND value_laari > 0) OR (quantity = 0 AND kind = 'recosted' AND value_laari <> 0));
+  (quantity > 0 AND value_laari >= 0) OR (quantity < 0 AND value_laari <= 0) OR (quantity = 0 AND kind = 'landed' AND value_laari > 0) OR (quantity = 0 AND kind IN ('recosted','written_down') AND value_laari <> 0));
 
 DO $$
 DECLARE t TEXT;

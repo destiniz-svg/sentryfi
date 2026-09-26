@@ -825,6 +825,43 @@ describe("a bill checked against its order and what arrived", () => {
     }));
 });
 
+describe("worth less than it cost", () => {
+  it("writes stock down with a reason, and back up only as far as it was written down on what is still held", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      const cement = await shop.item("Cement");
+      await shop.buy([{ itemId: cement, quantity: "10", amount: "1000.00" }]);
+      const downBalance = async () =>
+        BigInt((await client.query(
+          "SELECT COALESCE(SUM(l.debit_laari - l.credit_laari), 0) AS b FROM journal_lines l JOIN accounts a ON a.id = l.account_id WHERE a.company_id = $1 AND a.code = '5880'",
+          [companyId]
+        )).rows[0].b);
+
+      await expect(stock.writeDown(client, { companyId, userId, itemId: cement, unitWorth: "60", reason: "" })).rejects.toThrow(/Say why/);
+      await expect(stock.writeDown(client, { companyId, userId, itemId: cement, unitWorth: "120", reason: "price rose" })).rejects.toThrow(/never written up above its cost/);
+
+      // Water-damaged: worth 60 a bag now. 400 goes to Stock written down; the average follows.
+      expect((await stock.writeDown(client, { companyId, userId, itemId: cement, unitWorth: "60", reason: "Water damage", on: "2026-09-15" })).change).toBe(-40000n);
+      expect(await shop.tied()).toBe(60000n);
+      expect(await downBalance()).toBe(40000n);
+      expect(await stock.worth(client, { companyId, itemId: cement })).toMatchObject({ down: 40000n, unitCost: 6000n });
+
+      // Half are sold at 60 each: half the write-down leaves with them.
+      await shop.sell([{ itemId: cement, quantity: 5, unitPrice: "80.00" }]);
+      expect((await stock.worth(client, { companyId, itemId: cement })).down).toBe(20000n);
+
+      // It recovers to 120 a bag: written back only the 200 still held, so the five are at their cost of 100 again.
+      const back = await stock.writeDown(client, { companyId, userId, itemId: cement, unitWorth: "120", reason: "Dried out, sells again" });
+      expect(back).toMatchObject({ change: 20000n, capped: true });
+      expect(await shop.tied()).toBe(50000n);
+      expect(await downBalance()).toBe(20000n);
+      await expect(stock.writeDown(client, { companyId, userId, itemId: cement, unitWorth: "130", reason: "again" })).rejects.toThrow(/never written up above its cost/);
+      const moves = await client.query("SELECT kind, quantity, note FROM stock_moves WHERE item_id = $1 AND kind = 'written_down' ORDER BY created_at", [cement]);
+      expect(moves.rows.map((m) => m.note)).toEqual(["Water damage", "Dried out, sells again"]);
+    }));
+});
+
 describe("stock used on a job", () => {
   it("leaves its place at average cost and carries that cost to the project and department", () =>
     inRollback(async (client) => {

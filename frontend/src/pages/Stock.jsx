@@ -64,6 +64,7 @@ export default function Stock() {
   const [looking, setLooking] = useState(null);
   const [moving, setMoving] = useState(null);
   const [using, setUsing] = useState(null);
+  const [lowering, setLowering] = useState(null);
   const [arriving, setArriving] = useState(null);
   const [filter, setFilter] = useState("all");
 
@@ -241,6 +242,11 @@ export default function Stock() {
                         </Button>
                       </>
                     )}
+                    {can("approve") && i.counted && n(i.onHand) > 0 && (
+                      <Button variant="ghost" size="sm" className="h-11 md:h-8" onClick={() => setLowering(i)}>
+                        Worth less
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -255,6 +261,7 @@ export default function Stock() {
       {using && <Use item={using} places={places} projects={data?.projects || []} departments={data?.departments || []} onClose={() => setUsing(null)} onDone={refresh} />}
       {arriving && <Arrive sent={arriving} onClose={() => setArriving(null)} onDone={refresh} />}
       {opening && <Opening item={opening} onClose={() => setOpening(null)} onDone={refresh} />}
+      {lowering && <WorthLess item={lowering} onClose={() => setLowering(null)} onDone={refresh} />}
       {looking && <History item={looking} onClose={() => setLooking(null)} />}
     </div>
   );
@@ -651,6 +658,76 @@ function Count({ item, places = [{ id: null, name: "Main store" }], onClose, onD
   );
 }
 
+/**
+ * Stock worth less than it cost (damaged, expired, not selling): written down
+ * to what one will fetch, less the cost of selling it. If that recovers while
+ * it is still held, written back up, never above what it cost.
+ */
+function WorthLess({ item, onClose, onDone }) {
+  const toast = useToast();
+  const { companyId } = useCompany();
+  const { data: w } = useQuery({ queryKey: ["worth", companyId, item.id], queryFn: () => apiClient.get(`/stock/${item.id}/worth`).then((r) => r.data) });
+  const [unitWorth, setUnitWorth] = useState("");
+  const [reason, setReason] = useState("");
+  const [err, setErr] = useState("");
+  const go = useMutation({ mutationFn: (body) => apiClient.post(`/stock/${item.id}/write-down`, body).then((r) => r.data) });
+  const money = (x) => x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const change = w && unitWorth.trim() !== "" ? n(unitWorth) * n(w.onHand) - n(w.value) : null;
+  const up = change !== null && change > 0;
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    setErr("");
+    try {
+      const r = await go.mutateAsync({ unitWorth, reason });
+      onDone();
+      toast.success(
+        r.down ? `${item.name} written down by MVR ${r.change}` : `${item.name} written back up by MVR ${r.change}`,
+        `Entry ${r.entryNo}${r.capped ? ", as far as it was written down: never above what it cost" : ""}.`
+      );
+      onClose();
+    } catch (ex) {
+      setErr(ex.message);
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} as="form" onSubmit={onSubmit} title={`${item.name}: worth less than it cost?`} description="Damaged, expired or not selling: write it down to what one will fetch now, less what it costs to sell it.">
+      {!w ? (
+        <Skeleton className="h-24 rounded-xl" />
+      ) : (
+        <>
+          <p className="text-[14px] mb-4" data-testid="worth-now">
+            {w.onHand} {item.unit} held at <span className="tabular font-medium">MVR {w.unitCost}</span> each, <span className="tabular font-medium">MVR {w.value}</span> in all.
+            {n(w.writtenDown) > 0 && <span className="text-[var(--ink-muted)]"> MVR {w.writtenDown} of what it cost has been written down already.</span>}
+          </p>
+          <div className="grid gap-4">
+            <Field label={`What one ${item.unit} will fetch now (MVR)`} hint="Its selling price, less what it costs to sell it.">
+              <input id="worth-unit" value={unitWorth} onChange={(e) => setUnitWorth(e.target.value)} inputMode="decimal" placeholder="0.00" className={`${FIELD} tabular sm:max-w-[200px]`} autoFocus />
+            </Field>
+            <Field label="Why">
+              <input id="worth-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Water damage, expired, not sold in a year" className={FIELD} />
+            </Field>
+          </div>
+          {change !== null && change !== 0 && (
+            <p className="text-[14px] mt-4" data-testid="worth-change">
+              {up
+                ? n(w.writtenDown) > 0
+                  ? `Writes it back up by MVR ${money(Math.min(change, n(w.writtenDown)))}, no further than it was written down.`
+                  : "It is held at what it cost already. Stock is never written up above its cost."
+                : `Writes it down by MVR ${money(-change)}, to Stock written down.`}
+            </p>
+          )}
+        </>
+      )}
+      <Failure err={err} />
+      <Actions onClose={onClose} busy={go.isPending} disabled={!w || unitWorth.trim() === "" || reason.trim().length < 3 || change === 0 || (up && n(w.writtenDown) === 0)}>
+        {up ? "Write it back up" : "Write it down"}
+      </Actions>
+    </Modal>
+  );
+}
+
 function Opening({ item, onClose, onDone }) {
   const toast = useToast();
   const [quantity, setQuantity] = useState("");
@@ -713,7 +790,7 @@ function Opening({ item, onClose, onDone }) {
   );
 }
 
-const KIND = { bought: "Bought", sold: "Sold", counted: "Counted", opening: "Already had", undone: "Bill reversed", landed: "Landing costs", returned: "Came back", recosted: "Re-costed" };
+const KIND = { bought: "Bought", sold: "Sold", counted: "Counted", opening: "Already had", undone: "Bill reversed", landed: "Landing costs", returned: "Came back", recosted: "Re-costed", written_down: "Written down" };
 
 function History({ item, onClose }) {
   const { companyId, can } = useCompany();

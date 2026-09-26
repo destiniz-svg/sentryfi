@@ -24,6 +24,7 @@ const ACCOUNTS = {
   counted: ["5870", "Stock counted short or over", "expense"],
   opening: ["3900", "Opening balances", "equity"],
   used: ["5060", "Materials used on jobs", "expense"],
+  writtenDown: ["5880", "Stock written down", "expense"],
 };
 
 async function account(client, companyId, [code, name, type]) {
@@ -517,6 +518,70 @@ async function recost(client, { companyId, userId, itemId, since, why }) {
   return { change, entry };
 }
 
+// ------------------------------------------------------------------ worth less than it cost (IAS 2)
+
+/**
+ * What an item is held at, and how much of that has been written down and is
+ * still held. Replayed from its moves: a write-down adds to it, a write-back
+ * takes from it, and stock going out takes its share, as the average does.
+ * In the order they were recorded, which is the order the average saw them.
+ */
+async function worth(client, { companyId, itemId }) {
+  const held = await holding(client, { companyId, itemId });
+  const { rows } = await client.query(
+    "SELECT kind, quantity, value_laari FROM stock_moves WHERE company_id = $1 AND item_id = $2 ORDER BY created_at, moved_on",
+    [companyId, itemId]
+  );
+  let units = 0n;
+  let down = 0n;
+  for (const m of rows) {
+    const q = fromDb(m.quantity);
+    if (m.kind === "written_down") down -= BigInt(m.value_laari);
+    else if (q < 0n && units > 0n) down -= -q >= units ? down : (down * -q) / units;
+    units += q;
+  }
+  if (down < 0n) down = 0n;
+  const unitCost = held.units > 0n ? (held.value * SCALE + held.units / 2n) / held.units : 0n;
+  return { held, down, unitCost };
+}
+
+/**
+ * Stock written down to what it can now be sold for, less the cost of selling
+ * it (net realisable value), or written back up when that recovers while it is
+ * still held, never above what it cost. A person says what one is worth now
+ * and why; the difference goes between Stock on hand and Stock written down.
+ */
+async function writeDown(client, { companyId, userId, itemId, unitWorth, reason, on }) {
+  await assumeIdentity(client, { companyId, userId });
+  const why = String(reason || "").trim();
+  if (why.length < 3) throw new Error("Say why it is worth less (damaged, expired, not selling), so it can be read later.");
+  const { held, down } = await worth(client, { companyId, itemId });
+  mustCount(held);
+  if (held.units <= 0n) throw new Error(`There is no ${held.item.name} on hand to write down.`);
+  const each = toLaari(unitWorth);
+  if (each < 0n) throw new Error("What one is worth cannot be below nothing.");
+  let change = (each * held.units + SCALE / 2n) / SCALE - held.value;
+  if (change === 0n) throw new Error(`${held.item.name} is already held at that.`);
+  if (change > 0n) {
+    if (down === 0n) throw new Error(`${held.item.name} is held at what it cost. Stock is never written up above its cost.`);
+    // Written back only as far as it was written down: never above what it cost.
+    if (change > down) change = down;
+  }
+  const stockAcc = await account(client, companyId, ACCOUNTS.stock);
+  const downAcc = await account(client, companyId, ACCOUNTS.writtenDown);
+  const size = change < 0n ? -change : change;
+  const memo = `${held.item.name} ${change < 0n ? "written down" : "written back up"}: ${why}`;
+  const date = on || require("./today").today();
+  const entry = await postEntry(client, {
+    companyId, userId, date, source: "stock", narrative: memo,
+    lines: change < 0n
+      ? [{ accountId: downAcc, debit: size, memo }, { accountId: stockAcc, credit: size, memo }]
+      : [{ accountId: stockAcc, debit: size, memo }, { accountId: downAcc, credit: size, memo }],
+  });
+  await recordMove(client, { companyId, userId, itemId, on: date, kind: "written_down", units: 0n, value: change, entryId: entry.id, note: why });
+  return { entry, change, capped: change > 0n && change === down };
+}
+
 // ------------------------------------------------------------------ counts and opening
 
 /**
@@ -974,7 +1039,7 @@ async function snapshot(client, { companyId, on, from }) {
       if (q < 0n) wrong.push({ kind: "negative", itemId: it.id, place: p, detail: `${names.get(p) || "A place"} shows ${unitsText(q)} ${it.unit} of ${it.name}. A delivery or a move there was probably never recorded.` });
     });
     if (units > 0n && (lastMoved.get(it.id) || "") <= daysBefore(on, STILL_DAYS)) {
-      wrong.push({ kind: "still", itemId: it.id, detail: `${unitsText(units)} ${it.unit} of ${it.name} ${units === SCALE ? "has" : "have"} not moved since ${said(lastMoved.get(it.id))}.` });
+      wrong.push({ kind: "still", itemId: it.id, detail: `${unitsText(units)} ${it.unit} of ${it.name} ${units === SCALE ? "has" : "have"} not moved since ${said(lastMoved.get(it.id))}. Is it still worth what it cost? If not, write it down (Worth less, on Items).` });
     }
     if (it.reorder_at !== null && units <= fromDb(it.reorder_at)) {
       wrong.push({ kind: "low", itemId: it.id, detail: `${it.name} is down to ${unitsText(units)} ${it.unit}; reorder at ${unitsText(fromDb(it.reorder_at))}.` });
@@ -1010,7 +1075,7 @@ async function snapshot(client, { companyId, on, from }) {
     if (!b.expiresOn || b.expiresOn > soon) continue;
     const it = items.find((x) => x.id === b.itemId);
     const what = `${b.quantity} ${it?.unit || ""} of ${it?.name || "an item"}, batch ${b.code},`;
-    if (b.expiresOn < on) wrong.push({ kind: "expired", itemId: b.itemId, detail: `${what} expired on ${said(b.expiresOn)}. Sell or write it off; it is still valued at cost.` });
+    if (b.expiresOn < on) wrong.push({ kind: "expired", itemId: b.itemId, detail: `${what} expired on ${said(b.expiresOn)}. Sell it, write it off, or write it down to what it will fetch (Worth less, on Items).` });
     else wrong.push({ kind: "expiring", itemId: b.itemId, detail: `${what} expires on ${said(b.expiresOn)}. It goes out first.` });
   }
 
@@ -1189,4 +1254,4 @@ async function guessTax(client, { companyId, itemId, ask }) {
   return { tax: a.tax, taxBy: "ai", taxWhy: why, confidence: a.confidence };
 }
 
-module.exports = { guessTax, ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history, atPlaces, places, addPlace, updatePlace, PLACE_KINDS, transfer, arrive, onTheWay, issue, snapshot, moves, units, place, postDifference, differenceValue, toUnitsOrNone, placeKey, MAIN, WHERE, inBase, packsText, sameUnit, recordMove, batchFor, batches, committed };
+module.exports = { guessTax, ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, worth, writeDown, count, opening, list, history, atPlaces, places, addPlace, updatePlace, PLACE_KINDS, transfer, arrive, onTheWay, issue, snapshot, moves, units, place, postDifference, differenceValue, toUnitsOrNone, placeKey, MAIN, WHERE, inBase, packsText, sameUnit, recordMove, batchFor, batches, committed };

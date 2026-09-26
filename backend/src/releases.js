@@ -17,6 +17,15 @@
  */
 const RELEASES = [
   {
+    version: "1.41.0",
+    date: "2026-09-26",
+    title: "Stock worth less than it cost",
+    summary: "Damaged, expired or slow stock can be written down to what it will fetch, with the reason, and written back up if it recovers, never above what it cost.",
+    items: [
+      { area: "Stock", kind: "new", title: "Worth less", body: "On Items, Worth less writes an item down to what one will fetch now, less the cost of selling it, and says why. The difference goes to Stock written down. If it recovers while you still hold it, the same button writes it back up, no further than it was written down.", href: "/stock" },
+    ],
+  },
+  {
     version: "1.40.0",
     date: "2026-09-26",
     title: "Bills checked against their order",
