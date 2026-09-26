@@ -15,13 +15,16 @@
  * Run tools/checks-company.js once to create it.
  */
 
+// The demo login, kept on this machine only (git-ignored by .env.*).
+try { process.loadEnvFile(require("path").join(__dirname, ".env.local")); } catch {}
+
 const CHECKS = process.env.SHOOT_COMPANY || "Sentryfi Checks";
 const BASE = process.env.SHOOT_BASE || "https://sentryfi.app";
 
 async function signIn(browser, { phone = true, dark = false, offline = false } = {}) {
   const email = process.env.SHOOT_EMAIL;
   const password = process.env.SHOOT_PASSWORD;
-  if (!email || !password) throw new Error("Set SHOOT_EMAIL and SHOOT_PASSWORD.");
+  if (!email || !password) throw new Error("Set SHOOT_EMAIL and SHOOT_PASSWORD, or put them in tools/.env.local.");
 
   const context = await browser.newContext(
     phone
