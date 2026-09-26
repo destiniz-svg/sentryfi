@@ -73,23 +73,23 @@ async function stockIn(page, w, name, qty, amount) {
     const blindText = await page.getByTestId("counting").innerText();
     if (!/Books said|books say \d|MVR/.test(blindText)) ok("the counting screen shows no book figure and no money");
     else bad("the counting screen gives the books away");
+    // Our cement is one short; everything else is counted as the books have it, taken from the
+    // stock list (the check knows; the screen does not tell). An item in boxes has two boxes to
+    // fill: none in whole boxes, all of it loose.
     const lines = page.getByTestId("count-line");
     const n = await lines.count();
+    const items = (await api(page, "GET", "/stock")).json.items;
     for (let i = 0; i < n; i++) {
       const line = lines.nth(i);
       const label = await line.innerText();
-      // Our cement is one short; everything else is counted as the books have it, read from the API after, so the check stays blind on screen.
-      await line.locator("input").fill(label.includes(`Check cement ${w}`) ? "9" : "__BOOK__");
-    }
-    // Fill the others with what the books say, taken from the stock list (the check knows; the screen does not tell).
-    const items = (await api(page, "GET", "/stock")).json.items;
-    for (let i = 0; i < n; i++) {
-      const input = lines.nth(i).locator("input");
-      if ((await input.inputValue()) !== "__BOOK__") continue;
-      const label = await lines.nth(i).innerText();
       const it = items.find((x) => label.startsWith(x.name));
       const main = it.places ? it.places.find((p) => p.id === null)?.onHand || "0" : it.onHand;
-      await input.fill(main);
+      const value = label.includes(`Check cement ${w}`) ? "9" : main;
+      const inputs = line.locator("input");
+      if ((await inputs.count()) === 2) {
+        await inputs.nth(0).fill("0");
+        await inputs.nth(1).fill(value);
+      } else await inputs.fill(value);
     }
     if (await page.locator("#count-add").count()) ok("the counter can add something found there that is not on the list");
     else console.log("  --   nothing in the books is off this count, so there is nothing to add");
