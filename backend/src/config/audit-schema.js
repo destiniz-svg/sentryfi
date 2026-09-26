@@ -255,6 +255,64 @@ BEGIN
 END $f$;
 DROP TRIGGER IF EXISTS audit_reply_is_final ON audit_confirmation_replies;
 CREATE TRIGGER audit_reply_is_final BEFORE UPDATE OR DELETE ON audit_confirmation_replies FOR EACH ROW EXECUTE FUNCTION audit_reply_is_final();
+
+-- 1.48.0: the auditor at the year-end count (ISA 501). Attending is visible to the company; the
+-- auditor's own test counts are not, so nobody counting can copy them.
+CREATE TABLE IF NOT EXISTS audit_observations (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id    UUID NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
+  period_id     UUID NOT NULL REFERENCES audit_periods(id),
+  count_id      UUID NOT NULL REFERENCES stock_counts(id),
+  observed_by   UUID NOT NULL REFERENCES users(id),
+  started_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- What had been recorded when the auditor arrived: the last goods in and out, bill, invoice and stock move.
+  cutoff        JSONB NOT NULL,
+  seed          TEXT NOT NULL,
+  instructions  TEXT,
+  conclusion    TEXT,
+  concluded_at  TIMESTAMPTZ,
+  UNIQUE (period_id, count_id)
+);
+ALTER TABLE audit_observations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_observations FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS company_isolation ON audit_observations;
+CREATE POLICY company_isolation ON audit_observations
+  USING (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid)
+  WITH CHECK (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid);
+GRANT SELECT, INSERT ON audit_observations TO sentryfi_app;
+GRANT UPDATE (instructions, conclusion, concluded_at) ON audit_observations TO sentryfi_app;
+
+CREATE TABLE IF NOT EXISTS audit_test_counts (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id      UUID NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
+  observation_id  UUID NOT NULL REFERENCES audit_observations(id),
+  item_id         UUID NOT NULL REFERENCES stock_items(id),
+  -- sheet_to_floor: picked from what the books hold (existence); floor_to_sheet: seen on the floor (completeness).
+  direction       TEXT NOT NULL CHECK (direction IN ('sheet_to_floor','floor_to_sheet')),
+  picked_why      TEXT,
+  qty             NUMERIC(18,4) CHECK (qty >= 0),
+  recorded_by     UUID REFERENCES users(id),
+  recorded_at     TIMESTAMPTZ,
+  note            TEXT,
+  UNIQUE (observation_id, item_id, direction)
+);
+ALTER TABLE audit_test_counts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_test_counts FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS company_isolation ON audit_test_counts;
+DROP POLICY IF EXISTS auditor_only ON audit_test_counts;
+CREATE POLICY auditor_only ON audit_test_counts
+  USING (
+    company_id = NULLIF(current_setting('app.company_id', true), '')::uuid
+    AND EXISTS (SELECT 1 FROM memberships m WHERE m.company_id = audit_test_counts.company_id
+                AND m.user_id = NULLIF(current_setting('app.user_id', true), '')::uuid AND m.role = 'auditor')
+  )
+  WITH CHECK (
+    company_id = NULLIF(current_setting('app.company_id', true), '')::uuid
+    AND EXISTS (SELECT 1 FROM memberships m WHERE m.company_id = audit_test_counts.company_id
+                AND m.user_id = NULLIF(current_setting('app.user_id', true), '')::uuid AND m.role = 'auditor')
+  );
+GRANT SELECT, INSERT ON audit_test_counts TO sentryfi_app;
+GRANT UPDATE (qty, recorded_by, recorded_at, note) ON audit_test_counts TO sentryfi_app;
 `;
 
 module.exports = { AUDIT_SQL };

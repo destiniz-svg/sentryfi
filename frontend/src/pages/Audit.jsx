@@ -218,6 +218,7 @@ function Period({ id }) {
           <TabsTrigger value="risk">Journal risk</TabsTrigger>
           <TabsTrigger value="questions">Questions</TabsTrigger>
           <TabsTrigger value="confirmations">Confirmations</TabsTrigger>
+          <TabsTrigger value="count">Count</TabsTrigger>
           <TabsTrigger value="adjustments">Adjustments</TabsTrigger>
           <TabsTrigger value="pack">Audit pack</TabsTrigger>
         </TabsList>
@@ -263,6 +264,7 @@ function Period({ id }) {
       {tab === "risk" && <Risk id={id} />}
       {tab === "questions" && <Questions p={p} />}
       {tab === "confirmations" && <Confirmations p={p} />}
+      {tab === "count" && <Counting p={p} />}
       {tab === "adjustments" && <Adjustments p={p} />}
       {tab === "pack" && <Pack p={p} />}
     </div>
@@ -1419,6 +1421,311 @@ function Confirmations({ p }) {
         )}
       </Card>
     </div>
+  );
+}
+
+// ------------------------------------------------------------------ the year-end count (ISA 501)
+
+const FINDING = {
+  agrees: { label: "Agrees", tone: "success" },
+  differs: { label: "Count differs", tone: "danger" },
+  missing: { label: "Not on the sheet", tone: "danger" },
+  uncounted: { label: "Not counted", tone: "warning" },
+};
+const COUNT_STATUS = { counting: "Being counted", submitted: "Submitted", posted: "Posted", cancelled: "Cancelled" };
+
+function CutoffLine({ label, d }) {
+  return (
+    <div className="grid grid-cols-[150px_minmax(0,1fr)] gap-2 text-[13.5px] py-1 border-t border-[var(--border)] first:border-t-0">
+      <span className="text-[var(--ink-muted)]">{label}</span>
+      <span>{d ? `${d.no || d.order_no || d.item || ""}${d.kind ? ` (${d.kind})` : ""} · dated ${formatDate(d.day)} · entered ${formatDate(d.created_at)}` : "None yet"}</span>
+    </div>
+  );
+}
+
+function TestRow({ t, oid, locked }) {
+  const { companyId } = useCompany();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [qty, setQty] = useState(t.qty || "");
+  const [busy, setBusy] = useState(false);
+  async function save() {
+    setBusy(true);
+    try {
+      await apiClient.post(`/audit/observations/${oid}/tests`, { itemId: t.itemId, direction: t.direction, qty });
+      qc.invalidateQueries({ queryKey: ["audit-observation", companyId, oid] });
+    } catch (ex) {
+      toast.error("Not kept", ex.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <li className="px-4 py-3 grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-center" data-testid="test-count">
+      <span className="min-w-0">
+        <span className="block text-[14px] font-medium">{t.name}</span>
+        <span className="block text-[12.5px] text-[var(--ink-muted)]">
+          {t.direction === "sheet_to_floor" ? `From the sheet: ${t.why || "picked"}` : `Seen on the floor${t.note ? `: ${t.note}` : ""}`}
+          {t.counted !== null ? ` · counter ${t.counted}` : ""}
+          {t.book !== null ? ` · books ${t.book}` : ""}
+        </span>
+        {t.finding && (
+          <span className="flex flex-wrap items-center gap-2 mt-1">
+            <Badge tone={FINDING[t.finding.kind].tone}>{FINDING[t.finding.kind].label}</Badge>
+            {t.finding.kind !== "agrees" && <span className="text-[12.5px]">{t.finding.said}{t.finding.value ? ` About MVR ${t.finding.value}.` : ""}</span>}
+          </span>
+        )}
+      </span>
+      <span className="flex items-center gap-2">
+        <input aria-label={`Counted: ${t.name}`} value={qty} onChange={(e) => setQty(e.target.value)} disabled={locked} inputMode="decimal" placeholder="Counted" className={`${FIELD} w-28 tabular text-right`} />
+        <span className="text-[13px] text-[var(--ink-muted)] w-10">{t.unit}</span>
+        {!locked && (
+          <Button size="sm" variant={t.qty === null ? "accent" : "outline"} disabled={busy || qty === "" || qty === t.qty} onClick={save}>
+            {t.qty === null ? "Keep" : "Change"}
+          </Button>
+        )}
+      </span>
+    </li>
+  );
+}
+
+function Observation({ oid, onBack }) {
+  const { companyId } = useCompany();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const key = ["audit-observation", companyId, oid];
+  const { data: o } = useQuery({ queryKey: key, queryFn: () => apiClient.get(`/audit/observations/${oid}`).then((r) => r.data), refetchInterval: 20_000 });
+  const { data: items } = useQuery({ queryKey: ["stock", companyId, "audit-pick"], queryFn: () => apiClient.get("/stock").then((r) => r.data.items), staleTime: 300_000 });
+  const [floor, setFloor] = useState({ itemId: "", qty: "", note: "" });
+  const [notes, setNotes] = useState(null);
+  const [busy, setBusy] = useState(false);
+  if (!o) return <Skeleton className="h-60 rounded-2xl" />;
+  const n0 = notes || { instructions: o.instructions || "", conclusion: o.conclusion || "" };
+  const locked = Boolean(o.concludedAt);
+  async function addFloor(e) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await apiClient.post(`/audit/observations/${oid}/tests`, { itemId: floor.itemId, direction: "floor_to_sheet", qty: floor.qty, note: floor.note || null });
+      setFloor({ itemId: "", qty: "", note: "" });
+      qc.invalidateQueries({ queryKey: key });
+    } catch (ex) {
+      toast.error("Not kept", ex.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function conclude() {
+    setBusy(true);
+    try {
+      await apiClient.post(`/audit/observations/${oid}/conclude`, n0);
+      qc.invalidateQueries({ queryKey: key });
+      toast.success("Concluded", "The test counts stand as they are.");
+    } catch (ex) {
+      toast.error("Not concluded", ex.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const sheet = o.tests.filter((t) => t.direction === "sheet_to_floor");
+  const seen = o.tests.filter((t) => t.direction === "floor_to_sheet");
+  return (
+    <div className="grid gap-4" data-testid="observation">
+      <p>
+        <button type="button" onClick={onBack} className="text-[14px] underline underline-offset-2 min-h-11">
+          All counts
+        </button>
+      </p>
+      <Card padding="lg" className="grid gap-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-[16px] font-semibold">
+            {o.place}, counted by {o.counter}
+          </h2>
+          <Badge tone={o.countStatus === "counting" ? "warning" : "success"}>{COUNT_STATUS[o.countStatus]}</Badge>
+        </div>
+        <p className="text-[13px] text-[var(--ink-muted)]">
+          Attended by {o.observer}, arrived {formatDate(o.startedAt)}. Your test counts are yours alone: nobody counting sees them. The counter's figures show here once their count is submitted.
+        </p>
+        {o.summary.counted && (
+          <p className={`text-[14.5px] font-medium ${o.summary.wrong ? "text-[var(--danger)]" : "text-[var(--success)]"}`} data-testid="count-summary">
+            {o.summary.done} of {o.summary.tests} tested; {o.summary.wrong ? `${o.summary.wrong} with a finding, about MVR ${o.summary.wrongValue}` : "every test agrees with the count"}.
+          </p>
+        )}
+      </Card>
+
+      <Card padding="lg" className="grid gap-1">
+        <h3 className="text-[14px] font-semibold mb-1">Cut-off, as recorded when you arrived</h3>
+        <CutoffLine label="Last goods received" d={o.cutoff.goodsIn} />
+        <CutoffLine label="Last goods despatched" d={o.cutoff.goodsOut} />
+        <CutoffLine label="Last bill" d={o.cutoff.bill} />
+        <CutoffLine label="Last invoice" d={o.cutoff.invoice} />
+        <CutoffLine label="Last stock move" d={o.cutoff.move} />
+        {o.cutoffExceptions.length > 0 && (
+          <div className="mt-3 rounded-xl bg-[var(--warning-soft)] px-3 py-2.5 text-[13.5px]" data-testid="cutoff-exceptions">
+            <p className="font-semibold">Dated on or before the count, entered after you arrived</p>
+            <ul className="list-disc ml-5 mt-1">
+              {o.cutoffExceptions.map((x, i) => (
+                <li key={i}>
+                  {x.what} {x.no}, dated {formatDate(x.day)}, entered {formatDate(x.entered)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </Card>
+
+      <Card padding="none" className="overflow-hidden">
+        <div className="px-4 py-3 border-b border-[var(--border)]">
+          <h3 className="text-[14px] font-semibold">Sheet to floor</h3>
+          <p className="text-[12.5px] text-[var(--ink-muted)]">Picked from the count sheet: the most valuable, and some at random (seed {o.seed}). Find each one and count it: does what is recorded exist?</p>
+        </div>
+        <ul className="divide-y divide-[var(--border)]">
+          {sheet.map((t) => (
+            <TestRow key={t.id} t={t} oid={oid} locked={locked} />
+          ))}
+        </ul>
+      </Card>
+
+      <Card padding="none" className="overflow-hidden">
+        <div className="px-4 py-3 border-b border-[var(--border)]">
+          <h3 className="text-[14px] font-semibold">Floor to sheet</h3>
+          <p className="text-[12.5px] text-[var(--ink-muted)]">Pick things you see on the floor and count them: is everything that exists recorded?</p>
+        </div>
+        {seen.length > 0 && (
+          <ul className="divide-y divide-[var(--border)]">
+            {seen.map((t) => (
+              <TestRow key={t.id} t={t} oid={oid} locked={locked} />
+            ))}
+          </ul>
+        )}
+        {!locked && (
+          <form onSubmit={addFloor} className="px-4 py-3 flex flex-wrap gap-2 items-end border-t border-[var(--border)]" data-testid="floor-form">
+            <div className="min-w-[200px] flex-1">
+              <Label htmlFor="floor-item">Item on the floor</Label>
+              <select id="floor-item" value={floor.itemId} onChange={(e) => setFloor({ ...floor, itemId: e.target.value })} className={FIELD}>
+                <option value="">Choose the item</option>
+                {(items || []).filter((i) => i.counted).map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="floor-qty">Counted</Label>
+              <input id="floor-qty" value={floor.qty} onChange={(e) => setFloor({ ...floor, qty: e.target.value })} inputMode="decimal" className={`${FIELD} w-28 tabular`} />
+            </div>
+            <div className="min-w-[160px] flex-1">
+              <Label htmlFor="floor-note">Where (optional)</Label>
+              <input id="floor-note" value={floor.note} onChange={(e) => setFloor({ ...floor, note: e.target.value })} placeholder="Behind the door, aisle 3" className={FIELD} />
+            </div>
+            <Button type="submit" variant="outline" disabled={busy || !floor.itemId || floor.qty === ""}>
+              Add
+            </Button>
+          </form>
+        )}
+      </Card>
+
+      <Card padding="lg" className="grid gap-3">
+        <div>
+          <Label htmlFor="obs-instructions">The count instructions, and how they were followed</Label>
+          <textarea id="obs-instructions" value={n0.instructions} disabled={locked} onChange={(e) => setNotes({ ...n0, instructions: e.target.value })} rows={2} className={`${FIELD} h-auto py-2.5`} placeholder="Tags on counted items, a sheet per aisle, damaged goods set apart…" />
+        </div>
+        <div>
+          <Label htmlFor="obs-conclusion">What the count showed</Label>
+          <textarea id="obs-conclusion" value={n0.conclusion} disabled={locked} onChange={(e) => setNotes({ ...n0, conclusion: e.target.value })} rows={2} className={`${FIELD} h-auto py-2.5`} />
+        </div>
+        {locked ? (
+          <p className="text-[13px] text-[var(--ink-muted)]">Concluded {formatDate(o.concludedAt)}. The test counts stand as they are.</p>
+        ) : (
+          <p>
+            <Button variant="accent" disabled={busy || n0.conclusion.trim().length < 3} onClick={conclude}>
+              Conclude the count
+            </Button>
+          </p>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function Counting({ p }) {
+  const { companyId } = useCompany();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [params, setParams] = useSearchParams();
+  const oid = params.get("obs");
+  const { data, isLoading } = useQuery({ queryKey: ["audit-counts", companyId, p.id], queryFn: () => apiClient.get(`/audit/${p.id}/counts`).then((r) => r.data) });
+  const [busy, setBusy] = useState(null);
+  const open = (id) => setParams({ tab: "count", obs: id }, { replace: true });
+  async function attend(countId) {
+    setBusy(countId);
+    try {
+      const r = await apiClient.post(`/audit/${p.id}/observations`, { countId });
+      qc.invalidateQueries({ queryKey: ["audit-counts", companyId, p.id] });
+      open(r.data.id);
+    } catch (ex) {
+      toast.error("Not attended", ex.message);
+    } finally {
+      setBusy(null);
+    }
+  }
+  if (oid && data?.auditor) return <Observation oid={oid} onBack={() => setParams({ tab: "count" }, { replace: true })} />;
+  if (isLoading || !data) return <Skeleton className="h-60 rounded-2xl" />;
+  if (!data.auditor) {
+    return (
+      <Card padding="lg">
+        <h2 className="text-[15px] font-semibold">The year-end count</h2>
+        {data.attended.length ? (
+          <ul className="mt-2 text-[14px] grid gap-1" data-testid="attended">
+            {data.attended.map((a) => (
+              <li key={a.id}>
+                {a.observer} attended the count at {a.place}, {formatDate(a.startedAt)}
+                {a.concludedAt ? ", and has concluded." : "."}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-[14px] text-[var(--ink-muted)] mt-1">Your auditor has not attended a count for this period. Start the count in Inventory, Counts; the auditor attends it here.</p>
+        )}
+      </Card>
+    );
+  }
+  return (
+    <Card padding="none" className="overflow-hidden">
+      <div className="px-5 py-3 border-b border-[var(--border)]">
+        <h2 className="text-[15px] font-semibold">Counts around {formatDate(p.to)}</h2>
+        <p className="text-[12.5px] text-[var(--ink-muted)]">The company's counts within three weeks of the period end. Attend one to capture the cut-off and make your own test counts.</p>
+      </div>
+      {!data.counts.length ? (
+        <p className="px-5 py-4 text-[14px] text-[var(--ink-muted)]">No count near the period end yet. Ask the company to start one (Inventory, Counts), then attend it here.</p>
+      ) : (
+        <ul className="divide-y divide-[var(--border)]" data-testid="counts-near">
+          {data.counts.map((c) => (
+            <li key={c.id} className="px-5 py-3.5 flex flex-wrap items-center justify-between gap-3">
+              <span>
+                <span className="block text-[14.5px] font-medium">
+                  {c.place} · {c.kind} count
+                </span>
+                <span className="block text-[12.5px] text-[var(--ink-muted)]">
+                  {c.counter} · {c.lines} items · started {formatDate(c.createdAt)} · {COUNT_STATUS[c.status]}
+                </span>
+              </span>
+              {c.observationId ? (
+                <Button size="sm" variant="outline" onClick={() => open(c.observationId)}>
+                  Open
+                </Button>
+              ) : (
+                <Button size="sm" variant="accent" disabled={busy === c.id} onClick={() => attend(c.id)}>
+                  {busy === c.id && <Loader2 size={13} className="animate-spin" />}
+                  Attend this count
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
 

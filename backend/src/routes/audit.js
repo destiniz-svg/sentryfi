@@ -295,6 +295,36 @@ router.get(
   })
 );
 
+// ------------------------------------------------------------------ the year-end count (ISA 501)
+
+const count = require("../ledger/auditCount");
+
+/** The company's counts around the period end, and which the auditor attended. */
+router.get("/:id/counts", requireCan("read_trail"), refused(async (req, res) => res.json({ counts: await as(req, (c, ctx) => count.near(c, { ...ctx, periodId: uuid(req.params.id) })), attended: await as(req, (c, ctx) => count.list(c, { ...ctx, periodId: uuid(req.params.id) })), auditor: isAuditor(req) })));
+router.post(
+  "/:id/observations",
+  requireCan("audit"),
+  auditorOnly,
+  refused(async (req, res) => res.status(201).json(await as(req, (c, ctx) => count.observe(c, { ...ctx, periodId: uuid(req.params.id), countId: uuid(String(req.body?.countId || "")) }))))
+);
+router.get("/observations/:oid", requireCan("read_trail"), auditorOnly, refused(async (req, res) => res.json(await as(req, (c, ctx) => count.view(c, { ...ctx, observationId: uuid(req.params.oid) })))));
+router.post(
+  "/observations/:oid/tests",
+  requireCan("audit"),
+  auditorOnly,
+  refused(async (req, res) => {
+    const p = z.object({ itemId: z.string().uuid("Pick the item."), direction: z.enum(["sheet_to_floor", "floor_to_sheet"]), qty: z.union([z.string(), z.number()]).transform(String), note: z.string().max(300).nullish() }).safeParse(req.body ?? {});
+    if (!p.success) throw ApiError.badRequest(p.error.issues[0].message);
+    res.json(await as(req, (c, ctx) => count.record(c, { ...ctx, observationId: uuid(req.params.oid), ...p.data })));
+  })
+);
+router.post(
+  "/observations/:oid/conclude",
+  requireCan("audit"),
+  auditorOnly,
+  refused(async (req, res) => res.json(await as(req, (c, ctx) => count.conclude(c, { ...ctx, observationId: uuid(req.params.oid), instructions: req.body?.instructions, conclusion: req.body?.conclusion }))))
+);
+
 /** Re-draws a sample from its seed and rule, and says whether it is the same. */
 router.post("/samples/:sid/prove", requireCan("read_trail"), refused(async (req, res) => res.json(await as(req, (c, ctx) => audit.prove(c, { ...ctx, sampleId: uuid(req.params.sid) })))));
 

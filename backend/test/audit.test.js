@@ -14,6 +14,9 @@ import * as pack from "../src/ledger/auditPack";
 import * as questions from "../src/ledger/auditQuestions";
 import * as comments from "../src/ledger/comments";
 import * as adjust from "../src/ledger/auditAdjustments";
+import * as count from "../src/ledger/auditCount";
+import * as counts from "../src/ledger/counts";
+import * as stock from "../src/ledger/stock";
 import { unzip } from "../src/ledger/unzip";
 import { createHash } from "crypto";
 
@@ -255,6 +258,61 @@ describe("the audit workspace", () => {
       expect(l.adjustments[3]).toMatchObject({ status: "withdrawn", trivial: true });
       // Uncorrected: the passed and the rejected, MVR 900 off profit; over performance (750), under overall (1,000).
       expect(l.uncorrected).toMatchObject({ count: 2, profit: "-900.00", standing: "near", share: 90, byClass: { factual: "0.00", judgemental: "-900.00", projected: "0.00" } });
+    }));
+
+  it("attends a blind count: cut-off captured, test counts both ways kept from the counter, set against the count once submitted", () =>
+    inRollback(async (client) => {
+      const { companyId, userId } = await aCompanyWith(client);
+      await client.query("RESET ROLE");
+      await client.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1, $2, 'auditor')", [companyId, userId]);
+      const { rows: u } = await client.query("INSERT INTO users (name, email, password_hash) VALUES ('Aisha', $1, 'x') RETURNING id", [`aisha+${Math.random().toString(36).slice(2)}@sentryfi.invalid`]);
+      const aisha = u[0].id;
+      await client.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1, $2, 'accountant')", [companyId, aisha]);
+      await assumeIdentity(client, { companyId, userId: aisha });
+      const item = async (name) => (await client.query("INSERT INTO stock_items (company_id, name, unit, created_by) VALUES ($1,$2,'bag',$3) RETURNING id", [companyId, name, aisha])).rows[0].id;
+      const cement = await item("Cement");
+      const sand = await item("Sand");
+      const tiles = await item("Tiles");
+      await stock.opening(client, { companyId, userId: aisha, itemId: cement, quantity: "10", unitCost: "100", on: "2025-01-01" });
+      await stock.opening(client, { companyId, userId: aisha, itemId: sand, quantity: "5", unitCost: "50", on: "2025-01-01" });
+      const c = await counts.create(client, { companyId, userId: aisha, kind: "full", placeId: null, counterId: aisha });
+
+      await assumeIdentity(client, { companyId, userId });
+      const { id: periodId } = await audit.createPeriod(client, { companyId, userId, from: "2025-01-01", to: new Date().toISOString().slice(0, 10) });
+      const near = await count.near(client, { companyId, periodId });
+      expect(near.find((x) => x.id === c.id)).toMatchObject({ status: "counting", lines: 2 });
+      const o = await count.observe(client, { companyId, userId, periodId, countId: c.id, picks: 2 });
+      expect(o.picked).toBe(2);
+      let v = await count.view(client, { companyId, observationId: o.id });
+      expect(v.cutoff.move).toMatchObject({ kind: "opening" });
+      expect(v.tests.map((t) => [t.name, t.direction, t.why])).toEqual([["Cement", "sheet_to_floor", "Among the most valuable on the sheet"], ["Sand", "sheet_to_floor", "At random from the sheet"]]);
+
+      await count.record(client, { companyId, userId, observationId: o.id, itemId: cement, direction: "sheet_to_floor", qty: "10" });
+      await count.record(client, { companyId, userId, observationId: o.id, itemId: sand, direction: "sheet_to_floor", qty: "5" });
+      await count.record(client, { companyId, userId, observationId: o.id, itemId: tiles, direction: "floor_to_sheet", qty: "3", note: "Behind the door" });
+      await expect(count.record(client, { companyId, userId, observationId: o.id, itemId: tiles, direction: "floor_to_sheet", qty: "" })).rejects.toThrow(/quantity/);
+      // Before the count is submitted, nothing of the company's count is shown.
+      v = await count.view(client, { companyId, observationId: o.id });
+      expect(v.tests.every((t) => t.counted === null && t.finding === null)).toBe(true);
+
+      // The counter counts blind, and cannot see the auditor's figures.
+      await assumeIdentity(client, { companyId, userId: aisha });
+      expect((await client.query("SELECT count(*)::int n FROM audit_test_counts")).rows[0].n).toBe(0);
+      await counts.saveLine(client, { companyId, userId: aisha, countId: c.id, itemId: cement, counted: "9" });
+      await counts.saveLine(client, { companyId, userId: aisha, countId: c.id, itemId: sand, counted: "5" });
+      await counts.submit(client, { companyId, userId: aisha, countId: c.id });
+
+      await assumeIdentity(client, { companyId, userId });
+      v = await count.view(client, { companyId, observationId: o.id });
+      const by = Object.fromEntries(v.tests.map((t) => [t.name, t]));
+      expect(by.Cement.finding).toMatchObject({ kind: "differs", said: "The counter found 9, the auditor 10: undercounted by 1 bag.", value: "100.00" });
+      expect(by.Sand.finding.kind).toBe("agrees");
+      expect(by.Tiles.finding).toMatchObject({ kind: "missing" });
+      expect(v.summary).toMatchObject({ tests: 3, done: 3, wrong: 2, wrongValue: "100.00", counted: true });
+
+      await count.conclude(client, { companyId, userId, observationId: o.id, instructions: "Clear, with tags and a count sheet per aisle.", conclusion: "One undercount of cement; tiles not on the sheet. Extend the count to the back store." });
+      await expect(count.record(client, { companyId, userId, observationId: o.id, itemId: cement, direction: "sheet_to_floor", qty: "11" })).rejects.toThrow(/kept as it was/);
+      expect((await count.list(client, { companyId, periodId }))[0]).toMatchObject({ tests: 3, done: 3 });
     }));
 
   it("lays monetary-unit hits end to end from the seed's start", () => {

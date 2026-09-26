@@ -17,6 +17,15 @@
  */
 const RELEASES = [
   {
+    version: "1.48.0",
+    date: "2026-09-27",
+    title: "Audit: attending the year-end count",
+    summary: "Your auditor attends a year-end count in Sentryfi: the cut-off is captured on arrival, and their own test counts are checked against yours.",
+    items: [
+      { area: "Accounting", kind: "new", title: "The auditor at the count", body: "In Audit, the auditor attends one of your counts. What had been recorded when they arrived is captured, so late entries show. They count items picked from your count sheet and items they see on the floor; their figures stay with them, so the count stays blind. Once you submit, each of their counts is set against yours.", href: "/audit" },
+    ],
+  },
+  {
     version: "1.47.0",
     date: "2026-09-27",
     title: "Audit: balance confirmations",
