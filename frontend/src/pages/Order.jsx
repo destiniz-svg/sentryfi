@@ -193,9 +193,9 @@ export default function Order() {
             <thead>
               <tr className="text-[12px] text-[var(--ink-muted)] text-right border-b border-[var(--border)]">
                 <th className="text-left font-medium px-4 sm:px-5 py-3">What</th>
-                <th className="font-medium px-2 sm:px-3 py-3">Ordered</th>
-                <th className="font-medium px-2 sm:px-3 py-3">{buying ? "Arrived" : "Gone out"}</th>
-                <th className="font-medium px-2 sm:px-3 py-3">{buying ? "Billed" : "Invoiced"}</th>
+                <th className="font-medium px-2 sm:px-3 py-3">{quote ? "Quantity" : "Ordered"}</th>
+                {!quote && <th className="font-medium px-2 sm:px-3 py-3">{buying ? "Arrived" : "Gone out"}</th>}
+                {!quote && <th className="font-medium px-2 sm:px-3 py-3">{buying ? "Billed" : "Invoiced"}</th>}
                 <th className="font-medium px-2 sm:px-3 py-3 hidden sm:table-cell">Each</th>
                 <th className="font-medium pl-2 pr-4 sm:px-5 py-3">Amount</th>
               </tr>
@@ -210,8 +210,8 @@ export default function Order() {
                   <td className="px-2 sm:px-3 py-3">
                     {l.quantity} {l.unit || ""}
                   </td>
-                  <td className={`px-2 sm:px-3 py-3 ${n(l.delivered) < n(l.quantity) ? "text-[var(--ink-muted)]" : ""}`}>{l.delivered}</td>
-                  <td className={`px-2 sm:px-3 py-3 ${n(l.billed) < n(l.delivered) ? "text-[var(--accent-strong)] font-semibold" : "text-[var(--ink-muted)]"}`}>{l.billed}</td>
+                  {!quote && <td className={`px-2 sm:px-3 py-3 ${n(l.delivered) < n(l.quantity) ? "text-[var(--ink-muted)]" : ""}`}>{l.delivered}</td>}
+                  {!quote && <td className={`px-2 sm:px-3 py-3 ${n(l.billed) < n(l.delivered) ? "text-[var(--accent-strong)] font-semibold" : "text-[var(--ink-muted)]"}`}>{l.billed}</td>}
                   <td className="px-3 py-3 text-[var(--ink-muted)] hidden sm:table-cell">
                     <Money amount={l.price} />
                   </td>
@@ -225,14 +225,18 @@ export default function Order() {
         </div>
         <div className="px-5 py-3 border-t border-[var(--border)] text-[13px] text-[var(--ink-muted)] flex flex-wrap gap-x-6 gap-y-1 justify-end tabular">
           <span>
-            Ordered MVR <Money amount={o.total} />
+            {quote ? "Quoted" : "Ordered"} MVR <Money amount={o.total} />
           </span>
-          <span>
-            {buying ? "Arrived" : "Gone out"} MVR <Money amount={o.delivered} />
-          </span>
-          <span>
-            {buying ? "Billed" : "Invoiced"} MVR <Money amount={o.billed} />
-          </span>
+          {!quote && (
+            <span>
+              {buying ? "Arrived" : "Gone out"} MVR <Money amount={o.delivered} />
+            </span>
+          )}
+          {!quote && (
+            <span>
+              {buying ? "Billed" : "Invoiced"} MVR <Money amount={o.billed} />
+            </span>
+          )}
           {!buying && !quote && (
             <span className={n(o.left) > 0 ? "text-[var(--ink)] font-semibold" : ""} data-testid="order-left">
               Left to invoice MVR <Money amount={o.left} />
