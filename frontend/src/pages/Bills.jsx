@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { RecordBill } from "@/components/bills/RecordBill";
 import { WaitingToSend } from "@/components/bills/WaitingToSend";
 import { BillList } from "@/components/bills/BillList";
+import { RepeatBilling } from "@/components/sales/RepeatBilling";
 import { useBills } from "@/hooks/useBills";
 import { useCompany } from "@/context/CompanyContext";
 
@@ -24,6 +25,7 @@ export default function Bills() {
   const { can } = useCompany();
 
   const [recording, setRecording] = useState(false);
+  const [repeating, setRepeating] = useState(false);
 
   const canRecord = can("record");
 
@@ -33,12 +35,16 @@ export default function Bills() {
         title="Bills"
         description="What you owe, and what is still waiting on a decision."
         actions={
-          canRecord &&
-          bills?.length > 0 && (
-            <Button variant="accent" onClick={() => setRecording(true)}>
-              <Plus size={16} /> Record a bill
+          <>
+            <Button variant="outline" onClick={() => setRepeating(true)}>
+              Repeating bills
             </Button>
-          )
+            {canRecord && bills?.length > 0 && (
+              <Button variant="accent" onClick={() => setRecording(true)}>
+                <Plus size={16} /> Record a bill
+              </Button>
+            )}
+          </>
         }
       />
 
@@ -73,6 +79,7 @@ export default function Bills() {
       ) : (
         <BillList bills={bills} />
       )}
+      {repeating && <RepeatBilling kind="bill" onClose={() => setRepeating(false)} />}
 
       <RecordBill open={recording} onClose={() => setRecording(false)} />
     </div>

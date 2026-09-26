@@ -26,7 +26,7 @@ const KINDS = [
   { value: "stock", label: "Stock" },
   { value: "asset", label: "Asset" },
 ];
-const blank = () => ({ kind: "cost", description: "", amount: "", itemId: "", quantity: "", accountId: "", category: "", lifeYears: "", shipmentId: "", sure: true, because: null });
+const blank = () => ({ kind: "cost", description: "", amount: "", itemId: "", quantity: "", accountId: "", category: "", lifeYears: "", shipmentId: "", forCustomerId: "", markup: "", sure: true, because: null });
 
 export function BillSplit({ bill, onClose }) {
   const { companyId } = useCompany();
@@ -42,7 +42,7 @@ export function BillSplit({ bill, onClose }) {
       .get(`/bills/${bill.id}/split`)
       .then((r) => {
         setData(r.data);
-        setRows(r.data.lines.map((l) => ({ ...blank(), ...l, itemId: l.itemId || "", accountId: l.accountId || "", category: l.category || "", lifeYears: l.lifeYears ?? "", shipmentId: l.shipmentId || "" })));
+        setRows(r.data.lines.map((l) => ({ ...blank(), ...l, itemId: l.itemId || "", accountId: l.accountId || "", category: l.category || "", lifeYears: l.lifeYears ?? "", shipmentId: l.shipmentId || "", forCustomerId: l.forCustomerId || "", markup: l.markup || "" })));
       })
       .catch((ex) => setErr(ex.message));
   }, [bill.id]);
@@ -72,6 +72,8 @@ export function BillSplit({ bill, onClose }) {
           category: r.kind === "asset" ? r.category || null : null,
           lifeYears: r.kind === "asset" && r.lifeYears !== "" ? Number(r.lifeYears) : null,
           shipmentId: r.kind === "landed" ? r.shipmentId || null : null,
+          forCustomerId: r.kind === "cost" ? r.forCustomerId || null : null,
+          markup: r.kind === "cost" && r.forCustomerId ? String(r.markup || "0") : null,
         }));
       await apiClient.put(`/bills/${bill.id}/split`, { lines });
       qc.invalidateQueries({ queryKey: ["bills", companyId] });
@@ -152,6 +154,19 @@ export function BillSplit({ bill, onClose }) {
                     </option>
                   ))}
                 </select>
+              )}
+              {r.kind === "cost" && o.customers?.length > 0 && (
+                <div className="grid grid-cols-[minmax(0,1fr)_96px] gap-2">
+                  <select aria-label={`Line ${i + 1}: charge to a customer`} value={r.forCustomerId} onChange={(e) => set(i, { forCustomerId: e.target.value })} className={FIELD}>
+                    <option value="">Not charged on</option>
+                    {(o.customers || []).map((c) => (
+                      <option key={c.id} value={c.id}>
+                        Charge to {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  {r.forCustomerId && <input aria-label={`Line ${i + 1}: markup, percent`} value={r.markup} onChange={(e) => set(i, { markup: e.target.value })} inputMode="decimal" placeholder="Markup %" className={`${FIELD} tabular text-right`} />}
+                </div>
               )}
               {r.kind === "stock" &&
                 (o.items.length ? (

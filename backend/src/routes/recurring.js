@@ -29,11 +29,20 @@ router.get(
   "/",
   requireCan("read"),
   asyncHandler(async (req, res) => {
-    res.json({ schedules: await on(req, (client, ctx) => recurring.list(client, ctx)) });
+    const kind = req.query.kind === "bill" ? "bill" : "sale";
+    res.json(
+      await on(req, async (client, ctx) => ({
+        schedules: await recurring.list(client, { ...ctx, kind }),
+        // A repeating bill's lines each go on a kind of cost.
+        ...(kind === "bill" ? { accounts: (await client.query("SELECT id, code, name FROM accounts WHERE company_id = $1 AND type = 'expense' AND archived_at IS NULL ORDER BY code", [ctx.companyId])).rows } : {}),
+      }))
+    );
   })
 );
 
 const body = z.object({
+  kind: z.enum(["sale", "bill"]).default("sale"),
+  // For a bill, the supplier.
   customerName: z.string().trim().min(1, "Who is billed?").max(160),
   name: z.string().trim().max(120).nullish(),
   every: z.enum(["week", "month", "quarter", "year"]),
@@ -42,7 +51,7 @@ const body = z.object({
   gstTreatment: z.enum(["exclusive", "none_unregistered", "exempt", "zero_rated"]).default("exclusive"),
   postAutomatically: z.boolean().default(false),
   projectId: z.string().uuid().nullish(),
-  lines: z.array(z.object({ description: z.string().trim().max(300), quantity: z.coerce.number().default(1), uom: z.string().trim().max(20).nullish(), unitPrice: z.union([z.string().trim(), z.number()]).transform(String) })).min(1).max(40),
+  lines: z.array(z.object({ description: z.string().trim().max(300), quantity: z.coerce.number().default(1), uom: z.string().trim().max(20).nullish(), unitPrice: z.union([z.string().trim(), z.number()]).transform(String), accountId: z.string().uuid().nullish() })).min(1).max(40),
 });
 
 router.post(
@@ -52,7 +61,7 @@ router.post(
     const p = body.safeParse(req.body ?? {});
     if (!p.success) throw ApiError.badRequest(p.error.issues[0].message);
     const r = await on(req, async (client, ctx) => {
-      const party = (await findOrCreate(client, { ...ctx, name: p.data.customerName, kind: "customer" })).party.id;
+      const party = (await findOrCreate(client, { ...ctx, name: p.data.customerName, kind: p.data.kind === "bill" ? "supplier" : "customer" })).party.id;
       const id = await recurring.create(client, { ...ctx, ...p.data, counterpartyId: party });
       // A schedule that starts today, or started earlier, bills now.
       const raised = await recurring.runDue(client, ctx);
@@ -79,10 +88,20 @@ router.post(
   })
 );
 
-/** Tells those who record that repeat billing raised invoices. */
-async function announce(client, companyId, raised) {
-  if (!raised.length) return;
+/** Tells those who record that repeat billing raised invoices, or drafted bills. */
+async function announce(client, companyId, all) {
   const push = require("../services/push");
+  const bills = all.filter((x) => x.kind === "bill");
+  if (bills.length) {
+    await push.tell(client, {
+      companyId, userIds: await push.membersWith(client, companyId, "record"), kind: "done",
+      title: `Repeating bills: ${bills.length} ${bills.length === 1 ? "bill" : "bills"} drafted`,
+      body: "Check each, then put it in the books.",
+      href: "/bills", dedupeKey: `recurring-bills:${bills.map((x) => x.billId).join(",").slice(0, 200)}`,
+    });
+  }
+  const raised = all.filter((x) => x.kind !== "bill");
+  if (!raised.length) return;
   const numbers = raised.map((x) => x.invoiceNo).filter(Boolean);
   await push.tell(client, {
     companyId, userIds: await push.membersWith(client, companyId, "record"), kind: "done",

@@ -77,6 +77,7 @@ const blankLine = () => ({
   uom: "",
   rate: "",
   itemId: "",
+  passOnId: "",
 });
 
 /** Whole laari from what was typed, never through a floating-point sum. */
@@ -220,6 +221,12 @@ export default function NewInvoice() {
 
   // A line can sell a saved item, product or service: picking one fills in its
   // name, unit and price. A counted product leaves stock at its average cost.
+  // Costs marked for this customer on a bill or a claim, waiting to be charged on.
+  const { data: passOn } = useQuery({
+    queryKey: ["pass-on", companyId, party?.id],
+    queryFn: () => apiClient.get(`/sales/pass-on?counterpartyId=${party.id}`).then((r) => r.data.costs),
+    enabled: Boolean(companyId && party?.id) && open,
+  });
   const { data: stockItems } = useQuery({
     queryKey: ["stock", companyId],
     // The same cache as the Stock page, so the same shape: the items are picked out here.
@@ -315,6 +322,7 @@ export default function NewInvoice() {
           discountPercent: discountPct || null,
           itemId: l.itemId || null,
         })),
+        passOnIds: usable.filter((l) => l.passOnId).map((l) => l.passOnId),
       });
       if (keepTerms && party?.id && typeof terms === "number") await apiClient.patch(`/contacts/${party.id}`, { paymentTermsDays: terms }).catch(() => {});
       toast.success(
@@ -494,6 +502,39 @@ export default function NewInvoice() {
                 </div>
               ))}
             </div>
+            {(() => {
+              // ponytail: prices are in the books' currency, so they are offered only on an invoice in it.
+              const left = form.currency ? [] : (passOn || []).filter((c) => !lines.some((l) => l.passOnId === c.id));
+              const add = (cs) => setLines((all) => [...all.filter((l) => l.description.trim() || l.rate), ...cs.map((c) => ({ ...blankLine(), description: c.description, rate: c.price.replace(/,/g, ""), passOnId: c.id }))]);
+              return left.length > 0 && (
+                <div className="mt-3 rounded-xl border border-dashed border-[var(--border)] p-3" data-testid="pass-on">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[14px] font-medium flex-1">Waiting to be charged to {party.name}</span>
+                    {left.length > 1 && (
+                      <Button type="button" variant="ghost" size="sm" onClick={() => add(left)}>
+                        Add all
+                      </Button>
+                    )}
+                  </div>
+                  <ul className="mt-1 divide-y divide-[var(--border)]">
+                    {left.map((c) => (
+                      <li key={c.id} className="py-2 flex items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[14px] truncate">{c.description}</div>
+                          <div className="text-[12px] text-[var(--ink-muted)]">
+                            {c.source} · cost {c.cost}{c.markupPercent ? ` + ${c.markupPercent}%` : ""}
+                          </div>
+                        </div>
+                        <span className="tabular text-[14px]">{c.price}</span>
+                        <Button type="button" variant="outline" size="sm" onClick={() => add([c])} aria-label={`Add ${c.description}`}>
+                          <Plus size={14} /> Add
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })()}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <Button type="button" variant="outline" onClick={() => setFlow("items")} data-testid="add-item">
                 <Package size={16} /> Find or add an item

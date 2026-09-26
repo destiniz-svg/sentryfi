@@ -27,7 +27,7 @@ async function create(client, { companyId, userId, note, lines, submit = true })
       const { rows: p } = await client.query("SELECT 1 FROM projects WHERE id = $1 AND company_id = $2", [l.projectId, companyId]);
       if (!p.length) throw new Error("That project is not in these books.");
     }
-    prepared.push({ ...l, amount, position: i });
+    prepared.push({ ...l, amount, position: i, ...(await require("./passOn").forCustomer(client, { companyId, forCustomerId: l.forCustomerId, markup: l.markup })) });
   }
   const number = await require("./numbering").next(client, { companyId, kind: "claim" });
   const { rows } = await client.query(
@@ -36,8 +36,8 @@ async function create(client, { companyId, userId, note, lines, submit = true })
   );
   for (const l of prepared) {
     await client.query(
-      `INSERT INTO expense_claim_lines (company_id, claim_id, position, spent_on, description, account_id, project_id, amount_laari) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [companyId, rows[0].id, l.position, l.spentOn, String(l.description).trim(), l.accountId, l.projectId || null, l.amount.toString()]
+      `INSERT INTO expense_claim_lines (company_id, claim_id, position, spent_on, description, account_id, project_id, amount_laari, for_customer_id, markup_bp) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [companyId, rows[0].id, l.position, l.spentOn, String(l.description).trim(), l.accountId, l.projectId || null, l.amount.toString(), l.forCustomerId, l.markupBp]
     );
   }
   return rows[0];

@@ -10,6 +10,7 @@ const { formatLaari } = require("../ledger/money");
 const { findOrCreate } = require("../ledger/counterparties");
 const stock = require("../ledger/stock");
 const sales = require("../ledger/sales");
+const passOn = require("../ledger/passOn");
 const { today: localToday } = require("../ledger/today");
 
 /**
@@ -61,6 +62,8 @@ const newInvoice = z.object({
       })
     )
     .min(1, "An invoice needs at least one line."),
+  // Costs passed on that this invoice takes; each is one of its lines.
+  passOnIds: z.array(z.string().regex(/^[bc]:[0-9a-f-]{36}$/i)).max(100).nullish(),
 });
 
 const newReceipt = z.object({
@@ -151,6 +154,17 @@ router.get(
 );
 
 /** Who owes what, and for how long. */
+/** Costs passed on, waiting for this customer's next invoice. */
+router.get(
+  "/pass-on",
+  requireCan("read"),
+  asyncHandler(async (req, res) => {
+    const id = String(req.query.counterpartyId || "");
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return res.json({ costs: [] });
+    res.json({ costs: await asCompany(req, (client) => passOn.waiting(client, { companyId: req.companyId, counterpartyId: id })) });
+  })
+);
+
 router.get(
   "/aged",
   requireCan("read"),
@@ -296,6 +310,7 @@ router.post(
           ...b,
           counterpartyId,
         });
+        await passOn.take(client, { companyId: req.companyId, invoiceId: raised.invoice.id, counterpartyId, ids: b.passOnIds });
         return { invoice: raised.invoice, matchedTo };
       });
 

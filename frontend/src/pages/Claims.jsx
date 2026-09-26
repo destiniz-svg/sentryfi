@@ -91,7 +91,7 @@ export default function Claims() {
   );
 }
 
-const blank = () => ({ spentOn: today(), description: "", accountId: "", projectId: "", amount: "" });
+const blank = () => ({ spentOn: today(), description: "", accountId: "", projectId: "", amount: "", forCustomerId: "", markup: "" });
 
 function NewClaim({ onClose }) {
   const { companyId } = useCompany();
@@ -110,7 +110,7 @@ function NewClaim({ onClose }) {
     setErr("");
     setBusy(true);
     try {
-      const body = { lines: lines.filter((l) => l.description.trim()).map((l) => ({ ...l, projectId: l.projectId || null, amount: String(l.amount).replace(/,/g, "") })) };
+      const body = { lines: lines.filter((l) => l.description.trim()).map((l) => ({ ...l, projectId: l.projectId || null, forCustomerId: l.forCustomerId || null, markup: l.forCustomerId ? l.markup || "0" : null, amount: String(l.amount).replace(/,/g, "") })) };
       const sent = await sendOrKeep({ url: "/claims", body, label: `A claim for MVR ${total.toLocaleString("en-US", { minimumFractionDigits: 2 })}` });
       if (sent.queued) {
         toast.success("Kept on this phone", "Your claim goes by itself when there is signal.");
@@ -164,6 +164,19 @@ function NewClaim({ onClose }) {
                   ))}
                 </select>
               </div>
+              {o.customers?.length > 0 && (
+                <div className="grid grid-cols-[minmax(0,1fr)_96px] gap-2">
+                  <select aria-label={`Line ${i + 1}: charge to a customer`} value={l.forCustomerId} onChange={set(i, "forCustomerId")} className={FIELD}>
+                    <option value="">Not charged on</option>
+                    {(o.customers || []).map((c) => (
+                      <option key={c.id} value={c.id}>
+                        Charge to {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  {l.forCustomerId && <input aria-label={`Line ${i + 1}: markup, percent`} value={l.markup} onChange={set(i, "markup")} inputMode="decimal" placeholder="Markup %" className={`${FIELD} tabular text-right`} />}
+                </div>
+              )}
             </div>
           ))}
           <div className="flex items-center justify-between">

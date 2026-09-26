@@ -520,6 +520,8 @@ const splitBody = z.object({
         accountId: z.string().uuid().nullish(),
         category: z.string().nullish(),
         lifeYears: z.union([z.string().trim(), z.number()]).nullish(),
+        forCustomerId: z.string().uuid().nullish(),
+        markup: z.union([z.string().trim(), z.number()]).transform(String).nullish(),
       })
     )
     .max(60),
@@ -543,12 +545,13 @@ router.get(
         kind: l.kind, description: l.description, amount: formatLaari(l.amountLaari ?? l.amount), itemId: l.itemId || null,
         quantity: l.units !== undefined ? stockLedger.unitsText(l.units) : l.quantity || "", accountId: l.accountId || null,
         category: l.category || null, lifeYears: l.lifeYears ?? null, shipmentId: l.shipmentId || null, sure: l.sure ?? true, because: l.because || null,
+        forCustomerId: l.forCustomerId || null, markup: l.markup || "",
       });
       // The choices a person can make, so recording a bill needs no other permission.
       const { rows: accounts } = await client.query("SELECT id, code, name FROM accounts WHERE company_id = $1 AND type = 'expense' AND archived_at IS NULL ORDER BY code", [req.companyId]);
       const { rows: items } = await client.query("SELECT id, name, unit FROM stock_items WHERE company_id = $1 AND archived_at IS NULL AND counted ORDER BY lower(name)", [req.companyId]);
       const { rows: openShipments } = await client.query("SELECT id, reference FROM shipments WHERE company_id = $1 AND closed_at IS NULL ORDER BY created_at DESC", [req.companyId]);
-      const options = { accounts, items, shipments: openShipments, categories: Object.entries(CATEGORIES).map(([key, c]) => ({ key, name: c.name, years: c.years })) };
+      const options = { accounts, items, shipments: openShipments, customers: await require("../ledger/passOn").customers(client, { companyId: req.companyId }), categories: Object.entries(CATEGORIES).map(([key, c]) => ({ key, name: c.name, years: c.years })) };
       const head = { currency: bill.fc_net !== null ? bill.currency.trim() : "MVR", net: formatLaari(printed), options, posted: bill.status === "posted" };
       if (parts.length) return { ...head, decided: true, lines: parts.map(show) };
       const advice = await adviser.advise(client, { companyId: req.companyId, counterpartyId: bill.counterparty_id, shipmentId: bill.shipment_id, lines: adviser.linesFor(bill, printed) });

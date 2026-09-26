@@ -64,6 +64,7 @@ router.get(
       await on(req, async (client, { companyId }) => ({
         accounts: (await client.query("SELECT id, code, name FROM accounts WHERE company_id = $1 AND type = 'expense' AND archived_at IS NULL ORDER BY code", [companyId])).rows,
         projects: (await client.query("SELECT id, name FROM projects WHERE company_id = $1 AND archived_at IS NULL ORDER BY lower(name)", [companyId])).rows,
+        customers: await require("../ledger/passOn").customers(client, { companyId }),
       }))
     );
   })
@@ -98,7 +99,7 @@ router.post(
       z.object({
         note: z.string().trim().max(300).nullish(),
         lines: z
-          .array(z.object({ spentOn: dateText, description: z.string().trim().max(200), accountId: z.string().uuid(), projectId: z.string().uuid().nullish(), amount: money }))
+          .array(z.object({ spentOn: dateText, description: z.string().trim().max(200), accountId: z.string().uuid(), projectId: z.string().uuid().nullish(), amount: money, forCustomerId: z.string().uuid().nullish(), markup: money.nullish() }))
           .min(1)
           .max(50),
       }),

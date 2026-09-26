@@ -695,6 +695,24 @@ describe("A's orders, from B", () => {
   });
 });
 
+describe("A's costs passed on, from B", () => {
+  let cost, customer;
+  beforeAll(async () => {
+    customer = (await db.query("SELECT counterparty_id FROM sales_invoices WHERE id = $1", [A.invoiceId])).rows[0].counterparty_id;
+    await db.query("INSERT INTO bill_charges (company_id, bill_id, kind, description, account_id, amount_laari, for_customer_id) VALUES ($1,$2,'cost','SECRET-PASSON-A',$3,1000,$4)", [A.companyId, A.billId, A.accounts["5100"], customer]);
+    cost = (await call(A, "GET", `/sales/pass-on?counterpartyId=${customer}`)).json.costs[0];
+    expect(cost.description).toBe("SECRET-PASSON-A");
+  });
+
+  it("B can neither see them, nor put them on its invoice, nor pass its costs on to A's customer", async () => {
+    noLeak(await call(B, "GET", `/sales/pass-on?counterpartyId=${customer}`), "SECRET-PASSON-A");
+    denied(await call(B, "POST", "/sales", { body: { customerName: "B client", lines: [{ description: "x", unitPrice: "1" }], passOnIds: [cost.id] } }));
+    denied(await call(B, "POST", "/claims", { body: { lines: [{ spentOn: "2026-09-01", description: "x", accountId: B.accounts["5100"], amount: "1", forCustomerId: customer }] } }));
+    denied(await call(B, "POST", "/recurring", { body: { kind: "bill", customerName: "B landlord", every: "month", startsOn: "2099-01-01", lines: [{ description: "Rent", unitPrice: "1", accountId: A.accounts["5100"] }] } }));
+    expect((await call(A, "GET", `/sales/pass-on?counterpartyId=${customer}`)).json.costs).toHaveLength(1);
+  });
+});
+
 describe("A's claims and payments, from B", () => {
   let claimA;
   beforeAll(async () => {

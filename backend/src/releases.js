@@ -17,6 +17,16 @@
  */
 const RELEASES = [
   {
+    version: "1.31.0",
+    date: "2026-09-26",
+    title: "Costs passed on, and repeating bills",
+    summary: "Mark a cost for a customer and it waits on their next invoice, with your markup. Rent and other regular bills are drafted on their date.",
+    items: [
+      { area: "Sales", kind: "new", title: "Charge a cost to a customer", body: "On a bill's split or a claim's line, choose the customer it is for and a markup. Once the bill is in the books or the claim approved, the customer's next invoice offers it at cost plus markup, to add with one tap.", href: "/invoices/new" },
+      { area: "Bills", kind: "new", title: "Repeating bills", body: "Rent, internet and other regular bills are drafted on their date, on their kind of cost, for you to check and put in the books.", href: "/bills" },
+    ],
+  },
+  {
     version: "1.30.2",
     date: "2026-09-26",
     title: "A quote's lines, as quoted",
