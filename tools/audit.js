@@ -76,9 +76,8 @@ const settle = (page) => page.waitForTimeout(700);
     else bad("the note is not on the list");
     await shot(page, "sample");
 
-    const roles = (await api(page, "GET", "/companies")).json;
-    const canRecord = JSON.stringify(roles).includes('"record":true');
-    if (!canRecord) {
+    const canRecord = (await api(page, "GET", "/companies/current")).json?.can?.record;
+    if (canRecord === false) {
       const tried = await api(page, "POST", "/bills", { supplierName: "Auditor check", amount: "1", gstTreatment: "none_unregistered" });
       if (tried.status === 403) ok("the auditor cannot record a bill");
       else bad(`the auditor recording a bill got ${tried.status}`);
