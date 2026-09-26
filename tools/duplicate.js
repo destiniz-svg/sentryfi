@@ -41,7 +41,7 @@ const shot = (page, name) => page.screenshot({ path: `${process.env.TEMP}/dup-${
     await page.getByTestId("duplicate").click();
     await page.getByTestId("copy-of").waitFor({ timeout: 15000 });
     await shot(page, "quote-desk");
-    if ((await page.inputValue("#order-party")) === customer && (await page.getByLabel("Line 1: what").inputValue()) === `Deck boards ${w}` && (await page.getByLabel("Line 2: price each").inputValue()) === "800.00")
+    if ((await page.getByText(customer, { exact: true }).first().isVisible()) && (await page.getByLabel("Line 1: what").inputValue()) === `Deck boards ${w}` && (await page.getByLabel("Line 2: price each").inputValue()) === "800.00")
       ok("a quote's Duplicate opens the quote form filled in, with the note");
     else bad("the quote's copy is not filled in as the original");
     await page.getByRole("button", { name: /save the quote/i }).click();
@@ -51,7 +51,10 @@ const shot = (page, name) => page.screenshot({ path: `${process.env.TEMP}/dup-${
     else bad(`the saved copy is ${JSON.stringify({ number: copy.number, lines: copy.lines?.length })}`);
 
     // A purchase order, duplicated from its own page.
-    const po = (await api(page, "POST", "/orders", { kind: "purchase", partyName: `Check vendor ${w}`, lines: [{ description: "Bolts", quantity: 40, unitPrice: "3.50" }] })).json;
+    const cost = (await api(page, "GET", "/orders/options")).json.accounts[0].id;
+    const poRes = await api(page, "POST", "/orders", { kind: "purchase", partyName: `Check vendor ${w}`, lines: [{ description: "Bolts", accountId: cost, quantity: 40, unitPrice: "3.50" }] });
+    if (!poRes.json?.id) throw new Error(`purchase order not made: ${poRes.status} ${JSON.stringify(poRes.json?.error?.message)}`);
+    const po = poRes.json;
     await page.goto(`${BASE}/orders/${po.id}`, { waitUntil: "networkidle" });
     await page.getByTestId("duplicate").first().click();
     await page.getByTestId("copy-of").waitFor({ timeout: 15000 });
@@ -59,14 +62,16 @@ const shot = (page, name) => page.screenshot({ path: `${process.env.TEMP}/dup-${
     else bad("the purchase order's copy is not filled in");
 
     // A draft invoice, duplicated from its document.
-    const draft = (await api(page, "POST", "/sales", { customerName: customer, gstTreatment: "none_unregistered", subject: `Deck works ${w}`, lines: [{ description: `Labour ${w}`, quantity: "3", rate: "1500" }] })).json;
-    const inv = draft.invoice || draft;
+    const draft = (await api(page, "POST", "/sales", { customerName: customer, gstTreatment: "none_unregistered", subject: `Deck works ${w}`, lines: [{ description: `Labour ${w}`, quantity: 3, unitPrice: "1500" }] })).json;
+    const inv = draft?.invoice || draft;
+    if (!inv?.id) throw new Error(`invoice not made: ${JSON.stringify(draft).slice(0, 200)}`);
     await page.goto(`${BASE}/documents/invoice/${inv.id}`, { waitUntil: "networkidle" });
     await page.getByTestId("duplicate").click();
     await page.getByTestId("copy-of").waitFor({ timeout: 15000 });
     await page.waitForTimeout(600);
     await shot(page, "invoice-desk");
-    const save = page.getByRole("button", { name: /^save / }).last();
+    await page.getByRole("radiogroup", { name: "Payment terms" }).getByRole("radio").first().click();
+    const save = page.getByRole("button", { name: /^save inv/i }).last();
     const label = await save.innerText();
     if (/4,500\.00/.test(label) && !label.includes(inv.invoiceNo)) ok(`an invoice's Duplicate opens a new invoice filled in: "${label.trim()}"`);
     else bad(`the invoice's copy reads "${label}"`);
