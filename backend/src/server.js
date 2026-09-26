@@ -112,6 +112,7 @@ app.use("/api/loans", require("./routes/loans"));
 app.use("/api/dimensions", require("./routes/dimensions"));
 app.use("/api/stock", require("./routes/stock"));
 app.use("/api/counts", require("./routes/counts"));
+app.use("/api/audit", require("./routes/audit"));
 app.use("/api/payroll", require("./routes/payroll"));
 app.use("/api/advances", require("./routes/advances"));
 app.use("/api/share", require("./routes/share"));

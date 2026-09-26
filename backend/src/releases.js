@@ -17,6 +17,15 @@
  */
 const RELEASES = [
   {
+    version: "1.42.0",
+    date: "2026-09-26",
+    title: "Audit: a period, its seal, and samples",
+    summary: "For your auditor: open a period, see at once that every entry in it is as it was posted, and draw samples to work through, each ticked with a note.",
+    items: [
+      { area: "Accounting", kind: "new", title: "Audit", body: "Accounting now has Audit. Open a period, usually a closed year, and its seal is checked: every entry intact since it was posted, or exactly which one is not. Draw samples of bills, invoices or entries, so many at random or every one over an amount. Each opens onto its document, its entry, the money against it and its papers, and is ticked as seen with a note. Samples are kept as drawn. Nothing here changes the books; the auditor still cannot record anything.", href: "/audit" },
+    ],
+  },
+  {
     version: "1.41.0",
     date: "2026-09-26",
     title: "Stock worth less than it cost",

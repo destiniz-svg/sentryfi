@@ -38,14 +38,16 @@ const COMPANY_HEADER = "x-company-id";
 const CAN = {
   administrator: [
     "read", "record", "approve", "adjust", "close", "manage_cash", "read_trail",
-    "manage_people", "manage_settings", "run_payroll",
+    "manage_people", "manage_settings", "run_payroll", "audit",
   ],
   // Salaries are private: only these two see and run payroll.
-  accountant: ["read", "record", "approve", "adjust", "close", "manage_cash", "read_trail", "run_payroll"],
+  accountant: ["read", "record", "approve", "adjust", "close", "manage_cash", "read_trail", "run_payroll", "audit"],
   manager: ["read", "record"],
   approver: ["read", "approve"],
   viewer: ["read"],
-  auditor: ["read", "read_trail"],
+  // Changes nothing in the books; "audit" writes only the audit workspace's own
+  // record (periods, samples, what was seen).
+  auditor: ["read", "read_trail", "audit"],
   // Photographs bills and runs the tin they were given: spends, counts, asks
   // for more, and sees what is owed back to it.
   site_staff: ["capture", "spend_cash", "count_cash"],
