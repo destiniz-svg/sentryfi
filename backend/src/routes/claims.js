@@ -255,7 +255,7 @@ router.put(
   "/approvals/price-tolerance",
   requireCan("manage_settings"),
   asyncHandler(async (req, res) => {
-    const p = z.union([z.string().trim(), z.number()]).transform(String).refine((v) => /^d{1,3}(.d{1,2})?$/.test(v) && Number(v) <= 100, "Say a percent, like 2 or 2.5.").safeParse(req.body?.percent);
+    const p = z.union([z.string().trim(), z.number()]).transform(String).refine((v) => /^\d{1,3}(\.\d{1,2})?$/.test(v) && Number(v) <= 100, "Say a percent, like 2 or 2.5.").safeParse(req.body?.percent);
     if (!p.success) throw ApiError.badRequest(p.error.issues[0].message);
     const bp = Math.round(Number(p.data) * 100);
     await on(req, (client, { companyId }) => client.query("UPDATE companies SET price_tolerance_bp = $2 WHERE id = $1", [companyId, bp]));

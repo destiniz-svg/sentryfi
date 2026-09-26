@@ -424,7 +424,7 @@ router.post(
   "/:id/write-down",
   requireCan("approve"),
   refused(async (req, res) => {
-    const parsed = z.object({ unitWorth: money, reason: z.string().trim().max(300), on: z.string().regex(/^d{4}-d{2}-d{2}$/).nullish() }).safeParse(req.body ?? {});
+    const parsed = z.object({ unitWorth: money, reason: z.string().trim().max(300), on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish() }).safeParse(req.body ?? {});
     if (!parsed.success) throw ApiError.badRequest("Say what one is worth now, and why.");
     const r = await asCompany(req, (client) => stock.writeDown(client, { companyId: req.companyId, userId: req.user.id, itemId: req.params.id, ...parsed.data }));
     res.status(201).json({ entryNo: String(r.entry.entryNo), change: formatLaari(r.change < 0n ? -r.change : r.change), down: r.change < 0n, capped: r.capped });

@@ -72,6 +72,11 @@ const settle = (page) => page.waitForTimeout(700);
     const tol = await page.getByTestId("price-tolerance").innerText();
     if (/2%/.test(tol)) ok(`the tolerance reads "${tol.replace(/\s*Change$/, "")}"`);
     else bad(`the tolerance reads "${tol}"`);
+    // It can be changed (a percent with decimals), and is put back.
+    const changed = await api(page, "PUT", "/approvals/price-tolerance", { percent: "2.5" });
+    if (changed.status === 200 && changed.json?.priceTolerance === "2.5") ok("the tolerance changes to 2.5%");
+    else bad(`changing the tolerance answered ${changed.status} ${JSON.stringify(changed.json)}`);
+    await api(page, "PUT", "/approvals/price-tolerance", { percent: "2" });
     await row.getByRole("button", { name: "Accept the price" }).click();
     await row.getByLabel("Why the higher price is right").fill("Freight went up, agreed by phone");
     await settle(page);

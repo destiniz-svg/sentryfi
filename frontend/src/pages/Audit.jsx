@@ -14,8 +14,9 @@ import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/UIContext";
 import { openFile } from "@/components/documents/Attachments";
 import { Conversation } from "@/components/talk/Conversation";
+import { useAuth } from "@/context/AuthContext";
 import { FIELD } from "@/lib/shipments";
-import { formatDate } from "@/lib/utils";
+import { formatDate, today } from "@/lib/utils";
 
 /**
  * The auditor's workspace. A period under audit with its seal checked; the
@@ -216,6 +217,7 @@ function Period({ id }) {
           <TabsTrigger value="samples">Samples{p.samples.length ? ` · ${p.samples.length}` : ""}</TabsTrigger>
           <TabsTrigger value="risk">Journal risk</TabsTrigger>
           <TabsTrigger value="questions">Questions</TabsTrigger>
+          <TabsTrigger value="adjustments">Adjustments</TabsTrigger>
           <TabsTrigger value="pack">Audit pack</TabsTrigger>
         </TabsList>
       </Tabs>
@@ -231,7 +233,7 @@ function Period({ id }) {
               </Button>
             </p>
           )}
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
             <Card padding="lg" className="grid gap-3 content-start">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-[15px] font-semibold">Samples</h2>
@@ -252,12 +254,14 @@ function Period({ id }) {
             </Card>
             <RiskGlance id={id} onOpen={() => go("risk")} />
             <QuestionsGlance id={id} onOpen={() => go("questions")} />
+            <AdjustmentsGlance id={id} onOpen={() => go("adjustments")} />
           </div>
         </div>
       )}
       {tab === "samples" && <Samples p={p} />}
       {tab === "risk" && <Risk id={id} />}
       {tab === "questions" && <Questions p={p} />}
+      {tab === "adjustments" && <Adjustments p={p} />}
       {tab === "pack" && <Pack p={p} />}
     </div>
   );
@@ -685,6 +689,414 @@ function Questions({ p }) {
           <Conversation kind={current.kind} id={current.recordId} title="The conversation" className="mt-3" />
         </Modal>
       )}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ adjustments
+
+const AJ_STATE = {
+  proposed: { label: "Waiting for the company", tone: "warning" },
+  accepted: { label: "Accepted and posted", tone: "success" },
+  passed: { label: "Passed: left unbooked", tone: "neutral" },
+  rejected: { label: "Rejected by the company", tone: "danger" },
+  withdrawn: { label: "Withdrawn", tone: "neutral" },
+};
+const CLASS_SAYS = {
+  factual: "No doubt about it: a known error.",
+  judgemental: "A difference in an estimate or a choice of policy.",
+  projected: "The best estimate for the whole population, from a sample.",
+};
+const STANDING = {
+  unset: "Set materiality to measure it.",
+  below: "Below performance materiality.",
+  near: "Above performance materiality, still below overall materiality: look at it before signing.",
+  material: "At or above overall materiality: the financial statements are materially misstated unless corrected.",
+};
+
+function useAdjustments(id) {
+  const { companyId } = useCompany();
+  return useQuery({ queryKey: ["audit-adjustments", companyId, id], queryFn: () => apiClient.get(`/audit/${id}/adjustments`).then((r) => r.data), enabled: Boolean(companyId) });
+}
+
+function AdjustmentsGlance({ id, onOpen }) {
+  const { data: a } = useAdjustments(id);
+  return (
+    <Card padding="lg" className="grid gap-3 content-start" data-testid="adjustments-glance">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[15px] font-semibold">Adjustments</h2>
+        <button type="button" onClick={onOpen} className="text-[13px] underline underline-offset-2 min-h-11">
+          Open
+        </button>
+      </div>
+      {!a ? (
+        <Skeleton className="h-10 rounded-xl" />
+      ) : !a.adjustments.length ? (
+        <p className="text-[14px] text-[var(--ink-muted)]">None proposed.</p>
+      ) : (
+        <>
+          <p className="text-[14px]">
+            {a.counts.proposed ? `${a.counts.proposed} waiting for the company. ` : ""}Uncorrected: <span className="tabular font-semibold">MVR {a.uncorrected.profit}</span> on profit.
+          </p>
+          {a.uncorrected.standing && <p className="text-[13px] text-[var(--ink-muted)]">{STANDING[a.uncorrected.standing]}</p>}
+        </>
+      )}
+    </Card>
+  );
+}
+
+function Materiality({ p, m }) {
+  const { companyId, can } = useCompany();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(!m);
+  const [f, setF] = useState({ materiality: m?.overall.replace(/,/g, "") || "", performance: m?.performance.replace(/,/g, "") || "", trivial: m?.trivial.replace(/,/g, "") || "" });
+  const [busy, setBusy] = useState(false);
+  async function onSubmit(e) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await apiClient.put(`/audit/${p.id}/materiality`, { materiality: f.materiality, performance: f.performance || null, trivial: f.trivial || null });
+      qc.invalidateQueries({ queryKey: ["audit-adjustments", companyId, p.id] });
+      setEditing(false);
+    } catch (ex) {
+      toast.error("Not set", ex.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (!editing || !can("audit")) {
+    return (
+      <Card padding="lg" className="flex flex-wrap items-center gap-x-8 gap-y-3" data-testid="materiality">
+        {m ? (
+          [
+            ["Overall materiality", m.overall],
+            ["Performance", m.performance],
+            ["Clearly trivial", m.trivial],
+          ].map(([k, v]) => (
+            <div key={k}>
+              <div className="text-[12px] uppercase tracking-wider font-semibold text-[var(--ink-muted)]">{k}</div>
+              <div className="text-[18px] font-semibold tabular">MVR {v}</div>
+            </div>
+          ))
+        ) : (
+          <p className="text-[14px] text-[var(--ink-muted)]">The auditor has not set materiality for this period yet.</p>
+        )}
+        {can("audit") && (
+          <button type="button" onClick={() => setEditing(true)} className="text-[13px] underline underline-offset-2 min-h-11 ml-auto">
+            Change
+          </button>
+        )}
+      </Card>
+    );
+  }
+  return (
+    <Card padding="lg">
+      <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-3" data-testid="materiality-form">
+        <div>
+          <Label htmlFor="mat-overall">Overall materiality (MVR)</Label>
+          <input id="mat-overall" value={f.materiality} onChange={(e) => setF({ ...f, materiality: e.target.value })} inputMode="decimal" className={`${FIELD} w-44 tabular`} />
+        </div>
+        <div>
+          <Label htmlFor="mat-performance">Performance (default 75%)</Label>
+          <input id="mat-performance" value={f.performance} onChange={(e) => setF({ ...f, performance: e.target.value })} inputMode="decimal" className={`${FIELD} w-44 tabular`} />
+        </div>
+        <div>
+          <Label htmlFor="mat-trivial">Clearly trivial (default 5%)</Label>
+          <input id="mat-trivial" value={f.trivial} onChange={(e) => setF({ ...f, trivial: e.target.value })} inputMode="decimal" className={`${FIELD} w-44 tabular`} />
+        </div>
+        <Button type="submit" variant="accent" disabled={busy || !f.materiality}>
+          {busy && <Loader2 size={14} className="animate-spin" />}
+          Set materiality
+        </Button>
+        {m && (
+          <Button type="button" variant="ghost" onClick={() => setEditing(false)}>
+            Cancel
+          </Button>
+        )}
+      </form>
+    </Card>
+  );
+}
+
+/** The summary of uncorrected misstatements (ISA 450), against materiality. */
+function Uncorrected({ a }) {
+  const u = a.uncorrected;
+  const m = a.materiality;
+  const worst = Math.max(Math.abs(n(u.profit)), Math.abs(n(u.assets)));
+  const scale = m ? Math.max(n(m.overall) * 1.25, worst) : 1;
+  const pct = (x) => `${Math.min(100, (x / scale) * 100)}%`;
+  const tone = u.standing === "material" ? "var(--danger)" : u.standing === "near" ? "var(--warning)" : "var(--success)";
+  return (
+    <Card padding="lg" className="grid gap-3" data-testid="uncorrected">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-[15px] font-semibold">Summary of uncorrected misstatements</h2>
+        <span className="text-[13px] text-[var(--ink-muted)]">
+          {u.count} passed or rejected{u.share !== null ? ` · ${u.share}% of materiality` : ""}
+        </span>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-3 text-[14px]">
+        <p>
+          Effect on profit: <span className="font-semibold tabular">MVR {u.profit}</span>
+        </p>
+        <p>
+          Effect on net assets: <span className="font-semibold tabular">MVR {u.assets}</span>
+        </p>
+      </div>
+      {m && (
+        <div aria-hidden="true" className="relative h-3 rounded-full bg-[var(--surface-2)] border border-[var(--border)] mt-1">
+          <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: pct(worst), background: tone }} />
+          <span className="absolute -top-1 -bottom-1 w-px bg-[var(--ink-muted)]" style={{ left: pct(n(m.performance)) }} title="Performance materiality" />
+          <span className="absolute -top-1.5 -bottom-1.5 w-0.5 bg-[var(--ink)]" style={{ left: pct(n(m.overall)) }} title="Overall materiality" />
+        </div>
+      )}
+      <p className="text-[13.5px]" style={{ color: m ? tone : undefined }}>
+        {u.standing ? STANDING[u.standing] : "The auditor measures this against materiality, which stays with the auditor."}
+      </p>
+      <p className="text-[13px] text-[var(--ink-muted)]">
+        By class, on profit: factual MVR {u.byClass.factual} · judgemental MVR {u.byClass.judgemental} · projected MVR {u.byClass.projected}
+      </p>
+    </Card>
+  );
+}
+
+function Propose({ p }) {
+  const { companyId } = useCompany();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ["audit-accounts", companyId], queryFn: () => apiClient.get("/audit/accounts").then((r) => r.data.accounts), staleTime: 300_000 });
+  const blank = { accountId: "", debit: "", credit: "", memo: "" };
+  const [f, setF] = useState({ klass: "factual", reason: "", lines: [{ ...blank }, { ...blank }] });
+  const [busy, setBusy] = useState(false);
+  const set = (i, patch) => setF({ ...f, lines: f.lines.map((l, j) => (j === i ? { ...l, ...patch } : l)) });
+  const d = f.lines.reduce((s, l) => s + n(l.debit), 0);
+  const c = f.lines.reduce((s, l) => s + n(l.credit), 0);
+  const balanced = d > 0 && Math.abs(d - c) < 0.005;
+  const two = (x) => x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  async function onSubmit(e) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const r = await apiClient.post(`/audit/${p.id}/adjustments`, { class: f.klass, reason: f.reason, lines: f.lines.filter((l) => l.accountId).map((l) => ({ accountId: l.accountId, debit: l.debit || null, credit: l.credit || null, memo: l.memo || null })) });
+      qc.invalidateQueries({ queryKey: ["audit-adjustments", companyId, p.id] });
+      setF({ klass: f.klass, reason: "", lines: [{ ...blank }, { ...blank }] });
+      toast.success(`AJ-${r.data.number} proposed`, "Those who may adjust the books are told. Nothing posts until one of them accepts it.");
+    } catch (ex) {
+      toast.error("Not proposed", ex.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Card padding="lg">
+      <form onSubmit={onSubmit} className="grid gap-4" data-testid="propose">
+        <h2 className="text-[15px] font-semibold">Propose an adjustment</h2>
+        <fieldset>
+          <legend className="text-sm font-medium mb-1.5">Class</legend>
+          <div className="grid sm:grid-cols-3 gap-2">
+            {Object.entries(CLASS_SAYS).map(([k, says]) => (
+              <label key={k} className={`flex gap-3 items-start rounded-xl border px-3 py-2.5 cursor-pointer ${f.klass === k ? "border-[var(--ink)] bg-[var(--surface-2)]" : "border-[var(--border)]"}`}>
+                <input type="radio" name="aj-class" id={`aj-class-${k}`} checked={f.klass === k} onChange={() => setF({ ...f, klass: k })} className="mt-1 accent-[var(--ink)]" />
+                <span>
+                  <span className="block text-[14px] font-medium capitalize">{k}</span>
+                  <span className="block text-[12.5px] text-[var(--ink-muted)]">{says}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <div>
+          <Label htmlFor="aj-reason">Why the books need it</Label>
+          <textarea id="aj-reason" value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} rows={2} placeholder="A December bill from Island Hardware, received in January, is not in the year." className={`${FIELD} h-auto py-2.5`} />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[14px] min-w-[560px]">
+            <thead>
+              <tr className="text-[12px] uppercase tracking-wider text-[var(--ink-muted)]">
+                <th className="text-left font-semibold pb-1.5">Account</th>
+                <th className="text-right font-semibold pb-1.5 w-32">Debit</th>
+                <th className="text-right font-semibold pb-1.5 w-32">Credit</th>
+                <th className="text-left font-semibold pb-1.5 pl-2">Note</th>
+                <th className="w-10" />
+              </tr>
+            </thead>
+            <tbody>
+              {f.lines.map((l, i) => (
+                <tr key={i}>
+                  <td className="py-1 pr-2">
+                    <select aria-label={`Account, line ${i + 1}`} id={`aj-account-${i}`} value={l.accountId} onChange={(e) => set(i, { accountId: e.target.value })} className={FIELD}>
+                      <option value="">Choose an account</option>
+                      {(data || []).map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.code} {a.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="py-1 px-1">
+                    <input aria-label={`Debit, line ${i + 1}`} id={`aj-debit-${i}`} value={l.debit} onChange={(e) => set(i, { debit: e.target.value, credit: e.target.value ? "" : l.credit })} inputMode="decimal" className={`${FIELD} tabular text-right`} />
+                  </td>
+                  <td className="py-1 px-1">
+                    <input aria-label={`Credit, line ${i + 1}`} id={`aj-credit-${i}`} value={l.credit} onChange={(e) => set(i, { credit: e.target.value, debit: e.target.value ? "" : l.debit })} inputMode="decimal" className={`${FIELD} tabular text-right`} />
+                  </td>
+                  <td className="py-1 pl-2">
+                    <input aria-label={`Note, line ${i + 1}`} value={l.memo} onChange={(e) => set(i, { memo: e.target.value })} className={FIELD} />
+                  </td>
+                  <td className="py-1 text-right">
+                    {f.lines.length > 2 && (
+                      <button type="button" aria-label={`Remove line ${i + 1}`} onClick={() => setF({ ...f, lines: f.lines.filter((_, j) => j !== i) })} className="h-9 w-9 rounded-full hover:bg-[var(--surface-2)] text-[var(--ink-muted)]">
+                        ×
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-[var(--border)]">
+                <td className="pt-2">
+                  <button type="button" onClick={() => setF({ ...f, lines: [...f.lines, { ...blank }] })} className="text-[13px] underline underline-offset-2 min-h-9">
+                    Add a line
+                  </button>
+                </td>
+                <td className="pt-2 text-right tabular font-semibold">{two(d)}</td>
+                <td className="pt-2 text-right tabular font-semibold">{two(c)}</td>
+                <td className="pt-2 pl-2 text-[13px]" data-testid="aj-balance" style={{ color: balanced ? "var(--success)" : "var(--ink-muted)" }}>
+                  {balanced ? "Balances" : d || c ? `Off by ${two(Math.abs(d - c))}` : ""}
+                </td>
+                <td />
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div>
+          <Button type="submit" variant="accent" disabled={busy || !balanced || f.reason.trim().length < 3 || f.lines.some((l) => (n(l.debit) || n(l.credit)) && !l.accountId)}>
+            {busy && <Loader2 size={14} className="animate-spin" />}
+            Propose it
+          </Button>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
+function Decide({ a, p }) {
+  const { companyId, can } = useCompany();
+  const { user } = useAuth();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [how, setHow] = useState(null);
+  const [note, setNote] = useState("");
+  const [date, setDate] = useState(() => (p.to < today() ? p.to : today()));
+  const [busy, setBusy] = useState(false);
+  const mine = a.proposedById === user?.id;
+  const decider = can("adjust") && !mine;
+  const withdrawer = can("audit") && mine;
+  if (a.status !== "proposed" || (!decider && !withdrawer)) return null;
+  async function go() {
+    setBusy(true);
+    try {
+      if (how === "withdraw") await apiClient.post(`/audit/adjustments/${a.id}/withdraw`, { note });
+      else {
+        const r = await apiClient.post(`/audit/adjustments/${a.id}/decide`, { how, note: note || null, date: how === "accept" ? date : null });
+        if (r.data.entryNo) toast.success(`${a.ref} accepted`, `Posted as entry ${r.data.entryNo}, dated ${formatDate(date)}.`);
+      }
+      qc.invalidateQueries({ queryKey: ["audit-adjustments", companyId, p.id] });
+      qc.invalidateQueries({ queryKey: ["attention", companyId] });
+    } catch (ex) {
+      toast.error("Not done", ex.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const needsNote = how === "pass" || how === "reject" || how === "withdraw";
+  return (
+    <div className="mt-3 grid gap-2" data-testid="decide">
+      <div className="flex flex-wrap gap-2">
+        {decider &&
+          [
+            ["accept", "Accept and post it"],
+            ["pass", "Pass: leave it unbooked"],
+            ["reject", "Reject it"],
+          ].map(([k, label]) => (
+            <Button key={k} type="button" size="sm" variant={how === k ? "accent" : "outline"} onClick={() => setHow(k)}>
+              {label}
+            </Button>
+          ))}
+        {withdrawer && (
+          <Button type="button" size="sm" variant={how === "withdraw" ? "accent" : "outline"} onClick={() => setHow("withdraw")}>
+            Withdraw it
+          </Button>
+        )}
+      </div>
+      {how && (
+        <div className="flex flex-wrap items-end gap-2">
+          {how === "accept" && (
+            <div>
+              <Label htmlFor={`aj-date-${a.id}`}>Dated</Label>
+              <input id={`aj-date-${a.id}`} type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${FIELD} w-44`} />
+            </div>
+          )}
+          <div className="flex-1 min-w-[220px]">
+            <Label htmlFor={`aj-note-${a.id}`}>{how === "accept" ? "Note (optional)" : how === "pass" ? "Why it is left unbooked" : how === "reject" ? "Why the company disagrees" : "Why it is withdrawn"}</Label>
+            <input id={`aj-note-${a.id}`} value={note} onChange={(e) => setNote(e.target.value)} className={FIELD} />
+          </div>
+          <Button type="button" variant="accent" disabled={busy || (needsNote && note.trim().length < 3)} onClick={go}>
+            {busy && <Loader2 size={14} className="animate-spin" />}
+            {how === "accept" ? "Post it" : "Record it"}
+          </Button>
+        </div>
+      )}
+      {how === "accept" && <p className="text-[12.5px] text-[var(--ink-muted)]">It goes into the books on that date. A closed month takes it, with this adjustment as the reason, so the audited year shows it.</p>}
+    </div>
+  );
+}
+
+function Adjustments({ p }) {
+  const { can } = useCompany();
+  const { data: a, isLoading } = useAdjustments(p.id);
+  if (isLoading || !a) return <Skeleton className="h-60 rounded-2xl" />;
+  return (
+    <div className="grid gap-4">
+      {a.seesMateriality && <Materiality key={a.materiality ? "set" : "unset"} p={p} m={a.materiality} />}
+      <Uncorrected a={a} />
+      {can("audit") && <Propose p={p} />}
+      <Card padding="none" className="overflow-hidden">
+        <div className="px-5 py-3 border-b border-[var(--border)] text-[13px] font-semibold">Proposed adjustments</div>
+        {!a.adjustments.length ? (
+          <p className="px-5 py-4 text-[14px] text-[var(--ink-muted)]">None yet. Nothing the auditor proposes is posted until someone in the company who may adjust the books accepts it; what is passed or rejected is kept and summed above.</p>
+        ) : (
+          <ul className="divide-y divide-[var(--border)]" data-testid="adjustments">
+            {a.adjustments.map((x) => (
+              <li key={x.id} className="px-5 py-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold">{x.ref}</span>
+                      <Badge tone="neutral">{x.className}</Badge>
+                      <Badge tone={AJ_STATE[x.status].tone}>{AJ_STATE[x.status].label}</Badge>
+                      {x.trivial && <Badge tone="neutral">Clearly trivial</Badge>}
+                    </div>
+                    <p className="text-[14.5px] mt-1">{x.reason}</p>
+                    <p className="text-[12.5px] text-[var(--ink-muted)] mt-0.5">
+                      Proposed by {x.proposedBy}, {formatDate(x.proposedAt)}
+                      {x.decidedBy ? ` · ${x.status} by ${x.decidedBy}, ${formatDate(x.decidedAt)}` : ""}
+                      {x.entryNo ? ` · entry ${x.entryNo}` : ""}
+                      {x.note ? ` · “${x.note}”` : ""}
+                    </p>
+                  </div>
+                  <div className="text-right text-[13px]">
+                    <div className="tabular font-semibold text-[15px]">MVR {x.amount}</div>
+                    <div className="text-[var(--ink-muted)] tabular">profit {x.profitEffect}</div>
+                  </div>
+                </div>
+                <Amounts rows={[["", "Debit", "Credit"], ...x.lines.map((l) => [l.account + (l.memo ? ` · ${l.memo}` : ""), l.debit === "0.00" ? "" : l.debit, l.credit === "0.00" ? "" : l.credit])]} />
+                <Decide a={x} p={p} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
     </div>
   );
 }

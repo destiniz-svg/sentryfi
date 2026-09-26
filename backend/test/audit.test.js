@@ -13,6 +13,7 @@ import * as risk from "../src/ledger/auditRisk";
 import * as pack from "../src/ledger/auditPack";
 import * as questions from "../src/ledger/auditQuestions";
 import * as comments from "../src/ledger/comments";
+import * as adjust from "../src/ledger/auditAdjustments";
 import { unzip } from "../src/ledger/unzip";
 import { createHash } from "crypto";
 
@@ -206,6 +207,54 @@ describe("the audit workspace", () => {
       await comments.settle(client, auditor, onBill.id, true);
       expect((await questions.list(client, auditor, { periodId })).counts).toEqual({ open: 1, late: 0, answered: 0, closed: 1 });
       await expect(questions.ask(client, auditor, { periodId, kind: "shipment", recordId: item.docId, body: "x?", askOf: aisha })).rejects.toThrow(/document, an entry/);
+    }));
+
+  it("takes proposed adjustments to a decision by someone else, and sums what stays uncorrected against materiality", () =>
+    inRollback(async (client) => {
+      const { companyId, userId, accounts } = await withBills(client);
+      await client.query("RESET ROLE");
+      await client.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1, $2, 'auditor')", [companyId, userId]);
+      const { rows: u } = await client.query("INSERT INTO users (name, email, password_hash) VALUES ('Aisha', $1, 'x') RETURNING id", [`aisha+${Math.random().toString(36).slice(2)}@sentryfi.invalid`]);
+      const aisha = u[0].id;
+      await client.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1, $2, 'accountant')", [companyId, aisha]);
+      await assumeIdentity(client, { companyId, userId });
+      const { id: periodId } = await audit.createPeriod(client, { companyId, userId, from: "2025-01-01", to: "2025-12-31" });
+      const line = (accountId, debit, credit) => ({ accountId, debit, credit });
+      const propose = (amount, reason, klass = "factual") =>
+        adjust.propose(client, { companyId, userId, periodId, klass, reason, lines: [line(accounts.expense, amount, null), line(accounts.payable, null, amount)] });
+
+      expect(await adjust.setMateriality(client, { companyId, userId, periodId, materiality: "1000" })).toEqual({ materiality: "1,000.00", performance: "750.00", trivial: "50.00" });
+      await expect(adjust.propose(client, { companyId, userId, periodId, klass: "factual", reason: "Unrecorded bill", lines: [line(accounts.expense, "300", null), line(accounts.payable, null, "299")] })).rejects.toThrow(/does not balance/);
+      const one = await propose("300", "An unrecorded December bill from Island Hardware");
+      const two = await propose("200", "Accrual for December electricity", "judgemental");
+      const three = await propose("700", "Stock obsolescence provision", "judgemental");
+      const four = await propose("40", "Rounding on the payroll accrual");
+      expect([one.number, two.number, three.number, four.number]).toEqual([1, 2, 3, 4]);
+
+      // The one who proposed cannot decide; someone who may adjust does.
+      await expect(adjust.decide(client, { companyId, userId, id: one.id, how: "accept" })).rejects.toThrow(/Someone other than/);
+      await assumeIdentity(client, { companyId, userId: aisha });
+      const done = await adjust.decide(client, { companyId, userId: aisha, id: one.id, how: "accept", note: "Agreed, the bill arrived late" });
+      expect(done.status).toBe("accepted");
+      const { rows: e } = await client.query("SELECT entry_date::text AS day, narrative FROM journal_entries WHERE company_id = $1 AND entry_no = $2", [companyId, done.entryNo]);
+      expect(e[0]).toEqual({ day: "2025-12-31", narrative: "Adjustment: Audit adjustment AJ-1 (factual): An unrecorded December bill from Island Hardware" });
+      await expect(adjust.decide(client, { companyId, userId: aisha, id: two.id, how: "pass", note: "" })).rejects.toThrow(/Say why it is left unbooked/);
+      await adjust.decide(client, { companyId, userId: aisha, id: two.id, how: "pass", note: "Immaterial; it reverses in January" });
+      await adjust.decide(client, { companyId, userId: aisha, id: three.id, how: "reject", note: "The stock is still selling at full price" });
+      await expect(adjust.decide(client, { companyId, userId: aisha, id: one.id, how: "reject", note: "again" })).rejects.toThrow(/accepted already/);
+      await assumeIdentity(client, { companyId, userId });
+      await adjust.withdraw(client, { companyId, userId, id: four.id, note: "Explained by the payroll schedule" });
+
+      // To the company, the totals but not the auditor's thresholds.
+      const seen = await adjust.list(client, { companyId, periodId });
+      expect(seen).toMatchObject({ seesMateriality: false, materiality: null, uncorrected: { profit: "-900.00", standing: null, share: null } });
+      expect(seen.adjustments.every((x) => x.trivial === false)).toBe(true);
+      const l = await adjust.list(client, { companyId, periodId, auditor: true });
+      expect(l.counts).toEqual({ proposed: 0, accepted: 1, passed: 1, rejected: 1, withdrawn: 1 });
+      expect(l.adjustments[0]).toMatchObject({ ref: "AJ-1", status: "accepted", decidedBy: "Aisha", profitEffect: "-300.00", assetsEffect: "-300.00", entryNo: done.entryNo });
+      expect(l.adjustments[3]).toMatchObject({ status: "withdrawn", trivial: true });
+      // Uncorrected: the passed and the rejected, MVR 900 off profit; over performance (750), under overall (1,000).
+      expect(l.uncorrected).toMatchObject({ count: 2, profit: "-900.00", standing: "near", share: 90, byClass: { factual: "0.00", judgemental: "-900.00", projected: "0.00" } });
     }));
 
   it("lays monetary-unit hits end to end from the seed's start", () => {

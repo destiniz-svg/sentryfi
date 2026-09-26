@@ -116,6 +116,42 @@ CREATE POLICY company_isolation ON audit_questions
   USING (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid)
   WITH CHECK (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid);
 GRANT SELECT, INSERT ON audit_questions TO sentryfi_app;
+-- 1.46.0: materiality, set by the auditor, and proposed adjustments (ISA 450).
+ALTER TABLE audit_periods ADD COLUMN IF NOT EXISTS materiality_laari BIGINT CHECK (materiality_laari > 0);
+ALTER TABLE audit_periods ADD COLUMN IF NOT EXISTS performance_laari BIGINT CHECK (performance_laari > 0);
+ALTER TABLE audit_periods ADD COLUMN IF NOT EXISTS trivial_laari BIGINT CHECK (trivial_laari >= 0);
+GRANT UPDATE (materiality_laari, performance_laari, trivial_laari) ON audit_periods TO sentryfi_app;
+
+CREATE TABLE IF NOT EXISTS audit_adjustments (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id    UUID NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
+  period_id     UUID NOT NULL REFERENCES audit_periods(id),
+  number        INTEGER NOT NULL,
+  class         TEXT NOT NULL CHECK (class IN ('factual','judgemental','projected')),
+  reason        TEXT NOT NULL CHECK (length(btrim(reason)) >= 3),
+  -- [{ accountId, debit, credit, memo }] in laari, as proposed; never changed after.
+  lines         JSONB NOT NULL,
+  status        TEXT NOT NULL DEFAULT 'proposed' CHECK (status IN ('proposed','accepted','passed','rejected','withdrawn')),
+  proposed_by   UUID NOT NULL REFERENCES users(id),
+  proposed_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  decided_by    UUID REFERENCES users(id),
+  decided_at    TIMESTAMPTZ,
+  decision_note TEXT,
+  entry_id      UUID REFERENCES journal_entries(id),
+  UNIQUE (period_id, number),
+  -- Decided once, by someone other than the one who proposed it; an accepted one has its entry.
+  CHECK (status = 'proposed' OR decided_at IS NOT NULL),
+  CHECK (status <> 'accepted' OR entry_id IS NOT NULL),
+  CHECK (decided_by IS NULL OR status = 'withdrawn' OR decided_by <> proposed_by)
+);
+ALTER TABLE audit_adjustments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_adjustments FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS company_isolation ON audit_adjustments;
+CREATE POLICY company_isolation ON audit_adjustments
+  USING (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid)
+  WITH CHECK (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid);
+GRANT SELECT, INSERT ON audit_adjustments TO sentryfi_app;
+GRANT UPDATE (status, decided_by, decided_at, decision_note, entry_id) ON audit_adjustments TO sentryfi_app;
 GRANT SELECT, INSERT ON audit_periods, audit_samples, audit_sample_items TO sentryfi_app;
 GRANT UPDATE (seal_checked_at, seal_ok, seal_entries, seal_problems) ON audit_periods TO sentryfi_app;
 GRANT UPDATE (seen_by, seen_at, note) ON audit_sample_items TO sentryfi_app;

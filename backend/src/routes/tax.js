@@ -52,7 +52,7 @@ router.get(
   "/withholding",
   requireCan("read"),
   asyncHandler(async (req, res) => {
-    const key = /^d{4}-d{2}$/.test(String(req.query.month || "")) ? req.query.month : require("../ledger/today").today().slice(0, 7);
+    const key = /^\d{4}-\d{2}$/.test(String(req.query.month || "")) ? req.query.month : require("../ledger/today").today().slice(0, 7);
     res.json(
       await asCompany(req, async (client) => {
         const rules = await nwt.rules(client, { companyId: req.companyId });
@@ -89,7 +89,7 @@ router.get(
   "/income",
   requireCan("read"),
   asyncHandler(async (req, res) => {
-    const y = /^d{4}$/.test(String(req.query.year || "")) ? Number(req.query.year) : Number(require("../ledger/today").today().slice(0, 4)) - 1;
+    const y = /^\d{4}$/.test(String(req.query.year || "")) ? Number(req.query.year) : Number(require("../ledger/today").today().slice(0, 4)) - 1;
     res.json(await asCompany(req, (client) => incomeTax.year(client, { companyId: req.companyId, year: y })));
   })
 );

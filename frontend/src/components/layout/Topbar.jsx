@@ -80,6 +80,6 @@ function greeting() {
 }
 
 function initials(name) {
-  const parts = String(name || "").trim().split(/s+/).filter(Boolean);
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
   return ((parts[0]?.[0] || "") + (parts.length > 1 ? parts.at(-1)[0] : "")).toUpperCase() || "·";
 }

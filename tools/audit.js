@@ -130,6 +130,7 @@ const settle = (page) => page.waitForTimeout(700);
       await page.getByRole("tab", { name: "Questions" }).click();
       await page.locator("#ask-body-audit_period").fill("Please send the loan agreement and the bank's confirmation of the year-end balance.");
       await page.locator("#ask-of-audit_period").selectOption(people[0].id);
+      await page.locator("#ask-due-audit_period").fill(new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10));
       await page.getByRole("button", { name: "Ask", exact: true }).click();
       await page.getByTestId("questions").waitFor({ timeout: 15000 });
       if ((await page.getByTestId("questions").innerText()).includes("loan agreement")) ok(`a general request is asked of ${people[0].name}`);
@@ -153,6 +154,55 @@ const settle = (page) => page.waitForTimeout(700);
         if (/Answered/.test(state) && /bank letter follows/.test(state)) ok("they answer in the conversation; the auditor sees it answered, with the reply");
         else bad(`after answering, the row reads "${state.replace(/\s+/g, " ")}"`);
       }
+    }
+
+    // Materiality and a proposed adjustment; accepted by someone in the company when their login is given, otherwise withdrawn again.
+    await page.goto(`${BASE}/audit/${periodId}?tab=adjustments`, { waitUntil: "networkidle", timeout: 45000 });
+    if (await page.locator("#mat-overall").count()) {
+      await page.locator("#mat-overall").fill("50000");
+      await page.getByRole("button", { name: "Set materiality" }).click();
+      await page.getByTestId("materiality").waitFor({ timeout: 15000 });
+    }
+    const accts = (await api(page, "GET", "/audit/accounts")).json.accounts;
+    const exp = accts.find((a) => a.type === "expense");
+    const liab = accts.find((a) => a.type === "liability");
+    await page.locator("#aj-reason").fill(`A December bill received in January (check ${Date.now()})`);
+    await page.locator("#aj-account-0").selectOption(exp.id);
+    await page.locator("#aj-debit-0").fill("1234.50");
+    await page.locator("#aj-account-1").selectOption(liab.id);
+    await page.locator("#aj-credit-1").fill("1234.50");
+    if ((await page.getByTestId("aj-balance").innerText()) === "Balances") ok("the proposed lines balance");
+    else bad(`balance reads "${await page.getByTestId("aj-balance").innerText()}"`);
+    await settle(page);
+    await shot(page, "propose");
+    await page.getByRole("button", { name: "Propose it" }).click();
+    const row = page.getByTestId("adjustments").locator("li").filter({ hasText: "1,234.50" }).last();
+    await row.waitFor({ timeout: 15000 });
+    if (/Waiting for the company/.test(await row.innerText())) ok("the adjustment waits for the company; nothing is posted");
+    else bad(`the adjustment reads "${(await row.innerText()).replace(/\s+/g, " ")}"`);
+    if (process.env.SHOOT_ANSWERER_EMAIL) {
+      const [email, password] = [process.env.SHOOT_EMAIL, process.env.SHOOT_PASSWORD];
+      process.env.SHOOT_EMAIL = process.env.SHOOT_ANSWERER_EMAIL;
+      process.env.SHOOT_PASSWORD = process.env.SHOOT_ANSWERER_PASSWORD;
+      const { page: them } = await signIn(browser, { phone: false });
+      [process.env.SHOOT_EMAIL, process.env.SHOOT_PASSWORD] = [email, password];
+      await them.goto(`${BASE}/audit/${periodId}?tab=adjustments`, { waitUntil: "networkidle", timeout: 45000 });
+      const theirs = them.getByTestId("adjustments").locator("li").filter({ hasText: "1,234.50" }).last();
+      await theirs.getByRole("button", { name: "Accept and post it" }).click();
+      await theirs.getByRole("button", { name: "Post it", exact: true }).click();
+      await theirs.getByText("Accepted and posted").waitFor({ timeout: 15000 });
+      await shot(them, "accepted");
+      await them.close();
+      await page.reload({ waitUntil: "networkidle" });
+      const after = await page.getByTestId("adjustments").locator("li").filter({ hasText: "1,234.50" }).last().innerText();
+      if (/Accepted and posted/.test(after) && /entry \d+/.test(after)) ok("the company accepts it; it is posted and the auditor sees the entry");
+      else bad(`after accepting, it reads "${after.replace(/\s+/g, " ")}"`);
+    } else {
+      await row.getByRole("button", { name: "Withdraw it" }).click();
+      await page.locator("[id^=aj-note-]").fill("Check only: withdrawn");
+      await row.getByRole("button", { name: "Record it" }).click();
+      await row.getByText("Withdrawn").first().waitFor({ timeout: 15000 });
+      ok("with nobody else to decide, the auditor withdraws it: kept, marked withdrawn");
     }
 
     const canRecord = (await api(page, "GET", "/companies/current")).json?.can?.record;

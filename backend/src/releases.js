@@ -17,6 +17,19 @@
  */
 const RELEASES = [
   {
+    version: "1.46.0",
+    date: "2026-09-27",
+    title: "Audit: proposed adjustments and materiality",
+    summary: "The auditor proposes corrections; the company accepts, passes or rejects each one, and what stays uncorrected is summed against the auditor's materiality.",
+    items: [
+      { area: "Accounting", kind: "new", title: "Proposed adjustments", body: "In Audit, the auditor proposes a correcting entry with its reason. Nothing is posted until someone who may adjust the books, never the one who proposed it, accepts it; they can instead pass it as too small to matter, or reject it. Every one is kept, and what stays unbooked is summed as the summary of uncorrected misstatements.", href: "/audit" },
+      { area: "Accounting", kind: "new", title: "Materiality, kept with the auditor", body: "The auditor sets overall materiality, performance materiality and the clearly trivial amount, and sees what is uncorrected measured against them. Only the auditor sees these figures.", href: "/audit" },
+      { area: "Purchases", kind: "fixed", title: "Changing the price tolerance", body: "Changing how far above its order a bill may be priced, in Approvals, refused every figure. It now takes a percent such as 2 or 2.5.", href: "/approvals" },
+      { area: "Accounting", kind: "fixed", title: "Picking a GST return's month", body: "Choosing a month or year for a GST return could show the current one instead. It now shows the one picked.", href: "/tax" },
+      { area: "Everywhere", kind: "fixed", title: "Initials in the top bar", body: "The initials beside your name could be wrong for names with an s in them.", href: "/dashboard" },
+    ],
+  },
+  {
     version: "1.45.0",
     date: "2026-09-27",
     title: "Audit: questions to the company",

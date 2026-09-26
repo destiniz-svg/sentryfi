@@ -56,7 +56,7 @@ const bad = (m) => {
     // and the whole instalment came off the debt.
     const after = await card.innerText();
     if (/1 payment/.test(after) && /10,933.81/.test(after)) ok("repaid the same day: all of it off the debt, 10,933.81 still owed");
-    else bad(`after repaying, the card reads: ${after.replace(/s+/g, " ").slice(0, 240)}`);
+    else bad(`after repaying, the card reads: ${after.replace(/\s+/g, " ").slice(0, 240)}`);
     await page.screenshot({ path: "shots/loans.png", fullPage: true });
 
     await add({ kind: "other", name: `Check flat ${tag}`, principal: "10,000.00", rate: "6", basis: "flat", term: "36" });

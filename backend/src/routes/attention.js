@@ -328,6 +328,24 @@ async function collect(client, req) {
       });
     }
 
+    // The auditor proposed an adjustment, and it waits for someone who may adjust the books to decide.
+    if (req.can("adjust")) {
+      const { rows: aj } = await client.query(
+        `SELECT a.number, a.reason, a.period_id, (SELECT COALESCE(SUM((l->>'debit')::bigint), 0) FROM jsonb_array_elements(a.lines) l) AS total
+           FROM audit_adjustments a WHERE a.company_id = $1 AND a.status = 'proposed' AND a.proposed_by <> $2 ORDER BY a.proposed_at`,
+        [req.companyId, req.user.id]
+      );
+      for (const x of aj) {
+        found.push({
+          kind: "waiting",
+          title: `The auditor proposes adjustment AJ-${x.number}, MVR ${formatLaari(BigInt(x.total))}`,
+          detail: x.reason.length > 110 ? `${x.reason.slice(0, 109)}…` : x.reason,
+          does: "Accept, pass or reject it",
+          href: `/audit/${x.period_id}?tab=adjustments`,
+        });
+      }
+    }
+
     found.sort((a, b) => SEVERITY[a.kind] - SEVERITY[b.kind]);
     return found;
 }

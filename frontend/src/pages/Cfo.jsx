@@ -578,7 +578,7 @@ function Health({ checks }) {
                   <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-[12px] mt-3 rounded-xl bg-[var(--surface-2)] p-3" data-testid="basis">
                     {Object.entries(c.basis).map(([k, v]) => (
                       <div key={k} className="contents">
-                        <dt className="text-[var(--ink-muted)]">{k.replace(/([A-Z])/g, " $1").replace(/(d+)/, " $1").toLowerCase()}</dt>
+                        <dt className="text-[var(--ink-muted)]">{k.replace(/([A-Z])/g, " $1").replace(/(\d+)/, " $1").toLowerCase()}</dt>
                         <dd className="tabular">{v ?? "none"}</dd>
                       </div>
                     ))}

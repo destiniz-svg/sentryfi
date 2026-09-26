@@ -32,6 +32,17 @@ const uuid = (v) => {
   return v;
 };
 
+/** Accounts an adjustment can name: read-only, for the auditor's line editor. */
+router.get(
+  "/accounts",
+  requireCan("read_trail"),
+  refused(async (req, res) => {
+    const rows = await asCompany(req, (c) => c.query("SELECT id, code, name, type::text AS type FROM accounts WHERE company_id = $1 AND archived_at IS NULL ORDER BY code", [req.companyId]).then((r) => r.rows));
+    res.json({ accounts: rows });
+  })
+);
+
+
 router.get("/", requireCan("read_trail"), refused(async (req, res) => res.json({ periods: await as(req, (c, ctx) => audit.periods(c, ctx)) })));
 
 router.post(
@@ -127,7 +138,7 @@ router.post(
         recordId: z.string().uuid().nullish(),
         body: z.string().trim().min(3, "Write the question.").max(4000),
         askOf: z.string().uuid({ message: "Say who in the company should answer." }),
-        dueOn: z.string().regex(/^d{4}-d{2}-d{2}$/).nullish(),
+        dueOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish(),
       })
       .safeParse(req.body ?? {});
     if (!p.success) throw ApiError.badRequest(p.error.issues[0].message);
@@ -137,6 +148,64 @@ router.post(
 
 /** A journal entry, for a question's conversation page: its lines, who posted it and when. Anyone who reads the books. */
 router.get("/entries/:eid", requireCan("read"), refused(async (req, res) => res.json({ entry: await as(req, (c, ctx) => audit.entryOf(c, ctx.companyId, uuid(req.params.eid))) })));
+
+// ------------------------------------------------------------------ materiality and adjustments
+
+const adjustments = require("../ledger/auditAdjustments");
+const money = z.union([z.string().trim(), z.number()]).transform(String);
+
+router.put(
+  "/:id/materiality",
+  requireCan("audit"),
+  refused(async (req, res) => {
+    if (!isAuditor(req)) throw ApiError.forbidden("Materiality is the auditor's own judgement: only the auditor sets it.");
+    const p = z.object({ materiality: money, performance: money.nullish(), trivial: money.nullish() }).safeParse(req.body ?? {});
+    if (!p.success) throw ApiError.badRequest("Say overall materiality.");
+    res.json(await as(req, (c, ctx) => adjustments.setMateriality(c, { ...ctx, periodId: uuid(req.params.id), ...p.data })));
+  })
+);
+
+// Materiality is the auditor's own: only someone who holds the Auditor role sets or sees it.
+const isAuditor = (req) => (req.roles || []).includes("auditor");
+
+router.get(
+  "/:id/adjustments",
+  requireCan("read_trail"),
+  refused(async (req, res) => res.json(await as(req, (c, ctx) => adjustments.list(c, { ...ctx, periodId: uuid(req.params.id), auditor: isAuditor(req) }))))
+);
+
+router.post(
+  "/:id/adjustments",
+  requireCan("audit"),
+  refused(async (req, res) => {
+    const p = z
+      .object({
+        class: z.enum(["factual", "judgemental", "projected"]),
+        reason: z.string().trim().max(1000),
+        lines: z.array(z.object({ accountId: z.string().uuid("Each line needs an account."), debit: money.nullish(), credit: money.nullish(), memo: z.string().max(200).nullish() })).min(2).max(40),
+      })
+      .safeParse(req.body ?? {});
+    if (!p.success) throw ApiError.badRequest(p.error.issues[0].message);
+    res.status(201).json(await as(req, (c, ctx) => adjustments.propose(c, { ...ctx, periodId: uuid(req.params.id), klass: p.data.class, reason: p.data.reason, lines: p.data.lines })));
+  })
+);
+
+/** The company decides: accept (posts it), pass (left unbooked, immaterial) or reject. Only those who may adjust the books. */
+router.post(
+  "/adjustments/:aid/decide",
+  requireCan("adjust"),
+  refused(async (req, res) => {
+    const p = z.object({ how: z.enum(["accept", "pass", "reject"]), note: z.string().max(1000).nullish(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish() }).safeParse(req.body ?? {});
+    if (!p.success) throw ApiError.badRequest("Accept it, pass it, or reject it.");
+    res.json(await as(req, (c, ctx) => adjustments.decide(c, { ...ctx, id: uuid(req.params.aid), ...p.data })));
+  })
+);
+
+router.post(
+  "/adjustments/:aid/withdraw",
+  requireCan("audit"),
+  refused(async (req, res) => res.json(await as(req, (c, ctx) => adjustments.withdraw(c, { ...ctx, id: uuid(req.params.aid), note: req.body?.note }))))
+);
 
 /** Re-draws a sample from its seed and rule, and says whether it is the same. */
 router.post("/samples/:sid/prove", requireCan("read_trail"), refused(async (req, res) => res.json(await as(req, (c, ctx) => audit.prove(c, { ...ctx, sampleId: uuid(req.params.sid) })))));
