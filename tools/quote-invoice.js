@@ -48,7 +48,7 @@ const shot = (page, name) => page.screenshot({ path: `${process.env.TEMP}/qi-${n
 
     const invoiceId = page.url().split("/").pop();
     const doc = (await api(page, "GET", `/documents/invoice/${invoiceId}`)).json;
-    const d = doc?.document || doc;
+    const d = doc?.data;
     if (d?.status === "draft") ok(`the invoice is a draft (status ${d.status}), not posted or sent`);
     else bad(`the invoice's status is ${JSON.stringify(d?.status)}`);
     if (JSON.stringify(d).includes("5,300.00")) ok("it carries the quote's lines: MVR 5,300.00 before GST");
