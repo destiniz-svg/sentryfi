@@ -131,7 +131,8 @@ export function trail(pathname, search = "") {
   if (p) {
     const path = pathOf(p.it.to);
     if (pathname === path) return [p.s.label, p.it.label];
-    return [p.s.label, p.it.label, path === "/bank" ? "Statement" : "Detail"];
+    const leaf = path === "/bank" ? "Statement" : path === "/audit" ? (pathname.startsWith("/audit/samples/") ? "Sample" : "Period") : "Detail";
+    return [p.s.label, p.it.label, leaf];
   }
   if (pathname.startsWith("/documents/")) return ["Sales", "Document"];
   const e = EXTRA[pathname];

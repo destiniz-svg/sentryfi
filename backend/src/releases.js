@@ -17,6 +17,15 @@
  */
 const RELEASES = [
   {
+    version: "1.44.0",
+    date: "2026-09-27",
+    title: "The audit pack",
+    summary: "One download for the auditor: every schedule for the period, in the form audit software reads, each file fingerprinted.",
+    items: [
+      { area: "Accounting", kind: "new", title: "Audit pack", body: "In Audit, each period has an Audit pack: trial balance, general ledger, ageing, fixed assets, stock by place, bank reconciliations, GST returns, the samples, the journal risks and the seal check, with the papers behind sampled items. The ledger is in the layout audit software reads, with when and by whom each entry was made. A manifest fingerprints every file, and each pack made is kept on record.", href: "/audit" },
+    ],
+  },
+  {
     version: "1.43.0",
     date: "2026-09-26",
     title: "Audit: samples you can prove, and the journal risk screen",

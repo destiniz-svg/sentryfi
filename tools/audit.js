@@ -102,6 +102,26 @@ const settle = (page) => page.waitForTimeout(700);
     const drawnWhy = (await page.getByTestId("sample-item").first().innerText()).replace(/\s+/g, " ");
     ok(`drew one entry that shows "${signName}": "${drawnWhy.slice(0, 120)}"`);
 
+    // The audit pack: downloaded, and every file checked against its manifest.
+    await page.getByRole("link", { name: /Back to/ }).click();
+    await page.getByRole("tab", { name: "Audit pack" }).click();
+    const [download] = await Promise.all([page.waitForEvent("download", { timeout: 60000 }), page.getByRole("button", { name: "Make the pack" }).click()]);
+    const zipPath = `${process.env.TEMP}/audit-pack-check.zip`;
+    await download.saveAs(zipPath);
+    const { unzip } = require("../backend/src/ledger/unzip");
+    const raw = unzip(require("fs").readFileSync(zipPath), { binary: true });
+    const manifest = raw["MANIFEST.sha256"].toString("utf8").trim().split("\n");
+    const wrong = manifest.filter((line) => require("crypto").createHash("sha256").update(raw[line.slice(66).split("/").pop()]).digest("hex") !== line.slice(0, 64));
+    if (manifest.length >= 13 && !wrong.length) ok(`the pack holds ${manifest.length} files, each matching its SHA-256 in the manifest`);
+    else bad(`pack manifest: ${manifest.length} lines, ${wrong.length} wrong`);
+    const gl = raw["02 General ledger (AICPA GL detail).csv"].toString("utf8");
+    if (/Journal_ID,JE_Line_Number,Effective_Date,Entered_Date,Entered_Time,Entered_By/.test(gl)) ok("the ledger is in the AICPA layout, with entered date, time and user");
+    else bad("the ledger layout is wrong");
+    await page.getByTestId("packs").waitFor({ timeout: 15000 });
+    await settle(page);
+    await shot(page, "pack");
+    ok("the pack is on record with its fingerprint");
+
     const canRecord = (await api(page, "GET", "/companies/current")).json?.can?.record;
     if (canRecord === false) {
       const tried = await api(page, "POST", "/bills", { supplierName: "Auditor check", amount: "1", gstTreatment: "none_unregistered" });

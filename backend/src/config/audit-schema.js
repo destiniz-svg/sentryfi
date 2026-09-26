@@ -79,6 +79,24 @@ ALTER TABLE audit_samples ADD CONSTRAINT audit_samples_how_check CHECK (how IN (
 -- Why each item was chosen (a key item, a monetary-unit hit, the risks it showed), and the entry behind it.
 ALTER TABLE audit_sample_items ADD COLUMN IF NOT EXISTS why TEXT;
 ALTER TABLE audit_sample_items ADD COLUMN IF NOT EXISTS entry_id UUID REFERENCES journal_entries(id);
+-- 1.44.0: every audit pack made, by its fingerprint, so what was handed over can be shown later.
+CREATE TABLE IF NOT EXISTS audit_packs (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id  UUID NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
+  period_id   UUID NOT NULL REFERENCES audit_periods(id),
+  sha256      TEXT NOT NULL,
+  byte_size   BIGINT NOT NULL,
+  files       INTEGER NOT NULL,
+  made_by     UUID NOT NULL REFERENCES users(id),
+  made_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE audit_packs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_packs FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS company_isolation ON audit_packs;
+CREATE POLICY company_isolation ON audit_packs
+  USING (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid)
+  WITH CHECK (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid);
+GRANT SELECT, INSERT ON audit_packs TO sentryfi_app;
 GRANT SELECT, INSERT ON audit_periods, audit_samples, audit_sample_items TO sentryfi_app;
 GRANT UPDATE (seal_checked_at, seal_ok, seal_entries, seal_problems) ON audit_periods TO sentryfi_app;
 GRANT UPDATE (seen_by, seen_at, note) ON audit_sample_items TO sentryfi_app;

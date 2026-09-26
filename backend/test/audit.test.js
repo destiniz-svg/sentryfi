@@ -10,6 +10,9 @@ import { assumeIdentity, postEntry } from "../src/ledger/post";
 import { postBill } from "../src/ledger/bills";
 import * as audit from "../src/ledger/audit";
 import * as risk from "../src/ledger/auditRisk";
+import * as pack from "../src/ledger/auditPack";
+import { unzip } from "../src/ledger/unzip";
+import { createHash } from "crypto";
 
 afterAll(closePool);
 
@@ -124,6 +127,45 @@ describe("the audit workspace", () => {
       expect(s.items[0]).toMatchObject({ party: "adj", why: "Made by hand, not from a bill, invoice or other document" });
       expect(s.said).toBe("Every one of the entries that came from no document");
       expect(await audit.prove(client, { companyId, sampleId: drawn.id })).toMatchObject({ sameItems: true });
+    }));
+
+  it("makes an audit pack: every schedule at the year end, in audit-data form, each file fingerprinted", () =>
+    inRollback(async (client) => {
+      const { companyId, userId, accounts } = await withBills(client);
+      const { id: periodId } = await audit.createPeriod(client, { companyId, userId, name: "FY2025", from: "2025-01-01", to: "2025-12-31" });
+      await audit.draw(client, { companyId, userId, periodId, kind: "bill", how: "over", over: "400" });
+      const made = await pack.build(client, { companyId, userId, periodId });
+      const files = unzip(made.body);
+      expect(Object.keys(files)).toEqual(expect.arrayContaining(["00 Read me.txt", "01 Trial balance.csv", "02 General ledger (AICPA GL detail).csv", "04 Receivables ageing.csv", "05 Payables ageing.csv", "10 Sample register.csv", "12 Seal.txt", "MANIFEST.sha256"]));
+
+      // Every file matches its line in the manifest.
+      const raw = unzip(made.body, { binary: true });
+      for (const line of files["MANIFEST.sha256"].trim().split("\n")) {
+        const [hash, name] = [line.slice(0, 64), line.slice(66)];
+        const bytes = Buffer.from(raw[name.split("/").pop()]);
+        expect(createHash("sha256").update(bytes).digest("hex")).toBe(hash);
+      }
+
+      // The ledger carries the fields journal-entry testing needs, and only the period's lines.
+      const gl = files["02 General ledger (AICPA GL detail).csv"].trim().split("\r\n");
+      expect(gl[0]).toBe("Journal_ID,JE_Line_Number,Effective_Date,Entered_Date,Entered_Time,Entered_By,Entered_By_ID,Source,Manual_Entry,JE_Header_Description,GL_Account_Number,GL_Account_Name,Amount,Amount_Credit_Debit_Indicator,Amount_Currency,JE_Line_Description,Business_Unit_Party,Reverses_Journal_ID");
+      expect(gl).toHaveLength(1 + 6 * 2);
+      expect(gl[1].split(",").slice(0, 3)).toEqual(["1", "1", "2025-02-01"]);
+      expect(gl[1]).toMatch(/,100.00,D,MVR,/);
+      expect(gl[2]).toMatch(/,-100.00,C,MVR,/);
+
+      // The trial balance closes on MVR 3,500 owed to the supplier; payables ageing agrees.
+      expect(files["01 Trial balance.csv"]).toMatch(/2100,Suppliers we owe,liability,0.00,0.00,3500.00,0.00,3500.00/);
+      expect(files["05 Payables ageing.csv"]).toMatch(/Total,,,,,,3500.00/);
+      expect(files["10 Sample register.csv"].trim().split("\r\n")).toHaveLength(1 + 3);
+      expect(files["12 Seal.txt"]).toMatch(/Intact: all 6 entries/);
+
+      // The pack is on record by its fingerprint.
+      expect(await pack.packs(client, { companyId, periodId })).toEqual([expect.objectContaining({ sha256: made.sha, files: made.files.length })]);
+      // A spreadsheet will not run a description as a formula.
+      expect(pack.cell("=HYPERLINK(1)")).toBe("'=HYPERLINK(1)");
+      expect(pack.cell("-12.50")).toBe("-12.50");
+      void accounts;
     }));
 
   it("lays monetary-unit hits end to end from the seed's start", () => {

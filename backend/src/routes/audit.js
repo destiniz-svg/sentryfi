@@ -80,6 +80,25 @@ router.get(
   )
 );
 
+/**
+ * The audit pack: one zip for the period, every file fingerprinted, the pack
+ * itself recorded by its SHA-256. Making one checks the seal again, so it is
+ * for those who audit; the packs made are listed to anyone who reads the trail.
+ */
+router.get(
+  "/:id/pack",
+  requireCan("audit"),
+  refused(async (req, res) => {
+    const pack = await as(req, (c, ctx) => require("../ledger/auditPack").build(c, { ...ctx, periodId: uuid(req.params.id) }));
+    res.set("Content-Type", "application/zip");
+    res.set("Content-Disposition", `attachment; filename="${pack.name}"`);
+    res.set("X-Pack-SHA256", pack.sha);
+    res.set("Cache-Control", "no-store");
+    res.send(pack.body);
+  })
+);
+router.get("/:id/packs", requireCan("read_trail"), refused(async (req, res) => res.json({ packs: await as(req, (c, ctx) => require("../ledger/auditPack").packs(c, { ...ctx, periodId: uuid(req.params.id) })) })));
+
 /** Re-draws a sample from its seed and rule, and says whether it is the same. */
 router.post("/samples/:sid/prove", requireCan("read_trail"), refused(async (req, res) => res.json(await as(req, (c, ctx) => audit.prove(c, { ...ctx, sampleId: uuid(req.params.sid) })))));
 

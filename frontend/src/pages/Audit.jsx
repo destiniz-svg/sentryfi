@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { AlertTriangle, BadgeCheck, ChevronRight, FileText, Loader2, ShieldAlert, ShieldCheck } from "lucide-react";
+import { AlertTriangle, BadgeCheck, ChevronRight, Download, FileText, Loader2, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -214,6 +214,7 @@ function Period({ id }) {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="samples">Samples{p.samples.length ? ` · ${p.samples.length}` : ""}</TabsTrigger>
           <TabsTrigger value="risk">Journal risk</TabsTrigger>
+          <TabsTrigger value="pack">Audit pack</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -253,6 +254,7 @@ function Period({ id }) {
       )}
       {tab === "samples" && <Samples p={p} />}
       {tab === "risk" && <Risk id={id} />}
+      {tab === "pack" && <Pack p={p} />}
     </div>
   );
 }
@@ -502,6 +504,102 @@ function Risk({ id }) {
           </ul>
         )}
         {shown.length > 200 && <p className="px-5 py-3 text-[13px] text-[var(--ink-muted)] border-t border-[var(--border)]">The first 200 of {shown.length}, most telling first. Draw a sample to work through them.</p>}
+      </Card>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ the pack
+
+const CONTENTS = [
+  ["01", "Trial balance", "Opening, the period's debits and credits, and closing, per account."],
+  ["02", "General ledger", "Every line in the period, in the AICPA Audit Data Standards layout: the date it is for, when and by whom it was entered, whether it came from a document."],
+  ["03", "Chart of accounts", "Every account, with its type."],
+  ["04–05", "Receivables and payables ageing", "What was open at the period end, by days past due."],
+  ["06", "Fixed asset register", "Cost, depreciation charged through the period end, and book value."],
+  ["07", "Stock by place", "Quantities and value at the period end, and whether they agree with the Stock account."],
+  ["08", "Bank reconciliations", "As kept when each month in the period was closed."],
+  ["09", "GST returns filed", "Output, input and net for each return in the period."],
+  ["10", "Sample register", "Every sample with its rule, seed and population fingerprint, and each item: why drawn, seen by whom, the note."],
+  ["11", "Journal risk", "The entries that show signs of override, most telling first."],
+  ["12", "Seal", "The check over the whole journal, and the chain's last hash."],
+  ["papers/", "Papers", "The documents attached to sampled items, as filed."],
+];
+
+function Pack({ p }) {
+  const { companyId, can } = useCompany();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const key = ["audit-packs", companyId, p.id];
+  const { data } = useQuery({ queryKey: key, queryFn: () => apiClient.get(`/audit/${p.id}/packs`).then((r) => r.data) });
+  const [busy, setBusy] = useState(false);
+
+  async function make() {
+    setBusy(true);
+    try {
+      const r = await apiClient.get(`/audit/${p.id}/pack`, { responseType: "blob" });
+      const name = /filename="([^"]+)"/.exec(r.headers["content-disposition"] || "")?.[1] || "Audit pack.zip";
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(r.data);
+      a.download = name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 60_000);
+      qc.invalidateQueries({ queryKey: key });
+      qc.invalidateQueries({ queryKey: ["audit", companyId, p.id] });
+      toast.success("Audit pack made", `Its fingerprint begins ${String(r.headers["x-pack-sha256"] || "").slice(0, 12)}.`);
+    } catch (ex) {
+      toast.error("Not made", ex.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-4">
+      <Card padding="lg" className="grid gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="max-w-[62ch]">
+            <h2 className="text-[15px] font-semibold">One download for {p.name}</h2>
+            <p className="text-[14px] text-[var(--ink-muted)] mt-1">Balances as at {formatDate(p.to)}. Spreadsheet files audit software takes in as they are, with a manifest giving each file's SHA-256, so nothing in it can be changed unnoticed. The seal is checked again as it is made.</p>
+          </div>
+          {can("audit") && (
+            <Button variant="accent" onClick={make} disabled={busy}>
+              {busy ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              Make the pack
+            </Button>
+          )}
+        </div>
+        <ol className="grid sm:grid-cols-2 gap-x-6 gap-y-2.5 text-[14px]" data-testid="pack-contents">
+          {CONTENTS.map(([no, t, d]) => (
+            <li key={t} className="grid grid-cols-[52px_minmax(0,1fr)] gap-2">
+              <span className="text-[12px] tabular text-[var(--ink-muted)] pt-0.5" title="Its name in the zip">{no}</span>
+              <span>
+                <span className="font-medium">{t}</span>
+                <span className="block text-[13px] text-[var(--ink-muted)]">{d}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
+      </Card>
+      <Card padding="none" className="overflow-hidden">
+        <div className="px-5 py-3 border-b border-[var(--border)] text-[13px] font-semibold">Packs made</div>
+        {!data?.packs.length ? (
+          <p className="px-5 py-4 text-[14px] text-[var(--ink-muted)]">None yet. Each pack made is kept on record by its fingerprint, so what was handed over can be shown later.</p>
+        ) : (
+          <ul className="divide-y divide-[var(--border)]" data-testid="packs">
+            {data.packs.map((k) => (
+              <li key={k.sha256 + k.at} className="px-5 py-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[14px]">
+                <span className="font-medium">{formatDate(k.at)}</span>
+                <span className="text-[var(--ink-muted)]">
+                  {k.by} · {k.files} files · {k.size >= 1048576 ? `${(k.size / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(k.size / 1024))} KB`}
+                </span>
+                <span className="font-mono text-[12px] break-all text-[var(--ink-muted)]" title="SHA-256 of the whole zip">
+                  {k.sha256}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
     </div>
   );
