@@ -17,6 +17,15 @@
  */
 const RELEASES = [
   {
+    version: "1.30.1",
+    date: "2026-09-26",
+    title: "Invoice in parts, straight away",
+    summary: "Choosing to invoice in parts instead of the whole draft opens the form with the order's figures already up to date.",
+    items: [
+      { area: "Sales", kind: "fixed", title: "The part form, with fresh figures", body: "After the whole draft is discarded, the form waits for the order's new figures, so what it takes and what is left show at once.", href: "/orders?kind=sale" },
+    ],
+  },
+  {
     version: "1.30.0",
     date: "2026-09-26",
     title: "Invoice a job in parts",

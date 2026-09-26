@@ -135,6 +135,7 @@ export default function Order() {
                   try {
                     await apiClient.delete(`/sales/${o.invoices[0].id}`, { data: { reason: "Invoiced in parts instead" } });
                     refresh();
+                    await qc.refetchQueries({ queryKey: ["orders", companyId, id] });
                     setOpen("part");
                   } catch (ex) {
                     toast.error("Not yet", ex.message);
@@ -280,7 +281,7 @@ export default function Order() {
 
       {open === "deliver" && <Deliver o={o} onClose={() => setOpen(null)} run={run} />}
       {open === "bill" && <Bill o={o} onClose={() => setOpen(null)} run={run} nav={nav} />}
-      {open === "part" && <Part id={id} onClose={() => setOpen(null)} run={run} nav={nav} />}
+      {open === "part" && <Part o={o} onClose={() => setOpen(null)} run={run} nav={nav} />}
     </div>
   );
 }
@@ -442,14 +443,10 @@ function Invoices({ invoices, title }) {
 }
 
 /** A part of the job, invoiced ahead: a percentage of the whole or an amount, named for its milestone. */
-function Part({ id, onClose, run, nav }) {
-  const { companyId } = useCompany();
-  // Read fresh: a draft for the whole may have just been discarded to get here.
-  const { data: o } = useQuery({ queryKey: ["orders", companyId, id], queryFn: () => apiClient.get(`/orders/${id}`).then((r) => r.data) });
+function Part({ o, onClose, run, nav }) {
   const [by, setBy] = useState("percent");
   const [f, setF] = useState({ value: "", label: "", issueDate: today() });
   const [busy, setBusy] = useState(false);
-  if (!o) return null;
   const want = by === "percent" ? (n(o.total) * n(f.value)) / 100 : n(f.value);
   const takes = Math.min(want, n(o.left));
   const money = (v) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
