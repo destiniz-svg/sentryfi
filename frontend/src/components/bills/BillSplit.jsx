@@ -36,12 +36,14 @@ export function BillSplit({ bill, onClose }) {
   const [rows, setRows] = useState([]);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [placeId, setPlaceId] = useState("");
 
   useEffect(() => {
     apiClient
       .get(`/bills/${bill.id}/split`)
       .then((r) => {
         setData(r.data);
+        setPlaceId(r.data.placeId || "");
         setRows(r.data.lines.map((l) => ({ ...blank(), ...l, itemId: l.itemId || "", accountId: l.accountId || "", category: l.category || "", lifeYears: l.lifeYears ?? "", shipmentId: l.shipmentId || "", forCustomerId: l.forCustomerId || "", markup: l.markup || "" })));
       })
       .catch((ex) => setErr(ex.message));
@@ -75,7 +77,7 @@ export function BillSplit({ bill, onClose }) {
           forCustomerId: r.kind === "cost" ? r.forCustomerId || null : null,
           markup: r.kind === "cost" && r.forCustomerId ? String(r.markup || "0") : null,
         }));
-      await apiClient.put(`/bills/${bill.id}/split`, { lines });
+      await apiClient.put(`/bills/${bill.id}/split`, { lines, placeId: placeId || null });
       qc.invalidateQueries({ queryKey: ["bills", companyId] });
       toast.success("Saved, and remembered", "The same charges from this supplier go in by themselves next time.");
       onClose();
@@ -227,6 +229,18 @@ export function BillSplit({ bill, onClose }) {
               )}
             </div>
           ))}
+          {rows.some((r) => r.kind === "stock") && o?.places?.length > 1 && (
+            <label className="flex items-center gap-3">
+              <span className="text-[14px] font-medium shrink-0">Goods came into</span>
+              <select aria-label="Goods came into" value={placeId} onChange={(e) => setPlaceId(e.target.value)} className={`${BOX} flex-1 min-w-0`}>
+                {o.places.map((p) => (
+                  <option key={p.id || "main"} value={p.id || ""}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <Button type="button" variant="ghost" size="sm" onClick={() => setRows((rs) => [...rs, { ...blank(), amount: rest > 0.004 ? two(rest) : "" }])}>
               <Plus size={14} /> Another line

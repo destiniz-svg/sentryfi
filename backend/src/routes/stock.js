@@ -117,6 +117,9 @@ router.get(
       return {
         items: await stock.list(client, { companyId: req.companyId }),
         places: await stock.places(client, { companyId: req.companyId }),
+        // Who can be put in charge of a place, and the projects a site can belong to.
+        people: (await client.query("SELECT u.id, u.name FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.company_id = $1 ORDER BY lower(u.name)", [req.companyId])).rows,
+        projects: (await client.query("SELECT id, name FROM projects WHERE company_id = $1 AND archived_at IS NULL ORDER BY lower(name)", [req.companyId])).rows,
         accounts: { income: accounts.filter((x) => x.type === "income"), cost: accounts.filter((x) => x.type === "expense") },
       };
     });
@@ -222,13 +225,28 @@ const place = z.string().uuid("Which place?").nullish();
 const countBody = z.object({ counted: qty, on: dateText, unitCost: money.nullish(), note: z.string().trim().max(300).nullish(), placeId: place });
 
 // Where stock is kept, and moving it between places.
+const placeBody = z.object({
+  name: z.string().trim().min(2, "Give the place a name.").max(80),
+  kind: z.enum(stock.PLACE_KINDS, { message: "What kind of place is it?" }).default("store"),
+  inChargeId: z.string().uuid().nullish(),
+  projectId: z.string().uuid().nullish(),
+});
 router.post(
   "/places",
   requireCan("record"),
   refused(async (req, res) => {
-    const parsed = z.object({ name: z.string().trim().min(2, "Give the place a name.").max(80) }).safeParse(req.body ?? {});
+    const parsed = placeBody.safeParse(req.body ?? {});
     if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
-    res.status(201).json(await asCompany(req, (client) => stock.addPlace(client, { companyId: req.companyId, userId: req.user.id, name: parsed.data.name })));
+    res.status(201).json(await asCompany(req, (client) => stock.addPlace(client, { companyId: req.companyId, userId: req.user.id, ...parsed.data })));
+  })
+);
+router.patch(
+  "/places/:placeId",
+  requireCan("record"),
+  refused(async (req, res) => {
+    const parsed = placeBody.safeParse(req.body ?? {});
+    if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
+    res.json(await asCompany(req, (client) => stock.updatePlace(client, { companyId: req.companyId, placeId: req.params.placeId, ...parsed.data })));
   })
 );
 

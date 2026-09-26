@@ -577,6 +577,21 @@ describe("A's stock, from B", () => {
     expect((await call(A, "GET", "/stock")).json.items.find((i) => i.id === itemA).onHand).toBe("10");
   });
 
+  it("B cannot change A's place, put A's person in charge of B's, tie it to A's project, or receive a bill into A's place", async () => {
+    const yard = (await call(A, "GET", "/stock")).json.places.find((p) => p.name === "SECRET-YARD-A");
+    denied(await call(B, "PATCH", `/stock/places/${yard.id}`, { body: { name: "mine now", kind: "store" } }));
+    const aPerson = (await call(A, "GET", "/stock")).json.people[0].id;
+    const aProject = (await call(A, "POST", "/projects", { body: { name: "SECRET-SITE-PROJECT-A" } })).json.id;
+    denied(await call(B, "POST", "/stock/places", { body: { name: "B van", kind: "vehicle", inChargeId: aPerson } }));
+    denied(await call(B, "POST", "/stock/places", { body: { name: "B site", kind: "site", projectId: aProject } }));
+    const people = await call(B, "GET", "/stock");
+    noLeak(people, aPerson);
+    noLeak(people, "SECRET-SITE-PROJECT-A");
+    const bill = await call(B, "POST", "/bills", { body: { supplierName: "B's place supplier", amount: "100", gstTreatment: "none_unregistered", issueDate: "2026-09-03" } });
+    denied(await call(B, "PUT", `/bills/${bill.json.bill.id}/split`, { body: { lines: [], placeId: yard.id } }));
+    expect((await call(A, "GET", "/stock")).json.places.find((p) => p.id === yard.id).name).toBe("SECRET-YARD-A");
+  });
+
   it("B cannot buy it on B's bill or sell it on B's invoice", async () => {
     const bill = await call(B, "POST", "/bills", { body: { supplierName: "B's supplier", amount: "100", gstTreatment: "none_unregistered", issueDate: "2026-09-03" } });
     expect(bill.status).toBe(201);

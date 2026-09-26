@@ -116,7 +116,7 @@ router.get(
       // A quote shows its job: what has been invoiced from its sales order, and what is left.
       if (o.becameOrderId) { const j = orders.show(await orders.load(client, { ...ctx, orderId: o.becameOrderId })); o.job = { number: j.number, total: j.total, billed: j.billed, left: j.left, invoices: j.invoices }; }
       return o;
-    })()), deliveries: (await client.query("SELECT id, delivered_on::text AS on, reference FROM order_deliveries WHERE order_id = $1 AND company_id = $2 ORDER BY created_at", [req.params.id, ctx.companyId])).rows, canApproveUpTo: await approveUpTo(client, req).then((v) => (v === null ? null : formatLaari(v < 0n ? 0n : v))), mayApprove: req.can("approve") })));
+    })()), places: await require("../ledger/stock").places(client, { companyId: ctx.companyId }), deliveries: (await client.query("SELECT id, delivered_on::text AS on, reference FROM order_deliveries WHERE order_id = $1 AND company_id = $2 ORDER BY created_at", [req.params.id, ctx.companyId])).rows, canApproveUpTo: await approveUpTo(client, req).then((v) => (v === null ? null : formatLaari(v < 0n ? 0n : v))), mayApprove: req.can("approve") })));
   })
 );
 
@@ -138,7 +138,7 @@ router.post(
   "/:id/deliveries",
   requireCan("receive", "record"),
   refused(async (req, res) => {
-    const b = parse(z.object({ deliveredOn: dateText.nullish(), reference: z.string().trim().max(60).nullish(), note: z.string().trim().max(300).nullish(), lines: z.array(z.object({ orderLineId: z.string().uuid(), quantity: num })).min(1).max(100) }), req.body);
+    const b = parse(z.object({ deliveredOn: dateText.nullish(), reference: z.string().trim().max(60).nullish(), note: z.string().trim().max(300).nullish(), placeId: z.string().uuid().nullish(), lines: z.array(z.object({ orderLineId: z.string().uuid(), quantity: num })).min(1).max(100) }), req.body);
     const r = await on(req, (client, ctx) => orders.deliver(client, { ...ctx, orderId: req.params.id, ...b }));
     res.status(201).json(r);
   })

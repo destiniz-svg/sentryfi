@@ -17,6 +17,16 @@
  */
 const RELEASES = [
   {
+    version: "1.32.0",
+    date: "2026-09-26",
+    title: "Stock places, for real",
+    summary: "Say what kind of place each one is and who looks after it, tie a site to its project, and receive bills and deliveries straight into it.",
+    items: [
+      { area: "Stock", kind: "new", title: "Kinds of place, and who is in charge", body: "A place can be a store, godown, outlet, site, factory or vehicle, with a person in charge. A site can belong to a project. Tap a place on the Stock page to change it.", href: "/stock" },
+      { area: "Bills", kind: "new", title: "Goods come into a named place", body: "When a bill has stock on it, say where the goods came in. A delivery against a purchase order can say so too, and the bill from that order follows it.", href: "/bills" },
+    ],
+  },
+  {
     version: "1.31.0",
     date: "2026-09-26",
     title: "Costs passed on, and repeating bills",

@@ -130,9 +130,9 @@ async function create(client, { companyId, userId, billId, reason, items = [], a
   const entry = await postEntry(client, { companyId, userId, date: on, source: "adjustment", narrative: `${number}: ${said} (back to ${bill.supplier || "the supplier"} on ${bill.bill_no || "a bill"})`, lines });
   for (const m of moves) {
     await client.query(
-      `INSERT INTO stock_moves (company_id, item_id, moved_on, kind, quantity, value_laari, entry_id, bill_id, note, created_by)
-       VALUES ($1,$2,$3,'undone',$4,$5,$6,$7,$8,$9)`,
-      [companyId, m.itemId, on, stock.unitsText(-m.units), (-m.value).toString(), entry.id, billId, `Returned to supplier, ${number}`, userId]
+      `INSERT INTO stock_moves (company_id, item_id, moved_on, kind, quantity, value_laari, entry_id, bill_id, note, created_by, place_id)
+       VALUES ($1,$2,$3,'undone',$4,$5,$6,$7,$8,$9,$10)`,
+      [companyId, m.itemId, on, stock.unitsText(-m.units), (-m.value).toString(), entry.id, billId, `Returned to supplier, ${number}`, userId, bill.place_id || null]
     );
   }
   const { rows } = await client.query(

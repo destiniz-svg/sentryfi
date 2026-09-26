@@ -135,7 +135,7 @@ async function setBillStock(client, { companyId, userId, billId, lines }) {
  */
 async function undoBillStock(client, { companyId, userId, billId, entryId, on }) {
   const { rows } = await client.query(
-    "SELECT item_id, SUM(quantity) AS q, SUM(value_laari) AS v FROM stock_moves WHERE company_id = $1 AND bill_id = $2 GROUP BY item_id",
+    "SELECT item_id, place_id, SUM(quantity) AS q, SUM(value_laari) AS v FROM stock_moves WHERE company_id = $1 AND bill_id = $2 GROUP BY item_id, place_id",
     [companyId, billId]
   );
   for (const r of rows) {
@@ -147,7 +147,7 @@ async function undoBillStock(client, { companyId, userId, billId, entryId, on })
     if (units > held.units || left < 0n || (units === held.units && left !== 0n)) {
       throw new Error(`Some of the ${held.item.name} on this bill has been sold since. Count it instead of reversing the bill.`);
     }
-    await recordMove(client, { companyId, userId, itemId: r.item_id, on, kind: "undone", units: -units, value: -value, entryId, billId, note: "Bill reversed" });
+    await recordMove(client, { companyId, userId, itemId: r.item_id, on, kind: "undone", units: -units, value: -value, entryId, billId, note: "Bill reversed", placeId: r.place_id });
   }
 }
 
@@ -418,19 +418,58 @@ async function place(client, { companyId, placeId }) {
   return rows[0];
 }
 
-/** The places stock is kept, the main store first. */
+const PLACE_KINDS = ["store", "godown", "outlet", "site", "factory", "vehicle"];
+
+/** The places stock is kept, the main store first, with who looks after each. */
 async function places(client, { companyId }) {
-  const { rows } = await client.query("SELECT id, name FROM stock_places WHERE company_id = $1 AND archived_at IS NULL ORDER BY lower(name)", [companyId]);
-  return [{ id: null, name: "Main store" }, ...rows];
+  const { rows } = await client.query(
+    `SELECT p.id, p.name, p.kind, p.in_charge, u.name AS in_charge_name, p.project_id, j.name AS project
+       FROM stock_places p LEFT JOIN users u ON u.id = p.in_charge LEFT JOIN projects j ON j.id = p.project_id AND j.company_id = p.company_id
+      WHERE p.company_id = $1 AND p.archived_at IS NULL ORDER BY lower(p.name)`,
+    [companyId]
+  );
+  return [
+    { id: null, name: "Main store", kind: "store" },
+    ...rows.map((r) => ({ id: r.id, name: r.name, kind: r.kind, inChargeId: r.in_charge, inCharge: r.in_charge_name, projectId: r.project_id, project: r.project })),
+  ];
 }
 
-async function addPlace(client, { companyId, userId, name }) {
+/** A place's name, kind, person in charge and project, checked: the person must be in this company, the project this company's. */
+async function placeFields(client, { companyId, placeId, name, kind, inChargeId, projectId }) {
   const clean = String(name || "").trim();
   if (clean.length < 2) throw new Error("Give the place a name, like the yard or a site store.");
   if (/^main( store)?$/i.test(clean)) throw new Error("The main store is already there.");
-  const { rows: dup } = await client.query("SELECT 1 FROM stock_places WHERE company_id = $1 AND lower(name) = lower($2)", [companyId, clean]);
+  const { rows: dup } = await client.query("SELECT 1 FROM stock_places WHERE company_id = $1 AND lower(name) = lower($2) AND id IS DISTINCT FROM $3", [companyId, clean, placeId || null]);
   if (dup.length) throw new Error(`There is already a place called ${clean}.`);
-  const { rows } = await client.query("INSERT INTO stock_places (company_id, name, created_by) VALUES ($1,$2,$3) RETURNING id, name", [companyId, clean, userId]);
+  if (!PLACE_KINDS.includes(kind)) throw new Error("What kind of place is it?");
+  if (inChargeId) {
+    const { rows } = await client.query("SELECT 1 FROM memberships WHERE user_id = $1 AND company_id = $2", [inChargeId, companyId]);
+    if (!rows.length) throw new Error("The person in charge must be someone in this company.");
+  }
+  if (projectId && kind !== "site") throw new Error("Only a site belongs to a project.");
+  if (projectId) {
+    const { rows } = await client.query("SELECT 1 FROM projects WHERE id = $1 AND company_id = $2 AND archived_at IS NULL", [projectId, companyId]);
+    if (!rows.length) throw new Error("That project is not in these books.");
+  }
+  return [clean, kind, inChargeId || null, projectId || null];
+}
+
+async function addPlace(client, { companyId, userId, name, kind = "store", inChargeId, projectId }) {
+  const f = await placeFields(client, { companyId, name, kind, inChargeId, projectId });
+  const { rows } = await client.query(
+    "INSERT INTO stock_places (company_id, name, kind, in_charge, project_id, created_by) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, name, kind",
+    [companyId, ...f, userId]
+  );
+  return rows[0];
+}
+
+async function updatePlace(client, { companyId, placeId, name, kind, inChargeId, projectId }) {
+  await place(client, { companyId, placeId });
+  const f = await placeFields(client, { companyId, placeId, name, kind, inChargeId, projectId });
+  const { rows } = await client.query(
+    "UPDATE stock_places SET name = $3, kind = $4, in_charge = $5, project_id = $6 WHERE id = $1 AND company_id = $2 RETURNING id, name, kind",
+    [placeId, companyId, ...f]
+  );
   return rows[0];
 }
 
@@ -599,4 +638,4 @@ async function guessTax(client, { companyId, itemId, ask }) {
   return { tax: a.tax, taxBy: "ai", taxWhy: why, confidence: a.confidence };
 }
 
-module.exports = { guessTax, ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history, atPlaces, places, addPlace, transfer, units };
+module.exports = { guessTax, ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history, atPlaces, places, addPlace, updatePlace, PLACE_KINDS, transfer, units, place };

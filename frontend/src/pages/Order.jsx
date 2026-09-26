@@ -296,14 +296,15 @@ function Deliver({ o, onClose, run }) {
   const toast = useToast();
   const left = (l) => Math.max(0, n(l.quantity) - n(l.delivered));
   const [qty, setQty] = useState(Object.fromEntries(o.lines.map((l) => [l.id, String(left(l))])));
-  const [f, setF] = useState({ deliveredOn: today(), reference: "" });
+  const [f, setF] = useState({ deliveredOn: today(), reference: "", placeId: "" });
+  const places = buying ? o.places || [] : [];
   const [busy, setBusy] = useState(false);
   async function onSubmit(e) {
     e.preventDefault();
     setBusy(true);
     const lines = Object.entries(qty).filter(([, v]) => n(v) > 0).map(([orderLineId, quantity]) => ({ orderLineId, quantity: String(quantity) }));
     // Recorded where the goods are, often with no signal: kept on the phone until there is.
-    const body = { ...f, reference: f.reference || null, lines };
+    const body = { ...f, reference: f.reference || null, placeId: f.placeId || null, lines };
     if (!navigator.onLine) {
       await sendOrKeep({ url: `/orders/${o.id}/deliveries`, body, label: `${buying ? "Arrived" : "Went out"} against ${o.number}` });
       toast.success("Kept on this phone", "It is recorded against the order by itself when there is signal.");
@@ -337,6 +338,18 @@ function Deliver({ o, onClose, run }) {
             <span className="text-sm font-medium block mb-1.5">Delivery note (optional)</span>
             <input id="delivery-ref" value={f.reference} onChange={(e) => setF({ ...f, reference: e.target.value })} placeholder="DN-1234" className={FIELD} />
           </label>
+          {places.length > 1 && (
+            <label className="block sm:col-span-2">
+              <span className="text-sm font-medium block mb-1.5">Into</span>
+              <select id="delivery-place" value={f.placeId} onChange={(e) => setF({ ...f, placeId: e.target.value })} className={FIELD}>
+                {places.map((p) => (
+                  <option key={p.id || "main"} value={p.id || ""}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
       </div>
       <div className="flex justify-end gap-2 mt-6">

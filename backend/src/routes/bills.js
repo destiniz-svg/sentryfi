@@ -525,6 +525,8 @@ const splitBody = z.object({
       })
     )
     .max(60),
+  // Where the goods came in; none is the main store.
+  placeId: z.string().uuid().nullish(),
 });
 
 async function billForSplit(client, req) {
@@ -551,8 +553,8 @@ router.get(
       const { rows: accounts } = await client.query("SELECT id, code, name FROM accounts WHERE company_id = $1 AND type = 'expense' AND archived_at IS NULL ORDER BY code", [req.companyId]);
       const { rows: items } = await client.query("SELECT id, name, unit FROM stock_items WHERE company_id = $1 AND archived_at IS NULL AND counted ORDER BY lower(name)", [req.companyId]);
       const { rows: openShipments } = await client.query("SELECT id, reference FROM shipments WHERE company_id = $1 AND closed_at IS NULL ORDER BY created_at DESC", [req.companyId]);
-      const options = { accounts, items, shipments: openShipments, customers: await require("../ledger/passOn").customers(client, { companyId: req.companyId }), categories: Object.entries(CATEGORIES).map(([key, c]) => ({ key, name: c.name, years: c.years })) };
-      const head = { currency: bill.fc_net !== null ? bill.currency.trim() : "MVR", net: formatLaari(printed), options, posted: bill.status === "posted" };
+      const options = { accounts, items, shipments: openShipments, customers: await require("../ledger/passOn").customers(client, { companyId: req.companyId }), categories: Object.entries(CATEGORIES).map(([key, c]) => ({ key, name: c.name, years: c.years })), places: await stockLedger.places(client, { companyId: req.companyId }) };
+      const head = { currency: bill.fc_net !== null ? bill.currency.trim() : "MVR", net: formatLaari(printed), options, posted: bill.status === "posted", placeId: bill.place_id || null };
       if (parts.length) return { ...head, decided: true, lines: parts.map(show) };
       const advice = await adviser.advise(client, { companyId: req.companyId, counterpartyId: bill.counterparty_id, shipmentId: bill.shipment_id, lines: adviser.linesFor(bill, printed) });
       return { ...head, decided: false, lines: advice.map(show) };
@@ -571,6 +573,10 @@ router.put(
       const r = await asCompany(req, async (client) => {
         const bill = await billForSplit(client, req);
         const saved = await billSplit.save(client, { companyId: req.companyId, userId: req.user.id, billId: bill.id, lines: parsed.data.lines });
+        if (parsed.data.placeId !== undefined) {
+          if (parsed.data.placeId) await stockLedger.place(client, { companyId: req.companyId, placeId: parsed.data.placeId });
+          await client.query("UPDATE bills SET place_id = $1 WHERE id = $2 AND company_id = $3", [parsed.data.placeId || null, bill.id, req.companyId]);
+        }
         // Remembered, so the same charge from this supplier is not asked about again.
         await adviser.learn(client, { companyId: req.companyId, counterpartyId: bill.counterparty_id, decisions: parsed.data.lines });
         return saved;

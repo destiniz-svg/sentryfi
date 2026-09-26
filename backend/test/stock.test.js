@@ -299,6 +299,38 @@ describe("stock kept in more than one place", () => {
       const h = await stock.history(client, { companyId, itemId: cement });
       expect(h.find((x) => x.kind === "moved").note).toBe("From Main store to The yard");
     }));
+
+  it("names a kind, a person in charge and a site's project, and a bill receives into its place and gives back from it", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      const project = (await client.query("INSERT INTO projects (company_id, name) VALUES ($1,'Hulhumale tower') RETURNING id", [companyId])).rows[0].id;
+      await client.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1, $2, 'administrator')", [companyId, userId]);
+      const stranger = crypto.randomUUID(); // no one in this company
+      await expect(stock.addPlace(client, { companyId, userId, name: "Van", kind: "vehicle", projectId: project })).rejects.toThrow(/Only a site/);
+      await expect(stock.addPlace(client, { companyId, userId, name: "Van", kind: "vehicle", inChargeId: stranger })).rejects.toThrow(/someone in this company/);
+      const site = await stock.addPlace(client, { companyId, userId, name: "Tower site", kind: "site", inChargeId: userId, projectId: project });
+      const listed = (await stock.places(client, { companyId })).find((p) => p.id === site.id);
+      expect(listed).toMatchObject({ kind: "site", inChargeId: userId, projectId: project, project: "Hulhumale tower" });
+      await stock.updatePlace(client, { companyId, placeId: site.id, name: "Tower site store", kind: "site", inChargeId: null, projectId: project });
+      expect((await stock.places(client, { companyId })).find((p) => p.id === site.id)).toMatchObject({ name: "Tower site store", inChargeId: null });
+
+      // A bill for the site puts the cement there, and reversing it takes it back from there.
+      const cement = await shop.item("Cement");
+      const { rows } = await client.query(
+        `INSERT INTO bills (company_id, counterparty_id, bill_no, issue_date, net_laari, tax_laari, gross_laari, gst_treatment, status, currency, place_id)
+         VALUES ($1,$2,'SITE-1','2026-09-10',50000,0,50000,'none_unregistered','draft','MVR',$3) RETURNING id`,
+        [companyId, shop.supplier, site.id]
+      );
+      await stock.setBillStock(client, { companyId, userId, billId: rows[0].id, lines: [{ itemId: cement, quantity: "5", amount: "500.00" }] });
+      const done = await postBill(client, { companyId, userId, billId: rows[0].id, accounts: { expense: shop.accounts.expense, payable: shop.accounts.payable, taxReclaimable: shop.accounts.taxReclaimable } });
+      const at = await stock.atPlaces(client, { companyId, itemId: cement });
+      expect(at.get(site.id)).toBe(stock.toUnits("5"));
+      const r = await reverseEntry(client, { companyId, userId, entryId: done.entry.id, reason: "wrong bill" });
+      await stock.undoBillStock(client, { companyId, userId, billId: rows[0].id, entryId: r.id, on: "2026-09-21" });
+      expect((await stock.atPlaces(client, { companyId, itemId: cement })).get(site.id) || 0n).toBe(0n);
+      await shop.tied();
+    }));
 });
 
 describe("products and services", () => {

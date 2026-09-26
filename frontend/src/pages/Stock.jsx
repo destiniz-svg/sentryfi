@@ -126,7 +126,7 @@ export default function Stock() {
               ))}
             </TabsList>
           </Tabs>
-          {counted.length > 0 && (filter === "all" || filter === "counted" || filter === "product") && <Places places={places} canAdd={can("record")} onDone={refresh} />}
+          {counted.length > 0 && (filter === "all" || filter === "counted" || filter === "product") && <Places places={places} people={data?.people || []} projects={data?.projects || []} canAdd={can("record")} onDone={refresh} />}
           <Card padding="none" className="overflow-hidden">
             <div className="hidden xl:grid grid-cols-[minmax(0,1.6fr)_110px_120px_130px_130px_230px] gap-4 px-5 py-3 border-b border-[var(--border)] text-[12px] font-medium text-[var(--ink-muted)]">
               <span>Item</span>
@@ -701,44 +701,131 @@ function History({ item, onClose }) {
   );
 }
 
-/** Where stock is kept: the main store and any places named, and naming one more. */
-function Places({ places, canAdd, onDone }) {
+const KINDS = [
+  ["store", "Store"],
+  ["godown", "Godown"],
+  ["outlet", "Outlet"],
+  ["site", "Site"],
+  ["factory", "Factory"],
+  ["vehicle", "Vehicle"],
+];
+const kindName = (k) => KINDS.find(([v]) => v === k)?.[1] || "Store";
+
+/** Where stock is kept: the main store and any places named, each with its kind and who looks after it. */
+function Places({ places, people, projects, canAdd, onDone }) {
+  const [editing, setEditing] = useState(null); // a place, or {} for a new one
+  return (
+    <div className="flex flex-wrap items-center gap-2 mb-4" data-testid="stock-places">
+      <span className="text-[13px] text-[var(--ink-muted)] mr-1">Kept at</span>
+      {places.map((p) => {
+        const said = [p.id ? kindName(p.kind) : null, p.project, p.inCharge].filter(Boolean).join(" · ");
+        const inner = (
+          <>
+            <span className="font-medium">{p.name}</span>
+            {said && <span className="text-[var(--ink-muted)]">{said}</span>}
+          </>
+        );
+        const chip = "h-9 px-3.5 inline-flex items-center gap-2 rounded-full bg-[var(--surface)] lift text-[13px]";
+        return p.id && canAdd ? (
+          <button key={p.id} type="button" onClick={() => setEditing(p)} aria-label={`Change ${p.name}`} className={`${chip} hover:bg-[var(--surface-2)]`}>
+            {inner}
+          </button>
+        ) : (
+          <span key={p.id || "main"} className={chip}>
+            {inner}
+          </span>
+        );
+      })}
+      {canAdd && (
+        <Button size="sm" variant="outline" type="button" onClick={() => setEditing({})}>
+          <Plus size={14} />
+          Add a place
+        </Button>
+      )}
+      {editing && <PlaceForm place={editing} people={people} projects={projects} onClose={() => setEditing(null)} onDone={onDone} />}
+    </div>
+  );
+}
+
+/** Naming a place, or changing one: its kind, the person in charge, and for a site, its project. */
+function PlaceForm({ place, people, projects, onClose, onDone }) {
   const toast = useToast();
-  const [name, setName] = useState("");
+  const [name, setName] = useState(place.name || "");
+  const [kind, setKind] = useState(place.kind || "store");
+  const [inChargeId, setInChargeId] = useState(place.inChargeId || "");
+  const [projectId, setProjectId] = useState(place.projectId || "");
+  const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  async function add(e) {
+  async function onSubmit(e) {
     e.preventDefault();
+    setErr("");
     setBusy(true);
+    const body = { name, kind, inChargeId: inChargeId || null, projectId: kind === "site" ? projectId || null : null };
     try {
-      await apiClient.post("/stock/places", { name });
-      toast.success(`${name.trim()} added`, "Move stock there from any item, and count it there.");
-      setName("");
+      if (place.id) await apiClient.patch(`/stock/places/${place.id}`, body);
+      else await apiClient.post("/stock/places", body);
+      toast.success(place.id ? `${name.trim()} changed` : `${name.trim()} added`, place.id ? undefined : "Bills and deliveries can bring stock in here, and any item can be moved or counted here.");
       onDone();
+      onClose();
     } catch (ex) {
-      toast.error("Not added", ex.message);
+      setErr(ex.message);
     } finally {
       setBusy(false);
     }
   }
   return (
-    <div className="flex flex-wrap items-center gap-2 mb-4" data-testid="stock-places">
-      <span className="text-[13px] text-[var(--ink-muted)] mr-1">Kept at</span>
-      {places.map((p) => (
-        <span key={p.id || "main"} className="h-9 px-3.5 inline-flex items-center rounded-full bg-[var(--surface)] lift text-[13px] font-medium">
-          {p.name}
-        </span>
-      ))}
-      {canAdd && (
-        <form onSubmit={add} className="inline-flex items-center gap-1.5">
-          <input aria-label="A new place" value={name} onChange={(e) => setName(e.target.value)} placeholder="Add a place, like the yard" className="h-9 px-3.5 w-52 max-w-full rounded-full border border-[var(--border)] bg-[var(--surface)] text-[13px] outline-none focus:border-[var(--ink)]" />
-          {name.trim().length >= 2 && (
-            <Button size="sm" variant="outline" disabled={busy} type="submit">
-              Add
-            </Button>
+    <Modal open onClose={onClose} as="form" onSubmit={onSubmit} title={place.id ? `Change ${place.name}` : "Add a place"} description="Somewhere stock is kept, apart from the main store.">
+      <div className="grid gap-4">
+        <div className="grid sm:grid-cols-2 gap-4">
+          <Field label="Name">
+            <input id="place-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="The yard" className={FIELD} />
+          </Field>
+          <Field label="Kind">
+            <select id="place-kind" value={kind} onChange={(e) => setKind(e.target.value)} className={FIELD}>
+              {KINDS.map(([v, label]) => (
+                <option key={v} value={v}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <Field label="Person in charge">
+            <select id="place-person" value={inChargeId} onChange={(e) => setInChargeId(e.target.value)} className={FIELD}>
+              <option value="">No one named</option>
+              {people.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {kind === "site" && (
+            <Field label="Project">
+              <select id="place-project" value={projectId} onChange={(e) => setProjectId(e.target.value)} className={FIELD}>
+                <option value="">Not tied to a project</option>
+                {projects.map((j) => (
+                  <option key={j.id} value={j.id}>
+                    {j.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
           )}
-        </form>
-      )}
-    </div>
+        </div>
+        {err && <p role="alert" className="text-[14px] text-[var(--danger)]">{err}</p>}
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" type="button" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="accent" type="submit" disabled={busy || name.trim().length < 2}>
+            {busy && <Loader2 size={14} className="animate-spin" />}
+            {place.id ? "Save" : "Add it"}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

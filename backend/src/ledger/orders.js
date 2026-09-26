@@ -145,7 +145,7 @@ async function approve(client, { companyId, userId, orderId, approveUpTo }) {
 }
 
 /** What arrived (or went out): never more than was ordered and is still to come. */
-async function deliver(client, { companyId, userId, orderId, deliveredOn, reference, note, lines }) {
+async function deliver(client, { companyId, userId, orderId, deliveredOn, reference, note, lines, placeId }) {
   await assumeIdentity(client, { companyId, userId });
   const s = await load(client, { companyId, orderId });
   if (s.order.kind === "quote") throw new Error("A quote is not delivered. Accept it, and deliver the sales order.");
@@ -159,9 +159,11 @@ async function deliver(client, { companyId, userId, orderId, deliveredOn, refere
     if (t.units > left) throw new Error(`Only ${stock.unitsText(left)} of ${t.line.description} ${s.order.kind === "purchase" ? "is still to come" : "is still to go"}.`);
   }
   if (!taking.length) throw new Error("Say how many of what.");
+  if (placeId && s.order.kind !== "purchase") throw new Error("Only goods coming in are received into a place.");
+  if (placeId) await stock.place(client, { companyId, placeId });
   const { rows } = await client.query(
-    `INSERT INTO order_deliveries (company_id, order_id, delivered_on, reference, note, created_by) VALUES ($1,$2,COALESCE($3::date, current_date),$4,$5,$6) RETURNING id`,
-    [companyId, orderId, deliveredOn || null, reference || null, note || null, userId]
+    `INSERT INTO order_deliveries (company_id, order_id, delivered_on, reference, note, created_by, place_id) VALUES ($1,$2,COALESCE($3::date, current_date),$4,$5,$6,$7) RETURNING id`,
+    [companyId, orderId, deliveredOn || null, reference || null, note || null, userId, placeId || null]
   );
   for (const t of taking) {
     await client.query("INSERT INTO order_delivery_lines (company_id, delivery_id, order_line_id, quantity) VALUES ($1,$2,$3,$4)", [companyId, rows[0].id, t.line.id, stock.unitsText(t.units)]);
@@ -205,8 +207,10 @@ async function billFromOrder(client, { companyId, userId, orderId, billNo, issue
   const split = splitTax(formatLaari(net).replace(/,/g, ""), gstTreatment, rate);
   const { rows } = await client.query(
     `INSERT INTO bills (company_id, counterparty_id, bill_no, issue_date, net_laari, tax_laari, gross_laari, gst_treatment, gst_rate_bp,
-                        project_id, received_by, status, order_id, currency)
-     VALUES ($1,$2,$3,COALESCE($4::date, current_date),$5,$6,$7,$8::gst_t,$9,$10,$11,'draft',$12,(SELECT base_currency FROM companies WHERE id = $1))
+                        project_id, received_by, status, order_id, currency, place_id)
+     VALUES ($1,$2,$3,COALESCE($4::date, current_date),$5,$6,$7,$8::gst_t,$9,$10,$11,'draft',$12,(SELECT base_currency FROM companies WHERE id = $1),
+             -- The goods went where the latest delivery with a place put them.
+             (SELECT place_id FROM order_deliveries WHERE order_id = $12 AND company_id = $1 AND place_id IS NOT NULL ORDER BY created_at DESC LIMIT 1))
      RETURNING *`,
     [companyId, s.order.counterparty_id, billNo || null, issueDate || null, split.net.toString(), split.tax.toString(), split.gross.toString(), gstTreatment, rate, s.order.project_id, userId, orderId]
   );

@@ -5,6 +5,11 @@
  * Moving stock between places changes where it is, not what it is worth, so
  * it is its own record with no journal entry: value stays company-wide at
  * average cost (ledger/stock.js).
+ *
+ * A place has a kind (a store, a godown, an outlet, a site, a factory, a
+ * vehicle), may have a person in charge (a member of the company, checked in
+ * code), and a site may belong to a project. A bill, and a delivery against a
+ * purchase order, say which place the goods came into; none is the main store.
  */
 const PLACES_SQL = `
 CREATE TABLE IF NOT EXISTS stock_places (
@@ -46,6 +51,13 @@ BEGIN
       WITH CHECK (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid)$p$, t);
   END LOOP;
 END $$;
+ALTER TABLE stock_places ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'store'
+  CHECK (kind IN ('store','godown','outlet','site','factory','vehicle'));
+ALTER TABLE stock_places ADD COLUMN IF NOT EXISTS in_charge UUID REFERENCES users(id);
+ALTER TABLE stock_places ADD COLUMN IF NOT EXISTS project_id UUID REFERENCES projects(id);
+ALTER TABLE bills ADD COLUMN IF NOT EXISTS place_id UUID REFERENCES stock_places(id);
+ALTER TABLE order_deliveries ADD COLUMN IF NOT EXISTS place_id UUID REFERENCES stock_places(id);
+
 GRANT SELECT, INSERT, UPDATE ON stock_places TO sentryfi_app;
 -- A move between places is history too: added, never changed.
 GRANT SELECT, INSERT ON stock_transfers TO sentryfi_app;
