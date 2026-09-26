@@ -192,6 +192,10 @@ bill_t = enum ('draft','awaiting_review','posted','reversed','discarded')
 
 `sales_invoices` mirrors this for receivables, adding `po_reference` for the RDC purchase orders.
 
+`bills.recurring_id` points at the `recurring_invoices` schedule that drafted it; a schedule's `kind` is `sale` or `bill`, and a bill from a schedule is always a draft.
+
+**Costs passed on.** A bill's cost (`bill_charges`) or a claim's line (`expense_claim_lines`) carries `for_customer_id` and `markup_bp`. It waits for that customer once the bill is posted or the claim approved. `passed_on` (insert only) links it to the invoice that charged it, one row per cost; a voided invoice frees the cost, so nothing is deleted.
+
 ```
 bill_lines
   id                uuid pk
