@@ -983,7 +983,7 @@ describe("every company table is walled", () => {
     );
     // Tables the app role cannot reach at all need no policy: the platform's own.
     // Looked up before anyone is known, and out of the app role's reach entirely.
-    const platform = new Set(["password_resets", "backup_runs", "portal_links", "document_links", "api_keys", "webhooks"]);
+    const platform = new Set(["password_resets", "backup_runs", "portal_links", "document_links", "api_keys", "webhooks", "audit_confirmation_links"]);
     const open = rows.filter((r) => !platform.has(r.t) && !(r.on && r.forced && r.policies > 0)).map((r) => r.t);
     expect(open).toEqual([]);
   });
@@ -1399,5 +1399,89 @@ describe("attachments on documents, projects and people", () => {
     // Taken off: gone from every outside page.
     await call(A, "PATCH", `/attachments/${A.fileId}`, { body: { hidden: true } });
     denied(await call(guest, "GET", url));
+  });
+});
+
+// ---------------------------------------------------------------- the auditor's confirmations (ISA 505)
+
+describe("the auditor's confirmations", () => {
+  const Q = {};
+  const asApp = async (userId, sql, params = []) => {
+    const c = await db.connect();
+    try {
+      await c.query("BEGIN");
+      await c.query("SET LOCAL ROLE sentryfi_app");
+      await c.query("SELECT set_config('app.company_id', $1, true)", [A.companyId]);
+      await c.query("SELECT set_config('app.user_id', $1, true)", [userId]);
+      return (await c.query(sql, params)).rows;
+    } finally {
+      await c.query("ROLLBACK");
+      c.release();
+    }
+  };
+
+  it("lets only the auditor choose, send and read; the company authorises and never sees the reply", async () => {
+    await signUp(Q, "Quinn Auditor", `quinn.${A.tag}@audit.test`);
+    await db.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1, $2, 'auditor')", [A.companyId, Q.user.id]);
+    Q.companyId = A.companyId;
+    const period = await call(Q, "POST", "/audit", { body: { name: "FY2026", from: "2026-01-01", to: "2026-12-31" } });
+    expect(period.status).toBe(201);
+    const pid = period.json.id;
+
+    // Whom to ask is the auditor's choice: the owner (who can audit, but is not the auditor) cannot.
+    denied(await call(A, "GET", `/audit/${pid}/confirmations/suggest`));
+    const sug = (await call(Q, "GET", `/audit/${pid}/confirmations/suggest`)).json.suggestions;
+    const cust = sug.find((s) => s.name === "SECRET-CUSTOMER-A" && s.side === "receivable");
+    expect(cust).toBeTruthy();
+    denied(await call(A, "POST", `/audit/${pid}/confirmations`, { body: { items: [{ counterpartyId: cust.counterpartyId, side: "receivable" }] } }));
+    expect((await call(Q, "POST", `/audit/${pid}/confirmations`, { body: { items: [{ counterpartyId: cust.counterpartyId, side: "receivable" }] } })).status).toBe(201);
+    const [conf] = (await call(Q, "GET", `/audit/${pid}/confirmations`)).json.confirmations;
+    expect(conf).toMatchObject({ party: "SECRET-CUSTOMER-A", book: "555.55", status: "draft" });
+
+    // Not sent before the company authorises; the auditor cannot authorise; the company cannot send.
+    denied(await call(Q, "POST", `/audit/confirmations/${conf.id}/send`));
+    denied(await call(Q, "POST", `/audit/${pid}/confirmations/authorise`, { body: { ids: [conf.id], allow: true } }));
+    expect((await call(A, "POST", `/audit/${pid}/confirmations/authorise`, { body: { ids: [conf.id], allow: true } })).status).toBe(200);
+    denied(await call(A, "POST", `/audit/confirmations/${conf.id}/send`));
+    // The address must be checked independently of the company's records first.
+    denied(await call(Q, "POST", `/audit/confirmations/${conf.id}/send`));
+    expect((await call(Q, "PATCH", `/audit/confirmations/${conf.id}`, { body: { email: "clerk@customer.test", emailChecked: true, emailCheckNote: "Their letterhead, and a call to the number on their website" } })).status).toBe(200);
+    denied(await call(A, "PATCH", `/audit/confirmations/${conf.id}`, { body: { email: "friend@owner.test", emailChecked: true, emailCheckNote: "trust me" } }));
+    const sent = await call(Q, "POST", `/audit/confirmations/${conf.id}/send`);
+    expect({ status: sent.status, said: sent.status === 200 ? null : sent.text }).toEqual({ status: 200, said: null });
+    const token = sent.json.link.split("/confirm/")[1];
+    expect(token.length).toBeGreaterThan(30);
+
+    // Another company sees nothing of it.
+    denied(await call(B, "GET", `/audit/${pid}/confirmations`, { company: A.companyId }));
+
+    // The customer, with no account: sees who asks and as at when; on a blank form, not the company's figure.
+    const guest = { cookie: null };
+    const view = await call(guest, "GET", `/confirm/${token}`);
+    expect(view.status).toBe(200);
+    expect(view.json).toMatchObject({ party: "SECRET-CUSTOMER-A", form: "blank", theirs: null, asAt: "2026-12-31", auditor: "Quinn Auditor", answered: false });
+    denied(await call(guest, "GET", "/confirm/not-a-real-link-at-all"));
+    denied(await call(guest, "POST", `/confirm/${token}`, { body: { name: "Clerk" } }));
+    expect((await call(guest, "POST", `/confirm/${token}`, { body: { amount: "500.00", name: "SECRET-CLERK", role: "Accounts", note: "One invoice unpaid, one paid on 28 Dec" } })).status).toBe(201);
+    expect((await call(guest, "POST", `/confirm/${token}`, { body: { amount: "1.00", name: "Someone else" } })).status).toBe(409);
+
+    // The owner sees that it was answered, never the answer.
+    const ownerView = await call(A, "GET", `/audit/${pid}/confirmations`);
+    expect(ownerView.json.confirmations[0].status).toBe("replied");
+    expect(ownerView.json.confirmations[0].reply).toBeUndefined();
+    noLeak(ownerView, "SECRET-CLERK", "One invoice unpaid");
+    // The auditor reads it, with the difference to the books.
+    const mine = (await call(Q, "GET", `/audit/${pid}/confirmations`)).json.confirmations[0];
+    expect(mine.reply).toMatchObject({ theirs: "500.00", difference: "-55.55", by: "SECRET-CLERK" });
+
+    // In the database itself: the app role acting as the owner reads no reply; as the auditor, one; nobody changes it.
+    expect((await asApp(A.user.id, "SELECT count(*)::int n FROM audit_confirmation_replies"))[0].n).toBe(0);
+    expect((await asApp(Q.user.id, "SELECT count(*)::int n FROM audit_confirmation_replies"))[0].n).toBe(1);
+    await expect(asApp(Q.user.id, "UPDATE audit_confirmation_replies SET their_laari = 55555")).rejects.toThrow(/permission denied|never changed/);
+    await expect(db.query("UPDATE audit_confirmation_replies SET their_laari = 55555")).rejects.toThrow(/never changed/);
+    await expect(asApp(Q.user.id, "SELECT token_hash FROM audit_confirmation_links")).rejects.toThrow(/permission denied/);
+
+    // The auditor concludes: the difference explained.
+    expect((await call(Q, "POST", `/audit/confirmations/${conf.id}/conclude`, { body: { outcome: "explained", note: "Receipt of 55.55 on 28 Dec in transit" } })).status).toBe(200);
   });
 });

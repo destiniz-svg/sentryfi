@@ -155,6 +155,106 @@ GRANT UPDATE (status, decided_by, decided_at, decision_note, entry_id) ON audit_
 GRANT SELECT, INSERT ON audit_periods, audit_samples, audit_sample_items TO sentryfi_app;
 GRANT UPDATE (seal_checked_at, seal_ok, seal_entries, seal_problems) ON audit_periods TO sentryfi_app;
 GRANT UPDATE (seen_by, seen_at, note) ON audit_sample_items TO sentryfi_app;
+
+-- 1.47.0: external confirmations (ISA 505). The auditor chooses whom to ask, checks the address, and
+-- sends; the company only authorises. Replies are kept where only the auditor can read them.
+CREATE TABLE IF NOT EXISTS audit_confirmations (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id       UUID NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
+  period_id        UUID NOT NULL REFERENCES audit_periods(id),
+  counterparty_id  UUID NOT NULL REFERENCES counterparties(id),
+  side             TEXT NOT NULL CHECK (side IN ('receivable','payable')),
+  -- blank: they state the balance (stronger evidence); balance: they agree or not with ours.
+  form             TEXT NOT NULL DEFAULT 'blank' CHECK (form IN ('blank','balance')),
+  book_laari       BIGINT NOT NULL,
+  email            TEXT,
+  email_checked    BOOLEAN NOT NULL DEFAULT false,
+  email_check_note TEXT,
+  status           TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','authorised','refused','sent','replied','closed')),
+  authorised_by    UUID REFERENCES users(id),
+  authorised_at    TIMESTAMPTZ,
+  refused_reason   TEXT,
+  sent_by          UUID REFERENCES users(id),
+  sent_at          TIMESTAMPTZ,
+  requests         INTEGER NOT NULL DEFAULT 0,
+  outcome          TEXT CHECK (outcome IN ('agreed','explained','alternative')),
+  outcome_note     TEXT,
+  outcome_by       UUID REFERENCES users(id),
+  outcome_at       TIMESTAMPTZ,
+  created_by       UUID NOT NULL REFERENCES users(id),
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (period_id, counterparty_id, side)
+);
+ALTER TABLE audit_confirmations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_confirmations FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS company_isolation ON audit_confirmations;
+CREATE POLICY company_isolation ON audit_confirmations
+  USING (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid)
+  WITH CHECK (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid);
+GRANT SELECT, INSERT ON audit_confirmations TO sentryfi_app;
+GRANT UPDATE (form, book_laari, email, email_checked, email_check_note, status, authorised_by, authorised_at, refused_reason, sent_by, sent_at, requests, outcome, outcome_note, outcome_by, outcome_at)
+  ON audit_confirmations TO sentryfi_app;
+
+-- The private links, found before anyone is known: outside the company walls, and the app role cannot touch them.
+CREATE TABLE IF NOT EXISTS audit_confirmation_links (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  confirmation_id  UUID NOT NULL REFERENCES audit_confirmations(id) ON DELETE CASCADE,
+  company_id       UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  token_hash       TEXT NOT NULL UNIQUE,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at       TIMESTAMPTZ NOT NULL,
+  opened_at        TIMESTAMPTZ,
+  used_at          TIMESTAMPTZ
+);
+REVOKE ALL ON audit_confirmation_links FROM sentryfi_app;
+-- When a request's link was last opened: the one fact about links the app may read, for its own company only.
+CREATE OR REPLACE FUNCTION audit_confirmation_opened(cid UUID) RETURNS TIMESTAMPTZ
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
+  SELECT MAX(opened_at) FROM audit_confirmation_links
+   WHERE confirmation_id = cid AND company_id = NULLIF(current_setting('app.company_id', true), '')::uuid
+$f$;
+REVOKE ALL ON FUNCTION audit_confirmation_opened(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION audit_confirmation_opened(UUID) TO sentryfi_app;
+
+-- The replies: read only by someone in the company who holds the Auditor role, and never changed.
+CREATE TABLE IF NOT EXISTS audit_confirmation_replies (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id       UUID NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
+  confirmation_id  UUID NOT NULL UNIQUE REFERENCES audit_confirmations(id),
+  agrees           BOOLEAN,
+  their_laari      BIGINT,
+  note             TEXT,
+  responder_name   TEXT NOT NULL,
+  responder_role   TEXT,
+  file_name        TEXT,
+  file_type        TEXT,
+  file_bytes       BYTEA,
+  received_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ip               TEXT,
+  user_agent       TEXT
+);
+ALTER TABLE audit_confirmation_replies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_confirmation_replies FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS company_isolation ON audit_confirmation_replies;
+DROP POLICY IF EXISTS auditor_only ON audit_confirmation_replies;
+CREATE POLICY auditor_only ON audit_confirmation_replies
+  USING (
+    company_id = NULLIF(current_setting('app.company_id', true), '')::uuid
+    AND EXISTS (SELECT 1 FROM memberships m WHERE m.company_id = audit_confirmation_replies.company_id
+                AND m.user_id = NULLIF(current_setting('app.user_id', true), '')::uuid AND m.role = 'auditor')
+  )
+  WITH CHECK (
+    company_id = NULLIF(current_setting('app.company_id', true), '')::uuid
+    AND EXISTS (SELECT 1 FROM memberships m WHERE m.company_id = audit_confirmation_replies.company_id
+                AND m.user_id = NULLIF(current_setting('app.user_id', true), '')::uuid AND m.role = 'auditor')
+  );
+GRANT SELECT, INSERT ON audit_confirmation_replies TO sentryfi_app;
+CREATE OR REPLACE FUNCTION audit_reply_is_final() RETURNS trigger LANGUAGE plpgsql AS $f$
+BEGIN
+  RAISE EXCEPTION 'A confirmation reply is kept as it came, never changed or removed';
+END $f$;
+DROP TRIGGER IF EXISTS audit_reply_is_final ON audit_confirmation_replies;
+CREATE TRIGGER audit_reply_is_final BEFORE UPDATE OR DELETE ON audit_confirmation_replies FOR EACH ROW EXECUTE FUNCTION audit_reply_is_final();
 `;
 
 module.exports = { AUDIT_SQL };

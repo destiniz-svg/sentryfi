@@ -17,6 +17,7 @@ const Reset = lazy(() => import("@/pages/Reset"));
 const Forgot = lazy(() => import("@/pages/Forgot"));
 const Verify = lazy(() => import("@/pages/Verify"));
 const Portal = lazy(() => import("@/pages/Portal"));
+const Confirm = lazy(() => import("@/pages/Confirm"));
 const Shared = lazy(() => import("@/pages/Shared"));
 const Genuine = lazy(() => import("@/pages/Genuine"));
 const Practice = lazy(() => import("@/pages/Practice"));
@@ -183,6 +184,7 @@ export const router = createBrowserRouter([
   { path: "/forgot", element: <Suspense fallback={null}><Forgot /></Suspense>, errorElement: <ErrorPage /> },
   { path: "/verify/:token", element: <Suspense fallback={null}><Verify /></Suspense>, errorElement: <ErrorPage /> },
   { path: "/portal/:token", element: <Suspense fallback={null}><Portal /></Suspense>, errorElement: <ErrorPage /> },
+  { path: "/confirm/:token", element: <Suspense fallback={null}><Confirm /></Suspense>, errorElement: <ErrorPage /> },
   { path: "/d/:token", element: <Suspense fallback={null}><Shared /></Suspense>, errorElement: <ErrorPage /> },
   { path: "/trust", element: <Suspense fallback={null}><Trust /></Suspense>, errorElement: <ErrorPage /> },
   { path: "/updates", element: <Suspense fallback={null}><Updates /></Suspense>, errorElement: <ErrorPage /> },

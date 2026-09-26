@@ -207,6 +207,94 @@ router.post(
   refused(async (req, res) => res.json(await as(req, (c, ctx) => adjustments.withdraw(c, { ...ctx, id: uuid(req.params.aid), note: req.body?.note }))))
 );
 
+// ------------------------------------------------------------------ confirmations (ISA 505)
+
+const confirmations = require("../ledger/auditConfirmations");
+// Choosing, sending and reading confirmations is the auditor's alone: the company must not control them.
+const auditorOnly = (req, res, next) => (isAuditor(req) ? next() : next(ApiError.forbidden("Confirmations are the auditor's to choose, send and read.")));
+
+router.get(
+  "/:id/confirmations",
+  requireCan("read_trail"),
+  refused(async (req, res) => res.json({ confirmations: await as(req, (c, ctx) => confirmations.list(c, { ...ctx, periodId: uuid(req.params.id), auditor: isAuditor(req) })), auditor: isAuditor(req) }))
+);
+router.get("/:id/confirmations/suggest", requireCan("read_trail"), auditorOnly, refused(async (req, res) => res.json({ suggestions: await as(req, (c, ctx) => confirmations.suggest(c, { ...ctx, periodId: uuid(req.params.id) })) })));
+router.post(
+  "/:id/confirmations",
+  requireCan("audit"),
+  auditorOnly,
+  refused(async (req, res) => {
+    const p = z.object({ items: z.array(z.object({ counterpartyId: z.string().uuid(), side: z.enum(["receivable", "payable"]), form: z.enum(["blank", "balance"]).optional() })).min(1).max(100) }).safeParse(req.body ?? {});
+    if (!p.success) throw ApiError.badRequest("Pick whom to confirm.");
+    res.status(201).json(await as(req, (c, ctx) => confirmations.create(c, { ...ctx, periodId: uuid(req.params.id), items: p.data.items })));
+  })
+);
+router.patch(
+  "/confirmations/:cid",
+  requireCan("audit"),
+  auditorOnly,
+  refused(async (req, res) => {
+    const p = z.object({ email: z.string().max(200).nullish(), emailChecked: z.boolean().optional(), emailCheckNote: z.string().max(300).nullish(), form: z.enum(["blank", "balance"]).optional() }).safeParse(req.body ?? {});
+    if (!p.success) throw ApiError.badRequest("That change cannot be made.");
+    res.json(await as(req, (c, ctx) => confirmations.update(c, { ...ctx, id: uuid(req.params.cid), ...p.data })));
+  })
+);
+/** The company authorises its auditor to ask, or refuses with its reason. Not the auditor. */
+router.post(
+  "/:id/confirmations/authorise",
+  requireCan("approve"),
+  refused(async (req, res) => {
+    if (isAuditor(req)) throw ApiError.forbidden("The company authorises its auditor's requests, not the auditor.");
+    const p = z.object({ ids: z.array(z.string().uuid()).min(1).max(100), allow: z.boolean(), reason: z.string().max(500).nullish() }).safeParse(req.body ?? {});
+    if (!p.success) throw ApiError.badRequest("Say which requests, and whether they are authorised.");
+    res.json(await as(req, (c, ctx) => confirmations.authorise(c, { ...ctx, ...p.data })));
+  })
+);
+router.post(
+  "/confirmations/:cid/send",
+  requireCan("audit"),
+  auditorOnly,
+  refused(async (req, res) => {
+    const env = require("../config/env");
+    const email = require("../services/email");
+    // Not sent (no mail set up, or the mail service failing): the auditor gets the private link to send themselves.
+    const mail = async (m) => {
+      if (!env.resendApiKey) return false;
+      try {
+        await email.send(m);
+        return true;
+      } catch (err) {
+        console.error(`[audit] confirmation email not sent: ${err.message}`);
+        return false;
+      }
+    };
+    res.json(await as(req, (c, ctx) => confirmations.send(c, { ...ctx, id: uuid(req.params.cid), publicUrl: env.publicUrl, mail })));
+  })
+);
+router.post(
+  "/confirmations/:cid/conclude",
+  requireCan("audit"),
+  auditorOnly,
+  refused(async (req, res) => {
+    const p = z.object({ outcome: z.enum(["agreed", "explained", "alternative"]), note: z.string().max(1000).nullish() }).safeParse(req.body ?? {});
+    if (!p.success) throw ApiError.badRequest("Agreed, explained, or other procedures.");
+    res.json(await as(req, (c, ctx) => confirmations.conclude(c, { ...ctx, id: uuid(req.params.cid), ...p.data })));
+  })
+);
+router.get(
+  "/confirmations/:cid/file",
+  requireCan("read_trail"),
+  auditorOnly,
+  refused(async (req, res) => {
+    const file = await as(req, (c, ctx) => confirmations.replyFile(c, { ...ctx, id: uuid(req.params.cid) }));
+    if (!file) throw ApiError.notFound("No file came with that reply.");
+    res.set("Content-Type", file.file_type);
+    res.set("Content-Disposition", `inline; filename="${file.file_name}"`);
+    res.set("Cache-Control", "private, no-store");
+    res.send(file.file_bytes);
+  })
+);
+
 /** Re-draws a sample from its seed and rule, and says whether it is the same. */
 router.post("/samples/:sid/prove", requireCan("read_trail"), refused(async (req, res) => res.json(await as(req, (c, ctx) => audit.prove(c, { ...ctx, sampleId: uuid(req.params.sid) })))));
 

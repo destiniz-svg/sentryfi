@@ -123,6 +123,8 @@ app.use("/api/orders", require("./routes/orders"));
 app.use("/api/recurring", require("./routes/recurring"));
 app.use("/api", require("./routes/claims"));
 app.use("/api/portal", require("./routes/portal").publicRouter);
+// A customer or supplier answering an auditor's confirmation request: public, by private link.
+app.use("/api/confirm", require("./routes/confirm"));
 app.use("/api/shared", require("./routes/share").publicRouter);
 app.use("/api/cfo", require("./routes/cfo"));
 app.use("/api/analytics", require("./routes/analytics"));

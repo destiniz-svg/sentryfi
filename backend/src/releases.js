@@ -17,6 +17,15 @@
  */
 const RELEASES = [
   {
+    version: "1.47.0",
+    date: "2026-09-27",
+    title: "Audit: balance confirmations",
+    summary: "Your auditor asks customers and suppliers to confirm their balances directly. You authorise the requests; their replies go only to the auditor.",
+    items: [
+      { area: "Accounting", kind: "new", title: "Balance confirmations", body: "In Audit, the auditor chooses customers and suppliers to confirm what they owed or were owed at the year end, checks each address, and sends the request. You authorise the requests, or refuse with a reason. They reply from a private link, without an account, and the reply goes only to the auditor: nobody in the company can read it, and it can never be changed.", href: "/audit" },
+    ],
+  },
+  {
     version: "1.46.0",
     date: "2026-09-27",
     title: "Audit: proposed adjustments and materiality",

@@ -217,6 +217,7 @@ function Period({ id }) {
           <TabsTrigger value="samples">Samples{p.samples.length ? ` · ${p.samples.length}` : ""}</TabsTrigger>
           <TabsTrigger value="risk">Journal risk</TabsTrigger>
           <TabsTrigger value="questions">Questions</TabsTrigger>
+          <TabsTrigger value="confirmations">Confirmations</TabsTrigger>
           <TabsTrigger value="adjustments">Adjustments</TabsTrigger>
           <TabsTrigger value="pack">Audit pack</TabsTrigger>
         </TabsList>
@@ -261,6 +262,7 @@ function Period({ id }) {
       {tab === "samples" && <Samples p={p} />}
       {tab === "risk" && <Risk id={id} />}
       {tab === "questions" && <Questions p={p} />}
+      {tab === "confirmations" && <Confirmations p={p} />}
       {tab === "adjustments" && <Adjustments p={p} />}
       {tab === "pack" && <Pack p={p} />}
     </div>
@@ -1094,6 +1096,325 @@ function Adjustments({ p }) {
                 <Decide a={x} p={p} />
               </li>
             ))}
+          </ul>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ confirmations (ISA 505)
+
+const CONF_STATE = {
+  draft: { label: "Waiting for the company to authorise", tone: "warning" },
+  authorised: { label: "Authorised, not sent", tone: "accent" },
+  refused: { label: "Refused by the company", tone: "danger" },
+  sent: { label: "Sent, no reply yet", tone: "neutral" },
+  replied: { label: "Replied", tone: "accent" },
+  closed: { label: "Concluded", tone: "success" },
+};
+const OUTCOME = { agreed: "Agreed", explained: "Difference explained", alternative: "Other procedures instead" };
+const SIDE = { receivable: "owes the company", payable: "is owed by the company" };
+
+function useConfirmations(id) {
+  const { companyId } = useCompany();
+  return useQuery({ queryKey: ["audit-confirmations", companyId, id], queryFn: () => apiClient.get(`/audit/${id}/confirmations`).then((r) => r.data), enabled: Boolean(companyId), refetchInterval: 30_000 });
+}
+
+/** The auditor's choice of whom to ask: suggested with reasons, picked by hand. */
+function Suggest({ p }) {
+  const { companyId } = useCompany();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ["audit-suggest", companyId, p.id], queryFn: () => apiClient.get(`/audit/${p.id}/confirmations/suggest`).then((r) => r.data.suggestions) });
+  const [picked, setPicked] = useState({});
+  const [form, setForm] = useState("blank");
+  const [busy, setBusy] = useState(false);
+  const key = (s) => `${s.counterpartyId}:${s.side}`;
+  const chosen = (data || []).filter((s) => picked[key(s)]);
+  async function add() {
+    setBusy(true);
+    try {
+      const r = await apiClient.post(`/audit/${p.id}/confirmations`, { items: chosen.map((s) => ({ counterpartyId: s.counterpartyId, side: s.side, form })) });
+      qc.invalidateQueries({ queryKey: ["audit-confirmations", companyId, p.id] });
+      qc.invalidateQueries({ queryKey: ["audit-suggest", companyId, p.id] });
+      setPicked({});
+      toast.success(`${r.data.made} to confirm`, "The company is asked to authorise them. Check each address before sending.");
+    } catch (ex) {
+      toast.error("Not added", ex.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Card padding="lg" className="grid gap-3" data-testid="suggest">
+      <div>
+        <h2 className="text-[15px] font-semibold">Whom to confirm</h2>
+        <p className="text-[13px] text-[var(--ink-muted)] mt-0.5">Suggested from the ledger at {formatDate(p.to)}: the largest balances, balances on the wrong side, large suppliers showing nothing owed, and new parties. The choice is yours.</p>
+      </div>
+      {!data ? (
+        <Skeleton className="h-24 rounded-xl" />
+      ) : !data.length ? (
+        <p className="text-[14px] text-[var(--ink-muted)]">Nothing to suggest: every party with a balance worth asking about is already on the list, or there are none.</p>
+      ) : (
+        <ul className="divide-y divide-[var(--border)] border border-[var(--border)] rounded-xl overflow-hidden">
+          {data.map((s) => (
+            <li key={key(s)}>
+              <label className="flex items-start gap-3 px-3 py-2.5 cursor-pointer hover:bg-[var(--surface-2)]">
+                <input type="checkbox" checked={Boolean(picked[key(s)])} onChange={(e) => setPicked({ ...picked, [key(s)]: e.target.checked })} className="mt-1 h-4 w-4 accent-[var(--ink)]" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[14px] font-medium">
+                    {s.name} <span className="font-normal text-[var(--ink-muted)]">{SIDE[s.side]}</span>
+                  </span>
+                  <span className="block text-[12.5px] text-[var(--ink-muted)]">{s.why.join(" · ")}{s.email ? "" : " · no email on file"}</span>
+                </span>
+                <span className="text-[14px] tabular">{s.book}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex flex-wrap items-center gap-3">
+        <select aria-label="What they are asked" value={form} onChange={(e) => setForm(e.target.value)} className={`${FIELD} w-auto`}>
+          <option value="blank">They state the balance (stronger)</option>
+          <option value="balance">They agree or not with the company's figure</option>
+        </select>
+        <Button variant="accent" disabled={busy || !chosen.length} onClick={add}>
+          {busy && <Loader2 size={14} className="animate-spin" />}
+          Add {chosen.length || ""} to confirm
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function ConfirmationRow({ c, p }) {
+  const { companyId } = useCompany();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [email, setEmail] = useState(c.email || "");
+  const [how, setHow] = useState(c.emailCheckNote || "");
+  const [checked, setChecked] = useState(c.emailChecked);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [link, setLink] = useState(null);
+  const refresh = () => qc.invalidateQueries({ queryKey: ["audit-confirmations", companyId, p.id] });
+  const act = async (fn, said) => {
+    setBusy(true);
+    try {
+      const r = await fn();
+      refresh();
+      if (said) toast.success(...said(r));
+    } catch (ex) {
+      toast.error("Not done", ex.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const editable = ["draft", "authorised", "refused"].includes(c.status);
+  // No reply is concluded only after following up: a reminder, or two weeks.
+  const [now] = useState(() => Date.now());
+  const followedUp = c.requests >= 2 || (c.sentAt && now - new Date(c.sentAt).getTime() > 14 * 864e5);
+  const saveAddress = () => act(() => apiClient.patch(`/audit/confirmations/${c.id}`, { email, emailChecked: checked, emailCheckNote: checked ? how : null }), () => ["Address kept", checked ? "Marked as checked independently." : "Not yet marked as checked."]);
+  const send = () =>
+    act(
+      () => apiClient.post(`/audit/confirmations/${c.id}/send`),
+      (r) => {
+        if (r.data.link) setLink(r.data.link);
+        return r.data.emailed ? [r.data.reminder ? "Reminder sent" : "Sent", `To ${c.email}, from you. Their reply comes only to you.`] : ["Not emailed", "Send the private link below yourself."];
+      }
+    );
+  const conclude = (outcome) => act(() => apiClient.post(`/audit/confirmations/${c.id}/conclude`, { outcome, note }), () => ["Concluded", OUTCOME[outcome]]);
+  return (
+    <li className="px-5 py-4 grid gap-3" data-testid="confirmation">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold">{c.party}</span>
+            <span className="text-[13px] text-[var(--ink-muted)]">{SIDE[c.side]}</span>
+            <Badge tone={CONF_STATE[c.status].tone}>{c.outcome ? OUTCOME[c.outcome] : CONF_STATE[c.status].label}</Badge>
+          </div>
+          <p className="text-[12.5px] text-[var(--ink-muted)] mt-0.5">
+            {c.form === "blank" ? "They state the balance" : "They agree or not with the company's figure"}
+            {c.authorisedBy ? ` · ${c.status === "refused" ? "refused" : "authorised"} by ${c.authorisedBy}` : ""}
+            {c.sentAt ? ` · sent ${formatDate(c.sentAt)}${c.requests > 1 ? `, ${c.requests} requests` : ""}` : ""}
+            {c.openedAt && c.status === "sent" ? ` · opened ${formatDate(c.openedAt)}` : ""}
+          </p>
+          {c.refusedReason && <p className="text-[13px] text-[var(--danger)] mt-1">The company's reason: {c.refusedReason}</p>}
+        </div>
+        <div className="text-right">
+          <div className="text-[12px] text-[var(--ink-muted)]">In the books</div>
+          <div className="tabular font-semibold">MVR {c.book}</div>
+        </div>
+      </div>
+
+      {editable && (
+        <div className="grid gap-2 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] p-3">
+          <div className="flex flex-wrap gap-2 items-end">
+            <div className="flex-1 min-w-[220px]">
+              <Label htmlFor={`conf-email-${c.id}`}>Send to</Label>
+              <input id={`conf-email-${c.id}`} value={email} onChange={(e) => (setEmail(e.target.value), setChecked(false))} placeholder="accounts@customer.mv" className={FIELD} />
+            </div>
+            <Button size="sm" variant="outline" disabled={busy} onClick={saveAddress}>
+              Keep
+            </Button>
+          </div>
+          <label className="flex items-start gap-2 text-[13.5px]">
+            <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--ink)]" />
+            <span>I checked this address independently of the company's records</span>
+          </label>
+          {checked && <input aria-label="How it was checked" value={how} onChange={(e) => setHow(e.target.value)} placeholder="Their letterhead; a call to the number on their website" className={FIELD} />}
+          {c.email && !c.emailChecked && <p className="text-[12.5px] text-[var(--ink-muted)]">This address comes from the company's own records. The company could have changed it: confirm it another way before sending.</p>}
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        {(c.status === "authorised" || c.status === "sent") && (
+          <Button size="sm" variant={c.status === "sent" ? "outline" : "accent"} disabled={busy || !c.emailChecked} onClick={send}>
+            {busy && <Loader2 size={13} className="animate-spin" />}
+            {c.status === "sent" ? "Send a reminder" : "Send the request"}
+          </Button>
+        )}
+      </div>
+      {link && (
+        <div className="rounded-xl border border-[var(--border)] p-3 text-[13px] grid gap-1.5">
+          <span>No email went out. Send this private link to {c.email} yourself; it works once, for 60 days.</span>
+          <span className="font-mono break-all select-all">{link}</span>
+        </div>
+      )}
+
+      {c.reply && (
+        <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border)] p-3 grid gap-1.5 text-[14px]" data-testid="reply">
+          <div className="flex flex-wrap gap-x-6 gap-y-1">
+            <span>
+              Their figure: <span className="font-semibold tabular">{c.reply.theirs === null ? (c.reply.agrees ? "agrees" : "—") : `MVR ${c.reply.theirs}`}</span>
+            </span>
+            {c.reply.difference !== null && (
+              <span className={n(c.reply.difference) === 0 ? "text-[var(--success)]" : "text-[var(--danger)]"}>
+                Difference: <span className="font-semibold tabular">MVR {c.reply.difference}</span>
+              </span>
+            )}
+          </div>
+          <span className="text-[13px] text-[var(--ink-muted)]">
+            From {c.reply.by}
+            {c.reply.role ? `, ${c.reply.role}` : ""}, {formatDate(c.reply.at)}
+          </span>
+          {c.reply.note && <span className="text-[13.5px]">“{c.reply.note}”</span>}
+          {c.reply.file && (
+            <button type="button" onClick={() => openFile(`/audit/confirmations/${c.id}/file`).catch((ex) => toast.error("Not opened", ex.message))} className="inline-flex items-center gap-1.5 text-[13px] underline underline-offset-2 min-h-9 self-start">
+              <FileText size={14} /> {c.reply.file}
+            </button>
+          )}
+        </div>
+      )}
+      {c.status === "sent" && n(c.afterPeriod) > 0 && (
+        <p className="text-[13px] text-[var(--ink-muted)]">
+          No reply yet. After the period, MVR {c.afterPeriod} {c.side === "receivable" ? "came in from them" : "was paid to them"}: evidence for other procedures if they never answer.
+        </p>
+      )}
+      {c.status === "sent" && !followedUp && <p className="text-[13px] text-[var(--ink-muted)]">If no reply comes, send a reminder; other procedures are open after a reminder, or two weeks.</p>}
+      {(c.status === "replied" || c.status === "refused" || (c.status === "sent" && followedUp)) && (
+        <div className="flex flex-wrap gap-2 items-end">
+          <div className="flex-1 min-w-[220px]">
+            <Label htmlFor={`conf-note-${c.id}`}>{c.status === "replied" ? "Conclusion (a note is needed for a difference)" : "What was done instead"}</Label>
+            <input id={`conf-note-${c.id}`} value={note} onChange={(e) => setNote(e.target.value)} className={FIELD} />
+          </div>
+          {c.status === "replied" ? (
+            <>
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => conclude("agreed")}>
+                Agreed
+              </Button>
+              <Button size="sm" variant="outline" disabled={busy || note.trim().length < 3} onClick={() => conclude("explained")}>
+                Difference explained
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" variant="outline" disabled={busy || note.trim().length < 3} onClick={() => conclude("alternative")}>
+              Other procedures instead
+            </Button>
+          )}
+        </div>
+      )}
+      {c.outcomeNote && <p className="text-[13px] text-[var(--ink-muted)]">Concluded by {c.outcomeBy}: {c.outcomeNote}</p>}
+    </li>
+  );
+}
+
+/** The company's side: authorise the auditor's requests, or refuse with a reason. It sees states, never replies. */
+function Authorise({ p, list }) {
+  const { companyId, can } = useCompany();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const waiting = list.filter((c) => c.status === "draft" || c.status === "refused");
+  async function decide(allow) {
+    setBusy(true);
+    try {
+      await apiClient.post(`/audit/${p.id}/confirmations/authorise`, { ids: waiting.map((c) => c.id), allow, reason: allow ? null : reason });
+      qc.invalidateQueries({ queryKey: ["audit-confirmations", companyId, p.id] });
+      toast.success(allow ? "Authorised" : "Refused", allow ? "Your auditor can now send the requests. Replies go only to them." : "Your auditor sees your reason.");
+    } catch (ex) {
+      toast.error("Not done", ex.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (!waiting.length || !can("approve")) return null;
+  return (
+    <Card padding="lg" className="grid gap-3" data-testid="authorise">
+      <h2 className="text-[15px] font-semibold">Your auditor asks to confirm {waiting.length === 1 ? "a balance" : `${waiting.length} balances`}</h2>
+      <p className="text-[14px] text-[var(--ink-muted)]">
+        The auditor writes to these customers and suppliers, from their own address, asking what they owed or were owed at {formatDate(p.to)}. Their replies go only to the auditor. Authorising is usual; if you refuse, say why, and the auditor will weigh it.
+      </p>
+      <ul className="text-[14px] grid gap-1">
+        {waiting.map((c) => (
+          <li key={c.id}>
+            {c.party} <span className="text-[var(--ink-muted)]">{SIDE[c.side]}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="flex flex-wrap gap-2 items-end">
+        <Button variant="accent" disabled={busy} onClick={() => decide(true)}>
+          Authorise the requests
+        </Button>
+        <input aria-label="Why the auditor may not ask" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason, if refusing" className={`${FIELD} w-64`} />
+        <Button variant="outline" disabled={busy || reason.trim().length < 3} onClick={() => decide(false)}>
+          Refuse
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function Confirmations({ p }) {
+  const { data, isLoading } = useConfirmations(p.id);
+  if (isLoading || !data) return <Skeleton className="h-60 rounded-2xl" />;
+  const list = data.confirmations;
+  return (
+    <div className="grid gap-4">
+      {data.auditor ? <Suggest p={p} /> : <Authorise p={p} list={list} />}
+      <Card padding="none" className="overflow-hidden">
+        <div className="px-5 py-3 border-b border-[var(--border)] text-[13px] font-semibold flex flex-wrap justify-between gap-2">
+          <span>Balance confirmations</span>
+          <span className="font-normal text-[var(--ink-muted)]">{data.auditor ? "Replies come only to you." : "Replies go only to the auditor."}</span>
+        </div>
+        {!list.length ? (
+          <p className="px-5 py-4 text-[14px] text-[var(--ink-muted)]">None yet. {data.auditor ? "Pick whom to confirm above." : "Your auditor chooses whom to ask; you authorise the requests here."}</p>
+        ) : (
+          <ul className="divide-y divide-[var(--border)]" data-testid="confirmations">
+            {list.map((c) =>
+              data.auditor ? (
+                <ConfirmationRow key={c.id} c={c} p={p} />
+              ) : (
+                <li key={c.id} className="px-5 py-3 flex flex-wrap items-center justify-between gap-2" data-testid="confirmation">
+                  <span>
+                    <span className="font-medium">{c.party}</span> <span className="text-[13px] text-[var(--ink-muted)]">{SIDE[c.side]}</span>
+                  </span>
+                  <Badge tone={CONF_STATE[c.status].tone}>{c.outcome ? "Concluded" : CONF_STATE[c.status].label}</Badge>
+                </li>
+              )
+            )}
           </ul>
         )}
       </Card>
