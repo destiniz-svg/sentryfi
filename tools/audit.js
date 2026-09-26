@@ -2,9 +2,10 @@
  * The audit workspace, in the test company.
  *
  * A period of this year is opened and its seal checked. Two bills are drawn
- * at random; the first opens onto its bill and entry, is ticked with a note,
- * and "Seen, next" goes on to the second, which is ticked too. The sample then
- * reads 2 of 2 seen. Run as an auditor (SHOOT_EMAIL of someone with only that
+ * at random; the sample is proved by drawing it again from its seed; the
+ * first item opens onto its bill and entry, is ticked with a note, and
+ * "Seen, next" goes on to the second, which is ticked too (2/2). The journal
+ * risk tab lists flagged entries, and a sample is drawn from one sign. Run as an auditor (SHOOT_EMAIL of someone with only that
  * role) it also shows the auditor cannot record a bill.
  *
  *   node tools/audit.js
@@ -48,6 +49,7 @@ const settle = (page) => page.waitForTimeout(700);
     await settle(page);
     await shot(page, "period");
 
+    await page.getByRole("tab", { name: /Samples/ }).click();
     await page.locator("#draw-kind").selectOption("bill");
     await page.locator("#draw-size").fill("2");
     await page.getByRole("button", { name: "Draw it" }).click();
@@ -56,11 +58,16 @@ const settle = (page) => page.waitForTimeout(700);
     if ((await items.count()) === 2) ok("two bills drawn");
     else bad(`${await items.count()} drawn`);
 
+    await page.getByRole("button", { name: "Prove it: draw again" }).click();
+    const proof = (await page.getByTestId("proof").innerText()).replace(/\s+/g, " ");
+    if (/the same 2 items/.test(proof)) ok(`proof: "${proof}"`);
+    else bad(`proof: "${proof}"`);
+
     await items.first().click();
     const ev = page.getByTestId("evidence");
     await ev.waitFor({ timeout: 15000 });
     const text = (await ev.innerText()).replace(/\s+/g, " ");
-    if (/The document/i.test(text) && /Entry \d+/i.test(text) && /Debit/.test(text)) ok("the item opens onto its bill and entry");
+    if (/The bill/i.test(text) && /Entry \d+/i.test(text) && /Debit/.test(text)) ok("the item opens onto its bill and entry");
     else bad(`evidence reads "${text.slice(0, 200)}"`);
     await page.locator("#audit-note").fill("Agreed to the supplier's paper");
     await settle(page);
@@ -70,11 +77,30 @@ const settle = (page) => page.waitForTimeout(700);
     ok("Seen, next went on to the second");
     await page.getByRole("button", { name: "Seen", exact: true }).click();
     await page.getByTestId("evidence").waitFor({ state: "detached", timeout: 15000 });
-    await page.waitForFunction(() => /2 of 2 seen/.test(document.body.innerText), null, { timeout: 15000 });
-    ok("the sample reads 2 of 2 seen");
+    await page.waitForFunction(() => /2\/2/.test(document.body.innerText), null, { timeout: 15000 });
+    ok("the sample reads 2/2 seen");
     if ((await page.getByTestId("sample-items").innerText()).includes("Agreed to the supplier's paper")) ok("the note shows on the list");
     else bad("the note is not on the list");
     await shot(page, "sample");
+
+    // The journal risk screen, and a sample drawn from one sign.
+    await page.getByRole("link", { name: /Back to/ }).click();
+    await page.getByRole("tab", { name: "Journal risk" }).click();
+    await page.getByTestId("risk-entries").waitFor({ timeout: 30000 });
+    const flagged = await page.getByTestId("risk-entries").locator("li").count();
+    if (flagged > 0) ok(`journal risk lists ${flagged} flagged entries`);
+    else bad("journal risk lists nothing");
+    const sign = page.getByTestId("risk-tests").locator("button:not([disabled])").first();
+    const signName = (await sign.innerText()).replace(/[●\d]/g, "").trim();
+    await sign.click();
+    await settle(page);
+    await shot(page, "risk");
+    await page.getByRole("button", { name: /Draw a sample from/ }).click();
+    await page.locator("#draw-size").fill("1");
+    await page.getByRole("button", { name: "Draw it" }).last().click();
+    await page.getByTestId("sample-items").waitFor({ timeout: 15000 });
+    const drawnWhy = (await page.getByTestId("sample-item").first().innerText()).replace(/\s+/g, " ");
+    ok(`drew one entry that shows "${signName}": "${drawnWhy.slice(0, 120)}"`);
 
     const canRecord = (await api(page, "GET", "/companies/current")).json?.can?.record;
     if (canRecord === false) {

@@ -53,12 +53,35 @@ router.post(
   requireCan("audit"),
   refused(async (req, res) => {
     const p = z
-      .object({ kind: z.enum(["bill", "invoice", "entry"]), how: z.enum(["random", "over"]), size: z.coerce.number().int().nullish(), over: z.union([z.string(), z.number()]).transform(String).nullish() })
+      .object({
+        kind: z.enum(audit.KINDS),
+        how: z.enum(["random", "over", "key", "mus", "risk"]),
+        size: z.coerce.number().int().nullish(),
+        over: z.union([z.string(), z.number()]).transform(String).nullish(),
+        tests: z.array(z.string().max(20)).max(12).optional(),
+      })
       .safeParse(req.body ?? {});
     if (!p.success) throw ApiError.badRequest("Say what to sample, and how.");
     res.status(201).json(await as(req, (c, ctx) => audit.draw(c, { ...ctx, periodId: uuid(req.params.id), ...p.data })));
   })
 );
+
+/** The period's journal entries, screened for the signs of management override (ISA 240). */
+router.get(
+  "/:id/risk",
+  requireCan("read_trail"),
+  refused(async (req, res) =>
+    res.json(
+      await as(req, async (c, ctx) => {
+        const p = await audit.period(c, { ...ctx, periodId: uuid(req.params.id) });
+        return require("../ledger/auditRisk").screen(c, { companyId: ctx.companyId, from: p.from, to: p.to });
+      })
+    )
+  )
+);
+
+/** Re-draws a sample from its seed and rule, and says whether it is the same. */
+router.post("/samples/:sid/prove", requireCan("read_trail"), refused(async (req, res) => res.json(await as(req, (c, ctx) => audit.prove(c, { ...ctx, sampleId: uuid(req.params.sid) })))));
 
 router.get("/samples/:sid", requireCan("read_trail"), refused(async (req, res) => res.json(await as(req, (c, ctx) => audit.sample(c, { ...ctx, sampleId: uuid(req.params.sid) })))));
 

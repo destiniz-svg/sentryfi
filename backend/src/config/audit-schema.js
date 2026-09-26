@@ -66,6 +66,19 @@ BEGIN
       WITH CHECK (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid)$p$, t);
   END LOOP;
 END $$;
+-- 1.43.0: samples that can be re-drawn and proved. The seed and exact rule are
+-- kept; the population's fingerprint says whether it is still the same one.
+ALTER TABLE audit_samples ADD COLUMN IF NOT EXISTS seed TEXT;
+ALTER TABLE audit_samples ADD COLUMN IF NOT EXISTS rule JSONB;
+ALTER TABLE audit_samples ADD COLUMN IF NOT EXISTS population_laari BIGINT;
+ALTER TABLE audit_samples ADD COLUMN IF NOT EXISTS population_hash TEXT;
+ALTER TABLE audit_samples DROP CONSTRAINT IF EXISTS audit_samples_kind_check;
+ALTER TABLE audit_samples ADD CONSTRAINT audit_samples_kind_check CHECK (kind IN ('bill','invoice','entry','payment','receipt','credit_note','claim'));
+ALTER TABLE audit_samples DROP CONSTRAINT IF EXISTS audit_samples_how_check;
+ALTER TABLE audit_samples ADD CONSTRAINT audit_samples_how_check CHECK (how IN ('random','over','key','mus','risk'));
+-- Why each item was chosen (a key item, a monetary-unit hit, the risks it showed), and the entry behind it.
+ALTER TABLE audit_sample_items ADD COLUMN IF NOT EXISTS why TEXT;
+ALTER TABLE audit_sample_items ADD COLUMN IF NOT EXISTS entry_id UUID REFERENCES journal_entries(id);
 GRANT SELECT, INSERT ON audit_periods, audit_samples, audit_sample_items TO sentryfi_app;
 GRANT UPDATE (seal_checked_at, seal_ok, seal_entries, seal_problems) ON audit_periods TO sentryfi_app;
 GRANT UPDATE (seen_by, seen_at, note) ON audit_sample_items TO sentryfi_app;

@@ -17,6 +17,16 @@
  */
 const RELEASES = [
   {
+    version: "1.43.0",
+    date: "2026-09-26",
+    title: "Audit: samples you can prove, and the journal risk screen",
+    summary: "Every sample keeps its seed and can be drawn again to show it is the same. A journal risk screen ranks the period's entries by the signs auditors look for.",
+    items: [
+      { area: "Accounting", kind: "new", title: "Journal risk", body: "In Audit, each period now has Journal risk: every entry read for ten signs that controls may have been overridden, such as posted after the period ended, reversed just after it, made by hand, posted at the weekend, or a round amount. The most telling come first, and a sample can be drawn straight from them.", href: "/audit" },
+      { area: "Accounting", kind: "new", title: "Samples you can prove", body: "A sample keeps the seed it was drawn with. Prove it draws it again and shows the same items, or says what has changed in the period since. Draw by monetary unit, or key items and the rest at random, and from payments, receipts, credit notes and expense claims as well as bills, invoices and entries.", href: "/audit" },
+    ],
+  },
+  {
     version: "1.42.0",
     date: "2026-09-26",
     title: "Audit: a period, its seal, and samples",
