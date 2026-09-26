@@ -17,6 +17,11 @@ const { Pool } = require("pg");
 const { ALL_SQL } = require("../src/config/all-schema");
 
 const url = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
+// A notification pushes to phones a moment later, through the app's own
+// config, which exits without these. Pointed at the test database, it finds no
+// phones and does nothing.
+if (url) process.env.DATABASE_URL ||= url;
+process.env.JWT_SECRET ||= "test-only";
 
 let pool;
 

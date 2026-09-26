@@ -97,8 +97,9 @@ export default function Order() {
                   variant="accent"
                   disabled={act.isPending}
                   onClick={async () => {
-                    const r = await run(`/orders/${id}/accept`, {}, (x) => [`Accepted: ${x.number}`, "A sales order with the same lines, ready to deliver and invoice."]);
-                    if (r?.orderId) nav(`/orders/${r.orderId}`);
+                    const r = await run(`/orders/${id}/accept`, {}, (x) => [`Accepted: ${x.number}`, x.invoiceNo ? `Invoice ${x.invoiceNo} is drafted from it. Check it, then send it.` : "A sales order with the same lines, ready to deliver and invoice."]);
+                    if (r?.invoiceId) nav(`/documents/invoice/${r.invoiceId}`);
+                    else if (r?.orderId) nav(`/orders/${r.orderId}`);
                   }}
                 >
                   Accepted

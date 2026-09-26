@@ -139,11 +139,23 @@ describe("a quote", () => {
       const line = (await orders.load(client, { companyId, orderId: q.id })).lines[0];
       await expect(orders.deliver(client, { companyId, userId, orderId: q.id, lines: [{ orderLineId: line.id, quantity: "1" }] })).rejects.toThrow(/A quote is not delivered/);
 
-      const so = await orders.answerQuote(client, { companyId, userId, orderId: q.id, accepted: true });
+      await client.query("INSERT INTO memberships (company_id, user_id, role) VALUES ($1, $2, 'administrator')", [companyId, userId]);
+      const so = await orders.answerQuote(client, { companyId, userId, orderId: q.id, accepted: true, by: "Ms Prospect", via: "link" });
       expect(so.number).toBe("SO-0001");
       const made = orders.show(await orders.load(client, { companyId, orderId: so.id }));
       expect(made.lines.map((l) => [l.description, l.quantity, l.price])).toEqual([["Cement", "30", "210.00"], ["Delivery", "1", "500.00"]]);
       expect(orders.show(await orders.load(client, { companyId, orderId: q.id }))).toMatchObject({ status: "accepted", becameOrderId: so.id });
+
+      // Its invoice is drafted, never posted, and takes the order's lines once.
+      const { rows: [inv] } = await client.query("SELECT invoice_no, entry_id, order_id, subject FROM sales_invoices WHERE id = $1", [so.invoiceId]);
+      expect(inv).toMatchObject({ invoice_no: so.invoiceNo, entry_id: null, order_id: so.id, subject: "Quote QT-0001" });
+      expect((await orders.load(client, { companyId, orderId: so.id })).status).toBe("invoiced");
+      const cementLine = (await orders.load(client, { companyId, orderId: so.id })).lines[0];
+      await orders.deliver(client, { companyId, userId, orderId: so.id, lines: [{ orderLineId: cementLine.id, quantity: "30" }] });
+      expect((await orders.load(client, { companyId, orderId: so.id })).status).toBe("done");
+      await expect(orders.invoiceFromOrder(client, { companyId, userId, orderId: so.id, gstTreatment: "none_unregistered" })).rejects.toThrow(/Nothing has gone out/);
+      const { rows: told } = await client.query("SELECT title, href FROM notifications WHERE company_id = $1 AND dedupe_key = $2", [companyId, `quote-accepted:${q.id}`]);
+      expect(told).toEqual([{ title: "Ms Prospect accepted QT-0001", href: `/documents/invoice/${so.invoiceId}` }]);
       await expect(orders.answerQuote(client, { companyId, userId, orderId: q.id, accepted: false })).rejects.toThrow(/answered already/);
 
       const q2 = await orders.create(client, { companyId, userId, kind: "quote", partyName: "Another prospect", validUntil: "2020-01-01", lines: [{ description: "Survey", quantity: "1", unitPrice: "900" }] });

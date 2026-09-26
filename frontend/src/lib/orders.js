@@ -4,6 +4,7 @@ export const ORDER_STATUS = {
   open: { tone: "neutral", buy: "Ordered", sell: "Ordered" },
   part_delivered: { tone: "accent", buy: "Part arrived", sell: "Part gone out" },
   delivered: { tone: "accent", buy: "Arrived, to bill", sell: "Gone out, to invoice" },
+  invoiced: { tone: "accent", buy: "Billed, to arrive", sell: "Invoiced, to go out" },
   done: { tone: "success", buy: "Done", sell: "Done" },
   cancelled: { tone: "neutral", buy: "Cancelled", sell: "Cancelled" },
   quoted: { tone: "accent", buy: "Quoted", sell: "Quoted, waiting for an answer" },

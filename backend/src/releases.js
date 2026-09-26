@@ -17,6 +17,16 @@
  */
 const RELEASES = [
   {
+    version: "1.29.0",
+    date: "2026-09-26",
+    title: "An accepted quote drafts its invoice",
+    summary: "When a quote is accepted, its invoice is drafted for you to check and send. Nothing goes to the customer until someone sends it.",
+    items: [
+      { area: "Sales", kind: "new", title: "Accepted quotes draft their invoice", body: "Accepting a quote, in the office or through the customer's link, makes its sales order and drafts the invoice with the same lines. The people who record are told, and the invoice waits for a person to check and send it.", href: "/invoices" },
+      { area: "Sales", kind: "improved", title: "Invoiced, to go out", body: "A sales order invoiced before its goods leave says so, and is done once they have gone out.", href: "/orders?kind=sale" },
+    ],
+  },
+  {
     version: "1.28.0",
     date: "2026-09-26",
     title: "Duplicate",

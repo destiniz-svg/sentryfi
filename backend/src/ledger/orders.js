@@ -120,8 +120,11 @@ async function load(client, { companyId, orderId }) {
     ? "cancelled"
     : o.needs_approval && !o.approved_at
       ? "awaiting_approval"
-      : o.closed_at || all("billedUnits")
+      : o.closed_at
         ? "done"
+        : all("billedUnits")
+          // Invoiced ahead (an accepted quote's draft), goods still to go out.
+          ? out.some((l) => l.item_id && l.deliveredUnits < l.units) ? "invoiced" : "done"
         : all("deliveredUnits")
           ? "delivered"
           : any("deliveredUnits")
@@ -260,7 +263,31 @@ async function answerQuote(client, { companyId, userId, orderId, accepted, by = 
     lines: s.lines.map((l) => ({ description: l.description, itemId: l.item_id, accountId: l.account_id, quantity: stock.unitsText(l.units), unit: l.unit, unitPrice: formatLaari(l.price).replace(/,/g, "") })),
   });
   await client.query("UPDATE orders SET accepted_at = now(), became_order_id = $2, answered_by = $3, answered_via = $4, answer_note = $5 WHERE id = $1", [orderId, made.id, by, via, note]);
-  return made;
+
+  // Its invoice, drafted at the quoted prices and taking the order's lines, so
+  // they are never invoiced twice. A draft only: a person checks it and sends
+  // it (owner's decision, 26 Sep 2026). Discarding it frees the lines again.
+  const so = await load(client, { companyId, orderId: made.id });
+  const { rows: co } = await client.query("SELECT gst_registered FROM companies WHERE id = $1", [companyId]);
+  const { invoice, lines: drafted } = await sales.raise(client, {
+    companyId, userId, counterpartyId: so.order.counterparty_id, projectId: so.order.project_id,
+    gstTreatment: co[0]?.gst_registered ? "exclusive" : "none_unregistered",
+    subject: `Quote ${s.order.number}`,
+    lines: so.lines.map((l) => ({ description: l.description, quantity: Number(stock.unitsText(l.units)), uom: l.unit, unitPrice: formatLaari(l.price).replace(/,/g, ""), itemId: l.item_id, accountId: l.account_id })),
+  });
+  await client.query("UPDATE sales_invoices SET order_id = $2 WHERE id = $1", [invoice.id, made.id]);
+  for (const [i, l] of so.lines.entries()) {
+    await client.query("INSERT INTO order_billed (company_id, order_line_id, invoice_id, quantity, amount_laari) VALUES ($1,$2,$3,$4,$5)", [companyId, l.id, invoice.id, stock.unitsText(l.units), drafted[i].netLaari.toString()]);
+  }
+  const push = require("../services/push");
+  const office = (await push.membersWith(client, companyId, "record")).filter((u) => via !== "office" || u !== userId);
+  await push.tell(client, {
+    companyId, userIds: office, kind: "done", dedupeKey: `quote-accepted:${orderId}`,
+    title: `${by || s.order.party} accepted ${s.order.number}`,
+    body: `Invoice ${invoice.invoice_no} is drafted from it for ${s.order.party}. Check it, then send it; nothing goes to the customer until someone does.`,
+    href: `/documents/invoice/${invoice.id}`,
+  });
+  return { ...made, invoiceId: invoice.id, invoiceNo: invoice.invoice_no };
 }
 
 async function finish(client, { companyId, userId, orderId, how }) {
