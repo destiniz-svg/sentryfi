@@ -130,7 +130,10 @@ async function load(client, { companyId, orderId }) {
           : any("deliveredUnits")
             ? "part_delivered"
             : "open";
-  return { order: o, lines: out, status, total: out.reduce((a, l) => a + times(l.price, l.units), 0n) };
+  const { rows: invoices } = o.kind === "sale"
+    ? await client.query("SELECT id, invoice_no, subject, status, net_laari FROM sales_invoices WHERE order_id = $1 AND voided_at IS NULL ORDER BY created_at", [orderId])
+    : { rows: [] };
+  return { order: o, lines: out, status, invoices, total: out.reduce((a, l) => a + times(l.price, l.units), 0n) };
 }
 
 async function approve(client, { companyId, userId, orderId, approveUpTo }) {
@@ -247,6 +250,46 @@ async function invoiceFromOrder(client, { companyId, userId, orderId, issueDate,
   return { invoice, differences };
 }
 
+/**
+ * A part of a job, invoiced ahead: a share of every line, by a percentage of
+ * the whole or an amount before GST, named for its milestone. The share is
+ * taken in quantities, so stock leaves in step and the whole billed is the
+ * whole order. Asking for more than is left takes exactly what is left.
+ * Drafted only; a person sends it.
+ */
+async function invoicePart(client, { companyId, userId, orderId, percent, amount, label, issueDate }) {
+  await assumeIdentity(client, { companyId, userId });
+  const s = await load(client, { companyId, orderId });
+  if (s.order.kind !== "sale") throw new Error("Only a sales order is invoiced in parts.");
+  if (s.status === "cancelled") throw new Error("That order is cancelled.");
+  const open = s.lines.map((l) => (l.units > l.billedUnits ? l.units - l.billedUnits : 0n));
+  const left = s.lines.reduce((a, l, i) => a + times(l.price, open[i]), 0n);
+  if (left <= 0n) {
+    const draft = s.invoices.length === 1 && s.invoices[0].status === "draft" ? s.invoices[0] : null;
+    throw new Error(draft ? `Invoice ${draft.invoice_no} already covers the whole of ${s.order.number}. Discard that draft to invoice it in parts.` : `Nothing is left to invoice on ${s.order.number}.`);
+  }
+  // The share as a fraction: percent in ten-thousandths of a unit over 100, or laari over the order's total.
+  const [num, den] = percent !== undefined && percent !== null && percent !== "" ? [stock.toUnits(String(percent)), 100n * 10000n] : [toLaari(String(amount)), s.total];
+  if (num <= 0n) throw new Error("Say how much of the job: a percentage or an amount.");
+  const rest = (s.total * num) / den >= left;
+  const parts = s.lines
+    .map((l, i) => ({ l, units: rest ? open[i] : (l.units * num) / den < open[i] ? (l.units * num) / den : open[i] }))
+    .filter((p) => p.units > 0n);
+  const { rows: co } = await client.query("SELECT gst_registered FROM companies WHERE id = $1", [companyId]);
+  const share = rest ? "the rest" : percent ? `${percent}%` : `MVR ${formatLaari(num)}`;
+  const { invoice, lines: made } = await sales.raise(client, {
+    companyId, userId, counterpartyId: s.order.counterparty_id, issueDate, projectId: s.order.project_id,
+    gstTreatment: co[0]?.gst_registered ? "exclusive" : "none_unregistered",
+    subject: `${label ? label + ": " : ""}${share} of ${s.order.number}`,
+    lines: parts.map((p) => ({ description: p.l.description, quantity: Number(stock.unitsText(p.units)), uom: p.l.unit, unitPrice: formatLaari(p.l.price).replace(/,/g, ""), itemId: p.l.item_id, accountId: p.l.account_id })),
+  });
+  await client.query("UPDATE sales_invoices SET order_id = $2 WHERE id = $1", [invoice.id, orderId]);
+  for (const [i, p] of parts.entries()) {
+    await client.query("INSERT INTO order_billed (company_id, order_line_id, invoice_id, quantity, amount_laari) VALUES ($1,$2,$3,$4,$5)", [companyId, p.l.id, invoice.id, stock.unitsText(p.units), made[i].netLaari.toString()]);
+  }
+  return { invoice, rest };
+}
+
 /** A quote the customer accepted becomes a sales order with the same lines; one they declined is kept, marked so. */
 async function answerQuote(client, { companyId, userId, orderId, accepted, by = null, via = "office", note = null }) {
   await assumeIdentity(client, { companyId, userId });
@@ -323,6 +366,8 @@ function show(s) {
     total: f(s.total),
     delivered: f(s.lines.reduce((a, l) => a + times(l.price, l.deliveredUnits), 0n)),
     billed: f(s.lines.reduce((a, l) => a + times(l.price, l.billedUnits), 0n)),
+    left: f(s.lines.reduce((a, l) => a + (l.units > l.billedUnits ? times(l.price, l.units - l.billedUnits) : 0n), 0n)),
+    invoices: (s.invoices || []).map((i) => ({ id: i.id, number: i.invoice_no, subject: i.subject, status: i.status, net: f(BigInt(i.net_laari)) })),
     lines: s.lines.map((l) => ({
       id: l.id, description: l.description, item: l.item_name, itemId: l.item_id, account: l.account_name, accountId: l.account_id, unit: l.unit,
       quantity: stock.unitsText(l.units), delivered: stock.unitsText(l.deliveredUnits), billed: stock.unitsText(l.billedUnits),
@@ -358,4 +403,4 @@ async function committedOn(client, { companyId, projectId }) {
   return out;
 }
 
-module.exports = { times, answerQuote, create, load, approve, deliver, billFromOrder, invoiceFromOrder, finish, show, list, committedOn, nextNumber };
+module.exports = { times, answerQuote, create, load, approve, deliver, billFromOrder, invoiceFromOrder, invoicePart, finish, show, list, committedOn, nextNumber };

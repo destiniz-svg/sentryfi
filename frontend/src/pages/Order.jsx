@@ -121,6 +121,29 @@ export default function Order() {
                 {buying ? "Record what arrived" : "Record what went out"}
               </Button>
             )}
+            {!buying && !quote && o.status !== "cancelled" && can("record") && (n(o.left) > 0 ? (
+              <Button variant="outline" onClick={() => setOpen("part")} data-testid="invoice-part">
+                Invoice a part
+              </Button>
+            ) : o.invoices?.length === 1 && o.invoices[0].status === "draft" ? (
+              <Button
+                variant="outline"
+                disabled={act.isPending}
+                data-testid="invoice-in-parts"
+                onClick={async () => {
+                  if (!window.confirm(`Discard the draft ${o.invoices[0].number} for the whole order, and invoice it in parts instead? It has not been sent.`)) return;
+                  try {
+                    await apiClient.delete(`/sales/${o.invoices[0].id}`, { data: { reason: "Invoiced in parts instead" } });
+                    refresh();
+                    setOpen("part");
+                  } catch (ex) {
+                    toast.error("Not yet", ex.message);
+                  }
+                }}
+              >
+                Invoice in parts instead
+              </Button>
+            ) : null)}
             {live && toBill && can("record") && (
               <Button variant="accent" onClick={() => setOpen("bill")}>
                 {buying ? "Make the bill" : "Make the invoice"}
@@ -143,6 +166,25 @@ export default function Order() {
           </span>
         )}
       </div>
+
+      {o.job && (
+        <Card className="mb-4" data-testid="quote-job">
+          <p className="text-[14px] tabular">
+            <Link to={`/orders/${o.becameOrderId}`} className="font-semibold underline underline-offset-2">
+              {o.job.number}
+            </Link>
+            : invoiced MVR <Money amount={o.job.billed} /> of <Money amount={o.job.total} />
+            {n(o.job.left) > 0 ? (
+              <>
+                , <strong>MVR <Money amount={o.job.left} /> left</strong>.
+              </>
+            ) : (
+              ", all of it."
+            )}
+          </p>
+        </Card>
+      )}
+      {o.job?.invoices.length > 0 && <Invoices invoices={o.job.invoices} title="Invoiced from it" />}
 
       <Card padding="none" className="overflow-hidden">
         <div className="overflow-x-auto">
@@ -190,8 +232,15 @@ export default function Order() {
           <span>
             {buying ? "Billed" : "Invoiced"} MVR <Money amount={o.billed} />
           </span>
+          {!buying && !quote && (
+            <span className={n(o.left) > 0 ? "text-[var(--ink)] font-semibold" : ""} data-testid="order-left">
+              Left to invoice MVR <Money amount={o.left} />
+            </span>
+          )}
         </div>
       </Card>
+
+      {o.invoices?.length > 0 && <Invoices invoices={o.invoices} title="Invoices" />}
 
       {o.deliveries?.length > 0 && (
         <Card padding="none" className="mt-4">
@@ -231,6 +280,7 @@ export default function Order() {
 
       {open === "deliver" && <Deliver o={o} onClose={() => setOpen(null)} run={run} />}
       {open === "bill" && <Bill o={o} onClose={() => setOpen(null)} run={run} nav={nav} />}
+      {open === "part" && <Part id={id} onClose={() => setOpen(null)} run={run} nav={nav} />}
     </div>
   );
 }
@@ -362,6 +412,93 @@ function Bill({ o, onClose, run, nav }) {
         <Button type="submit" variant="accent" disabled={busy || net <= 0}>
           {busy && <Loader2 size={14} className="animate-spin" />}
           {buying ? "Make the bill" : "Make the invoice"}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+function Invoices({ invoices, title }) {
+  return (
+    <Card padding="none" className="mt-4 mb-4">
+      <div className="px-5 py-3 border-b border-[var(--border)] text-[13px] font-semibold">{title}</div>
+      <ul className="divide-y divide-[var(--border)]">
+        {invoices.map((i) => (
+          <li key={i.id}>
+            <Link to={`/documents/invoice/${i.id}`} className="flex items-center gap-3 px-5 py-3 text-[14px] hover:bg-[var(--surface-2)]">
+              <FileText size={15} className="text-[var(--ink-muted)] shrink-0" />
+              <span className="font-medium tabular">{i.number}</span>
+              <span className="text-[var(--ink-muted)] truncate min-w-0 flex-1">{i.subject}</span>
+              {i.status === "draft" && <Badge tone="neutral">Draft</Badge>}
+              <span className="tabular">
+                <Money amount={i.net} />
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+/** A part of the job, invoiced ahead: a percentage of the whole or an amount, named for its milestone. */
+function Part({ id, onClose, run, nav }) {
+  const { companyId } = useCompany();
+  // Read fresh: a draft for the whole may have just been discarded to get here.
+  const { data: o } = useQuery({ queryKey: ["orders", companyId, id], queryFn: () => apiClient.get(`/orders/${id}`).then((r) => r.data) });
+  const [by, setBy] = useState("percent");
+  const [f, setF] = useState({ value: "", label: "", issueDate: today() });
+  const [busy, setBusy] = useState(false);
+  if (!o) return null;
+  const want = by === "percent" ? (n(o.total) * n(f.value)) / 100 : n(f.value);
+  const takes = Math.min(want, n(o.left));
+  const money = (v) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  async function onSubmit(e) {
+    e.preventDefault();
+    setBusy(true);
+    const r = await run(`/orders/${o.id}/invoice-part`, { [by]: f.value, label: f.label || undefined, issueDate: f.issueDate }, (x) => [`Invoice ${x.invoiceNo} drafted · MVR ${x.gross}`, x.rest ? "That is the rest of the job. Check it, then send it." : "Check it, then send it."]);
+    setBusy(false);
+    if (r) {
+      onClose();
+      nav(`/documents/invoice/${r.invoiceId}`);
+    }
+  }
+  return (
+    <Modal open onClose={onClose} as="form" onSubmit={onSubmit} title="Invoice a part" description={`A share of every line on ${o.number}, drafted for you to check and send. MVR ${o.left} is left of MVR ${o.total}.`}>
+      <div className="grid gap-3">
+        <div role="radiogroup" aria-label="How much" className="flex gap-2">
+          {[
+            ["percent", "A percentage"],
+            ["amount", "An amount"],
+          ].map(([k, t]) => (
+            <button key={k} type="button" role="radio" aria-checked={by === k} onClick={() => setBy(k)} className={`h-10 px-4 rounded-full border text-[14px] ${by === k ? "border-[var(--ink)] font-semibold" : "border-[var(--border)] text-[var(--ink-muted)]"}`}>
+              {t}
+            </button>
+          ))}
+        </div>
+        <label className="block">
+          <span className="text-sm font-medium block mb-1.5">{by === "percent" ? "Percent of the whole job" : "MVR, before GST"}</span>
+          <input id="part-value" value={f.value} onChange={(e) => setF({ ...f, value: e.target.value })} inputMode="decimal" placeholder={by === "percent" ? "30" : "10,000.00"} className={`${FIELD} tabular`} />
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium block mb-1.5">Milestone (optional)</span>
+          <input id="part-label" value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} placeholder="Deposit, Frame up, Handover" maxLength={120} className={FIELD} />
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium block mb-1.5">Dated</span>
+          <input type="date" value={f.issueDate} onChange={(e) => setF({ ...f, issueDate: e.target.value })} className={FIELD} />
+        </label>
+        <p className="text-[14px] text-right tabular min-h-5" data-testid="part-preview">
+          {takes > 0 && (want >= n(o.left) ? `MVR ${money(takes)} before GST: the rest of the job` : `MVR ${money(takes)} before GST, MVR ${money(n(o.left) - takes)} left after`)}
+        </p>
+      </div>
+      <div className="flex justify-end gap-2 mt-6">
+        <Button type="button" variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="accent" disabled={busy || takes <= 0}>
+          {busy && <Loader2 size={14} className="animate-spin" />}
+          Draft the invoice
         </Button>
       </div>
     </Modal>

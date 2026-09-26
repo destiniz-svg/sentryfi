@@ -686,6 +686,7 @@ describe("A's orders, from B", () => {
     denied(await call(B, "POST", `/orders/${orderA}/approve`));
     denied(await call(B, "POST", `/orders/${orderA}/deliveries`, { body: { lines: [{ orderLineId: lineA, quantity: "1" }] } }));
     denied(await call(B, "POST", `/orders/${orderA}/bill`, { body: {} }));
+    denied(await call(B, "POST", `/orders/${orderA}/invoice-part`, { body: { percent: "10" } }));
     denied(await call(B, "POST", `/orders/${orderA}/cancel`));
     denied(await call(B, "POST", "/orders", { body: { kind: "purchase", partyName: "x", lines: [{ description: "x", accountId: A.accounts["5100"], quantity: "1", unitPrice: "1" }] } }));
     const own = (await call(B, "POST", "/orders", { body: { kind: "purchase", partyName: "B vendor", lines: [{ description: "x", accountId: B.accounts["5100"], quantity: "1", unitPrice: "1" }] } })).json.id;

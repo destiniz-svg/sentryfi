@@ -125,6 +125,31 @@ describe("a sales order", () => {
     }));
 });
 
+describe("a job invoiced in parts", () => {
+  it("takes a share of every line, shows what is left, and the rest ends it", () =>
+    inRollback(async (client) => {
+      const co = await aBuyer(client);
+      const { companyId, userId } = co;
+      const o = await orders.create(client, { companyId, userId, kind: "sale", partyName: "A client", lines: [{ itemId: co.cement, quantity: "30", unitPrice: "210" }, { description: "Delivery", quantity: "1", unitPrice: "500" }] });
+      const part = (x) => orders.invoicePart(client, { companyId, userId, orderId: o.id, ...x });
+      const view = async () => orders.show(await orders.load(client, { companyId, orderId: o.id }));
+
+      const deposit = await part({ percent: "30", label: "Deposit" });
+      expect([String(deposit.invoice.net_laari), deposit.invoice.subject, deposit.invoice.entry_id]).toEqual(["204000", "Deposit: 30% of SO-0001", null]);
+      expect((await client.query("SELECT quantity::text FROM sales_invoice_lines WHERE invoice_id = $1 ORDER BY position", [deposit.invoice.id])).rows.map((r) => Number(r.quantity))).toEqual([9, 0.3]);
+      expect(await view()).toMatchObject({ billed: "2,040.00", left: "4,760.00" });
+
+      await part({ amount: "1360", label: "Frame up" });
+      expect((await view()).left).toBe("3,400.00");
+
+      const rest = await part({ percent: "100", label: "Handover" });
+      expect([rest.rest, String(rest.invoice.net_laari), rest.invoice.subject]).toEqual([true, "340000", "Handover: the rest of SO-0001"]);
+      const done = await view();
+      expect([done.left, done.status, done.invoices.length]).toEqual(["0.00", "invoiced", 3]);
+      await expect(part({ percent: "10" })).rejects.toThrow(/Nothing is left to invoice/);
+    }));
+});
+
 describe("a quote", () => {
   it("accepted, becomes a sales order with the same lines; declined, is kept and marked so", () =>
     inRollback(async (client) => {
@@ -150,6 +175,7 @@ describe("a quote", () => {
       const { rows: [inv] } = await client.query("SELECT invoice_no, entry_id, order_id, subject FROM sales_invoices WHERE id = $1", [so.invoiceId]);
       expect(inv).toMatchObject({ invoice_no: so.invoiceNo, entry_id: null, order_id: so.id, subject: "Quote QT-0001" });
       expect((await orders.load(client, { companyId, orderId: so.id })).status).toBe("invoiced");
+      await expect(orders.invoicePart(client, { companyId, userId, orderId: so.id, percent: "10" })).rejects.toThrow(new RegExp(`${so.invoiceNo} already covers the whole of SO-0001. Discard that draft`));
       const cementLine = (await orders.load(client, { companyId, orderId: so.id })).lines[0];
       await orders.deliver(client, { companyId, userId, orderId: so.id, lines: [{ orderLineId: cementLine.id, quantity: "30" }] });
       expect((await orders.load(client, { companyId, orderId: so.id })).status).toBe("done");

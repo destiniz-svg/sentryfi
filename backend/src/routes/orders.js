@@ -111,7 +111,12 @@ router.get(
   "/:id",
   canSee,
   refused(async (req, res) => {
-    res.json(await on(req, async (client, ctx) => ({ ...orders.show(await orders.load(client, { ...ctx, orderId: req.params.id })), deliveries: (await client.query("SELECT id, delivered_on::text AS on, reference FROM order_deliveries WHERE order_id = $1 AND company_id = $2 ORDER BY created_at", [req.params.id, ctx.companyId])).rows, canApproveUpTo: await approveUpTo(client, req).then((v) => (v === null ? null : formatLaari(v < 0n ? 0n : v))), mayApprove: req.can("approve") })));
+    res.json(await on(req, async (client, ctx) => ({ ...(await (async () => {
+      const o = orders.show(await orders.load(client, { ...ctx, orderId: req.params.id }));
+      // A quote shows its job: what has been invoiced from its sales order, and what is left.
+      if (o.becameOrderId) { const j = orders.show(await orders.load(client, { ...ctx, orderId: o.becameOrderId })); o.job = { number: j.number, total: j.total, billed: j.billed, left: j.left, invoices: j.invoices }; }
+      return o;
+    })()), deliveries: (await client.query("SELECT id, delivered_on::text AS on, reference FROM order_deliveries WHERE order_id = $1 AND company_id = $2 ORDER BY created_at", [req.params.id, ctx.companyId])).rows, canApproveUpTo: await approveUpTo(client, req).then((v) => (v === null ? null : formatLaari(v < 0n ? 0n : v))), mayApprove: req.can("approve") })));
   })
 );
 
@@ -163,6 +168,17 @@ router.post(
     const b = parse(billBody.omit({ billNo: true }), req.body);
     const r = await on(req, (client, ctx) => orders.invoiceFromOrder(client, { ...ctx, orderId: req.params.id, ...b }));
     res.status(201).json({ invoiceId: r.invoice.id, invoiceNo: r.invoice.invoice_no, gross: formatLaari(BigInt(r.invoice.gross_laari)), differences: r.differences });
+  })
+);
+
+router.post(
+  "/:id/invoice-part",
+  requireCan("record"),
+  refused(async (req, res) => {
+    const b = parse(z.object({ percent: num.optional(), amount: num.optional(), label: z.string().trim().max(120).optional(), issueDate: dateText.optional() }).refine((x) => x.percent || x.amount, "Say how much of the job: a percentage or an amount."), req.body);
+    if (b.percent && !(Number(b.percent) > 0 && Number(b.percent) <= 100)) throw ApiError.badRequest("A percentage is more than 0 and at most 100.");
+    const r = await on(req, (client, ctx) => orders.invoicePart(client, { ...ctx, orderId: req.params.id, ...b }));
+    res.status(201).json({ invoiceId: r.invoice.id, invoiceNo: r.invoice.invoice_no, gross: formatLaari(BigInt(r.invoice.gross_laari)), rest: r.rest });
   })
 );
 

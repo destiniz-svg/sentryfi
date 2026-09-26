@@ -17,6 +17,16 @@
  */
 const RELEASES = [
   {
+    version: "1.30.0",
+    date: "2026-09-26",
+    title: "Invoice a job in parts",
+    summary: "Invoice a sales order a part at a time, by percentage or amount, named for its milestone. What is left shows on the order and on its quote.",
+    items: [
+      { area: "Sales", kind: "new", title: "Invoice a part", body: "On a sales order, Invoice a part drafts an invoice for a percentage of the whole job or an amount, with a milestone name such as Deposit or Handover. Each part takes its share of every line, and the last takes exactly what is left.", href: "/orders?kind=sale" },
+      { area: "Sales", kind: "improved", title: "What is left, on the quote", body: "A sales order shows what is left to invoice and lists its invoices. An accepted quote shows its job: invoiced so far and what is left.", href: "/orders?kind=quote" },
+    ],
+  },
+  {
     version: "1.29.0",
     date: "2026-09-26",
     title: "An accepted quote drafts its invoice",
