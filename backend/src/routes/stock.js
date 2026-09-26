@@ -8,6 +8,7 @@ const { asCompany } = require("../ledger/session");
 const { toLaari } = require("../ledger/money");
 const stock = require("../ledger/stock");
 const gemini = require("../services/geminiService");
+const { today: localToday } = require("../ledger/today");
 
 /**
  * Items: products and services. A counted product is stock: what is on hand
@@ -212,6 +213,41 @@ router.post(
     );
     if (!out) throw ApiError.notFound("That item is not in these books.");
     res.json(out);
+  })
+);
+
+// The owner's snapshot: how stock stood at the end of a day, and what came in and moved since `from` (the week before, unless said).
+const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "A date is YYYY-MM-DD.");
+router.get(
+  "/snapshot",
+  requireCan("read"),
+  refused(async (req, res) => {
+    const on = req.query.on ? day.parse(String(req.query.on)) : localToday();
+    const from = req.query.from ? day.parse(String(req.query.from)) : new Date(Date.parse(`${on}T00:00:00Z`) - 6 * 86400000).toISOString().slice(0, 10);
+    if (from > on) throw ApiError.badRequest("The period starts after it ends.");
+    res.json(await asCompany(req, (client) => stock.snapshot(client, { companyId: req.companyId, on, from })));
+  })
+);
+
+// The moves behind any figure on the snapshot.
+const movesQuery = z.object({
+  item: z.string().uuid().optional(),
+  place: z.union([z.literal("main"), z.literal("transit"), z.string().uuid()]).optional(),
+  kinds: z.string().regex(/^[a-z,]+$/).optional(),
+  from: day.optional(),
+  to: day.optional(),
+});
+router.get(
+  "/moves",
+  requireCan("read"),
+  refused(async (req, res) => {
+    const parsed = movesQuery.safeParse(req.query ?? {});
+    if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0].message);
+    const q = parsed.data;
+    const moves = await asCompany(req, (client) =>
+      stock.moves(client, { companyId: req.companyId, itemId: q.item, place: q.place, kinds: q.kinds ? q.kinds.split(",").filter(Boolean) : null, from: q.from, to: q.to })
+    );
+    res.json({ moves });
   })
 );
 

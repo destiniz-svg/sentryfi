@@ -72,6 +72,7 @@ const PhoneOwed = lazy(() => import("@/pages/phone/Owed"));
 const More = lazy(() => import("@/pages/More"));
 const Assets = lazy(() => import("@/pages/Assets"));
 const Stock = lazy(() => import("@/pages/Stock"));
+const StockSnapshot = lazy(() => import("@/pages/StockSnapshot"));
 const Payroll = lazy(() => import("@/pages/Payroll"));
 const Advances = lazy(() => import("@/pages/Advances"));
 const PayRun = lazy(() => import("@/pages/PayRun"));
@@ -194,6 +195,7 @@ export const router = createBrowserRouter([
       { path: "more", element: <More /> },
       { path: "assets", element: <Assets /> },
       { path: "stock", element: <Stock /> },
+      { path: "inventory", element: <StockSnapshot /> },
       { path: "payroll", element: <Payroll /> },
       { path: "advances", element: <Advances /> },
       { path: "payroll/runs/:id", element: <PayRun /> },

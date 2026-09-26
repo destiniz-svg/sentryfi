@@ -17,6 +17,16 @@
  */
 const RELEASES = [
   {
+    version: "1.34.0",
+    date: "2026-09-26",
+    title: "The owner's stock snapshot",
+    summary: "A new Stock page answers five questions: what came in, what is where, what it is worth, what moved, and what looks wrong. As at any date, and every figure opens onto its moves.",
+    items: [
+      { area: "Stock", kind: "new", title: "Stock, at a glance", body: "Inventory now opens on Stock: this week's deliveries, each place with its quantity and value (goods on the way included), the total and whether it agrees with the books, sales and stock used on jobs, and anything short, late, low or not moving. Pick any date to see how it stood then.", href: "/inventory" },
+      { area: "Stock", kind: "improved", title: "Every figure opens onto its moves", body: "Tap a place, an item or a total to see the moves behind it, each with its bill, invoice or entry.", href: "/inventory" },
+    ],
+  },
+  {
     version: "1.33.0",
     date: "2026-09-26",
     title: "Send and arrive, and stock used on a job",

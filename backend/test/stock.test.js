@@ -395,6 +395,63 @@ describe("sending stock and its arrival", () => {
     }));
 });
 
+describe("the owner's snapshot", () => {
+  it("shows what is where and what it is worth as at any date, agreeing with the books, with what came in, moved and looks wrong", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      const cement = await shop.item("Cement");
+      const sand = await shop.item("Sand");
+      await shop.buy([{ itemId: cement, quantity: "10", amount: "1000.00" }, { itemId: sand, quantity: "5", amount: "250.00" }]); // 2026-09-10
+      const project = (await client.query("INSERT INTO projects (company_id, name) VALUES ($1,'Hulhumale tower') RETURNING id", [companyId])).rows[0].id;
+      const site = await stock.addPlace(client, { companyId, userId, name: "Tower site", kind: "site", projectId: project });
+      const c = await stock.transfer(client, { companyId, userId, itemId: cement, fromPlaceId: null, toPlaceId: site.id, quantity: "4", on: "2026-09-12" });
+      await stock.transfer(client, { companyId, userId, itemId: sand, fromPlaceId: null, toPlaceId: site.id, quantity: "2", on: "2026-09-12" }); // never arrives
+      await stock.arrive(client, { companyId, userId, transferId: c.id, received: "3", on: "2026-09-14", reason: "One bag split" });
+      await shop.sell([{ itemId: cement, quantity: 2, unitPrice: "200.00" }]); // 2026-09-20, from the main store
+      await stock.issue(client, { companyId, userId, itemId: cement, placeId: site.id, quantity: "1", on: "2026-09-21", projectId: project });
+
+      const place = (s, id) => s.places.find((p) => p.id === id);
+      const early = await stock.snapshot(client, { companyId, on: "2026-09-13", from: "2026-09-07" });
+      expect(early).toMatchObject({ total: "1,250.00", books: "1,250.00", agrees: true });
+      expect(place(early, "main")).toMatchObject({ value: "750.00" });
+      expect(place(early, "transit").items).toEqual([
+        { itemId: cement, name: "Cement", unit: "bag", quantity: "4", value: "400.00" },
+        { itemId: sand, name: "Sand", unit: "bag", quantity: "2", value: "100.00" },
+      ]);
+      expect(place(early, site.id).items).toEqual([]);
+      expect(early.cameIn.map((r) => [r.item, r.quantity, r.from, r.placeName]).sort()).toEqual([
+        ["Cement", "10", "Cement Supplier", "Main store"],
+        ["Sand", "5", "Cement Supplier", "Main store"],
+      ]);
+      expect(early.moved.sent.map((t) => [t.item, t.arrived])).toEqual(expect.arrayContaining([["Cement", false], ["Sand", false]]));
+      expect(early.wrong).toEqual([]);
+
+      const late = await stock.snapshot(client, { companyId, on: "2026-09-25", from: "2026-09-19" });
+      expect(late).toMatchObject({ total: "850.00", books: "850.00", agrees: true });
+      expect(place(late, "main").items.map((i) => [i.name, i.quantity, i.value])).toEqual([["Cement", "4", "400.00"], ["Sand", "3", "150.00"]]);
+      expect(place(late, site.id).items).toEqual([{ itemId: cement, name: "Cement", unit: "bag", quantity: "2", value: "200.00" }]);
+      expect(late.moved.sold).toMatchObject({ quantity: "2", cost: "200.00", sales: "400.00" });
+      expect(late.moved.used).toMatchObject({ quantity: "1", cost: "100.00" });
+      expect(late.cameIn).toEqual([]);
+      expect(late.wrong.map((w) => w.kind)).toEqual(["late"]); // the sand, on the way since the 12th
+      expect(late.wrong[0].detail).toMatch(/2 bag of Sand sent to Tower site on 12 Sept? 2026 has not arrived/);
+
+      const shortWeek = await stock.snapshot(client, { companyId, on: "2026-09-14", from: "2026-09-14" });
+      expect(shortWeek.wrong.find((w) => w.kind === "short").detail).toMatch(/1 bag of Cement short at Tower site on 14 Sept? 2026, worth 100.00\. Short on arrival: One bag split$/);
+      const idle = await stock.snapshot(client, { companyId, on: "2027-01-10", from: "2027-01-04" });
+      expect(idle.wrong.filter((w) => w.kind === "still").length).toBe(2);
+
+      // Every figure opens onto its moves.
+      const atSite = await stock.moves(client, { companyId, place: site.id, to: "2026-09-25" });
+      expect(atSite.map((m) => m.kind).sort()).toEqual(["counted", "issued", "moved", "moved"]);
+      const onWay = await stock.moves(client, { companyId, place: "transit", to: "2026-09-25" });
+      expect(onWay).toHaveLength(1);
+      expect(onWay[0].note).toBe("From Main store to Tower site, on the way");
+      expect((await stock.moves(client, { companyId, kinds: ["sold"] })).map((m) => [m.item, m.quantity, m.place])).toEqual([["Cement", "-2", "Main store"]]);
+    }));
+});
+
 describe("stock used on a job", () => {
   it("leaves its place at average cost and carries that cost to the project and department", () =>
     inRollback(async (client) => {

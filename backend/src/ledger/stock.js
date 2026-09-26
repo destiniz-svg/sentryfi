@@ -88,17 +88,22 @@ const placeKey = (id) => id || MAIN;
 /**
  * Where each unit is: its movements at their place, what was moved out of a
  * place, and what was moved in once it arrived (on the way until then).
- * `only` narrows it to one item ($2).
+ * `item` narrows it to one item, and `on` to how things stood at the end of
+ * that day; each is the placeholder that holds it ($2, $3).
  */
-const WHERE = (only = "") => `
-  SELECT m.item_id AS item, m.place_id::text AS place, m.quantity AS q FROM stock_moves m WHERE m.company_id = $1 ${only && "AND m.item_id = $2"}
-  UNION ALL SELECT t.item_id, CASE WHEN t.arrives AND a.id IS NULL THEN '${TRANSIT}' ELSE t.to_place_id::text END, t.quantity
-    FROM stock_transfers t LEFT JOIN stock_arrivals a ON a.transfer_id = t.id WHERE t.company_id = $1 ${only && "AND t.item_id = $2"}
-  UNION ALL SELECT t.item_id, t.from_place_id::text, -t.quantity FROM stock_transfers t WHERE t.company_id = $1 ${only && "AND t.item_id = $2"}`;
+const WHERE = ({ item, on } = {}) => {
+  const it = (a) => (item ? `AND ${a}.item_id = ${item}` : "");
+  const by = (col) => (on ? `AND ${col} <= ${on}` : "");
+  return `
+  SELECT m.item_id AS item, m.place_id::text AS place, m.quantity AS q FROM stock_moves m WHERE m.company_id = $1 ${it("m")} ${by("m.moved_on")}
+  UNION ALL SELECT t.item_id, CASE WHEN t.arrives AND (a.id IS NULL ${on ? `OR a.arrived_on > ${on}` : ""}) THEN '${TRANSIT}' ELSE t.to_place_id::text END, t.quantity
+    FROM stock_transfers t LEFT JOIN stock_arrivals a ON a.transfer_id = t.id WHERE t.company_id = $1 ${it("t")} ${by("t.moved_on")}
+  UNION ALL SELECT t.item_id, t.from_place_id::text, -t.quantity FROM stock_transfers t WHERE t.company_id = $1 ${it("t")} ${by("t.moved_on")}`;
+};
 
 /** How many of an item are at each place, keyed by place id: "main" for the main store, "transit" for on the way. */
 async function atPlaces(client, { companyId, itemId }) {
-  const { rows } = await client.query(`SELECT place, SUM(q) AS q FROM (${WHERE("item")}) x GROUP BY place`, [companyId, itemId]);
+  const { rows } = await client.query(`SELECT place, SUM(q) AS q FROM (${WHERE({ item: "$2" })}) x GROUP BY place`, [companyId, itemId]);
   return new Map(rows.map((r) => [placeKey(r.place), fromDb(r.q)]));
 }
 
@@ -722,6 +727,210 @@ async function history(client, { companyId, itemId }) {
   }))].sort((a, b) => String(b.on) < String(a.on) ? -1 : String(b.on) > String(a.on) ? 1 : 0);
 }
 
+// ------------------------------------------------------------------ the owner's snapshot
+
+// ponytail: fixed limits for "looks wrong"; a company setting when a week is wrong for island deliveries.
+const LATE_DAYS = 7;
+const STILL_DAYS = 90;
+const daysBefore = (on, n) => new Date(Date.parse(`${on}T00:00:00Z`) - n * 86400000).toISOString().slice(0, 10);
+// A date the way the app writes it: 26 Sept 2026.
+const said = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+
+/**
+ * What the owner wants to know about stock, as things stood at the end of
+ * `on`: what came in and what moved since `from`, what is where and what it is
+ * worth, whether that agrees with the Stock account, and what looks wrong.
+ *
+ * Value is the company-wide average, so a place's share of an item's value is
+ * its share of the units; the last place takes what rounding leaves, and the
+ * places add up to the item exactly. Goods on the way are a place of their own.
+ */
+async function snapshot(client, { companyId, on, from }) {
+  const kept = await places(client, { companyId });
+  const names = new Map([...kept.map((p) => [placeKey(p.id), p.name]), [TRANSIT, "On the way"]]);
+  const nameOf = (k) => names.get(k) || "A place no longer kept";
+  const { rows: items } = await client.query(
+    `SELECT i.id, i.name, i.unit, i.reorder_at, COALESCE(SUM(m.quantity), 0) AS q, COALESCE(SUM(m.value_laari), 0) AS v, COUNT(m.id) AS n
+       FROM stock_items i LEFT JOIN stock_moves m ON m.item_id = i.id AND m.company_id = i.company_id AND m.moved_on <= $2
+      WHERE i.company_id = $1 GROUP BY i.id ORDER BY lower(i.name)`,
+    [companyId, on]
+  );
+  const { rows: at } = await client.query(`SELECT item, place, SUM(q) AS q FROM (${WHERE({ on: "$2" })}) x GROUP BY item, place`, [companyId, on]);
+  const { rows: last } = await client.query(
+    `SELECT item_id, MAX(d)::text AS d FROM (
+       SELECT item_id, moved_on AS d FROM stock_moves WHERE company_id = $1 AND moved_on <= $2
+       UNION ALL SELECT item_id, moved_on FROM stock_transfers WHERE company_id = $1 AND moved_on <= $2
+     ) x GROUP BY item_id`,
+    [companyId, on]
+  );
+  const lastMoved = new Map(last.map((r) => [r.item_id, r.d]));
+  const where = new Map();
+  for (const r of at) {
+    if (!where.has(r.item)) where.set(r.item, new Map());
+    where.get(r.item).set(placeKey(r.place), fromDb(r.q));
+  }
+
+  const byPlace = new Map([...names.keys()].map((k) => [k, { value: 0n, items: [] }]));
+  const wrong = [];
+  let total = 0n;
+  for (const it of items) {
+    if (Number(it.n) === 0 && !where.has(it.id)) continue;
+    const units = fromDb(it.q);
+    const value = BigInt(it.v);
+    total += value;
+    let here = [...(where.get(it.id) || new Map())].filter(([, q]) => q !== 0n);
+    if (!here.length && value !== 0n) here = [[MAIN, 0n]]; // worth something with none placed: the main store holds it
+    let left = value;
+    here.forEach(([p, q], i) => {
+      const share = i === here.length - 1 ? left : units === 0n ? 0n : (value * q) / units;
+      left -= share;
+      const slot = byPlace.get(p) || byPlace.set(p, { value: 0n, items: [] }).get(p);
+      slot.value += share;
+      slot.items.push({ itemId: it.id, name: it.name, unit: it.unit, quantity: unitsText(q), value: formatLaari(share) });
+      if (q < 0n) wrong.push({ kind: "negative", itemId: it.id, place: p, detail: `${names.get(p) || "A place"} shows ${unitsText(q)} ${it.unit} of ${it.name}. A delivery or a move there was probably never recorded.` });
+    });
+    if (units > 0n && (lastMoved.get(it.id) || "") <= daysBefore(on, STILL_DAYS)) {
+      wrong.push({ kind: "still", itemId: it.id, detail: `${unitsText(units)} ${it.unit} of ${it.name} ${units === SCALE ? "has" : "have"} not moved since ${said(lastMoved.get(it.id))}.` });
+    }
+    if (it.reorder_at !== null && units <= fromDb(it.reorder_at)) {
+      wrong.push({ kind: "low", itemId: it.id, detail: `${it.name} is down to ${unitsText(units)} ${it.unit}; reorder at ${unitsText(fromDb(it.reorder_at))}.` });
+    }
+  }
+
+  const { rows: book } = await client.query(
+    `SELECT COALESCE(SUM(l.debit_laari - l.credit_laari), 0) AS b FROM journal_lines l
+       JOIN journal_entries e ON e.id = l.entry_id JOIN accounts a ON a.id = l.account_id
+      WHERE a.company_id = $1 AND a.code = '1350' AND e.entry_date <= $2`,
+    [companyId, on]
+  );
+  const books = BigInt(book[0].b);
+  if (books !== total) wrong.push({ kind: "books", detail: `The Stock account says ${formatLaari(books)}, the stock itself ${formatLaari(total)}. Ask your accountant to look at the entries on 1350.` });
+
+  const { rows: came } = await client.query(
+    `SELECT m.moved_on::text AS on, m.kind, m.item_id, i.name AS item, i.unit, m.quantity, m.value_laari, m.place_id, c.name AS supplier, b.bill_no
+       FROM stock_moves m JOIN stock_items i ON i.id = m.item_id
+       LEFT JOIN bills b ON b.id = m.bill_id LEFT JOIN counterparties c ON c.id = b.counterparty_id
+      WHERE m.company_id = $1 AND m.kind IN ('bought','opening') AND m.quantity > 0 AND m.moved_on BETWEEN $2 AND $3
+      ORDER BY m.moved_on DESC, m.created_at DESC`,
+    [companyId, from, on]
+  );
+  const { rows: flow } = await client.query(
+    `SELECT kind, COALESCE(-SUM(quantity), 0) AS q, COALESCE(-SUM(value_laari), 0) AS v, COALESCE(SUM(sale_net_laari), 0) AS net, COUNT(*) AS n
+       FROM stock_moves WHERE company_id = $1 AND kind IN ('sold','returned','issued','counted') AND moved_on BETWEEN $2 AND $3 GROUP BY kind`,
+    [companyId, from, on]
+  );
+  const { rows: sent } = await client.query(
+    `SELECT t.id, t.moved_on::text AS sent_on, t.item_id, i.name AS item, i.unit, t.quantity, t.arrives, t.from_place_id, t.to_place_id,
+            CASE WHEN a.arrived_on <= $3 THEN a.arrived_on::text END AS arrived_on, CASE WHEN a.arrived_on <= $3 THEN a.received END AS received
+       FROM stock_transfers t JOIN stock_items i ON i.id = t.item_id LEFT JOIN stock_arrivals a ON a.transfer_id = t.id
+      WHERE t.company_id = $1 AND t.moved_on <= $3 AND (t.moved_on >= $2 OR (t.arrives AND (a.id IS NULL OR a.arrived_on > $3)))
+      ORDER BY t.moved_on DESC, t.created_at DESC`,
+    [companyId, from, on]
+  );
+  const { rows: shorts } = await client.query(
+    `SELECT m.moved_on::text AS on, m.item_id, i.name AS item, i.unit, m.quantity, m.value_laari, m.note, m.place_id
+       FROM stock_moves m JOIN stock_items i ON i.id = m.item_id
+      WHERE m.company_id = $1 AND m.kind = 'counted' AND m.quantity < 0 AND m.moved_on BETWEEN $2 AND $3 ORDER BY m.moved_on DESC`,
+    [companyId, from, on]
+  );
+  for (const s of shorts) {
+    wrong.push({ kind: "short", itemId: s.item_id, place: placeKey(s.place_id), detail: `${unitsText(-fromDb(s.quantity))} ${s.unit} of ${s.item} short at ${nameOf(placeKey(s.place_id))} on ${said(s.on)}, worth ${formatLaari(-BigInt(s.value_laari))}.${s.note ? ` ${s.note}` : ""}` });
+  }
+  for (const t of sent) {
+    if (t.arrives && !t.arrived_on && t.sent_on <= daysBefore(on, LATE_DAYS)) {
+      wrong.push({ kind: "late", itemId: t.item_id, place: TRANSIT, detail: `${unitsText(fromDb(t.quantity))} ${t.unit} of ${t.item} sent to ${nameOf(placeKey(t.to_place_id))} on ${said(t.sent_on)} has not arrived.` });
+    }
+  }
+  const kind = (k) => flow.find((r) => r.kind === k) || { q: 0, v: 0, net: 0, n: 0 };
+  const sold = kind("sold");
+  const back = kind("returned");
+  const issued = kind("issued");
+
+  return {
+    on,
+    from,
+    total: formatLaari(total),
+    books: formatLaari(books),
+    agrees: books === total,
+    cameIn: came.map((r) => ({
+      on: r.on, itemId: r.item_id, item: r.item, unit: r.unit, quantity: unitsText(fromDb(r.quantity)), value: formatLaari(BigInt(r.value_laari)),
+      place: placeKey(r.place_id), placeName: nameOf(placeKey(r.place_id)), from: r.kind === "opening" ? "Already on hand" : r.supplier, document: r.bill_no ? `Bill ${r.bill_no}` : null,
+    })),
+    places: [...byPlace]
+      .filter(([k, p]) => k !== TRANSIT || p.items.length)
+      .map(([k, p]) => ({ id: k, name: nameOf(k), kind: kept.find((x) => placeKey(x.id) === k)?.kind || (k === TRANSIT ? "transit" : "store"), value: formatLaari(p.value), items: p.items })),
+    moved: {
+      sent: sent.map((t) => ({
+        id: t.id, on: t.sent_on, itemId: t.item_id, item: t.item, unit: t.unit, quantity: unitsText(fromDb(t.quantity)),
+        from: nameOf(placeKey(t.from_place_id)), to: nameOf(placeKey(t.to_place_id)),
+        arrived: !t.arrives || Boolean(t.arrived_on), arrivedOn: t.arrived_on, received: t.received === null ? null : unitsText(fromDb(t.received)),
+      })),
+      // Sales net of what came back, at what they cost and what they earned.
+      sold: { quantity: unitsText(fromDb(sold.q) + fromDb(back.q)), cost: formatLaari(BigInt(sold.v) + BigInt(back.v)), sales: formatLaari(BigInt(sold.net) + BigInt(back.net)), count: Number(sold.n) },
+      returned: { count: Number(back.n) },
+      used: { quantity: unitsText(fromDb(issued.q)), cost: formatLaari(BigInt(issued.v)), count: Number(issued.n) },
+    },
+    wrong,
+  };
+}
+
+/**
+ * The moves behind a figure, newest first: an item, a place ("main", "transit"
+ * or a place's id), kinds of move ("moved" for transfers) and dates, each optional.
+ */
+async function moves(client, { companyId, itemId, place, kinds, from, to }) {
+  const args = [companyId];
+  const arg = (v) => (args.push(v), `$${args.length}`);
+  const want = (k) => !kinds || !kinds.length || kinds.includes(k);
+  const out = [];
+  const stockKinds = (kinds || []).filter((k) => k !== "moved");
+  if (place !== TRANSIT && (!kinds || stockKinds.length)) {
+    const c = ["m.company_id = $1"];
+    if (itemId) c.push(`m.item_id = ${arg(itemId)}`);
+    if (from) c.push(`m.moved_on >= ${arg(from)}`);
+    if (to) c.push(`m.moved_on <= ${arg(to)}`);
+    if (stockKinds.length) c.push(`m.kind = ANY(${arg(stockKinds)}::text[])`);
+    if (place === MAIN) c.push("m.place_id IS NULL");
+    else if (place) c.push(`m.place_id = ${arg(place)}`);
+    const { rows } = await client.query(
+      `SELECT m.moved_on::text AS on, m.kind, i.name AS item, i.unit, m.quantity, m.value_laari, m.note, e.entry_no, b.bill_no, s.invoice_no, COALESCE(p.name, 'Main store') AS place
+         FROM stock_moves m JOIN stock_items i ON i.id = m.item_id JOIN journal_entries e ON e.id = m.entry_id
+         LEFT JOIN bills b ON b.id = m.bill_id LEFT JOIN sales_invoices s ON s.id = m.invoice_id LEFT JOIN stock_places p ON p.id = m.place_id
+        WHERE ${c.join(" AND ")} ORDER BY m.moved_on DESC, m.created_at DESC LIMIT 500`,
+      args
+    );
+    for (const r of rows) {
+      out.push({ on: r.on, kind: r.kind, item: r.item, unit: r.unit, quantity: unitsText(fromDb(r.quantity)), value: formatLaari(BigInt(r.value_laari)), place: r.place, note: r.note, entryNo: String(r.entry_no), document: r.bill_no ? `Bill ${r.bill_no}` : r.invoice_no || null });
+    }
+  }
+  if (want("moved")) {
+    const a2 = [companyId];
+    const b = (v) => (a2.push(v), `$${a2.length}`);
+    const c = ["t.company_id = $1"];
+    if (itemId) c.push(`t.item_id = ${b(itemId)}`);
+    if (to) c.push(`t.moved_on <= ${b(to)}`);
+    if (place === TRANSIT) c.push(`t.arrives AND (a.id IS NULL${to ? ` OR a.arrived_on > ${b(to)}` : ""})`);
+    else {
+      if (from) c.push(`t.moved_on >= ${b(from)}`);
+      if (place === MAIN) c.push("(t.from_place_id IS NULL OR t.to_place_id IS NULL)");
+      else if (place) c.push(`(t.from_place_id = ${b(place)} OR t.to_place_id = $${a2.length})`);
+    }
+    const { rows } = await client.query(
+      `SELECT t.moved_on::text AS on, i.name AS item, i.unit, t.quantity, t.note, t.arrives, a.arrived_on::text AS arrived_on, a.received,
+              COALESCE(f.name, 'Main store') AS from_name, COALESCE(p.name, 'Main store') AS to_name
+         FROM stock_transfers t JOIN stock_items i ON i.id = t.item_id LEFT JOIN stock_arrivals a ON a.transfer_id = t.id
+         LEFT JOIN stock_places f ON f.id = t.from_place_id LEFT JOIN stock_places p ON p.id = t.to_place_id
+        WHERE ${c.join(" AND ")} ORDER BY t.moved_on DESC LIMIT 500`,
+      a2
+    );
+    for (const t of rows) {
+      const stood = !t.arrives ? "" : !t.arrived_on || (to && t.arrived_on > to) ? ", on the way" : `, ${unitsText(fromDb(t.received))} arrived ${t.arrived_on}`;
+      out.push({ on: t.on, kind: "moved", item: t.item, unit: t.unit, quantity: unitsText(fromDb(t.quantity)), value: null, place: `${t.from_name} to ${t.to_name}`, note: `From ${t.from_name} to ${t.to_name}${stood}${t.note ? `: ${t.note}` : ""}`, entryNo: null, document: null });
+    }
+  }
+  return out.sort((x, y) => (x.on < y.on ? 1 : x.on > y.on ? -1 : 0)).slice(0, 500);
+}
+
 /**
  * The units this company writes, most used first: every unit put on an item,
  * an invoice line or an order line is kept this way and offered next time.
@@ -762,4 +971,4 @@ async function guessTax(client, { companyId, itemId, ask }) {
   return { tax: a.tax, taxBy: "ai", taxWhy: why, confidence: a.confidence };
 }
 
-module.exports = { guessTax, ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history, atPlaces, places, addPlace, updatePlace, PLACE_KINDS, transfer, arrive, onTheWay, issue, units, place };
+module.exports = { guessTax, ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history, atPlaces, places, addPlace, updatePlace, PLACE_KINDS, transfer, arrive, onTheWay, issue, snapshot, moves, units, place };
