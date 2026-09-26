@@ -20,7 +20,7 @@ const printedNetOf = (bill) => BigInt(bill.fc_net ?? bill.net_laari);
 /** The saved parts of a bill, in order, with their own-currency values. */
 async function load(client, { companyId, bill }) {
   const { rows: s } = await client.query(
-    `SELECT l.id, l.container_id, l.position, l.description, l.item_id, l.quantity, l.amount_laari, i.name, i.unit
+    `SELECT l.id, l.container_id, l.position, l.description, l.item_id, l.quantity, l.amount_laari, l.batch_code, l.expires_on::text AS expires_on, i.name, i.unit
        FROM bill_stock_lines l JOIN stock_items i ON i.id = l.item_id
       WHERE l.bill_id = $1 AND l.company_id = $2`,
     [bill.id, companyId]
@@ -34,7 +34,7 @@ async function load(client, { companyId, bill }) {
   const parts = [
     ...s.map((r) => ({
       lineId: r.id, containerId: r.container_id, position: r.position, kind: "stock", description: r.description, itemId: r.item_id, name: r.name, unit: r.unit,
-      units: stock.fromDb(r.quantity), amount: BigInt(r.amount_laari),
+      units: stock.fromDb(r.quantity), amount: BigInt(r.amount_laari), batchCode: r.batch_code, expiresOn: r.expires_on,
     })),
     ...c.map((r) => ({
       position: r.position, kind: r.kind, description: r.description, accountId: r.account_id, accountName: r.account_name,
@@ -71,7 +71,9 @@ async function save(client, { companyId, userId, billId, lines }) {
     const description = String(l.description || "").trim().slice(0, 300);
     if (l.kind === "stock") {
       if (!l.itemId) throw new Error("Which item is it?");
-      return { position: i, kind: "stock", description, itemId: l.itemId, units: stock.toUnits(l.quantity), unit: l.unit || null, amount };
+      const batchCode = l.batchCode ? String(l.batchCode).trim().slice(0, 60) : null;
+      if (l.expiresOn && !/^\d{4}-\d{2}-\d{2}$/.test(String(l.expiresOn))) throw new Error("An expiry date is YYYY-MM-DD.");
+      return { position: i, kind: "stock", description, itemId: l.itemId, units: stock.toUnits(l.quantity), unit: l.unit || null, amount, batchCode, expiresOn: l.expiresOn || null };
     }
     if (l.kind === "cost") {
       if (!l.accountId) throw new Error("Which kind of cost is it?");
@@ -100,7 +102,7 @@ async function save(client, { companyId, userId, billId, lines }) {
 
   const itemIds = [...new Set(prepared.filter((p) => p.kind === "stock").map((p) => p.itemId))];
   if (itemIds.length) {
-    const { rows: found } = await client.query("SELECT id, name, counted, cost_account_id, unit, pack_unit, pack_size FROM stock_items WHERE company_id = $1 AND id = ANY($2::uuid[]) AND archived_at IS NULL", [companyId, itemIds]);
+    const { rows: found } = await client.query("SELECT id, name, counted, batches, cost_account_id, unit, pack_unit, pack_size FROM stock_items WHERE company_id = $1 AND id = ANY($2::uuid[]) AND archived_at IS NULL", [companyId, itemIds]);
     if (found.length !== itemIds.length) throw new Error("One of those items is not in these books.");
     // A service or an uncounted product is a cost, on the item's own kind of cost.
     const byId = new Map(found.map((r) => [r.id, r]));
@@ -109,7 +111,9 @@ async function save(client, { companyId, userId, billId, lines }) {
       if (!item) return;
       // Bought in boxes, kept in pieces: the stock line holds the pieces, at the same total.
       if (item.counted) {
-        prepared[i] = { ...p, units: stock.inBase(item, p.units, p.unit) };
+        // Kept in batches: the line says which batch came in (its expiry, if it has one).
+        // A draft may wait for it (a bill made from an order does); posting will not.
+        prepared[i] = { ...p, units: stock.inBase(item, p.units, p.unit), ...(item.batches ? {} : { batchCode: null, expiresOn: null }) };
         return;
       }
       if (!item.cost_account_id) throw new Error(`${item.name} is not counted as stock. Say which kind of cost it is, on the item or here.`);
@@ -133,8 +137,8 @@ async function save(client, { companyId, userId, billId, lines }) {
   for (const p of prepared) {
     if (p.kind === "stock") {
       await client.query(
-        "INSERT INTO bill_stock_lines (company_id, bill_id, item_id, quantity, amount_laari, position, description) VALUES ($1,$2,$3,$4,$5,$6,$7)",
-        [companyId, billId, p.itemId, stock.unitsText(p.units), p.amount.toString(), p.position, p.description]
+        "INSERT INTO bill_stock_lines (company_id, bill_id, item_id, quantity, amount_laari, position, description, batch_code, expires_on) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+        [companyId, billId, p.itemId, stock.unitsText(p.units), p.amount.toString(), p.position, p.description, p.batchCode || null, p.expiresOn || null]
       );
     } else {
       await client.query(
@@ -162,11 +166,13 @@ async function entryParts(client, { companyId, userId, bill, expenseAccountId })
       const acc = await stock.account(client, companyId, stock.ACCOUNTS.stock);
       lines.push({ accountId: acc, debit: p.value, ...tags, memo: `${stock.unitsText(p.units)} ${p.unit} ${p.name}` });
       after.push(async (entryId) => {
-        await stock.holding(client, { companyId, itemId: p.itemId }); // locks the item while it moves
+        const h = await stock.holding(client, { companyId, itemId: p.itemId }); // locks the item while it moves
+        if (h.item.batches && !p.batchCode) throw new Error(`${h.item.name} is kept in batches: say its batch on What it was for before this bill goes into the books.`);
+        const batchId = await stock.batchFor(client, { companyId, userId, itemId: p.itemId, code: p.batchCode, expiresOn: p.expiresOn });
         await client.query(
-          `INSERT INTO stock_moves (company_id, item_id, moved_on, kind, quantity, value_laari, entry_id, bill_id, created_by, place_id)
-           VALUES ($1,$2,$3,'bought',$4,$5,$6,$7,$8,$9)`,
-          [companyId, p.itemId, date, stock.unitsText(p.units), p.value.toString(), entryId, bill.id, userId, bill.place_id || null]
+          `INSERT INTO stock_moves (company_id, item_id, moved_on, kind, quantity, value_laari, entry_id, bill_id, created_by, place_id, batch_id)
+           VALUES ($1,$2,$3,'bought',$4,$5,$6,$7,$8,$9,$10)`,
+          [companyId, p.itemId, date, stock.unitsText(p.units), p.value.toString(), entryId, bill.id, userId, bill.place_id || null, batchId]
         );
         // Dated before sales already costed: those sales are re-costed.
         await stock.recost(client, { companyId, userId, itemId: p.itemId, since: date, why: `bill ${bill.bill_no || "without a number"}` });

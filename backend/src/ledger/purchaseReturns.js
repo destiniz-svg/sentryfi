@@ -128,12 +128,9 @@ async function create(client, { companyId, userId, billId, reason, items = [], a
 
   const on = issueDate || localToday();
   const entry = await postEntry(client, { companyId, userId, date: on, source: "adjustment", narrative: `${number}: ${said} (back to ${bill.supplier || "the supplier"} on ${bill.bill_no || "a bill"})`, lines });
+  // Through the one door every movement takes, so an item kept in batches gives back its earliest to expire.
   for (const m of moves) {
-    await client.query(
-      `INSERT INTO stock_moves (company_id, item_id, moved_on, kind, quantity, value_laari, entry_id, bill_id, note, created_by, place_id)
-       VALUES ($1,$2,$3,'undone',$4,$5,$6,$7,$8,$9,$10)`,
-      [companyId, m.itemId, on, stock.unitsText(-m.units), (-m.value).toString(), entry.id, billId, `Returned to supplier, ${number}`, userId, bill.place_id || null]
-    );
+    await stock.recordMove(client, { companyId, userId, itemId: m.itemId, on, kind: "undone", units: -m.units, value: -m.value, entryId: entry.id, billId, note: `Returned to supplier, ${number}`, placeId: bill.place_id || null });
   }
   const { rows } = await client.query(
     `INSERT INTO supplier_returns (company_id, counterparty_id, bill_id, number, reason, issue_date, supplier_ref, net_laari, tax_laari, gross_laari, items, entry_id, raised_by)

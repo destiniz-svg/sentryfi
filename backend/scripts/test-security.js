@@ -11,9 +11,19 @@ const { spawnSync } = require("node:child_process");
 const ROOT = path.resolve(__dirname, "..", "..");
 const EmbeddedPostgres = require("node:module").createRequire(path.join(ROOT, "backend/package.json"))("embedded-postgres").default;
 
-const PORT = 54391;
+// TEST_PG_PORT when 54391 is taken; asked first, as a Postgres that cannot start has ended this with 0.
+const PORT = Number(process.env.TEST_PG_PORT) || 54391;
+const portFree = (port) =>
+  new Promise((ok) => {
+    const s = require("node:net").createServer();
+    s.once("error", () => ok(false)).once("listening", () => s.close(() => ok(true))).listen(port, "127.0.0.1");
+  });
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sentryfi-sec-"));
 (async () => {
+  if (!(await portFree(PORT))) {
+    console.error(`Port ${PORT} is in use, so no test Postgres can start and nothing was tested. Stop the other run, or set TEST_PG_PORT.`);
+    process.exit(1);
+  }
   const pg = new EmbeddedPostgres({ databaseDir: dir, user: "postgres", password: "postgres", port: PORT, persistent: false, initdbFlags: ["--encoding=UTF8", "--locale=C"], onLog: () => {}, onError: () => {} });
   let code = 1;
   try {

@@ -654,6 +654,63 @@ describe("a second unit: pieces kept, boxes bought and sold", () => {
     }));
 });
 
+describe("batches and expiry", () => {
+  it("a bill for an item kept in batches does not go into the books without its batch", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      const paint = await shop.item("Paint 4L", "tin");
+      await client.query("UPDATE stock_items SET batches = true WHERE id = $1", [paint]);
+
+      // No batch: a draft may wait, but it does not go into the books.
+      await expect(shop.buy([{ itemId: paint, quantity: "2", amount: "200.00" }])).rejects.toThrow(/kept in batches: say its batch/);
+    }));
+
+  it("keeps each batch apart, earliest to expire first", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      const paint = await shop.item("Paint 4L", "tin");
+      await client.query("UPDATE stock_items SET batches = true WHERE id = $1", [paint]);
+      await shop.buy([{ itemId: paint, quantity: "6", amount: "600.00", batchCode: "LATE-11", expiresOn: "2026-11-01" }]);
+      await shop.buy([{ itemId: paint, quantity: "4", amount: "400.00", batchCode: "SOON-10", expiresOn: "2026-10-15" }]);
+      // The same batch, said with another expiry, is refused (asked of the batch itself: a refused
+      // bill in a request is rolled back whole, but this test's one transaction would keep its entry).
+      await expect(stock.batchFor(client, { companyId, userId, itemId: paint, code: "soon-10", expiresOn: "2026-12-31" })).rejects.toThrow(/Batch SOON-10 already expires on 2026-10-15/);
+      expect((await stock.batches(client, { companyId, itemId: paint })).map((b) => [b.code, b.quantity])).toEqual([["SOON-10", "4"], ["LATE-11", "6"]]);
+
+      // Selling 5 takes the 4 expiring first, then 1 of the next.
+      await shop.sell([{ itemId: paint, quantity: 5, unitPrice: "150.00" }]);
+      expect((await stock.batches(client, { companyId, itemId: paint })).map((b) => [b.code, b.quantity])).toEqual([["LATE-11", "5"]]);
+      const { rows: sold } = await client.query(
+        "SELECT b.code, m.quantity::text AS q, m.value_laari::text AS v, m.sale_net_laari::text AS net FROM stock_moves m JOIN stock_batches b ON b.id = m.batch_id WHERE m.company_id = $1 AND m.kind = 'sold' ORDER BY b.code DESC",
+        [companyId]
+      );
+      expect(sold).toEqual([
+        { code: "SOON-10", q: "-4.0000", v: "-40000", net: "60000" },
+        { code: "LATE-11", q: "-1.0000", v: "-10000", net: "15000" },
+      ]);
+      const held = await shop.held(paint);
+      expect(held).toMatchObject({ onHand: "5", value: "500.00", batches: true, nextBatch: { code: "LATE-11", expiresOn: "2026-11-01", quantity: "5" } });
+      await shop.tied();
+
+      // Reversing a bill takes its stock out of exactly its own batch.
+      const extra = await shop.buy([{ itemId: paint, quantity: "3", amount: "300.00", batchCode: "EXTRA", expiresOn: "2027-01-31" }]);
+      const r = await reverseEntry(client, { companyId, userId, entryId: extra.entryId, reason: "wrong bill" });
+      await stock.undoBillStock(client, { companyId, userId, billId: extra.billId, entryId: r.id, on: "2026-09-21" });
+      expect((await stock.batches(client, { companyId, itemId: paint })).map((b) => b.code)).toEqual(["LATE-11"]);
+
+      // What looks wrong: expiring within 30 days, then expired.
+      const soon = await stock.snapshot(client, { companyId, on: "2026-10-20", from: "2026-10-14" });
+      expect(soon.wrong.filter((w) => w.kind === "expiring").map((w) => w.detail)).toEqual([expect.stringMatching(/5 tin of Paint 4L, batch LATE-11, expires on 1 Nov 2026/)]);
+      const late = await stock.snapshot(client, { companyId, on: "2026-11-05", from: "2026-10-30" });
+      expect(late.wrong.filter((w) => w.kind === "expired").map((w) => w.detail)).toEqual([expect.stringMatching(/batch LATE-11, expired on 1 Nov 2026/)]);
+
+      // Stock already held says its batch too.
+      await expect(stock.opening(client, { companyId, userId, itemId: paint, quantity: "2", unitCost: "100", on: "2026-09-10" })).rejects.toThrow(/say which batch/);
+    }));
+});
+
 describe("stock used on a job", () => {
   it("leaves its place at average cost and carries that cost to the project and department", () =>
     inRollback(async (client) => {

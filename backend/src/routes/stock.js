@@ -42,6 +42,8 @@ const itemBody = z.object({
   tax: z.enum(["standard", "zero_rated", "exempt"]).nullish(),
   // A second unit it also comes in (a box), and how many of its own unit are in one.
   packUnit: z.string().trim().max(20).nullish(),
+  // Kept in batches, each with its expiry: bills say which batch came in, and stock goes out earliest to expire first.
+  batches: z.boolean().optional(),
   packSize: z.union([z.string().trim(), z.number()]).transform(String).nullish(),
 });
 
@@ -167,6 +169,10 @@ router.post(
       if (b.tax) await client.query("UPDATE stock_items SET tax = $2, tax_by = 'you' WHERE id = $1", [rows[0].id, b.tax]);
       const [packUnit, packSize] = pack(b, it.kind, b.unit);
       if (packUnit) await client.query("UPDATE stock_items SET pack_unit = $2, pack_size = $3 WHERE id = $1", [rows[0].id, packUnit, packSize]);
+      if (b.batches) {
+        if (!it.counted) throw ApiError.badRequest("Only stock that is counted is kept in batches.");
+        await client.query("UPDATE stock_items SET batches = true WHERE id = $1", [rows[0].id]);
+      }
       return rows[0];
     });
     res.status(201).json({ item });
@@ -217,6 +223,10 @@ router.patch(
       } else if (it.kind !== "product" && was.pack_unit) {
         await client.query("UPDATE stock_items SET pack_unit = NULL, pack_size = NULL WHERE id = $1 AND company_id = $2", [req.params.id, req.companyId]);
       }
+      // Batches follow counting: switched on only for counted stock, and off with it.
+      const batched = has("batches") ? b.batches && it.counted : was.batches && it.counted;
+      if (has("batches") && b.batches && !it.counted) throw ApiError.badRequest("Only stock that is counted is kept in batches.");
+      if (batched !== was.batches) await client.query("UPDATE stock_items SET batches = $3 WHERE id = $1 AND company_id = $2", [req.params.id, req.companyId, batched]);
       if (has("tax")) await client.query("UPDATE stock_items SET tax = $3, tax_by = $4, tax_why = NULL WHERE id = $1 AND company_id = $2", [req.params.id, req.companyId, b.tax || null, b.tax ? "you" : null]);
       return true;
     });
@@ -374,7 +384,14 @@ router.post(
   })
 );
 
-const openingBody = z.object({ quantity: qty, unitCost: money, on: dateText, placeId: place });
+const openingBody = z.object({ quantity: qty, unitCost: money, on: dateText, placeId: place, batchCode: z.string().trim().max(60).nullish(), expiresOn: dateText.nullish() });
+
+// An item's batches still held, earliest to expire first.
+router.get(
+  "/:id/batches",
+  requireCan("read"),
+  asyncHandler(async (req, res) => res.json({ batches: await asCompany(req, (client) => stock.batches(client, { companyId: req.companyId, itemId: req.params.id })) }))
+);
 router.post(
   "/:id/opening",
   requireCan("record"),

@@ -29,7 +29,7 @@ const KIND = {
   bought: "Came in", opening: "Already on hand", sold: "Sold", returned: "Came back", counted: "Counted", issued: "Used on a job",
   moved: "Sent", undone: "Bill reversed", landed: "Landing cost", recosted: "Re-costed",
 };
-const WRONG = { short: "Short", late: "Late", negative: "Below nothing", still: "Not moving", low: "Low", books: "Books", due: "Count due" };
+const WRONG = { short: "Short", late: "Late", negative: "Below nothing", still: "Not moving", low: "Low", books: "Books", due: "Count due", expired: "Expired", expiring: "Expiring" };
 
 export default function StockSnapshot() {
   const { companyId } = useCompany();

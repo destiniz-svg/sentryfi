@@ -20,10 +20,23 @@ const fs = require("node:fs");
 const { spawnSync } = require("node:child_process");
 const EmbeddedPostgres = require("embedded-postgres").default;
 
-const PORT = 54329;
+// TEST_PG_PORT when 54329 is taken (another run, or another session's).
+const PORT = Number(process.env.TEST_PG_PORT) || 54329;
+
+// Asked before starting: a Postgres that cannot start here has been seen to end
+// this script with 0, which read as every test passing when none had run.
+const portFree = (port) =>
+  new Promise((ok) => {
+    const s = require("node:net").createServer();
+    s.once("error", () => ok(false)).once("listening", () => s.close(() => ok(true))).listen(port, "127.0.0.1");
+  });
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sentryfi-pg-"));
 
 (async () => {
+  if (!(await portFree(PORT))) {
+    console.error(`Port ${PORT} is in use, so no test Postgres can start and nothing was tested. Stop the other run, or set TEST_PG_PORT.`);
+    process.exit(1);
+  }
   const pg = new EmbeddedPostgres({
     databaseDir: dir,
     user: "postgres",

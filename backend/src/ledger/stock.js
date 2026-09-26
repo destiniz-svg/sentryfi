@@ -86,7 +86,7 @@ function packsText(units, item) {
 /** An item and what is on hand of it, locked for the rest of the transaction. */
 async function holding(client, { companyId, itemId }) {
   const { rows } = await client.query(
-    "SELECT id, name, unit, archived_at, counted FROM stock_items WHERE id = $1 AND company_id = $2 FOR UPDATE",
+    "SELECT id, name, unit, archived_at, counted, batches FROM stock_items WHERE id = $1 AND company_id = $2 FOR UPDATE",
     [itemId, companyId]
   );
   if (!rows.length) throw new Error("That item is not in these books.");
@@ -141,15 +141,100 @@ function costOut(held, units) {
   return (held.value * units + held.units / 2n) / held.units;
 }
 
+/**
+ * A movement into the books. For an item kept in batches, stock taken out
+ * without naming a batch (`batchId` left out) comes from the earliest to expire
+ * first, split over as many batches as it takes; its value and what the sale
+ * earned are shared by quantity, the last part taking what rounding leaves.
+ * Stock coming in without a batch is held with none.
+ */
 async function recordMove(client, m) {
+  const parts = m.batchId === undefined && m.units < 0n ? await earliestFirst(client, m.companyId, m.itemId, -m.units) : null;
+  if (!parts || parts.length < 2) return insertMove(client, { ...m, batchId: parts ? parts[0].batchId : m.batchId || null });
+  const whole = -m.units;
+  let valueLeft = m.value;
+  let netLeft = m.saleNet;
+  for (const [i, p] of parts.entries()) {
+    const last = i === parts.length - 1;
+    const value = last ? valueLeft : (m.value * p.units) / whole;
+    const saleNet = m.saleNet === undefined ? undefined : last ? netLeft : (m.saleNet * p.units) / whole;
+    valueLeft -= value;
+    if (saleNet !== undefined) netLeft -= saleNet;
+    await insertMove(client, { ...m, units: -p.units, value, saleNet, batchId: p.batchId });
+  }
+}
+
+async function insertMove(client, m) {
   await client.query(
-    `INSERT INTO stock_moves (company_id, item_id, moved_on, kind, quantity, value_laari, sale_net_laari, entry_id, bill_id, invoice_id, note, created_by, place_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+    `INSERT INTO stock_moves (company_id, item_id, moved_on, kind, quantity, value_laari, sale_net_laari, entry_id, bill_id, invoice_id, note, created_by, place_id, batch_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
     [
       m.companyId, m.itemId, m.on, m.kind, unitsText(m.units), m.value.toString(),
-      m.saleNet === undefined ? null : m.saleNet.toString(), m.entryId, m.billId || null, m.invoiceId || null, m.note || null, m.userId, m.placeId || null,
+      m.saleNet === undefined ? null : m.saleNet.toString(), m.entryId, m.billId || null, m.invoiceId || null, m.note || null, m.userId, m.placeId || null, m.batchId || null,
     ]
   );
+}
+
+/**
+ * Which batches `units` come out of, earliest to expire first; those with no
+ * expiry, then stock held in no batch, last. Null for an item not kept in batches.
+ */
+async function earliestFirst(client, companyId, itemId, units) {
+  const { rows: it } = await client.query("SELECT batches FROM stock_items WHERE id = $1 AND company_id = $2", [itemId, companyId]);
+  if (!it[0]?.batches) return null;
+  const { rows } = await client.query(
+    `SELECT m.batch_id, SUM(m.quantity) AS q FROM stock_moves m LEFT JOIN stock_batches b ON b.id = m.batch_id
+      WHERE m.company_id = $1 AND m.item_id = $2
+      GROUP BY m.batch_id, b.expires_on, b.created_at HAVING SUM(m.quantity) > 0
+      ORDER BY b.expires_on NULLS LAST, b.created_at NULLS LAST`,
+    [companyId, itemId]
+  );
+  const parts = [];
+  let left = units;
+  for (const r of rows) {
+    if (left <= 0n) break;
+    const q = fromDb(r.q);
+    const take = q < left ? q : left;
+    parts.push({ batchId: r.batch_id, units: take });
+    left -= take;
+  }
+  // More out than the batches hold (a count found less than the books said): the rest from no batch.
+  if (left > 0n) parts.push({ batchId: null, units: left });
+  return parts;
+}
+
+/** A batch of an item by its code: found, or added with its expiry. The same code with another expiry is refused. */
+async function batchFor(client, { companyId, userId, itemId, code, expiresOn }) {
+  const clean = String(code || "").trim();
+  if (!clean) return null;
+  const { rows } = await client.query(
+    "SELECT id, code, expires_on::text AS expires_on FROM stock_batches WHERE company_id = $1 AND item_id = $2 AND lower(btrim(code)) = lower($3)",
+    [companyId, itemId, clean]
+  );
+  if (rows[0]) {
+    if (expiresOn && rows[0].expires_on && rows[0].expires_on !== String(expiresOn).slice(0, 10)) {
+      throw new Error(`Batch ${rows[0].code} already expires on ${rows[0].expires_on}, not ${String(expiresOn).slice(0, 10)}.`);
+    }
+    return rows[0].id;
+  }
+  const { rows: made } = await client.query(
+    "INSERT INTO stock_batches (company_id, item_id, code, expires_on, created_by) VALUES ($1,$2,$3,$4,$5) RETURNING id",
+    [companyId, itemId, clean, expiresOn || null, userId]
+  );
+  return made[0].id;
+}
+
+/** An item's batches still held, earliest to expire first, as at the end of `on` (today when not said). */
+async function batches(client, { companyId, itemId, on }) {
+  const { rows } = await client.query(
+    `SELECT b.id, b.item_id, b.code, b.expires_on::text AS expires_on, SUM(m.quantity) AS q
+       FROM stock_batches b JOIN stock_moves m ON m.batch_id = b.id
+      WHERE b.company_id = $1 ${itemId ? "AND b.item_id = $2" : ""} ${on ? `AND m.moved_on <= $${itemId ? 3 : 2}` : ""}
+      GROUP BY b.id HAVING SUM(m.quantity) > 0
+      ORDER BY b.expires_on NULLS LAST, b.created_at`,
+    [companyId, ...(itemId ? [itemId] : []), ...(on ? [on] : [])]
+  );
+  return rows.map((r) => ({ id: r.id, itemId: r.item_id, code: r.code, expiresOn: r.expires_on, quantity: unitsText(fromDb(r.q)) }));
 }
 
 // ------------------------------------------------------------------ bills
@@ -166,7 +251,7 @@ async function setBillStock(client, { companyId, userId, billId, lines }) {
  */
 async function undoBillStock(client, { companyId, userId, billId, entryId, on }) {
   const { rows } = await client.query(
-    "SELECT item_id, place_id, SUM(quantity) AS q, SUM(value_laari) AS v FROM stock_moves WHERE company_id = $1 AND bill_id = $2 GROUP BY item_id, place_id",
+    "SELECT item_id, place_id, batch_id, SUM(quantity) AS q, SUM(value_laari) AS v FROM stock_moves WHERE company_id = $1 AND bill_id = $2 GROUP BY item_id, place_id, batch_id",
     [companyId, billId]
   );
   for (const r of rows) {
@@ -178,7 +263,8 @@ async function undoBillStock(client, { companyId, userId, billId, entryId, on })
     if (units > held.units || left < 0n || (units === held.units && left !== 0n)) {
       throw new Error(`Some of the ${held.item.name} on this bill has been sold since. Count it instead of reversing the bill.`);
     }
-    await recordMove(client, { companyId, userId, itemId: r.item_id, on, kind: "undone", units: -units, value: -value, entryId, billId, note: "Bill reversed", placeId: r.place_id });
+    // Out of exactly the batch it came in as.
+    await recordMove(client, { companyId, userId, itemId: r.item_id, on, kind: "undone", units: -units, value: -value, entryId, billId, note: "Bill reversed", placeId: r.place_id, batchId: r.batch_id });
   }
 }
 
@@ -448,7 +534,7 @@ async function postDifference(client, { companyId, userId, held, itemId, placeId
 }
 
 /** Stock a company already had before Sentryfi, at what it cost. */
-async function opening(client, { companyId, userId, itemId, quantity, unitCost, on, placeId }) {
+async function opening(client, { companyId, userId, itemId, quantity, unitCost, on, placeId, batchCode, expiresOn }) {
   await assumeIdentity(client, { companyId, userId });
   const held = await holding(client, { companyId, itemId });
   mustCount(held);
@@ -462,7 +548,9 @@ async function opening(client, { companyId, userId, itemId, quantity, unitCost, 
     companyId, userId, date: on, source: "stock", narrative: memo,
     lines: [{ accountId: stockAcc, debit: value, memo }, { accountId: openingAcc, credit: value, memo }],
   });
-  await recordMove(client, { companyId, userId, itemId, on, kind: "opening", units, value, entryId: entry.id, placeId: placeId || null });
+  if (held.item.batches && !String(batchCode || "").trim()) throw new Error(`${held.item.name} is kept in batches: say which batch this is.`);
+  const batchId = await batchFor(client, { companyId, userId, itemId, code: batchCode, expiresOn });
+  await recordMove(client, { companyId, userId, itemId, on, kind: "opening", units, value, entryId: entry.id, placeId: placeId || null, batchId });
   return { entry, value };
 }
 
@@ -668,7 +756,7 @@ async function issue(client, { companyId, userId, itemId, placeId, quantity, on,
 /** Every item: what kind it is, how it is bought and sold, and for a counted product what is on hand, its value, its average cost, and what its sales earned over their cost. */
 async function list(client, { companyId }) {
   const { rows } = await client.query(
-    `SELECT i.id, i.name, i.code, i.unit, i.pack_unit, i.pack_size, i.sale_price_laari, i.archived_at, i.reorder_at,
+    `SELECT i.id, i.name, i.code, i.unit, i.pack_unit, i.pack_size, i.batches, i.sale_price_laari, i.archived_at, i.reorder_at,
             i.kind, i.counted, i.sells, i.buys, i.buy_price_laari, i.income_account_id, i.cost_account_id, i.photo, i.tax, i.tax_by, i.tax_why,
             (SELECT json_agg(json_build_object('itemId', p.item_id, 'quantity', trim(to_char(p.quantity, 'FM999999990.####'), '.'))) FROM bundle_parts p WHERE p.bundle_id = i.id) AS parts,
             COALESCE(SUM(m.quantity), 0) AS on_hand,
@@ -682,6 +770,9 @@ async function list(client, { companyId }) {
     [companyId]
   );
   const kept = await places(client, { companyId });
+  // The first batch of each item to expire, of those still held.
+  const firstOut = new Map();
+  for (const b of await batches(client, { companyId })) if (!firstOut.has(b.itemId)) firstOut.set(b.itemId, b);
   const byPlace = new Map();
   if (kept.length > 1) {
     const { rows: at } = await client.query(`SELECT item, place, SUM(q) AS q FROM (${WHERE()}) x GROUP BY item, place`, [companyId]);
@@ -718,6 +809,8 @@ async function list(client, { companyId }) {
       packUnit: r.pack_unit,
       packSize: r.pack_size === null ? null : unitsText(fromDb(r.pack_size)),
       onHandPacks: packsText(units, r),
+      batches: r.batches,
+      nextBatch: firstOut.get(r.id) || null,
       reorderAt: r.reorder_at === null ? null : unitsText(fromDb(r.reorder_at)),
       low: r.counted && r.reorder_at !== null && !r.archived_at && units <= fromDb(r.reorder_at),
       value: formatLaari(value),
@@ -850,6 +943,15 @@ async function snapshot(client, { companyId, on, from }) {
   );
   const books = BigInt(book[0].b);
   if (books !== total) wrong.push({ kind: "books", detail: `The Stock account says ${formatLaari(books)}, the stock itself ${formatLaari(total)}. Ask your accountant to look at the entries on 1350.` });
+  // Batches held that have expired, or will within 30 days.
+  const soon = daysBefore(on, -30);
+  for (const b of await batches(client, { companyId, on })) {
+    if (!b.expiresOn || b.expiresOn > soon) continue;
+    const it = items.find((x) => x.id === b.itemId);
+    const what = `${b.quantity} ${it?.unit || ""} of ${it?.name || "an item"}, batch ${b.code},`;
+    if (b.expiresOn < on) wrong.push({ kind: "expired", itemId: b.itemId, detail: `${what} expired on ${said(b.expiresOn)}. Sell or write it off; it is still valued at cost.` });
+    else wrong.push({ kind: "expiring", itemId: b.itemId, detail: `${what} expires on ${said(b.expiresOn)}. It goes out first.` });
+  }
 
   const { rows: came } = await client.query(
     `SELECT m.moved_on::text AS on, m.kind, m.item_id, i.name AS item, i.unit, m.quantity, m.value_laari, m.place_id, c.name AS supplier, b.bill_no
@@ -1025,4 +1127,4 @@ async function guessTax(client, { companyId, itemId, ask }) {
   return { tax: a.tax, taxBy: "ai", taxWhy: why, confidence: a.confidence };
 }
 
-module.exports = { guessTax, ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history, atPlaces, places, addPlace, updatePlace, PLACE_KINDS, transfer, arrive, onTheWay, issue, snapshot, moves, units, place, postDifference, differenceValue, toUnitsOrNone, placeKey, MAIN, WHERE, inBase, packsText, sameUnit };
+module.exports = { guessTax, ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history, atPlaces, places, addPlace, updatePlace, PLACE_KINDS, transfer, arrive, onTheWay, issue, snapshot, moves, units, place, postDifference, differenceValue, toUnitsOrNone, placeKey, MAIN, WHERE, inBase, packsText, sameUnit, recordMove, batchFor, batches };

@@ -71,6 +71,8 @@ export function BillSplit({ bill, onClose }) {
           itemId: r.kind === "stock" ? r.itemId || null : null,
           quantity: r.kind === "stock" ? String(r.quantity) : null,
           unit: r.kind === "stock" && r.unit ? r.unit : null,
+          batchCode: r.kind === "stock" && r.batchCode ? r.batchCode.trim() : null,
+          expiresOn: r.kind === "stock" && r.expiresOn ? r.expiresOn : null,
           accountId: r.kind === "cost" ? r.accountId || null : null,
           category: r.kind === "asset" ? r.category || null : null,
           lifeYears: r.kind === "asset" && r.lifeYears !== "" ? Number(r.lifeYears) : null,
@@ -203,6 +205,18 @@ export function BillSplit({ bill, onClose }) {
                         </select>
                       );
                     })()}
+                    {o.items.find((x) => x.id === r.itemId)?.batches && (
+                      <div className="col-span-3 grid grid-cols-2 gap-2">
+                        <label className="grid gap-1">
+                          <span className="text-[12px] text-[var(--ink-muted)]">Batch</span>
+                          <input aria-label={`Line ${i + 1}: batch`} value={r.batchCode || ""} onChange={(e) => set(i, { batchCode: e.target.value })} placeholder="As printed" className={FIELD} />
+                        </label>
+                        <label className="grid gap-1">
+                          <span className="text-[12px] text-[var(--ink-muted)]">Expires on (if it does)</span>
+                          <input aria-label={`Line ${i + 1}: expires on`} type="date" value={r.expiresOn || ""} onChange={(e) => set(i, { expiresOn: e.target.value })} className={FIELD} />
+                        </label>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p className="text-[13px] text-[var(--ink-muted)]">Add the item on the Stock page first.</p>

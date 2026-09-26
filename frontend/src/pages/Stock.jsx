@@ -173,6 +173,12 @@ export default function Stock() {
                       <div className="text-[14px] xl:text-right tabular">
                         {i.onHand} <span className="text-[var(--ink-muted)]">{i.unit}</span>
                         {i.onHandPacks && <span className="block text-[12px] text-[var(--ink-muted)]">= {i.onHandPacks}</span>}
+                        {i.nextBatch && (
+                          <span className="block text-[12px] text-[var(--ink-muted)]" data-testid="next-batch">
+                            Next out: {i.nextBatch.code}
+                            {i.nextBatch.expiresOn ? `, expires ${formatDate(i.nextBatch.expiresOn)}` : ""}
+                          </span>
+                        )}
                         {i.places && i.places.some((p) => p.id) && <span className="block text-[12px] text-[var(--ink-muted)] break-words">{i.places.map((p) => `${p.name} ${p.onHand}`).join(" · ")}</span>}
                         {n(i.inTransit) > 0 && <span className="block text-[12px] text-[var(--ink-muted)] whitespace-nowrap">{i.inTransit} on the way</span>}
                         {i.low && <span className="ml-1.5 inline-block rounded-full bg-[var(--warning)]/15 text-[var(--warning)] text-[11px] font-semibold px-2 py-0.5">Low</span>}
@@ -362,6 +368,7 @@ function ItemForm({ item, items = [], accounts, onClose, onDone }) {
     tax: item?.tax || "",
     packUnit: item?.packUnit || "",
     packSize: item?.packSize || "",
+    batches: Boolean(item?.batches),
   }));
   const [err, setErr] = useState("");
   const put = (patch) => setF((x) => ({ ...x, ...patch }));
@@ -392,6 +399,7 @@ function ItemForm({ item, items = [], accounts, onClose, onDone }) {
         costAccountId: f.buys && (service || !f.counted) ? f.costAccountId || null : null,
         photo: f.photo,
         ...(f.kind === "product" ? { packUnit: f.packUnit.trim() || null, packSize: f.packUnit.trim() ? f.packSize.trim() || null : null } : {}),
+        batches: f.kind === "product" && f.counted && f.batches,
         // Sent only when picked, so saving does not turn a suggestion into your answer.
         ...(f.taxPicked ? { tax: f.tax || null } : {}),
         ...(bundle ? { parts: f.parts.filter((p) => p.itemId && Number(p.quantity) > 0) } : {}),
@@ -488,6 +496,15 @@ function ItemForm({ item, items = [], accounts, onClose, onDone }) {
               ]}
             />
             {stockHeld && <p className="text-[13px] text-[var(--ink-muted)] mt-1.5">{item.onHand} {item.unit} are on hand. Sell or count it down to nothing before you stop counting it.</p>}
+            {f.counted && (
+              <label className="flex items-start gap-2.5 text-[14px] cursor-pointer min-h-11 mt-3">
+                <input id="item-batches" type="checkbox" checked={f.batches} onChange={(e) => put({ batches: e.target.checked })} className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--ink)]" />
+                <span>
+                  <span className="font-medium">Track batches and expiry</span>
+                  <span className="block text-[13px] text-[var(--ink-muted)]">Each bill says which batch came in and when it expires. It goes out earliest to expire first, and the Stock page warns before it expires.</span>
+                </span>
+              </label>
+            )}
           </div>
         )}
         <Side label="You sell it" on={f.sells} onChange={(sells) => put({ sells })}>
@@ -625,6 +642,8 @@ function Opening({ item, onClose, onDone }) {
   const [quantity, setQuantity] = useState("");
   const [unitCost, setUnitCost] = useState("");
   const [on, setOn] = useState(today());
+  const [batchCode, setBatchCode] = useState("");
+  const [expiresOn, setExpiresOn] = useState("");
   const [err, setErr] = useState("");
   const go = useMutation({ mutationFn: (body) => apiClient.post(`/stock/${item.id}/opening`, body).then((r) => r.data) });
 
@@ -632,7 +651,7 @@ function Opening({ item, onClose, onDone }) {
     e.preventDefault();
     setErr("");
     try {
-      const r = await go.mutateAsync({ quantity, unitCost, on });
+      const r = await go.mutateAsync({ quantity, unitCost, on, ...(item.batches ? { batchCode, expiresOn: expiresOn || null } : {}) });
       onDone();
       toast.success(`${quantity} ${item.unit} of ${item.name} on hand`, `Entry ${r.entryNo}, against opening balances.`);
       onClose();
@@ -661,9 +680,19 @@ function Opening({ item, onClose, onDone }) {
           <input id="opening-on" type="date" value={on} onChange={(e) => setOn(e.target.value)} className={FIELD} />
         </Field>
       </div>
+      {item.batches && (
+        <div className="grid sm:grid-cols-2 gap-4 mt-4">
+          <Field label="Batch">
+            <input id="opening-batch" value={batchCode} onChange={(e) => setBatchCode(e.target.value)} placeholder="As printed on it" className={FIELD} />
+          </Field>
+          <Field label="Expires on (if it does)">
+            <input id="opening-expiry" type="date" value={expiresOn} onChange={(e) => setExpiresOn(e.target.value)} className={FIELD} />
+          </Field>
+        </div>
+      )}
       <p className="text-[13px] text-[var(--ink-muted)] mt-4">It goes against opening balances, for your accountant to settle with the rest of them.</p>
       <Failure err={err} />
-      <Actions onClose={onClose} busy={go.isPending} disabled={!quantity || !unitCost}>
+      <Actions onClose={onClose} busy={go.isPending} disabled={!quantity || !unitCost || (item.batches && !batchCode.trim())}>
         Add to stock
       </Actions>
     </Modal>
@@ -691,8 +720,37 @@ function History({ item, onClose }) {
     queryKey: ["stock", companyId, item.id],
     queryFn: () => apiClient.get(`/stock/${item.id}/history`).then((r) => r.data.moves),
   });
+  const { data: held = [] } = useQuery({
+    queryKey: ["stock", companyId, item.id, "batches"],
+    queryFn: () => apiClient.get(`/stock/${item.id}/batches`).then((r) => r.data.batches),
+    enabled: Boolean(item.batches),
+  });
+  // Thirty days from when the sheet opened: an expiry that close is shown in red.
+  const [soon] = useState(() => new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10));
   return (
     <Modal open onClose={onClose} title={item.name} description={`${item.onHand} ${item.unit} on hand, worth MVR ${item.value}.`}>
+      {item.batches && (
+        <section className="mb-4" aria-labelledby="batches-h" data-testid="batches">
+          <h3 id="batches-h" className="text-[13px] font-medium mb-1.5">
+            Batches, earliest to expire first
+          </h3>
+          {held.length === 0 ? (
+            <p className="text-[13px] text-[var(--ink-muted)]">None held in a batch.</p>
+          ) : (
+            <div className="divide-y divide-[var(--border)] rounded-2xl border border-[var(--border)]">
+              {held.map((b) => (
+                <div key={b.id} className="flex items-center gap-3 px-3 py-2 text-[14px]">
+                  <span className="flex-1 min-w-0 font-medium break-words">{b.code}</span>
+                  <span className="tabular">
+                    {b.quantity} {item.unit}
+                  </span>
+                  <span className={`text-[13px] ${b.expiresOn && b.expiresOn <= soon ? "text-[var(--danger)] font-medium" : "text-[var(--ink-muted)]"}`}>{b.expiresOn ? formatDate(b.expiresOn) : "No expiry"}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
       {can("record") && (
         <div className="mb-4 flex items-end gap-2" data-testid="reorder">
           <label className="flex-1">

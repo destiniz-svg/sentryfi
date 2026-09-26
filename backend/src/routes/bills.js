@@ -464,6 +464,8 @@ const stockLines = z.object({
         itemId: z.string().uuid(),
         quantity: z.union([z.string().trim(), z.number()]).transform(String),
         unit: z.string().trim().max(20).nullish(),
+        batchCode: z.string().trim().max(60).nullish(),
+        expiresOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "An expiry date is YYYY-MM-DD.").nullish(),
         amount: z.union([z.string().trim(), z.number()]).transform(String),
       })
     )
@@ -520,6 +522,9 @@ const splitBody = z.object({
         quantity: z.union([z.string().trim(), z.number()]).transform(String).nullish(),
         // The unit the quantity is in: the item's pack (a box) brings in that many of its own unit.
         unit: z.string().trim().max(20).nullish(),
+        // For an item kept in batches: the batch that came in, and when it expires.
+        batchCode: z.string().trim().max(60).nullish(),
+        expiresOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "An expiry date is YYYY-MM-DD.").nullish(),
         accountId: z.string().uuid().nullish(),
         category: z.string().nullish(),
         lifeYears: z.union([z.string().trim(), z.number()]).nullish(),
@@ -550,11 +555,11 @@ router.get(
         kind: l.kind, description: l.description, amount: formatLaari(l.amountLaari ?? l.amount), itemId: l.itemId || null,
         quantity: l.units !== undefined ? stockLedger.unitsText(l.units) : l.quantity || "", accountId: l.accountId || null,
         category: l.category || null, lifeYears: l.lifeYears ?? null, shipmentId: l.shipmentId || null, sure: l.sure ?? true, because: l.because || null,
-        forCustomerId: l.forCustomerId || null, markup: l.markup || "",
+        forCustomerId: l.forCustomerId || null, markup: l.markup || "", batchCode: l.batchCode || "", expiresOn: l.expiresOn || "",
       });
       // The choices a person can make, so recording a bill needs no other permission.
       const { rows: accounts } = await client.query("SELECT id, code, name FROM accounts WHERE company_id = $1 AND type = 'expense' AND archived_at IS NULL ORDER BY code", [req.companyId]);
-      const { rows: items } = await client.query("SELECT id, name, unit, pack_unit AS \"packUnit\", pack_size::float AS \"packSize\" FROM stock_items WHERE company_id = $1 AND archived_at IS NULL AND counted ORDER BY lower(name)", [req.companyId]);
+      const { rows: items } = await client.query("SELECT id, name, unit, pack_unit AS \"packUnit\", pack_size::float AS \"packSize\", batches FROM stock_items WHERE company_id = $1 AND archived_at IS NULL AND counted ORDER BY lower(name)", [req.companyId]);
       const { rows: openShipments } = await client.query("SELECT id, reference FROM shipments WHERE company_id = $1 AND closed_at IS NULL ORDER BY created_at DESC", [req.companyId]);
       const options = { accounts, items, shipments: openShipments, customers: await require("../ledger/passOn").customers(client, { companyId: req.companyId }), categories: Object.entries(CATEGORIES).map(([key, c]) => ({ key, name: c.name, years: c.years })), places: await stockLedger.places(client, { companyId: req.companyId }) };
       const head = { currency: bill.fc_net !== null ? bill.currency.trim() : "MVR", net: formatLaari(printed), options, posted: bill.status === "posted", placeId: bill.place_id || null };

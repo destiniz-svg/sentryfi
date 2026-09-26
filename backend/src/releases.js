@@ -17,6 +17,17 @@
  */
 const RELEASES = [
   {
+    version: "1.37.0",
+    date: "2026-09-26",
+    title: "Batches and expiry",
+    summary: "Keep paint, cement, chemicals and food in batches with their expiry dates. The earliest to expire goes out first, and the Stock page warns before anything expires.",
+    items: [
+      { area: "Stock", kind: "new", title: "Batches and expiry", body: "Tick Track batches and expiry on an item. Each bill says which batch came in and when it expires; stock you already had says its batch too. The item's page lists its batches, earliest to expire first.", href: "/stock" },
+      { area: "Stock", kind: "new", title: "Earliest to expire goes first", body: "Sales, stock used on jobs, shortfalls and returns to suppliers take the batch that expires first, without anyone choosing. A reversed bill takes back exactly its own batch.", href: "/stock" },
+      { area: "Stock", kind: "improved", title: "Warned before it expires", body: "What looks wrong on the Stock page lists batches that have expired, and those expiring within 30 days.", href: "/inventory" },
+    ],
+  },
+  {
     version: "1.36.0",
     date: "2026-09-26",
     title: "Boxes and pieces",
