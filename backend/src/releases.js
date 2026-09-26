@@ -19,10 +19,18 @@ const RELEASES = [
   {
     version: "1.30.2",
     date: "2026-09-26",
+    title: "A quote's lines, as quoted",
+    summary: "A quote shows its lines as quoted; what was invoiced from it shows in its job.",
+    items: [
+      { area: "Sales", kind: "fixed", title: "A quote's lines, as quoted", body: "A quote's lines no longer show gone-out and invoiced columns at nought; what was invoiced shows in its job above them.", href: "/orders?kind=quote" },
+    ],
+  },
+  {
+    version: "1.30.1",
+    date: "2026-09-26",
     title: "Invoice in parts, straight away",
     summary: "Choosing to invoice in parts instead of the whole draft opens the form with the order's figures already up to date.",
     items: [
-      { area: "Sales", kind: "fixed", title: "A quote's lines, as quoted", body: "A quote's lines no longer show gone-out and invoiced columns at nought; what was invoiced shows in its job above them.", href: "/orders?kind=quote" },
       { area: "Sales", kind: "fixed", title: "The part form, with fresh figures", body: "After the whole draft is discarded, the form waits for the order's new figures, so what it takes and what is left show at once.", href: "/orders?kind=sale" },
     ],
   },
