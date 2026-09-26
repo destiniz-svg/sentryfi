@@ -224,6 +224,43 @@ async function batchFor(client, { companyId, userId, itemId, code, expiresOn }) 
   return made[0].id;
 }
 
+/**
+ * What open orders promise, in each item's own unit (a line in boxes counts its
+ * pieces). Reserved: what open sales orders have yet to invoice; delivered but
+ * not invoiced is still in the books, so still spoken for. On order: what
+ * approved open purchase orders have yet to receive or bill. Worked out from
+ * the orders each time, never kept.
+ */
+async function committed(client, { companyId }) {
+  const { rows } = await client.query(
+    `SELECT o.kind, l.item_id, l.unit, i.unit AS item_unit, i.pack_unit, i.pack_size, l.quantity,
+            COALESCE((SELECT SUM(d.quantity) FROM order_delivery_lines d WHERE d.order_line_id = l.id), 0) AS delivered,
+            -- Only posted bills and invoices move stock: a draft made from the order leaves it spoken for.
+            COALESCE((SELECT SUM(b.quantity) FROM order_billed b
+                        LEFT JOIN bills bl ON bl.id = b.bill_id LEFT JOIN sales_invoices s ON s.id = b.invoice_id
+                       WHERE b.order_line_id = l.id AND COALESCE(bl.voided_at, s.voided_at) IS NULL
+                         AND COALESCE(bl.status::text, s.status::text) = 'posted'), 0) AS billed
+       FROM order_lines l JOIN orders o ON o.id = l.order_id JOIN stock_items i ON i.id = l.item_id
+      WHERE o.company_id = $1 AND o.kind IN ('sale','purchase') AND i.counted
+        AND o.cancelled_at IS NULL AND o.closed_at IS NULL AND (NOT o.needs_approval OR o.approved_at IS NOT NULL)`,
+    [companyId]
+  );
+  const out = new Map();
+  for (const r of rows) {
+    const billed = fromDb(r.billed);
+    const delivered = fromDb(r.delivered);
+    const done = r.kind === "sale" ? billed : delivered > billed ? delivered : billed;
+    const left = fromDb(r.quantity) - done;
+    if (left <= 0n) continue;
+    const units = inBase({ unit: r.item_unit, pack_unit: r.pack_unit, pack_size: r.pack_size }, left, r.unit);
+    const c = out.get(r.item_id) || { reserved: 0n, onOrder: 0n };
+    if (r.kind === "sale") c.reserved += units;
+    else c.onOrder += units;
+    out.set(r.item_id, c);
+  }
+  return out;
+}
+
 /** An item's batches still held, earliest to expire first, as at the end of `on` (today when not said). */
 async function batches(client, { companyId, itemId, on }) {
   const { rows } = await client.query(
@@ -770,6 +807,7 @@ async function list(client, { companyId }) {
     [companyId]
   );
   const kept = await places(client, { companyId });
+  const promised = await committed(client, { companyId });
   // The first batch of each item to expire, of those still held.
   const firstOut = new Map();
   for (const b of await batches(client, { companyId })) if (!firstOut.has(b.itemId)) firstOut.set(b.itemId, b);
@@ -811,6 +849,11 @@ async function list(client, { companyId }) {
       onHandPacks: packsText(units, r),
       batches: r.batches,
       nextBatch: firstOut.get(r.id) || null,
+      // Spoken for by customers, coming from suppliers, and what is free to sell: on hand, less
+      // what is on the way between places and what is reserved.
+      reserved: unitsText(promised.get(r.id)?.reserved || 0n),
+      onOrder: unitsText(promised.get(r.id)?.onOrder || 0n),
+      available: unitsText(units - (byPlace.get(r.id)?.get(TRANSIT) || 0n) - (promised.get(r.id)?.reserved || 0n)),
       reorderAt: r.reorder_at === null ? null : unitsText(fromDb(r.reorder_at)),
       low: r.counted && r.reorder_at !== null && !r.archived_at && units <= fromDb(r.reorder_at),
       value: formatLaari(value),
@@ -943,6 +986,21 @@ async function snapshot(client, { companyId, on, from }) {
   );
   const books = BigInt(book[0].b);
   if (books !== total) wrong.push({ kind: "books", detail: `The Stock account says ${formatLaari(books)}, the stock itself ${formatLaari(total)}. Ask your accountant to look at the entries on 1350.` });
+  // Promised to customers and coming from suppliers. Orders keep no history of how they stood,
+  // so this is today's, shown only when the snapshot is of today.
+  const promised = [];
+  if (on >= require("./today").today()) {
+    const heldNow = new Map(items.map((x) => [x.id, x]));
+    for (const [itemId, c] of await committed(client, { companyId })) {
+      const it = heldNow.get(itemId);
+      const onHand = fromDb(it?.q ?? 0);
+      const onWay = where.get(itemId)?.get(TRANSIT) || 0n;
+      const free = onHand - onWay - c.reserved;
+      promised.push({ itemId, name: it?.name, unit: it?.unit, reserved: unitsText(c.reserved), onOrder: unitsText(c.onOrder), available: unitsText(free) });
+      if (free < 0n) wrong.push({ kind: "oversold", itemId, detail: `${unitsText(-free)} ${it?.unit || ""} more of ${it?.name || "an item"} ${-free === SCALE ? "is" : "are"} promised to customers than are free to sell.${c.onOrder > 0n ? ` ${unitsText(c.onOrder)} are on order.` : " Order more."}` });
+    }
+    promised.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  }
   // Batches held that have expired, or will within 30 days.
   const soon = daysBefore(on, -30);
   for (const b of await batches(client, { companyId, on })) {
@@ -1007,6 +1065,7 @@ async function snapshot(client, { companyId, on, from }) {
     total: formatLaari(total),
     books: formatLaari(books),
     agrees: books === total,
+    promised,
     cameIn: came.map((r) => ({
       on: r.on, itemId: r.item_id, item: r.item, unit: r.unit, quantity: unitsText(fromDb(r.quantity)), value: formatLaari(BigInt(r.value_laari)),
       place: placeKey(r.place_id), placeName: nameOf(placeKey(r.place_id)), from: r.kind === "opening" ? "Already on hand" : r.supplier, document: r.bill_no ? `Bill ${r.bill_no}` : null,
@@ -1127,4 +1186,4 @@ async function guessTax(client, { companyId, itemId, ask }) {
   return { tax: a.tax, taxBy: "ai", taxWhy: why, confidence: a.confidence };
 }
 
-module.exports = { guessTax, ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history, atPlaces, places, addPlace, updatePlace, PLACE_KINDS, transfer, arrive, onTheWay, issue, snapshot, moves, units, place, postDifference, differenceValue, toUnitsOrNone, placeKey, MAIN, WHERE, inBase, packsText, sameUnit, recordMove, batchFor, batches };
+module.exports = { guessTax, ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history, atPlaces, places, addPlace, updatePlace, PLACE_KINDS, transfer, arrive, onTheWay, issue, snapshot, moves, units, place, postDifference, differenceValue, toUnitsOrNone, placeKey, MAIN, WHERE, inBase, packsText, sameUnit, recordMove, batchFor, batches, committed };

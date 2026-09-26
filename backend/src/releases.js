@@ -17,6 +17,17 @@
  */
 const RELEASES = [
   {
+    version: "1.38.0",
+    date: "2026-09-26",
+    title: "Promised, coming, and free to sell",
+    summary: "See what open sales orders have promised, what purchase orders are bringing, and what is really free to sell.",
+    items: [
+      { area: "Stock", kind: "new", title: "Promised, on order, free", body: "Each item shows how many are promised to customers on open sales orders, how many are on order from suppliers, and how many are free to sell.", href: "/stock" },
+      { area: "Sales", kind: "improved", title: "Free to sell, as you add it", body: "Adding an item to an invoice or a sales order says how many are free to sell; on a purchase order, how many are on hand and already on order.", href: "/invoices/new" },
+      { area: "Stock", kind: "new", title: "Oversold, before it happens", body: "The Stock page lists what is promised and coming, and warns when customers have been promised more than is free.", href: "/inventory" },
+    ],
+  },
+  {
     version: "1.37.1",
     date: "2026-09-26",
     title: "Counting boxes and loose pieces, fixed",

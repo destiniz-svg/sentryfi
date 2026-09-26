@@ -14,6 +14,7 @@ import { postBill } from "../src/ledger/bills";
 import { raise, post, creditNote } from "../src/ledger/sales";
 import * as stock from "../src/ledger/stock";
 import * as counts from "../src/ledger/counts";
+import * as orders from "../src/ledger/orders";
 
 afterAll(closePool);
 
@@ -708,6 +709,40 @@ describe("batches and expiry", () => {
 
       // Stock already held says its batch too.
       await expect(stock.opening(client, { companyId, userId, itemId: paint, quantity: "2", unitCost: "100", on: "2026-09-10" })).rejects.toThrow(/say which batch/);
+    }));
+});
+
+describe("promised and coming", () => {
+  it("reserves what open sales orders have yet to invoice, and counts what approved purchase orders have yet to bring", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId, userId } = shop;
+      const cement = await shop.item("Cement");
+      await client.query("UPDATE stock_items SET pack_unit = 'pallet', pack_size = 10 WHERE id = $1", [cement]);
+      await shop.buy([{ itemId: cement, quantity: "10", amount: "1000.00" }]);
+      const so = await orders.create(client, { companyId, userId, kind: "sale", counterpartyId: shop.customer, lines: [{ itemId: cement, quantity: "4", unitPrice: "200" }] });
+      await orders.create(client, { companyId, userId, kind: "purchase", counterpartyId: shop.supplier, lines: [{ itemId: cement, quantity: "2", unit: "pallet", unitPrice: "1000" }], approveUpTo: null });
+      // A purchase order waiting for approval is not on order yet.
+      await orders.create(client, { companyId, userId, kind: "purchase", counterpartyId: shop.supplier, lines: [{ itemId: cement, quantity: "5", unitPrice: "100" }], approveUpTo: 0n });
+      expect(await shop.held(cement)).toMatchObject({ onHand: "10", reserved: "4", onOrder: "20", available: "6" });
+
+      // Three go out and are invoiced: a draft leaves them spoken for; posted, they have left.
+      const s = await orders.load(client, { companyId, orderId: so.id });
+      await orders.deliver(client, { companyId, userId, orderId: so.id, lines: [{ orderLineId: s.lines[0].id, quantity: "3" }] });
+      const { invoice } = await orders.invoiceFromOrder(client, { companyId, userId, orderId: so.id, gstTreatment: "none_unregistered" });
+      expect(await shop.held(cement)).toMatchObject({ reserved: "4", available: "6" });
+      await post(client, { companyId, userId, invoiceId: invoice.id });
+      expect(await shop.held(cement)).toMatchObject({ onHand: "7", reserved: "1", available: "6" });
+
+      // Promising more than is free is flagged on today's snapshot.
+      await orders.create(client, { companyId, userId, kind: "sale", counterpartyId: shop.customer, lines: [{ itemId: cement, quantity: "9", unitPrice: "200" }] });
+      const snap = await stock.snapshot(client, { companyId, on: require("../src/ledger/today").today(), from: "2026-09-01" });
+      expect(snap.promised).toEqual([{ itemId: cement, name: "Cement", unit: "bag", reserved: "10", onOrder: "20", available: "-3" }]);
+      expect(snap.wrong.find((w) => w.kind === "oversold").detail).toMatch(/3 bag more of Cement are promised to customers than are free to sell\. 20 are on order\./);
+
+      // Closing the sales order frees what it held.
+      await orders.finish(client, { companyId, userId, orderId: so.id, how: "close" });
+      expect(await shop.held(cement)).toMatchObject({ reserved: "9", available: "-2" });
     }));
 });
 

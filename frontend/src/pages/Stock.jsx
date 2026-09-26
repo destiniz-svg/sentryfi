@@ -173,6 +173,11 @@ export default function Stock() {
                       <div className="text-[14px] xl:text-right tabular">
                         {i.onHand} <span className="text-[var(--ink-muted)]">{i.unit}</span>
                         {i.onHandPacks && <span className="block text-[12px] text-[var(--ink-muted)]">= {i.onHandPacks}</span>}
+                        {(n(i.reserved) > 0 || n(i.onOrder) > 0) && (
+                          <span className="block text-[12px] text-[var(--ink-muted)]" data-testid="promised">
+                            {[n(i.reserved) > 0 && `${i.reserved} promised`, n(i.onOrder) > 0 && `${i.onOrder} on order`, `${i.available} free`].filter(Boolean).join(" · ")}
+                          </span>
+                        )}
                         {i.nextBatch && (
                           <span className="block text-[12px] text-[var(--ink-muted)]" data-testid="next-batch">
                             Next out: {i.nextBatch.code}

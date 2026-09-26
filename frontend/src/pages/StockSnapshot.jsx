@@ -29,7 +29,7 @@ const KIND = {
   bought: "Came in", opening: "Already on hand", sold: "Sold", returned: "Came back", counted: "Counted", issued: "Used on a job",
   moved: "Sent", undone: "Bill reversed", landed: "Landing cost", recosted: "Re-costed",
 };
-const WRONG = { short: "Short", late: "Late", negative: "Below nothing", still: "Not moving", low: "Low", books: "Books", due: "Count due", expired: "Expired", expiring: "Expiring" };
+const WRONG = { short: "Short", late: "Late", negative: "Below nothing", still: "Not moving", low: "Low", books: "Books", due: "Count due", expired: "Expired", expiring: "Expiring", oversold: "Oversold" };
 
 export default function StockSnapshot() {
   const { companyId } = useCompany();
@@ -156,6 +156,25 @@ export default function StockSnapshot() {
               ))}
             </div>
           </Section>
+
+          {s.promised?.length > 0 && (
+            <Section n="p" title="Promised and coming" note="today, from open orders">
+              <Card padding="none" className="overflow-hidden" data-testid="snapshot-promised">
+                <Rows>
+                  {s.promised.map((p) => (
+                    <Row
+                      key={p.itemId}
+                      main={p.name}
+                      sub={[n(p.reserved) > 0 && `${p.reserved} ${p.unit} promised to customers`, n(p.onOrder) > 0 && `${p.onOrder} on order from suppliers`, `${p.available} free to sell`].filter(Boolean).join(" · ")}
+                      tag={n(p.available) < 0 ? "Oversold" : undefined}
+                      value={undefined}
+                    />
+                  ))}
+                </Rows>
+              </Card>
+              <p className="text-[13px] text-[var(--ink-muted)] mt-2">Free to sell is what is on hand, less what is on the way between places and what is promised.</p>
+            </Section>
+          )}
 
           <Section n="4" title="What moved" note={span}>
             <div className="grid gap-3 sm:grid-cols-2">

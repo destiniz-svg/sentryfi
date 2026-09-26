@@ -397,9 +397,21 @@ function QtyRate({ item, side, onBack, onAdd }) {
       const untouched = x.rate === "" || (each !== null && (r === each || r === Number(packRate)));
       return { ...x, uom: pack ? item.packUnit : item.unit, rate: untouched && each !== null ? (pack ? packRate : each.toFixed(2)) : x.rate };
     });
+  // What there is to promise: free to sell on a sale (on hand, less what is on the way and already
+  // promised); what is held and already coming on a purchase.
+  const held = item.counted && item.available !== undefined
+    ? side === "purchase"
+      ? `${item.onHand} ${item.unit} on hand${Number(item.onOrder) > 0 ? `, ${item.onOrder} already on order` : ""}`
+      : `${item.available} ${item.unit} free to sell${Number(item.reserved) > 0 ? ` (${item.onHand} on hand, ${item.reserved} promised)` : ""}`
+    : null;
   return (
     // Not a <form>, for the same reason as NewItem.
     <div className="grid gap-4" data-testid="qty-rate" onKeyDown={(e) => e.key === "Enter" && e.target.tagName === "INPUT" && (e.preventDefault(), add())}>
+      {held && (
+        <p className={cn("text-[13px]", side !== "purchase" && Number(item.available) <= 0 ? "text-[var(--danger)] font-medium" : "text-[var(--ink-muted)]")} data-testid="qty-held">
+          {held}
+        </p>
+      )}
       {item.packUnit && (
         <div role="radiogroup" aria-label="Sold by" className="grid grid-cols-2 gap-1 p-1 rounded-full bg-[var(--surface-2)]">
           {[[false, item.unit], [true, `${item.packUnit} of ${item.packSize}`]].map(([pack, label]) => (
