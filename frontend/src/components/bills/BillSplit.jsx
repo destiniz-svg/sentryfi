@@ -70,6 +70,7 @@ export function BillSplit({ bill, onClose }) {
           amount: String(r.amount).replace(/,/g, ""),
           itemId: r.kind === "stock" ? r.itemId || null : null,
           quantity: r.kind === "stock" ? String(r.quantity) : null,
+          unit: r.kind === "stock" && r.unit ? r.unit : null,
           accountId: r.kind === "cost" ? r.accountId || null : null,
           category: r.kind === "asset" ? r.category || null : null,
           lifeYears: r.kind === "asset" && r.lifeYears !== "" ? Number(r.lifeYears) : null,
@@ -172,8 +173,8 @@ export function BillSplit({ bill, onClose }) {
               )}
               {r.kind === "stock" &&
                 (o.items.length ? (
-                  <div className="grid grid-cols-[minmax(0,1fr)_96px] gap-2">
-                    <select aria-label={`Line ${i + 1}: item`} value={r.itemId} onChange={(e) => set(i, { itemId: e.target.value })} className={FIELD}>
+                  <div className="grid grid-cols-[minmax(0,1fr)_96px_auto] gap-2">
+                    <select aria-label={`Line ${i + 1}: item`} value={r.itemId} onChange={(e) => set(i, { itemId: e.target.value, unit: "" })} className={FIELD}>
                       <option value="">Which item?</option>
                       {o.items.map((it) => (
                         <option key={it.id} value={it.id}>
@@ -189,6 +190,19 @@ export function BillSplit({ bill, onClose }) {
                       placeholder="How many"
                       className={`${FIELD} tabular`}
                     />
+                    {(() => {
+                      // An item that also comes in a pack: say which the quantity is in; kept in its own unit.
+                      const it = o.items.find((x) => x.id === r.itemId);
+                      if (!it?.packUnit) return <span className="self-center text-[13px] text-[var(--ink-muted)]">{it?.unit || ""}</span>;
+                      return (
+                        <select aria-label={`Line ${i + 1}: in`} value={r.unit || it.unit} onChange={(e) => set(i, { unit: e.target.value })} className={`${FIELD} w-auto`}>
+                          <option value={it.unit}>{it.unit}</option>
+                          <option value={it.packUnit}>
+                            {it.packUnit} of {it.packSize}
+                          </option>
+                        </select>
+                      );
+                    })()}
                   </div>
                 ) : (
                   <p className="text-[13px] text-[var(--ink-muted)]">Add the item on the Stock page first.</p>

@@ -71,7 +71,7 @@ async function save(client, { companyId, userId, billId, lines }) {
     const description = String(l.description || "").trim().slice(0, 300);
     if (l.kind === "stock") {
       if (!l.itemId) throw new Error("Which item is it?");
-      return { position: i, kind: "stock", description, itemId: l.itemId, units: stock.toUnits(l.quantity), amount };
+      return { position: i, kind: "stock", description, itemId: l.itemId, units: stock.toUnits(l.quantity), unit: l.unit || null, amount };
     }
     if (l.kind === "cost") {
       if (!l.accountId) throw new Error("Which kind of cost is it?");
@@ -100,13 +100,18 @@ async function save(client, { companyId, userId, billId, lines }) {
 
   const itemIds = [...new Set(prepared.filter((p) => p.kind === "stock").map((p) => p.itemId))];
   if (itemIds.length) {
-    const { rows: found } = await client.query("SELECT id, name, counted, cost_account_id FROM stock_items WHERE company_id = $1 AND id = ANY($2::uuid[]) AND archived_at IS NULL", [companyId, itemIds]);
+    const { rows: found } = await client.query("SELECT id, name, counted, cost_account_id, unit, pack_unit, pack_size FROM stock_items WHERE company_id = $1 AND id = ANY($2::uuid[]) AND archived_at IS NULL", [companyId, itemIds]);
     if (found.length !== itemIds.length) throw new Error("One of those items is not in these books.");
     // A service or an uncounted product is a cost, on the item's own kind of cost.
     const byId = new Map(found.map((r) => [r.id, r]));
     prepared.forEach((p, i) => {
       const item = p.kind === "stock" && byId.get(p.itemId);
-      if (!item || item.counted) return;
+      if (!item) return;
+      // Bought in boxes, kept in pieces: the stock line holds the pieces, at the same total.
+      if (item.counted) {
+        prepared[i] = { ...p, units: stock.inBase(item, p.units, p.unit) };
+        return;
+      }
       if (!item.cost_account_id) throw new Error(`${item.name} is not counted as stock. Say which kind of cost it is, on the item or here.`);
       prepared[i] = { position: p.position, kind: "cost", description: p.description || item.name, accountId: item.cost_account_id, amount: p.amount, forCustomerId: null, markupBp: 0 };
     });

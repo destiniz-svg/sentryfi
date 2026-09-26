@@ -44,6 +44,17 @@ CREATE POLICY company_isolation ON bundle_parts
   USING (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid)
   WITH CHECK (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid);
 GRANT SELECT, INSERT, DELETE ON bundle_parts TO sentryfi_app;
+
+-- A second unit: a product kept in pieces may also come in a pack (a box of 12).
+-- Stock is always kept in the item's own unit; a line said in the pack is that
+-- many packs times the size, so changing a pack size later changes no history.
+ALTER TABLE stock_items ADD COLUMN IF NOT EXISTS pack_unit TEXT;
+ALTER TABLE stock_items ADD COLUMN IF NOT EXISTS pack_size NUMERIC(18,4);
+DO $$ BEGIN
+  ALTER TABLE stock_items ADD CONSTRAINT stock_items_pack CHECK (
+    (pack_unit IS NULL AND pack_size IS NULL)
+    OR (btrim(pack_unit) <> '' AND pack_size > 0 AND pack_size <> 1 AND lower(btrim(pack_unit)) <> lower(btrim(unit))));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 `;
 
 module.exports = { ITEMS_SQL };

@@ -416,7 +416,7 @@ describe("the owner's snapshot", () => {
       const early = await stock.snapshot(client, { companyId, on: "2026-09-13", from: "2026-09-07" });
       expect(early).toMatchObject({ total: "1,250.00", books: "1,250.00", agrees: true });
       expect(place(early, "main")).toMatchObject({ value: "750.00" });
-      expect(place(early, "transit").items).toEqual([
+      expect(place(early, "transit").items).toMatchObject([
         { itemId: cement, name: "Cement", unit: "bag", quantity: "4", value: "400.00" },
         { itemId: sand, name: "Sand", unit: "bag", quantity: "2", value: "100.00" },
       ]);
@@ -431,7 +431,7 @@ describe("the owner's snapshot", () => {
       const late = await stock.snapshot(client, { companyId, on: "2026-09-25", from: "2026-09-19" });
       expect(late).toMatchObject({ total: "850.00", books: "850.00", agrees: true });
       expect(place(late, "main").items.map((i) => [i.name, i.quantity, i.value])).toEqual([["Cement", "4", "400.00"], ["Sand", "3", "150.00"]]);
-      expect(place(late, site.id).items).toEqual([{ itemId: cement, name: "Cement", unit: "bag", quantity: "2", value: "200.00" }]);
+      expect(place(late, site.id).items).toMatchObject([{ itemId: cement, name: "Cement", unit: "bag", quantity: "2", value: "200.00" }]);
       expect(late.moved.sold).toMatchObject({ quantity: "2", cost: "200.00", sales: "400.00" });
       expect(late.moved.used).toMatchObject({ quantity: "1", cost: "100.00" });
       expect(late.cameIn).toEqual([]);
@@ -620,6 +620,37 @@ describe("counting sessions, blind", () => {
       const d = await counts.due(client, { companyId, on: "2026-10-15" });
       expect(d.find((x) => x.itemId === big)).toMatchObject({ class: "A", dueOn: "2026-10-10", overdue: true, lastCounted: null });
       expect(d.find((x) => x.itemId === mid)).toMatchObject({ class: "B", dueOn: "2026-12-09", overdue: false });
+    }));
+});
+
+describe("a second unit: pieces kept, boxes bought and sold", () => {
+  it("turns boxes into pieces, and shows pieces as boxes", () => {
+    const tile = { unit: "piece", pack_unit: "box", pack_size: "12.0000" };
+    expect(stock.inBase(tile, stock.toUnits("2"), "Box")).toBe(stock.toUnits("24"));
+    expect(stock.inBase(tile, stock.toUnits("2"), "piece")).toBe(stock.toUnits("2"));
+    expect(stock.inBase(tile, stock.toUnits("2"), null)).toBe(stock.toUnits("2"));
+    expect(stock.inBase({ unit: "piece", pack_unit: null, pack_size: null }, stock.toUnits("2"), "box")).toBe(stock.toUnits("2"));
+    expect(stock.packsText(stock.toUnits("27"), tile)).toBe("2 box 3 piece");
+    expect(stock.packsText(stock.toUnits("24"), tile)).toBe("2 box");
+    expect(stock.packsText(stock.toUnits("5"), tile)).toBeNull();
+  });
+
+  it("a bill in boxes brings in the pieces at the same total, and a sale in boxes takes out the pieces at average cost", () =>
+    inRollback(async (client) => {
+      const shop = await aShop(client);
+      const { companyId } = shop;
+      const tile = await shop.item("Floor tile", "piece");
+      await client.query("UPDATE stock_items SET pack_unit = 'box', pack_size = 12 WHERE id = $1", [tile]);
+      await shop.buy([{ itemId: tile, quantity: "5", unit: "box", amount: "600.00" }]); // 60 pieces, 10.00 each
+      let held = await shop.held(tile);
+      expect(held).toMatchObject({ onHand: "60", value: "600.00", averageCost: "10.00", packUnit: "box", packSize: "12", onHandPacks: "5 box" });
+
+      await shop.sell([{ itemId: tile, quantity: 2, unitPrice: "150.00", uom: "box" }, { itemId: tile, quantity: 3, unitPrice: "13.00", uom: "piece" }]);
+      held = await shop.held(tile);
+      expect(held).toMatchObject({ onHand: "33", value: "330.00", onHandPacks: "2 box 9 piece", sold: "27" });
+      expect(held.costOfSales).toBe("270.00");
+      await shop.tied();
+      expect((await client.query("SELECT count(*)::int AS n FROM stock_moves WHERE company_id = $1 AND kind = 'sold'", [companyId])).rows[0].n).toBe(2);
     }));
 });
 

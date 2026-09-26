@@ -172,6 +172,7 @@ export default function Stock() {
                     <>
                       <div className="text-[14px] xl:text-right tabular">
                         {i.onHand} <span className="text-[var(--ink-muted)]">{i.unit}</span>
+                        {i.onHandPacks && <span className="block text-[12px] text-[var(--ink-muted)]">= {i.onHandPacks}</span>}
                         {i.places && i.places.some((p) => p.id) && <span className="block text-[12px] text-[var(--ink-muted)] break-words">{i.places.map((p) => `${p.name} ${p.onHand}`).join(" · ")}</span>}
                         {n(i.inTransit) > 0 && <span className="block text-[12px] text-[var(--ink-muted)] whitespace-nowrap">{i.inTransit} on the way</span>}
                         {i.low && <span className="ml-1.5 inline-block rounded-full bg-[var(--warning)]/15 text-[var(--warning)] text-[11px] font-semibold px-2 py-0.5">Low</span>}
@@ -359,6 +360,8 @@ function ItemForm({ item, items = [], accounts, onClose, onDone }) {
     parts: item?.parts?.length ? item.parts.map((p) => ({ ...p })) : [{ itemId: "", quantity: "1" }],
     photo: item?.photo || null,
     tax: item?.tax || "",
+    packUnit: item?.packUnit || "",
+    packSize: item?.packSize || "",
   }));
   const [err, setErr] = useState("");
   const put = (patch) => setF((x) => ({ ...x, ...patch }));
@@ -388,6 +391,7 @@ function ItemForm({ item, items = [], accounts, onClose, onDone }) {
         buyPrice: f.buys ? f.buyPrice || null : null,
         costAccountId: f.buys && (service || !f.counted) ? f.costAccountId || null : null,
         photo: f.photo,
+        ...(f.kind === "product" ? { packUnit: f.packUnit.trim() || null, packSize: f.packUnit.trim() ? f.packSize.trim() || null : null } : {}),
         // Sent only when picked, so saving does not turn a suggestion into your answer.
         ...(f.taxPicked ? { tax: f.tax || null } : {}),
         ...(bundle ? { parts: f.parts.filter((p) => p.itemId && Number(p.quantity) > 0) } : {}),
@@ -436,6 +440,16 @@ function ItemForm({ item, items = [], accounts, onClose, onDone }) {
             <input id="item-code" value={f.code} onChange={set("code")} placeholder={service ? "HIRE-EX" : "CEM-50"} className={FIELD} />
           </Field>
         </div>
+        {f.kind === "product" && (
+          <div className="grid sm:grid-cols-[minmax(0,1fr)_140px] gap-4">
+            <Field label="Also comes in (optional)" hint={f.packUnit.trim() && f.packSize.trim() ? `1 ${f.packUnit.trim()} = ${f.packSize.trim()} ${f.unit || "each"}. Stock is kept in ${f.unit || "each"}; bills, invoices and counts can say either.` : `A box, a carton or a pallet of ${f.unit || "each"}.`}>
+              <UnitInput id="item-pack-unit" value={f.packUnit} onChange={(packUnit) => put({ packUnit })} placeholder="box" className={FIELD} />
+            </Field>
+            <Field label={`${f.unit || "each"} in one`}>
+              <input id="item-pack-size" value={f.packSize} onChange={set("packSize")} inputMode="decimal" placeholder="12" className={`${FIELD} tabular`} />
+            </Field>
+          </div>
+        )}
         {bundle && (
           <fieldset className="grid gap-2">
             <legend className="text-sm font-medium mb-1.5">Made of</legend>

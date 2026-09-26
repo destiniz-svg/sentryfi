@@ -463,6 +463,7 @@ const stockLines = z.object({
       z.object({
         itemId: z.string().uuid(),
         quantity: z.union([z.string().trim(), z.number()]).transform(String),
+        unit: z.string().trim().max(20).nullish(),
         amount: z.union([z.string().trim(), z.number()]).transform(String),
       })
     )
@@ -517,6 +518,8 @@ const splitBody = z.object({
         amount: z.union([z.string().trim(), z.number()]).transform(String),
         itemId: z.string().uuid().nullish(),
         quantity: z.union([z.string().trim(), z.number()]).transform(String).nullish(),
+        // The unit the quantity is in: the item's pack (a box) brings in that many of its own unit.
+        unit: z.string().trim().max(20).nullish(),
         accountId: z.string().uuid().nullish(),
         category: z.string().nullish(),
         lifeYears: z.union([z.string().trim(), z.number()]).nullish(),
@@ -551,7 +554,7 @@ router.get(
       });
       // The choices a person can make, so recording a bill needs no other permission.
       const { rows: accounts } = await client.query("SELECT id, code, name FROM accounts WHERE company_id = $1 AND type = 'expense' AND archived_at IS NULL ORDER BY code", [req.companyId]);
-      const { rows: items } = await client.query("SELECT id, name, unit FROM stock_items WHERE company_id = $1 AND archived_at IS NULL AND counted ORDER BY lower(name)", [req.companyId]);
+      const { rows: items } = await client.query("SELECT id, name, unit, pack_unit AS \"packUnit\", pack_size::float AS \"packSize\" FROM stock_items WHERE company_id = $1 AND archived_at IS NULL AND counted ORDER BY lower(name)", [req.companyId]);
       const { rows: openShipments } = await client.query("SELECT id, reference FROM shipments WHERE company_id = $1 AND closed_at IS NULL ORDER BY created_at DESC", [req.companyId]);
       const options = { accounts, items, shipments: openShipments, customers: await require("../ledger/passOn").customers(client, { companyId: req.companyId }), categories: Object.entries(CATEGORIES).map(([key, c]) => ({ key, name: c.name, years: c.years })), places: await stockLedger.places(client, { companyId: req.companyId }) };
       const head = { currency: bill.fc_net !== null ? bill.currency.trim() : "MVR", net: formatLaari(printed), options, posted: bill.status === "posted", placeId: bill.place_id || null };

@@ -61,6 +61,28 @@ function unitsText(u) {
   return `${neg ? "-" : ""}${a / SCALE}${frac ? "." + frac : ""}`;
 }
 
+const sameUnit = (a, b) => String(a ?? "").trim().toLowerCase() === String(b ?? "").trim().toLowerCase();
+
+/**
+ * A quantity said in an item's pack, in the item's own unit: 2 box, with 12 in
+ * a box, is 24. Said in anything else (its own unit, or no unit), it is as said.
+ * `item` carries unit, pack_unit and pack_size as the database keeps them.
+ */
+function inBase(item, units, unit) {
+  if (!item?.pack_unit || item.pack_size === null || item.pack_size === undefined || !unit || !sameUnit(unit, item.pack_unit)) return units;
+  return (units * fromDb(item.pack_size)) / SCALE;
+}
+
+/** 27 with 12 in a box, as "2 box 3 piece"; null when the item has no pack or holds less than one. */
+function packsText(units, item) {
+  if (!item?.pack_unit || item.pack_size === null || item.pack_size === undefined || units <= 0n) return null;
+  const size = fromDb(item.pack_size);
+  if (units < size) return null;
+  const packs = units / size;
+  const rest = units - packs * size;
+  return `${packs} ${item.pack_unit}${rest > 0n ? ` ${unitsText(rest)} ${item.unit}` : ""}`;
+}
+
 /** An item and what is on hand of it, locked for the rest of the transaction. */
 async function holding(client, { companyId, itemId }) {
   const { rows } = await client.query(
@@ -198,17 +220,19 @@ async function invoiceCost(client, { companyId, userId, invoice, lines }) {
       each.forEach((e, i) => {
         const share = i === each.length - 1 ? netLeft : total > 0n ? (BigInt(l.net_laari) * e.weight) / total : BigInt(l.net_laari) / BigInt(each.length);
         netLeft -= share;
-        out.push({ ...l, item_id: e.p.item_id, quantity: unitsText(e.units), net_laari: share.toString() });
+        // A part leaves in its own unit, whatever unit the bundle was sold in.
+        out.push({ ...l, item_id: e.p.item_id, quantity: unitsText(e.units), net_laari: share.toString(), uom: null });
       });
     }
     withItem = out;
   }
   // A service or an uncounted product sells by name and price only.
   const { rows: counted } = await client.query(
-    "SELECT id FROM stock_items WHERE company_id = $1 AND id = ANY($2::uuid[]) AND counted",
+    "SELECT id, unit, pack_unit, pack_size FROM stock_items WHERE company_id = $1 AND id = ANY($2::uuid[]) AND counted",
     [companyId, [...new Set(withItem.map((l) => l.item_id))]]
   );
   const countedIds = new Set(counted.map((r) => r.id));
+  const packOf = new Map(counted.map((r) => [r.id, r]));
   const sold = withItem.filter((l) => countedIds.has(l.item_id));
   if (!sold.length) return { entryLines: [], record: async () => {} };
   const stockAcc = await account(client, companyId, ACCOUNTS.stock);
@@ -221,7 +245,8 @@ async function invoiceCost(client, { companyId, userId, invoice, lines }) {
     if (!held.has(l.item_id)) held.set(l.item_id, await holding(client, { companyId, itemId: l.item_id }));
     if (!places.has(l.item_id)) places.set(l.item_id, await atPlaces(client, { companyId, itemId: l.item_id }));
     const h = held.get(l.item_id);
-    const units = fromDb(l.quantity);
+    // A line in boxes takes out the pieces in them.
+    const units = inBase(packOf.get(l.item_id), fromDb(l.quantity), l.uom);
     if (units <= 0n) throw new Error(`A line selling ${h.item.name} needs a quantity.`);
     const cost = costOut(h, units);
     h.units -= units;
@@ -643,7 +668,7 @@ async function issue(client, { companyId, userId, itemId, placeId, quantity, on,
 /** Every item: what kind it is, how it is bought and sold, and for a counted product what is on hand, its value, its average cost, and what its sales earned over their cost. */
 async function list(client, { companyId }) {
   const { rows } = await client.query(
-    `SELECT i.id, i.name, i.code, i.unit, i.sale_price_laari, i.archived_at, i.reorder_at,
+    `SELECT i.id, i.name, i.code, i.unit, i.pack_unit, i.pack_size, i.sale_price_laari, i.archived_at, i.reorder_at,
             i.kind, i.counted, i.sells, i.buys, i.buy_price_laari, i.income_account_id, i.cost_account_id, i.photo, i.tax, i.tax_by, i.tax_why,
             (SELECT json_agg(json_build_object('itemId', p.item_id, 'quantity', trim(to_char(p.quantity, 'FM999999990.####'), '.'))) FROM bundle_parts p WHERE p.bundle_id = i.id) AS parts,
             COALESCE(SUM(m.quantity), 0) AS on_hand,
@@ -690,6 +715,9 @@ async function list(client, { companyId }) {
       salePrice: r.sale_price_laari === null ? null : formatLaari(BigInt(r.sale_price_laari)),
       archived: Boolean(r.archived_at),
       onHand: unitsText(units),
+      packUnit: r.pack_unit,
+      packSize: r.pack_size === null ? null : unitsText(fromDb(r.pack_size)),
+      onHandPacks: packsText(units, r),
       reorderAt: r.reorder_at === null ? null : unitsText(fromDb(r.reorder_at)),
       low: r.counted && r.reorder_at !== null && !r.archived_at && units <= fromDb(r.reorder_at),
       value: formatLaari(value),
@@ -767,7 +795,7 @@ async function snapshot(client, { companyId, on, from }) {
   const names = new Map([...kept.map((p) => [placeKey(p.id), p.name]), [TRANSIT, "On the way"]]);
   const nameOf = (k) => names.get(k) || "A place no longer kept";
   const { rows: items } = await client.query(
-    `SELECT i.id, i.name, i.unit, i.reorder_at, COALESCE(SUM(m.quantity), 0) AS q, COALESCE(SUM(m.value_laari), 0) AS v, COUNT(m.id) AS n
+    `SELECT i.id, i.name, i.unit, i.pack_unit, i.pack_size, i.reorder_at, COALESCE(SUM(m.quantity), 0) AS q, COALESCE(SUM(m.value_laari), 0) AS v, COUNT(m.id) AS n
        FROM stock_items i LEFT JOIN stock_moves m ON m.item_id = i.id AND m.company_id = i.company_id AND m.moved_on <= $2
       WHERE i.company_id = $1 GROUP BY i.id ORDER BY lower(i.name)`,
     [companyId, on]
@@ -803,7 +831,7 @@ async function snapshot(client, { companyId, on, from }) {
       left -= share;
       const slot = byPlace.get(p) || byPlace.set(p, { value: 0n, items: [] }).get(p);
       slot.value += share;
-      slot.items.push({ itemId: it.id, name: it.name, unit: it.unit, quantity: unitsText(q), value: formatLaari(share) });
+      slot.items.push({ itemId: it.id, name: it.name, unit: it.unit, quantity: unitsText(q), packs: packsText(q, it), value: formatLaari(share) });
       if (q < 0n) wrong.push({ kind: "negative", itemId: it.id, place: p, detail: `${names.get(p) || "A place"} shows ${unitsText(q)} ${it.unit} of ${it.name}. A delivery or a move there was probably never recorded.` });
     });
     if (units > 0n && (lastMoved.get(it.id) || "") <= daysBefore(on, STILL_DAYS)) {
@@ -964,6 +992,7 @@ async function units(client, { companyId }) {
   const { rows } = await client.query(
     `SELECT u FROM (
        SELECT unit AS u FROM stock_items WHERE company_id = $1
+       UNION ALL SELECT pack_unit FROM stock_items WHERE company_id = $1 AND pack_unit IS NOT NULL
        UNION ALL SELECT uom FROM sales_invoice_lines WHERE company_id = $1
        UNION ALL SELECT unit FROM order_lines WHERE company_id = $1
      ) x WHERE btrim(coalesce(u, '')) <> '' GROUP BY u ORDER BY count(*) DESC, u LIMIT 60`,
@@ -996,4 +1025,4 @@ async function guessTax(client, { companyId, itemId, ask }) {
   return { tax: a.tax, taxBy: "ai", taxWhy: why, confidence: a.confidence };
 }
 
-module.exports = { guessTax, ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history, atPlaces, places, addPlace, updatePlace, PLACE_KINDS, transfer, arrive, onTheWay, issue, snapshot, moves, units, place, postDifference, differenceValue, toUnitsOrNone, placeKey, MAIN, WHERE };
+module.exports = { guessTax, ACCOUNTS, account, toUnits, unitsText, fromDb, holding, costOut, setBillStock, undoBillStock, invoiceCost, returnable, returnCost, recost, count, opening, list, history, atPlaces, places, addPlace, updatePlace, PLACE_KINDS, transfer, arrive, onTheWay, issue, snapshot, moves, units, place, postDifference, differenceValue, toUnitsOrNone, placeKey, MAIN, WHERE, inBase, packsText, sameUnit };

@@ -17,6 +17,18 @@
  */
 const RELEASES = [
   {
+    version: "1.36.0",
+    date: "2026-09-26",
+    title: "Boxes and pieces",
+    summary: "A product kept by the piece can also come in a box. Buy, sell and count in either; stock is always kept in pieces.",
+    items: [
+      { area: "Stock", kind: "new", title: "A second unit", body: "On an item, say what else it comes in and how many are in one (a box of 12). Items and the Stock page show what is on hand in boxes too.", href: "/stock" },
+      { area: "Sales", kind: "new", title: "Sell by the box", body: "When you add the item to an invoice, choose piece or box; the box is priced at the piece price times what is in it, unless you type your own.", href: "/invoices/new" },
+      { area: "Bills", kind: "new", title: "Buy by the box", body: "On a bill's What it was for, say the goods came in boxes; the stock comes in as pieces at the same total.", href: "/bills" },
+      { area: "Stock", kind: "improved", title: "Count boxes and loose pieces", body: "A count asks for whole boxes and loose pieces, and adds them up for you.", href: "/counts" },
+    ],
+  },
+  {
     version: "1.35.2",
     date: "2026-09-26",
     title: "Counting and stock, tidied",

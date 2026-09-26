@@ -386,9 +386,29 @@ function QtyRate({ item, side, onBack, onAdd }) {
   const ok = qty > 0 && f.rate !== "" && rate >= 0;
   const step = (d) => setF((x) => ({ ...x, quantity: String(Math.max(1, (Number(x.quantity) || 0) + d)) }));
   const add = () => ok && onAdd({ quantity: String(qty), uom: f.uom.trim(), rate: f.rate.trim() });
+  // An item that also comes in a pack: by the piece or by the box, the price following
+  // (a box is the piece's price times what is in it) unless a price was typed over it.
+  const each = usual === "" ? null : Number(String(usual).replace(/,/g, ""));
+  const packRate = item.packUnit && each !== null ? (each * Number(item.packSize)).toFixed(2) : null;
+  const byPack = item.packUnit && f.uom.trim().toLowerCase() === item.packUnit.toLowerCase();
+  const pick = (pack) =>
+    setF((x) => {
+      const r = Number(String(x.rate).replace(/,/g, ""));
+      const untouched = x.rate === "" || (each !== null && (r === each || r === Number(packRate)));
+      return { ...x, uom: pack ? item.packUnit : item.unit, rate: untouched && each !== null ? (pack ? packRate : each.toFixed(2)) : x.rate };
+    });
   return (
     // Not a <form>, for the same reason as NewItem.
     <div className="grid gap-4" data-testid="qty-rate" onKeyDown={(e) => e.key === "Enter" && e.target.tagName === "INPUT" && (e.preventDefault(), add())}>
+      {item.packUnit && (
+        <div role="radiogroup" aria-label="Sold by" className="grid grid-cols-2 gap-1 p-1 rounded-full bg-[var(--surface-2)]">
+          {[[false, item.unit], [true, `${item.packUnit} of ${item.packSize}`]].map(([pack, label]) => (
+            <button key={String(pack)} type="button" role="radio" aria-checked={Boolean(byPack) === pack} onClick={() => pick(pack)} className={cn("h-11 rounded-full text-[14px] font-medium", Boolean(byPack) === pack ? "bg-[var(--surface)] shadow-sm" : "text-[var(--ink-muted)]")}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] gap-3">
         <div className="grid gap-1.5 min-w-0">
           <span className="text-[13px] font-medium" aria-hidden="true">Quantity</span>

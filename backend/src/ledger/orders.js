@@ -219,7 +219,7 @@ async function billFromOrder(client, { companyId, userId, orderId, billNo, issue
     companyId, userId, billId: bill.id,
     lines: chosen.map((c) =>
       c.line.item_id
-        ? { kind: "stock", description: c.line.description, itemId: c.line.item_id, quantity: stock.unitsText(c.units), amount: formatLaari(c.amount).replace(/,/g, "") }
+        ? { kind: "stock", description: c.line.description, itemId: c.line.item_id, quantity: stock.unitsText(c.units), unit: c.line.unit, amount: formatLaari(c.amount).replace(/,/g, "") }
         : { kind: "cost", description: c.line.description, accountId: c.line.account_id, amount: formatLaari(c.amount).replace(/,/g, "") }
     ).filter((l) => toLaari(l.amount) > 0n),
   });

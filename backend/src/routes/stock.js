@@ -40,7 +40,22 @@ const itemBody = z.object({
   costAccountId: id,
   // Its GST class, as a person says it; null clears it for the model to work out.
   tax: z.enum(["standard", "zero_rated", "exempt"]).nullish(),
+  // A second unit it also comes in (a box), and how many of its own unit are in one.
+  packUnit: z.string().trim().max(20).nullish(),
+  packSize: z.union([z.string().trim(), z.number()]).transform(String).nullish(),
 });
+
+/** The pack an item comes in, checked: both said or neither, a product's only, more or less than one of its own unit. */
+function pack(b, kind, unit) {
+  const name = b.packUnit ? b.packUnit.trim() : "";
+  const size = b.packSize === null || b.packSize === undefined ? "" : String(b.packSize).trim();
+  if (!name && !size) return [null, null];
+  if (kind !== "product") throw ApiError.badRequest("Only a product comes in a pack.");
+  if (!name || !size) throw ApiError.badRequest("Say what the pack is called and how many are in one.");
+  if (!/^\d+(\.\d{1,4})?$/.test(size) || Number(size) <= 0 || Number(size) === 1) throw ApiError.badRequest(`How many ${unit} are in one ${name}? More or less than one.`);
+  if (name.toLowerCase() === String(unit).trim().toLowerCase()) throw ApiError.badRequest(`The pack needs its own name, not ${unit}.`);
+  return [name, size];
+}
 const laari = (v) => (v === null || v === undefined || v === "" ? null : toLaari(v).toString());
 
 /**
@@ -150,6 +165,8 @@ router.post(
       );
       await dress(client, req.companyId, rows[0].id, it.kind, b);
       if (b.tax) await client.query("UPDATE stock_items SET tax = $2, tax_by = 'you' WHERE id = $1", [rows[0].id, b.tax]);
+      const [packUnit, packSize] = pack(b, it.kind, b.unit);
+      if (packUnit) await client.query("UPDATE stock_items SET pack_unit = $2, pack_size = $3 WHERE id = $1", [rows[0].id, packUnit, packSize]);
       return rows[0];
     });
     res.status(201).json({ item });
@@ -194,6 +211,12 @@ router.patch(
         ]
       );
       await dress(client, req.companyId, req.params.id, it.kind, b);
+      if (has("packUnit") || has("packSize")) {
+        const [packUnit, packSize] = pack({ packUnit: has("packUnit") ? b.packUnit : was.pack_unit, packSize: has("packSize") ? b.packSize : was.pack_size }, it.kind, b.unit ?? was.unit);
+        await client.query("UPDATE stock_items SET pack_unit = $3, pack_size = $4 WHERE id = $1 AND company_id = $2", [req.params.id, req.companyId, packUnit, packSize]);
+      } else if (it.kind !== "product" && was.pack_unit) {
+        await client.query("UPDATE stock_items SET pack_unit = NULL, pack_size = NULL WHERE id = $1 AND company_id = $2", [req.params.id, req.companyId]);
+      }
       if (has("tax")) await client.query("UPDATE stock_items SET tax = $3, tax_by = $4, tax_why = NULL WHERE id = $1 AND company_id = $2", [req.params.id, req.companyId, b.tax || null, b.tax ? "you" : null]);
       return true;
     });

@@ -133,26 +133,42 @@ function Counting({ c, onTyped }) {
       <Card padding="none" className="overflow-hidden">
         <div className="divide-y divide-[var(--border)]">
           {c.lines.map((l) => (
-            <label key={l.itemId} className="flex items-center gap-3 px-4 py-3" data-testid="count-line">
-              <span className="min-w-0 flex-1">
+            <label key={l.itemId} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3" data-testid="count-line">
+              {/* A name keeps room to read; boxes and pieces drop below it on a narrow phone. */}
+              <span className="min-w-[9rem] flex-1">
                 <span className="block text-[16px] font-medium break-words">{l.name}</span>
                 <span className="block text-[13px] text-[var(--ink-muted)]">in {l.unit}</span>
               </span>
               {saved[l.itemId] && <Check size={18} className="text-[var(--success)] shrink-0" aria-label="Saved" />}
-              <input
-                aria-label={`How many ${l.name}, in ${l.unit}`}
-                inputMode="decimal"
-                value={values[l.itemId] ?? ""}
-                onChange={(e) => {
-                  const next = { ...values, [l.itemId]: e.target.value };
-                  setValues(next);
-                  setSaved((s) => ({ ...s, [l.itemId]: false }));
-                  onTyped?.(c.lines.filter((x) => String(next[x.itemId] ?? "").trim() !== "").length);
-                }}
-                onBlur={() => save(l)}
-                onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-                className={INPUT}
-              />
+              {l.packUnit && (
+                <PackInput
+                  line={l}
+                  value={values[l.itemId] ?? ""}
+                  onChange={(v) => {
+                    const next = { ...values, [l.itemId]: v };
+                    setValues(next);
+                    setSaved((s) => ({ ...s, [l.itemId]: false }));
+                    onTyped?.(c.lines.filter((x) => String(next[x.itemId] ?? "").trim() !== "").length);
+                  }}
+                  onDone={() => save(l)}
+                />
+              )}
+              {!l.packUnit && (
+                <input
+                  aria-label={`How many ${l.name}, in ${l.unit}`}
+                  inputMode="decimal"
+                  value={values[l.itemId] ?? ""}
+                  onChange={(e) => {
+                    const next = { ...values, [l.itemId]: e.target.value };
+                    setValues(next);
+                    setSaved((s) => ({ ...s, [l.itemId]: false }));
+                    onTyped?.(c.lines.filter((x) => String(next[x.itemId] ?? "").trim() !== "").length);
+                  }}
+                  onBlur={() => save(l)}
+                  onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+                  className={INPUT}
+                />
+              )}
             </label>
           ))}
         </div>
@@ -187,6 +203,32 @@ function Counting({ c, onTyped }) {
         </Button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Counted as whole packs and loose pieces (3 box and 5 piece, with 12 in a box,
+ * is 41), and saved as the pieces: stock is always kept in the item's own unit.
+ */
+function PackInput({ line, value, onChange, onDone }) {
+  const size = Number(line.packSize);
+  const total = String(value).trim() === "" ? null : Number(value);
+  const [packs, setPacks] = useState(total === null ? "" : String(Math.floor(total / size)));
+  const [loose, setLoose] = useState(total === null ? "" : String(Math.round((total - Math.floor(total / size) * size) * 10000) / 10000));
+  const put = (p, l) => {
+    setPacks(p);
+    setLoose(l);
+    const sum = (Number(p) || 0) * size + (Number(l) || 0);
+    onChange(String(p).trim() === "" && String(l).trim() === "" ? "" : String(Math.round(sum * 10000) / 10000));
+  };
+  const box = "w-20 h-12 px-2 text-right rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-[17px] text-[var(--ink)] tabular outline-none focus:border-[var(--ink)] focus:ring-[3px] focus:ring-[var(--ink)]/15";
+  return (
+    <span className="flex items-center gap-1.5 shrink-0" data-testid="pack-input">
+      <input aria-label={`${line.name}: how many ${line.packUnit}`} inputMode="numeric" value={packs} onChange={(e) => put(e.target.value, loose)} onBlur={onDone} className={box} />
+      <span className="text-[13px] text-[var(--ink-muted)]">{line.packUnit}</span>
+      <input aria-label={`${line.name}: loose ${line.unit}`} inputMode="decimal" value={loose} onChange={(e) => put(packs, e.target.value)} onBlur={onDone} className={box} />
+      <span className="text-[13px] text-[var(--ink-muted)]">{line.unit}</span>
+    </span>
   );
 }
 

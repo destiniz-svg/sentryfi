@@ -198,13 +198,17 @@ async function view(client, { companyId, userId, countId, reads }) {
   const open = s.status !== "counting" && reads;
   const tol = await tolerance(client, companyId);
   const { rows } = await client.query(
-    `SELECT l.item_id, i.name, i.unit, l.counted, l.book, l.counted_at, l.reason, l.value_laari, e.entry_no
+    `SELECT l.item_id, i.name, i.unit, i.pack_unit, i.pack_size, l.counted, l.book, l.counted_at, l.reason, l.value_laari, e.entry_no
        FROM stock_count_lines l JOIN stock_items i ON i.id = l.item_id LEFT JOIN journal_entries e ON e.id = l.entry_id
       WHERE l.count_id = $1 ORDER BY lower(i.name)`,
     [countId]
   );
   const lines = rows.map((r) => {
-    const line = { itemId: r.item_id, name: r.name, unit: r.unit, counted: r.counted === null ? null : unitsText(fromDb(r.counted)), reason: r.reason };
+    const line = {
+      itemId: r.item_id, name: r.name, unit: r.unit, counted: r.counted === null ? null : unitsText(fromDb(r.counted)), reason: r.reason,
+      // Counted as boxes and loose pieces on screen; always saved in pieces.
+      packUnit: r.pack_unit, packSize: r.pack_size === null ? null : unitsText(fromDb(r.pack_size)),
+    };
     if (!open || r.counted === null) return line;
     const diff = fromDb(r.counted) - fromDb(r.book);
     const v = r.value_laari === null ? null : BigInt(r.value_laari);

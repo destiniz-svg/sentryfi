@@ -218,6 +218,23 @@ export default function NewInvoice() {
     setLines((all) =>
       all.map((l, j) => (j === i ? { ...l, [key]: e.target.value } : l)),
     );
+  // An item that also comes in a pack: switching the line to the pack prices it by the pack,
+  // and back again, as long as the rate is still the item's own price (never over a typed one).
+  const setUom = (i, uom) =>
+    setLines((all) =>
+      all.map((l, j) => {
+        if (j !== i) return l;
+        const item = l.itemId && (stockItems || []).find((x) => x.id === l.itemId);
+        const each = item?.salePrice ? Number(String(item.salePrice).replace(/,/g, "")) : null;
+        const same = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
+        if (!item?.packUnit || each === null) return { ...l, uom };
+        const packRate = (each * Number(item.packSize)).toFixed(2);
+        const rate = Number(String(l.rate).replace(/,/g, ""));
+        if (same(uom, item.packUnit) && (l.rate === "" || rate === each)) return { ...l, uom, rate: packRate };
+        if (same(uom, item.unit) && rate === Number(packRate)) return { ...l, uom, rate: each.toFixed(2) };
+        return { ...l, uom };
+      }),
+    );
 
   // A line can sell a saved item, product or service: picking one fills in its
   // name, unit and price. A counted product leaves stock at its average cost.
@@ -493,7 +510,7 @@ export default function NewInvoice() {
                 <div key={i} className="grid grid-cols-6 sm:grid-cols-[64px_72px_minmax(0,1fr)_minmax(0,1fr)_40px] gap-2 items-center rounded-xl border border-[var(--border)] p-2">
                   <input ref={i === 0 ? firstLine : undefined} aria-label={`Line ${i + 1}: what it is`} value={line.description} onChange={setLine(i, "description")} placeholder="Excavator rental, Komatsu PC 56-7" className={`${FIELD} col-span-6 sm:col-span-5`} />
                   <input aria-label={`Line ${i + 1}: quantity`} value={line.quantity} onChange={setLine(i, "quantity")} inputMode="decimal" placeholder="Qty" className={`${FIELD} col-span-2 sm:col-span-1 tabular text-right px-2 sm:px-3`} />
-                  <UnitInput label={`Line ${i + 1}: unit`} value={line.uom} onChange={(v) => setLine(i, "uom")({ target: { value: v } })} placeholder="day" className={`${FIELD} col-span-2 sm:col-span-1 px-2 sm:px-3`} />
+                  <UnitInput label={`Line ${i + 1}: unit`} value={line.uom} onChange={(v) => setUom(i, v)} placeholder="day" className={`${FIELD} col-span-2 sm:col-span-1 px-2 sm:px-3`} />
                   <input aria-label={`Line ${i + 1}: rate`} value={line.rate} onChange={setLine(i, "rate")} inputMode="decimal" placeholder="Rate" className={`${FIELD} col-span-2 sm:col-span-1 tabular text-right px-2 sm:px-3`} />
                   <span className="col-span-5 sm:col-span-1 tabular text-[15px] text-right text-[var(--ink)] pr-1">{line.amount ? show(line.amount) : "—"}</span>
                   <button type="button" onClick={() => setLines((all) => (all.length > 1 ? all.filter((_, j) => j !== i) : all))} disabled={lines.length === 1} aria-label={`Remove line ${i + 1}`} className="h-11 w-11 justify-self-end rounded-full flex items-center justify-center text-[var(--ink-muted)] hover:bg-[var(--surface-2)] disabled:opacity-30">

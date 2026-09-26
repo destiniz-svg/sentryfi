@@ -148,7 +148,7 @@ export default function StockSnapshot() {
                   ) : (
                     <Rows>
                       {p.items.map((it) => (
-                        <Row key={it.itemId} dense onClick={() => open(`${it.name} at ${p.name}`, { item: it.itemId, place: p.id })} main={it.name} sub={`${it.quantity} ${it.unit}`} value={it.value} />
+                        <Row key={it.itemId} dense onClick={() => open(`${it.name} at ${p.name}`, { item: it.itemId, place: p.id })} main={it.name} sub={`${it.quantity} ${it.unit}${it.packs ? ` = ${it.packs}` : ""}`} value={it.value} />
                       ))}
                     </Rows>
                   )}
