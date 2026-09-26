@@ -82,9 +82,14 @@ const wide = (page) => page.evaluate(() => document.documentElement.scrollWidth 
       if (await alert.count()) {
         await alert.click();
         await phone.page.waitForTimeout(500);
-        const top = await phone.page.locator("#looks-wrong").evaluate((el) => el.getBoundingClientRect().top);
-        if (top < 300) ok("the alert takes you to what looks wrong");
-        else bad(`what looks wrong is ${Math.round(top)}px down after the alert`);
+        // Near the top, or on screen with the page scrolled as far as it goes (a short list sits at the end).
+        const at = await phone.page.locator("#looks-wrong").evaluate((el) => ({
+          top: el.getBoundingClientRect().top,
+          end: Math.ceil(window.scrollY + window.innerHeight) >= document.documentElement.scrollHeight - 2,
+          seen: el.getBoundingClientRect().top < window.innerHeight * 0.6,
+        }));
+        if (at.top < 300 || (at.end && at.seen)) ok("the alert takes you to what looks wrong");
+        else bad(`what looks wrong is ${Math.round(at.top)}px down after the alert`);
         await shot(phone.page, dark ? "phone-dark-wrong" : "phone-wrong");
       } else bad("no alert on the phone");
     }
